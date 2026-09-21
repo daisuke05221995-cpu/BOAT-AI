@@ -1,0 +1,62 @@
+name: Build and verify BOAT AI APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  verify-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Generate Gradle Wrapper
+        run: gradle wrapper --gradle-version 8.10.2
+
+      - name: Verify live race API schema
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request, datetime
+          JST = datetime.timezone(datetime.timedelta(hours=9))
+          d = datetime.datetime.now(JST).date()
+          url = f"https://boatraceopenapi.github.io/api/v1/{d.year}/{d:%Y%m%d}.json"
+          req = urllib.request.Request(url, headers={"User-Agent":"BOAT-AI-CI/0.3.0"})
+          with urllib.request.urlopen(req, timeout=30) as r:
+              data = json.load(r)
+          stadiums = data.get("programs",{}).get("stadiums",{})
+          assert stadiums, "No stadium data"
+          race_count = sum(len(v.get("races",{})) for v in stadiums.values())
+          assert race_count > 0, "No races"
+          sample = next(iter(next(iter(stadiums.values()))["races"].values()))
+          assert "racers" in sample and "closed_at" in sample
+          print(f"API OK: stadiums={len(stadiums)}, races={race_count}")
+          PY
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Android lint
+        run: ./gradlew lintDebug --stacktrace
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BOAT-AI-v0.3.0-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
