@@ -28,57 +28,76 @@ jobs:
           print('decoded bytes', pathlib.Path('partial.zip').stat().st_size)
           PY
 
-      - name: Repair partial ZIP
+      - name: Recover complete local ZIP entries
         shell: bash
         run: |
-          rm -rf recovered-v0.3.0 repaired.zip
-          mkdir -p recovered-v0.3.0
-          (yes y | zip -FF partial.zip --out repaired.zip) || true
-          test -f repaired.zip
+          rm -rf recovered-v0.3.0
+          python3 - <<'PY'
+          import pathlib, struct, zlib
 
-      - name: Recover known complete entries
-        shell: bash
-        run: |
-          files=(
-            '.github/workflows/build-apk.yml'
-            '.github/workflows/release.yml'
-            'README.md'
-            'app/build.gradle.kts'
-            'app/proguard-rules.pro'
-            'app/src/androidTest/java/jp/boatai/app/MainActivitySmokeTest.kt'
-            'app/src/main/AndroidManifest.xml'
-            'app/src/main/java/jp/boatai/app/AppUpdateManager.kt'
-            'app/src/main/java/jp/boatai/app/BetGateway.kt'
-            'app/src/main/java/jp/boatai/app/BetStore.kt'
-            'app/src/main/java/jp/boatai/app/BoatRaceJsonParser.kt'
-            'app/src/main/java/jp/boatai/app/BoatRaceRepository.kt'
-            'app/src/main/java/jp/boatai/app/MainActivity.kt'
-            'app/src/main/java/jp/boatai/app/BoatViewModel.kt'
-            'app/src/main/java/jp/boatai/app/Models.kt'
-            'app/src/main/java/jp/boatai/app/PredictionEngine.kt'
-            'app/src/main/java/jp/boatai/app/TrifectaOddsLocator.kt'
-            'app/src/main/res/values/themes.xml'
-            'app/src/main/res/xml/file_paths.xml'
-          )
-          for f in "${files[@]}"; do
-            mkdir -p "recovered-v0.3.0/$(dirname "$f")"
-            unzip -p repaired.zip "$f" > "recovered-v0.3.0/$f" || true
-            if [ ! -s "recovered-v0.3.0/$f" ]; then
-              echo "FAILED: $f"
-              rm -f "recovered-v0.3.0/$f"
-            else
-              echo "RECOVERED: $f ($(wc -c < "recovered-v0.3.0/$f") bytes)"
-            fi
-          done
+          data = pathlib.Path('partial.zip').read_bytes()
+          out_root = pathlib.Path('recovered-v0.3.0')
+          out_root.mkdir(parents=True, exist_ok=True)
+          pos = 0
+          recovered = 0
+
+          while True:
+              start = data.find(b'PK\x03\x04', pos)
+              if start < 0 or start + 30 > len(data):
+                  break
+              try:
+                  sig, ver, flags, method, mtime, mdate, crc, csize, usize, nlen, xlen = struct.unpack_from('<IHHHHHIIIHH', data, start)
+              except struct.error:
+                  break
+              name_start = start + 30
+              name_end = name_start + nlen
+              data_start = name_end + xlen
+              if data_start > len(data):
+                  break
+              name = data[name_start:name_end].decode('utf-8', errors='replace')
+              if method != 8:
+                  print('STOP unsupported compression', method, name)
+                  break
+
+              dec = zlib.decompressobj(-15)
+              try:
+                  raw = dec.decompress(data[data_start:])
+                  raw += dec.flush()
+              except zlib.error as e:
+                  print('STOP zlib error', name, e)
+                  break
+              if not dec.eof:
+                  print('TRUNCATED', name)
+                  break
+
+              consumed = len(data[data_start:]) - len(dec.unused_data)
+              after_data = data_start + consumed
+              if data[after_data:after_data+4] == b'PK\x07\x08':
+                  next_pos = after_data + 16
+              else:
+                  next_pos = after_data + 12
+
+              rel = pathlib.PurePosixPath(name)
+              if rel.is_absolute() or '..' in rel.parts:
+                  print('SKIP unsafe path', name)
+                  pos = next_pos
+                  continue
+              target = out_root.joinpath(*rel.parts)
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(raw)
+              recovered += 1
+              print(f'RECOVERED {name} {len(raw)} bytes')
+              pos = next_pos
+
+          print('recovered count', recovered)
+          if recovered == 0:
+              raise SystemExit(1)
+          PY
           find recovered-v0.3.0 -type f -print | sort
 
       - name: Commit recovered files
         shell: bash
         run: |
-          if [ -z "$(find recovered-v0.3.0 -type f -print -quit)" ]; then
-            echo 'No files recovered'
-            exit 1
-          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add recovered-v0.3.0
