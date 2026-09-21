@@ -3,10 +3,9 @@ package jp.boatai.app
 import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.viewModels
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.horizontalScroll
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,10 +18,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Home
@@ -31,12 +30,13 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -44,6 +44,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.format.DateTimeFormatter
@@ -87,19 +89,26 @@ private fun BoatAiApp(vm: BoatViewModel) {
             TopAppBar(
                 title = {
                     Text(
-                        if (selected != null) "${selected.venueName} ${selected.raceNumber}R"
-                        else if (ui.tab == 0) "BOAT AI  v${BuildConfig.VERSION_NAME}" else "収支・購入記録"
+                        if (selected != null) {
+                            "${selected.venueName} ${selected.raceNumber}R"
+                        } else {
+                            when (ui.tab) {
+                                0 -> "予想  v${BuildConfig.VERSION_NAME}"
+                                1 -> "結果"
+                                else -> "損益"
+                            }
+                        }
                     )
                 },
                 navigationIcon = {
                     if (selected != null) {
                         IconButton(onClick = vm::closeRace) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "戻る")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                         }
                     }
                 },
                 actions = {
-                    if (selected == null && ui.tab == 0) {
+                    if (selected == null && ui.tab in 0..1) {
                         IconButton(onClick = vm::refresh) {
                             Icon(Icons.Default.Refresh, contentDescription = "更新")
                         }
@@ -114,13 +123,19 @@ private fun BoatAiApp(vm: BoatViewModel) {
                         selected = ui.tab == 0,
                         onClick = { vm.setTab(0) },
                         icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                        label = { Text("レース") }
+                        label = { Text("予想") }
                     )
                     NavigationBarItem(
                         selected = ui.tab == 1,
                         onClick = { vm.setTab(1) },
+                        icon = { Icon(Icons.Default.CheckCircle, contentDescription = null) },
+                        label = { Text("結果") }
+                    )
+                    NavigationBarItem(
+                        selected = ui.tab == 2,
+                        onClick = { vm.setTab(2) },
                         icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
-                        label = { Text("収支") }
+                        label = { Text("損益") }
                     )
                 }
             }
@@ -133,16 +148,16 @@ private fun BoatAiApp(vm: BoatViewModel) {
         ) {
             when {
                 selected != null -> RaceDetailScreen(ui, vm)
-                ui.tab == 0 -> RaceListScreen(ui, vm)
-                else -> RecordsScreen(ui, vm)
+                ui.tab == 0 -> PredictionScreen(ui, vm)
+                ui.tab == 1 -> ResultsScreen(ui, vm)
+                else -> ProfitScreen(ui, vm)
             }
         }
     }
 }
 
 @Composable
-private fun RaceListScreen(ui: BoatUiState, vm: BoatViewModel) {
-    val formatter = DateTimeFormatter.ofPattern("yyyy年M月d日(E)", Locale.JAPANESE)
+private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
     val grouped = ui.races.groupBy { it.stadiumNumber }.toSortedMap()
 
     LazyColumn(
@@ -155,32 +170,19 @@ private fun RaceListScreen(ui: BoatUiState, vm: BoatViewModel) {
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    IconButton(onClick = vm::previousDay) {
-                        Icon(Icons.Default.ChevronLeft, contentDescription = "前日")
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(ui.date.format(formatter), fontWeight = FontWeight.Bold)
-                        Text(
-                            if (ui.loading) "データ更新中…" else "全国24場対応 / 実データ",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    IconButton(onClick = vm::nextDay) {
-                        Icon(Icons.Default.ChevronRight, contentDescription = "翌日")
-                    }
-                }
-            }
+            DateSelectorCard(ui, vm)
+        }
+
+        item {
+            BulkPurchaseCard(ui, vm)
         }
 
         if (ui.loading && ui.races.isEmpty()) {
             item {
-                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.fillMaxWidth().padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator()
                 }
             }
@@ -189,7 +191,9 @@ private fun RaceListScreen(ui: BoatUiState, vm: BoatViewModel) {
         ui.error?.let { message ->
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(message, modifier = Modifier.padding(12.dp))
@@ -197,15 +201,21 @@ private fun RaceListScreen(ui: BoatUiState, vm: BoatViewModel) {
             }
         }
 
-        grouped.forEach { (stadium, races) ->
-            item(key = "venue-$stadium") {
-                VenueCard(races = races, onRaceClick = vm::selectRace)
+        grouped.forEach { (_, races) ->
+            item(key = "prediction-venue-${races.firstOrNull()?.stadiumNumber}") {
+                VenuePredictionCard(
+                    races = races,
+                    ui = ui,
+                    onToggle = vm::toggleBulkRace,
+                    onIndividualBuy = vm::recordRace,
+                    onDetail = vm::selectRace
+                )
             }
         }
 
         item {
             Text(
-                "出走表・直前情報・結果は日次JSONから取得。予想4点の3連単オッズは選択時にBOAT RACE公式ページから直接取得します。",
+                "一括購入・個別購入は現在「購入記録」の登録です。公式投票サイトへの自動送信はまだ行わず、登録した金額を実購入として損益に集計します。",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(4.dp)
             )
@@ -213,6 +223,449 @@ private fun RaceListScreen(ui: BoatUiState, vm: BoatViewModel) {
     }
 }
 
+@Composable
+private fun DateSelectorCard(ui: BoatUiState, vm: BoatViewModel) {
+    val formatter = DateTimeFormatter.ofPattern("yyyy年M月d日(E)", Locale.JAPANESE)
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            IconButton(onClick = vm::previousDay) {
+                Icon(Icons.Default.ChevronLeft, contentDescription = "前日")
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(ui.date.format(formatter), fontWeight = FontWeight.Bold)
+                Text(
+                    if (ui.loading) "データ更新中…" else "全国24場 / 実データ",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            IconButton(onClick = vm::nextDay) {
+                Icon(Icons.Default.ChevronRight, contentDescription = "翌日")
+            }
+        }
+    }
+}
+
+@Composable
+private fun BulkPurchaseCard(ui: BoatUiState, vm: BoatViewModel) {
+    val selectedRaces = ui.races.filter { it.id in ui.selectedForBulk && !it.hasResult }
+    val selectedTickets = selectedRaces.sumOf { PredictionEngine.predict(it).size }
+    val total = selectedTickets * ui.stakePerPick
+    val availableCount = ui.races.count { !it.hasResult }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Text("一括購入", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Text(
+                "対象をチェックしてまとめて購入記録へ登録",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("選択 ${selectedRaces.size}レース / ${selectedTickets}点")
+                Text(money(total), fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(onClick = vm::decreaseStake) { Text("-100") }
+                Text(
+                    " 1点 ${money(ui.stakePerPick)} ",
+                    fontWeight = FontWeight.Bold
+                )
+                OutlinedButton(onClick = vm::increaseStake) { Text("+100") }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = vm::selectAllPurchasable,
+                    enabled = availableCount > 0
+                ) {
+                    Text("全選択")
+                }
+                OutlinedButton(
+                    onClick = vm::clearBulkSelection,
+                    enabled = ui.selectedForBulk.isNotEmpty()
+                ) {
+                    Text("解除")
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = vm::recordSelectedRaces,
+                enabled = selectedRaces.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("選択分を一括購入登録")
+            }
+
+            ui.actionMessage?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun VenuePredictionCard(
+    races: List<RaceData>,
+    ui: BoatUiState,
+    onToggle: (String) -> Unit,
+    onIndividualBuy: (RaceData) -> Unit,
+    onDetail: (RaceData) -> Unit
+) {
+    val first = races.firstOrNull() ?: return
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp)) {
+            Text(
+                "${first.venueName}　${first.title}",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+            val sub = listOfNotNull(
+                first.dayNumber?.let { "$it 日目" },
+                first.subtitle.takeIf { it.isNotBlank() }
+            ).joinToString(" / ")
+            if (sub.isNotBlank()) {
+                Text(sub, style = MaterialTheme.typography.bodySmall)
+            }
+
+            Spacer(Modifier.height(6.dp))
+            races.sortedBy { it.raceNumber }.forEachIndexed { index, race ->
+                RacePredictionRow(
+                    race = race,
+                    checked = race.id in ui.selectedForBulk,
+                    stakePerPick = ui.stakePerPick,
+                    purchasedStake = ui.records
+                        .filter { it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber }
+                        .sumOf { it.stake },
+                    onToggle = { onToggle(race.id) },
+                    onIndividualBuy = { onIndividualBuy(race) },
+                    onDetail = { onDetail(race) }
+                )
+                if (index < races.lastIndex) {
+                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RacePredictionRow(
+    race: RaceData,
+    checked: Boolean,
+    stakePerPick: Int,
+    purchasedStake: Int,
+    onToggle: () -> Unit,
+    onIndividualBuy: () -> Unit,
+    onDetail: () -> Unit
+) {
+    val picks = PredictionEngine.predict(race)
+    val total = picks.size * stakePerPick
+    val enabled = !race.hasResult && picks.isNotEmpty()
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = { onToggle() },
+            enabled = enabled
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "${race.raceNumber}R　締切 ${closeTime(race.closedAt)}",
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    if (race.hasResult) "確定" else money(total),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Text(
+                if (picks.isEmpty()) "予想データ不足"
+                else picks.joinToString(" / ") { it.combination },
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            if (purchasedStake > 0) {
+                Text(
+                    "購入記録 ${money(purchasedStake)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                OutlinedButton(
+                    onClick = onIndividualBuy,
+                    enabled = enabled
+                ) {
+                    Text("個別購入")
+                }
+                TextButton(onClick = onDetail) {
+                    Text("詳細")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
+    val results = ui.races
+        .filter { it.hasResult }
+        .sortedWith(compareBy<RaceData> { it.stadiumNumber }.thenBy { it.raceNumber })
+    val predictionByRace = ui.predictionHistory.associateBy { it.id }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            DateSelectorCard(ui, vm)
+        }
+
+        if (ui.loading && results.isEmpty()) {
+            item {
+                Box(
+                    Modifier.fillMaxWidth().padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+        }
+
+        ui.error?.let { message ->
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(message, modifier = Modifier.padding(12.dp))
+                }
+            }
+        }
+
+        if (!ui.loading && results.isEmpty()) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "この日はまだ確定結果がありません。",
+                        modifier = Modifier.padding(14.dp)
+                    )
+                }
+            }
+        }
+
+        items(results, key = { it.id }) { race ->
+            val record = predictionByRace[race.id]
+            val purchases = ui.records.filter {
+                it.date == race.date &&
+                    it.stadiumNumber == race.stadiumNumber &&
+                    it.raceNumber == race.raceNumber
+            }
+            ResultCard(race, record, purchases)
+        }
+    }
+}
+
+@Composable
+private fun ResultCard(
+    race: RaceData,
+    prediction: PredictionRecord?,
+    purchases: List<BetRecord>
+) {
+    val result = race.result
+    val actualStake = purchases.sumOf { it.stake }
+    val actualPayout = purchases.sumOf { it.payout }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp)) {
+            Text(
+                "${race.venueName} ${race.raceNumber}R",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(Modifier.height(6.dp))
+
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.weight(0.9f)) {
+                    Text("着順", style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        result?.trifectaCombination ?: "-",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Column(modifier = Modifier.weight(0.9f)) {
+                    Text("払戻", style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        result?.trifectaPayout?.let(::money) ?: "-",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Column(modifier = Modifier.weight(1.8f)) {
+                    Text("事前予想", style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        prediction?.combinations?.joinToString(" / ") ?: "記録なし",
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            prediction?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    if (it.hit) {
+                        "予想的中　想定払戻 ${money(it.simulatedPayout)}"
+                    } else {
+                        "予想ハズレ"
+                    },
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            if (purchases.isNotEmpty()) {
+                Text(
+                    "実購入 ${money(actualStake)} / 払戻 ${money(actualPayout)} / 収支 ${signedMoney(actualPayout - actualStake)}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
+    val settledPredictions = ui.predictionHistory.filter { it.settled }
+    val predictionHits = settledPredictions.count { it.hit }
+    val predictionStake = settledPredictions.sumOf { it.simulatedStake }
+    val predictionPayout = settledPredictions.sumOf { it.simulatedPayout }
+    val predictionProfit = predictionPayout - predictionStake
+    val predictionHitRate = if (settledPredictions.isNotEmpty()) {
+        predictionHits * 100.0 / settledPredictions.size
+    } else {
+        0.0
+    }
+    val predictionRoi = if (predictionStake > 0) {
+        predictionPayout * 100.0 / predictionStake
+    } else {
+        0.0
+    }
+
+    val actualStake = ui.records.sumOf { it.stake }
+    val actualPayout = ui.records.sumOf { it.payout }
+    val actualProfit = actualPayout - actualStake
+    val actualRoi = if (actualStake > 0) actualPayout * 100.0 / actualStake else 0.0
+    val pendingStake = ui.records.filter { !it.settled }.sumOf { it.stake }
+
+    val dateText = ui.date.toString()
+    val dayRecords = ui.records.filter { it.date == dateText }
+    val dayStake = dayRecords.sumOf { it.stake }
+    val dayPayout = dayRecords.sumOf { it.payout }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp)) {
+                    Text(
+                        "予想実績",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        "的中 $predictionHits / ${settledPredictions.size}レース　的中率 ${String.format(Locale.US, "%.1f", predictionHitRate)}%",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text("予想購入合計 ${money(predictionStake)}")
+                    Text("予想払戻合計 ${money(predictionPayout)}")
+                    Text(
+                        "予想損益 ${signedMoney(predictionProfit)}　回収率 ${String.format(Locale.US, "%.1f", predictionRoi)}%",
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "事前に保存した4点予想を各${money(PredictionHistoryStore.DEFAULT_SIMULATION_STAKE)}で計算",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp)) {
+                    Text(
+                        "実購入",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text("購入合計 ${money(actualStake)}")
+                    Text("払戻合計 ${money(actualPayout)}")
+                    Text(
+                        "損益 ${signedMoney(actualProfit)}　回収率 ${String.format(Locale.US, "%.1f", actualRoi)}%",
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "結果待ち ${ui.records.count { !it.settled }}点 / ${money(pendingStake)}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp)) {
+                    Text(
+                        "表示日の実購入",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text("${ui.date}　購入 ${money(dayStake)}")
+                    Text("払戻 ${money(dayPayout)}　損益 ${signedMoney(dayPayout - dayStake)}")
+                }
+            }
+        }
+
+        if (ui.records.isNotEmpty()) {
+            item {
+                OutlinedButton(
+                    onClick = vm::clearRecords,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("実購入の記録を全削除")
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun AppUpdateCard(update: AppUpdateState, vm: BoatViewModel) {
@@ -271,49 +724,15 @@ private fun AppUpdateCard(update: AppUpdateState, vm: BoatViewModel) {
                 }
             }
 
-            update.releaseNotes?.takeIf { update.updateAvailable && it.isNotBlank() }?.let { notes ->
-                Spacer(Modifier.height(6.dp))
-                Text(notes.lineSequence().take(3).joinToString("\n"), style = MaterialTheme.typography.bodySmall)
-            }
-        }
-    }
-}
-
-@Composable
-private fun VenueCard(races: List<RaceData>, onRaceClick: (RaceData) -> Unit) {
-    val first = races.firstOrNull() ?: return
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                "${first.venueName}　${first.title}",
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium
-            )
-            val sub = listOfNotNull(
-                first.dayNumber?.let { "$it 日目" },
-                first.subtitle.takeIf { it.isNotBlank() }
-            ).joinToString(" / ")
-            if (sub.isNotBlank()) {
-                Text(sub, style = MaterialTheme.typography.bodySmall)
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                races.sortedBy { it.raceNumber }.forEach { race ->
-                    OutlinedButton(onClick = { onRaceClick(race) }) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("${race.raceNumber}R", fontWeight = FontWeight.Bold)
-                            Text(
-                                race.closedAt.takeLast(8).take(5).ifBlank { "--:--" },
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                            if (race.hasResult) Text("確定", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
+            update.releaseNotes
+                ?.takeIf { update.updateAvailable && it.isNotBlank() }
+                ?.let { notes ->
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        notes.lineSequence().take(3).joinToString("\n"),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
-            }
         }
     }
 }
@@ -324,8 +743,10 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
     val uriHandler = LocalUriHandler.current
     val day = race.date.replace("-", "")
     val jcd = Venues.code(race.stadiumNumber)
-    val programUrl = "https://www.boatrace.jp/owpc/pc/race/racelist?hd=$day&jcd=$jcd&rno=${race.raceNumber}"
-    val oddsUrl = "https://www.boatrace.jp/owpc/pc/race/odds3t?hd=$day&jcd=$jcd&rno=${race.raceNumber}"
+    val programUrl =
+        "https://www.boatrace.jp/owpc/pc/race/racelist?hd=$day&jcd=$jcd&rno=${race.raceNumber}"
+    val oddsUrl =
+        "https://www.boatrace.jp/owpc/pc/race/odds3t?hd=$day&jcd=$jcd&rno=${race.raceNumber}"
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -335,7 +756,11 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
-                    Text(race.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        race.title,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
                     Text("締切 ${race.closedAt}　${race.distance ?: 1800}m")
                     race.preview?.let { p ->
                         Spacer(Modifier.height(6.dp))
@@ -356,7 +781,11 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
         }
 
         item {
-            Text("出走データ", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Text(
+                "出走データ",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
         }
 
         items(race.racers, key = { it.lane }) { racer ->
@@ -366,7 +795,11 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
-                    Text("AIスコア予想 3連単", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "AIスコア予想 3連単",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
                     Text(
                         "全国/当地・平均ST・モーター/ボート・展示・直前ST・進入を合成",
                         style = MaterialTheme.typography.bodySmall
@@ -374,19 +807,30 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
                     Spacer(Modifier.height(8.dp))
                     ui.predictions.forEachIndexed { index, pick ->
                         PredictionRow(index + 1, pick, ui.stakePerPick)
-                        if (index < ui.predictions.lastIndex) HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                        if (index < ui.predictions.lastIndex) {
+                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                        }
                     }
                     if (ui.oddsLoading) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(modifier = Modifier.width(20.dp).height(20.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(
+                                modifier = Modifier.width(20.dp).height(20.dp),
+                                strokeWidth = 2.dp
+                            )
                             Spacer(Modifier.width(8.dp))
-                            Text("公式3連単オッズ取得中…", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                "公式3連単オッズ取得中…",
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                     }
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedButton(onClick = vm::decreaseStake) { Text("-100") }
-                        Text(" 各 ${ui.stakePerPick}円 ", fontWeight = FontWeight.Bold)
+                        Text(
+                            " 各 ${ui.stakePerPick}円 ",
+                            fontWeight = FontWeight.Bold
+                        )
                         OutlinedButton(onClick = vm::increaseStake) { Text("+100") }
                     }
                     Text(
@@ -399,13 +843,16 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
                         enabled = ui.predictions.isNotEmpty() && !race.hasResult,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("この4点を購入記録に追加")
+                        Text("このレースを個別購入登録")
                     }
-                    Text(
-                        "現時点では実投票ではなく購入記録です。結果取得後に自動で的中・払戻を照合します。",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 6.dp)
-                    )
+                    ui.actionMessage?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                    }
                 }
             }
         }
@@ -445,12 +892,19 @@ private fun RacerCard(racer: Racer) {
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text("${racer.name}  ${racer.rank}", fontWeight = FontWeight.Bold)
-                    Text("登録 ${racer.registrationNumber ?: "-"} / 平均ST ${racer.averageStart.f2()}", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "登録 ${racer.registrationNumber ?: "-"} / 平均ST ${racer.averageStart.f2()}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
             Spacer(Modifier.height(6.dp))
-            Text("全国 勝率 ${racer.nationalWinRate.f2()} / 2連 ${racer.nationalTop2.f1()}%　当地 ${racer.localWinRate.f2()}")
-            Text("M${racer.motorNumber ?: "-"} 2連 ${racer.motorTop2.f1()}%　B${racer.boatNumber ?: "-"} 2連 ${racer.boatTop2.f1()}%")
+            Text(
+                "全国 勝率 ${racer.nationalWinRate.f2()} / 2連 ${racer.nationalTop2.f1()}%　当地 ${racer.localWinRate.f2()}"
+            )
+            Text(
+                "M${racer.motorNumber ?: "-"} 2連 ${racer.motorTop2.f1()}%　B${racer.boatNumber ?: "-"} 2連 ${racer.boatTop2.f1()}%"
+            )
             racer.preview?.let { p ->
                 Text(
                     "展示 ${p.exhibitionTime.f2()} / 進入 ${p.course ?: "-"} / 直前ST ${p.startTiming.f2()} / チルト ${p.tilt.f1()}",
@@ -469,74 +923,44 @@ private fun PredictionRow(rank: Int, pick: PredictionPick, stake: Int) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column {
-            Text("$rank.  ${pick.combination}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-            Text("AI score ${String.format(Locale.US, "%.1f", pick.score)}", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "$rank.  ${pick.combination}",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                "AI score ${String.format(Locale.US, "%.1f", pick.score)}",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text(pick.odds?.let { "${String.format(Locale.US, "%.1f", it)}倍" } ?: "オッズ -")
+            Text(
+                pick.odds?.let { "${String.format(Locale.US, "%.1f", it)}倍" } ?: "オッズ -"
+            )
             pick.odds?.let {
-                Text("想定 ${String.format(Locale.US, "%,.0f", it * stake)}円", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "想定 ${String.format(Locale.US, "%,.0f", it * stake)}円",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }
 }
 
-@Composable
-private fun RecordsScreen(ui: BoatUiState, vm: BoatViewModel) {
-    val totalStake = ui.records.sumOf { it.stake }
-    val totalPayout = ui.records.sumOf { it.payout }
-    val profit = totalPayout - totalStake
-    val roi = if (totalStake > 0) totalPayout * 100.0 / totalStake else 0.0
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp)) {
-                    Text("累計", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text("投資 ${money(totalStake)}　払戻 ${money(totalPayout)}")
-                    Text("収支 ${signedMoney(profit)}　回収率 ${String.format(Locale.US, "%.1f", roi)}%", fontWeight = FontWeight.Bold)
-                    Text(
-                        "未確定 ${ui.records.count { !it.settled }}件 / 確定 ${ui.records.count { it.settled }}件",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        }
-
-        if (ui.records.isEmpty()) {
-            item {
-                Text("購入記録はまだありません。レース詳細の予想から記録できます。")
-            }
-        } else {
-            items(ui.records, key = { it.id }) { bet ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text("${bet.date}  ${bet.venueName} ${bet.raceNumber}R", fontWeight = FontWeight.Bold)
-                        Text("3連単 ${bet.combination}　${money(bet.stake)}")
-                        Text(
-                            if (bet.settled) "払戻 ${money(bet.payout)} / 収支 ${signedMoney(bet.profit)}" else "結果待ち",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-        }
-
-        if (ui.records.isNotEmpty()) {
-            item {
-                OutlinedButton(onClick = vm::clearRecords, modifier = Modifier.fillMaxWidth()) {
-                    Text("購入記録を全削除")
-                }
-            }
-        }
-    }
+private fun closeTime(raw: String): String {
+    if (raw.isBlank()) return "--:--"
+    val timeMatch = Regex("""(\d{2}:\d{2})""").findAll(raw).lastOrNull()?.value
+    return timeMatch ?: raw.takeLast(5)
 }
 
-private fun Double?.f1(): String = this?.let { String.format(Locale.US, "%.1f", it) } ?: "-"
-private fun Double?.f2(): String = this?.let { String.format(Locale.US, "%.2f", it) } ?: "-"
-private fun money(value: Int): String = String.format(Locale.JAPAN, "%,d円", value)
-private fun signedMoney(value: Int): String = if (value >= 0) "+${money(value)}" else "-${money(-value)}"
+private fun Double?.f1(): String =
+    this?.let { String.format(Locale.US, "%.1f", it) } ?: "-"
+
+private fun Double?.f2(): String =
+    this?.let { String.format(Locale.US, "%.2f", it) } ?: "-"
+
+private fun money(value: Int): String =
+    String.format(Locale.JAPAN, "%,d円", value)
+
+private fun signedMoney(value: Int): String =
+    if (value >= 0) "+${money(value)}" else "-${money(-value)}"
