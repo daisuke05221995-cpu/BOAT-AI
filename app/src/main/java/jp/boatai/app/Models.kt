@@ -1,5 +1,6 @@
 package jp.boatai.app
 
+import org.json.JSONArray
 import org.json.JSONObject
 
 object Venues {
@@ -86,6 +87,64 @@ data class PredictionPick(
     val score: Double,
     val odds: Double? = null
 )
+
+data class PredictionRecord(
+    val id: String,
+    val date: String,
+    val stadiumNumber: Int,
+    val raceNumber: Int,
+    val combinations: List<String>,
+    val stakePerPick: Int,
+    val resultCombination: String?,
+    val trifectaPayout: Int,
+    val settled: Boolean,
+    val createdAt: Long
+) {
+    val venueName: String get() = Venues.name(stadiumNumber)
+    val simulatedStake: Int get() = stakePerPick * combinations.size
+    val hit: Boolean get() = settled && !resultCombination.isNullOrBlank() && resultCombination in combinations
+    val simulatedPayout: Int
+        get() = if (hit && stakePerPick >= 100) trifectaPayout * (stakePerPick / 100) else 0
+    val simulatedProfit: Int get() = simulatedPayout - simulatedStake
+
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("id", id)
+        put("date", date)
+        put("stadiumNumber", stadiumNumber)
+        put("raceNumber", raceNumber)
+        put("combinations", JSONArray().apply { combinations.forEach(::put) })
+        put("stakePerPick", stakePerPick)
+        put("resultCombination", resultCombination)
+        put("trifectaPayout", trifectaPayout)
+        put("settled", settled)
+        put("createdAt", createdAt)
+    }
+
+    companion object {
+        fun fromJson(obj: JSONObject): PredictionRecord {
+            val combinations = buildList {
+                val array = obj.optJSONArray("combinations")
+                if (array != null) {
+                    for (i in 0 until array.length()) {
+                        array.optString(i).takeIf { it.isNotBlank() }?.let(::add)
+                    }
+                }
+            }
+            return PredictionRecord(
+                id = obj.optString("id"),
+                date = obj.optString("date"),
+                stadiumNumber = obj.optInt("stadiumNumber"),
+                raceNumber = obj.optInt("raceNumber"),
+                combinations = combinations,
+                stakePerPick = obj.optInt("stakePerPick", 300),
+                resultCombination = obj.optString("resultCombination").takeIf { it.isNotBlank() },
+                trifectaPayout = obj.optInt("trifectaPayout"),
+                settled = obj.optBoolean("settled"),
+                createdAt = obj.optLong("createdAt")
+            )
+        }
+    }
+}
 
 data class BetRecord(
     val id: String,
