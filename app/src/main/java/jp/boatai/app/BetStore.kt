@@ -20,30 +20,53 @@ class BetStore(context: Context) {
         }.getOrDefault(emptyList())
     }
 
-    fun addPicks(race: RaceData, picks: List<PredictionPick>, stakePerPick: Int): List<BetRecord> {
+    fun addPicks(race: RaceData, picks: List<PredictionPick>, stakePerPick: Int): List<BetRecord> =
+        addEntries(listOf(race to picks), stakePerPick)
+
+    fun addRacePicks(races: List<RaceData>, stakePerPick: Int): List<BetRecord> =
+        addEntries(
+            races.filter { !it.hasResult }.map { race -> race to PredictionEngine.predict(race) },
+            stakePerPick
+        )
+
+    private fun addEntries(
+        entries: List<Pair<RaceData, List<PredictionPick>>>,
+        stakePerPick: Int
+    ): List<BetRecord> {
         if (stakePerPick < 100 || stakePerPick % 100 != 0) return load()
         val current = load().toMutableList()
-        for (pick in picks) {
-            val duplicate = current.any {
-                it.date == race.date && it.stadiumNumber == race.stadiumNumber &&
-                    it.raceNumber == race.raceNumber && it.combination == pick.combination && !it.settled
-            }
-            if (!duplicate) {
-                current += BetRecord(
-                    id = UUID.randomUUID().toString(),
-                    date = race.date,
-                    stadiumNumber = race.stadiumNumber,
-                    raceNumber = race.raceNumber,
-                    combination = pick.combination,
-                    stake = stakePerPick,
-                    payout = 0,
-                    settled = false,
-                    createdAt = System.currentTimeMillis()
-                )
+        var changed = false
+        var sequence = 0L
+        val now = System.currentTimeMillis()
+
+        for ((race, picks) in entries) {
+            if (race.hasResult) continue
+            for (pick in picks) {
+                val duplicate = current.any {
+                    it.date == race.date &&
+                        it.stadiumNumber == race.stadiumNumber &&
+                        it.raceNumber == race.raceNumber &&
+                        it.combination == pick.combination &&
+                        !it.settled
+                }
+                if (!duplicate) {
+                    current += BetRecord(
+                        id = UUID.randomUUID().toString(),
+                        date = race.date,
+                        stadiumNumber = race.stadiumNumber,
+                        raceNumber = race.raceNumber,
+                        combination = pick.combination,
+                        stake = stakePerPick,
+                        payout = 0,
+                        settled = false,
+                        createdAt = now + sequence++
+                    )
+                    changed = true
+                }
             }
         }
-        save(current)
-        return load()
+        if (changed) save(current)
+        return current.sortedByDescending { it.createdAt }
     }
 
     fun settle(races: List<RaceData>): List<BetRecord> {
