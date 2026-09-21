@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -48,6 +49,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -83,6 +87,7 @@ class MainActivity : ComponentActivity() {
 private fun BoatAiApp(vm: BoatViewModel) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val selected = ui.selectedRace
+    val selectedVenue = ui.selectedVenue
 
     Scaffold(
         topBar = {
@@ -91,6 +96,8 @@ private fun BoatAiApp(vm: BoatViewModel) {
                     Text(
                         if (selected != null) {
                             "${selected.venueName} ${selected.raceNumber}R"
+                        } else if (selectedVenue != null) {
+                            "${Venues.name(selectedVenue)} 開催レース"
                         } else {
                             when (ui.tab) {
                                 0 -> "予想  v${BuildConfig.VERSION_NAME}"
@@ -101,14 +108,14 @@ private fun BoatAiApp(vm: BoatViewModel) {
                     )
                 },
                 navigationIcon = {
-                    if (selected != null) {
-                        IconButton(onClick = vm::closeRace) {
+                    if (selected != null || selectedVenue != null) {
+                        IconButton(onClick = if (selected != null) vm::closeRace else vm::closeVenue) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                         }
                     }
                 },
                 actions = {
-                    if (selected == null && ui.tab in 0..1) {
+                    if (selected == null && selectedVenue == null && ui.tab in 0..1) {
                         IconButton(onClick = vm::refresh) {
                             Icon(Icons.Default.Refresh, contentDescription = "更新")
                         }
@@ -117,7 +124,7 @@ private fun BoatAiApp(vm: BoatViewModel) {
             )
         },
         bottomBar = {
-            if (selected == null) {
+            if (selected == null && selectedVenue == null) {
                 NavigationBar {
                     NavigationBarItem(
                         selected = ui.tab == 0,
@@ -148,6 +155,7 @@ private fun BoatAiApp(vm: BoatViewModel) {
         ) {
             when {
                 selected != null -> RaceDetailScreen(ui, vm)
+                selectedVenue != null -> VenueDetailScreen(ui, vm, selectedVenue)
                 ui.tab == 0 -> PredictionScreen(ui, vm)
                 ui.tab == 1 -> ResultsScreen(ui, vm)
                 else -> ProfitScreen(ui, vm)
@@ -158,7 +166,16 @@ private fun BoatAiApp(vm: BoatViewModel) {
 
 @Composable
 private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
-    val grouped = ui.races.groupBy { it.stadiumNumber }.toSortedMap()
+    var sortMode by remember { mutableIntStateOf(0) }
+    val venues = (1..24).map { stadium ->
+        stadium to ui.races.filter { it.stadiumNumber == stadium }
+    }.let { list ->
+        when (sortMode) {
+            1 -> list.sortedBy { (_, races) -> races.filterNot { it.hasResult }.minOfOrNull { closeTime(it.closedAt) } ?: "99:99" }
+            2 -> list.sortedByDescending { (_, races) -> races.maxOfOrNull(PredictionEngine::confidence) ?: 0 }
+            else -> list
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -173,8 +190,19 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
             DateSelectorCard(ui, vm)
         }
 
+        item { PredictionModeBar(sortMode, { sortMode = it }) }
+
         item {
-            BulkPurchaseCard(ui, vm)
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(10.dp)) {
+                    Text("AI期待度から一括選択", fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(onClick = { vm.selectConfidenceAtLeast(80) }) { Text("80以上") }
+                        OutlinedButton(onClick = { vm.selectConfidenceAtLeast(70) }) { Text("70以上") }
+                        OutlinedButton(onClick = vm::clearBulkSelection) { Text("解除") }
+                    }
+                }
+            }
         }
 
         if (ui.loading && ui.races.isEmpty()) {
@@ -201,23 +229,105 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
             }
         }
 
-        grouped.forEach { (_, races) ->
-            item(key = "prediction-venue-${races.firstOrNull()?.stadiumNumber}") {
-                VenuePredictionCard(
-                    races = races,
-                    ui = ui,
-                    onToggle = vm::toggleBulkRace,
-                    onIndividualBuy = vm::recordRace,
-                    onDetail = vm::selectRace
-                )
+        items(venues.chunked(3), key = { row -> row.joinToString { it.first.toString() } }) { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                row.forEach { (stadium, races) ->
+                    VenueTile(stadium, races, Modifier.weight(1f)) { vm.selectVenue(stadium) }
+                }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
+
+        if (ui.selectedForBulk.isNotEmpty()) item { BulkPurchaseCard(ui, vm) }
 
         item {
             Text(
                 "一括購入・個別購入は現在「購入記録」の登録です。公式投票サイトへの自動送信はまだ行わず、登録した金額を実購入として損益に集計します。",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(4.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun PredictionModeBar(selected: Int, onSelect: (Int) -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            listOf("開催一覧", "締切順", "AI期待度順").forEachIndexed { index, label ->
+                TextButton(onClick = { onSelect(index) }) {
+                    Text(label, fontWeight = if (selected == index) FontWeight.Bold else FontWeight.Normal)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VenueTile(
+    stadium: Int,
+    races: List<RaceData>,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val open = races.filterNot { it.hasResult }
+    val next = open.minByOrNull { closeTime(it.closedAt) }
+    val best = open.maxOfOrNull(PredictionEngine::confidence)
+    val first = races.firstOrNull()
+    Card(
+        onClick = onClick,
+        enabled = races.isNotEmpty(),
+        modifier = modifier.heightIn(min = 104.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (races.isEmpty()) MaterialTheme.colorScheme.surfaceVariant
+            else MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(Modifier.padding(9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(Venues.name(stadium), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            if (first == null) {
+                Text("開催なし", style = MaterialTheme.typography.bodySmall)
+                Text("ーー")
+            } else {
+                Text(
+                    "${gradeLabel(first.gradeNumber)}　${first.dayNumber?.let { "${it}日目" } ?: "開催中"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1
+                )
+                Text(next?.let { "${it.raceNumber}R  ${closeTime(it.closedAt)}" } ?: "本日終了", fontWeight = FontWeight.SemiBold)
+                if (best != null) Text("AI $best  ${rankLabel(best)}", style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun VenueDetailScreen(ui: BoatUiState, vm: BoatViewModel, stadium: Int) {
+    val races = ui.races.filter { it.stadiumNumber == stadium }.sortedBy { it.raceNumber }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("${Venues.name(stadium)}の一括購入", fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(onClick = { vm.selectVenuePurchasable(stadium) }) { Text("全レース") }
+                        OutlinedButton(onClick = { vm.selectVenueTop(stadium) }) { Text("AI上位3件") }
+                    }
+                }
+            }
+        }
+        item { BulkPurchaseCard(ui, vm) }
+        item {
+            VenuePredictionCard(
+                races = races,
+                ui = ui,
+                onToggle = vm::toggleBulkRace,
+                onIndividualBuy = vm::recordRace,
+                onDetail = vm::selectRace
             )
         }
     }
@@ -407,6 +517,14 @@ private fun RacePredictionRow(
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodyMedium
             )
+            if (picks.isNotEmpty()) {
+                val confidence = PredictionEngine.confidence(race)
+                Text(
+                    "期待度 $confidence / ${rankLabel(confidence)}ランク",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
             if (purchasedStake > 0) {
                 Text(
                     "購入記録 ${money(purchasedStake)}",
@@ -824,6 +942,17 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
                             )
                         }
                     }
+                    ui.oddsError?.let { message ->
+                        Spacer(Modifier.height(6.dp))
+                        Text("オッズ取得失敗：$message", color = MaterialTheme.colorScheme.error)
+                        OutlinedButton(onClick = vm::retryOdds) { Text("オッズを再取得") }
+                    }
+                    ui.oddsUpdatedAt?.let { updated ->
+                        Text(
+                            "オッズ最終取得 ${java.time.Instant.ofEpochMilli(updated).atZone(java.time.ZoneId.of("Asia/Tokyo")).format(DateTimeFormatter.ofPattern("HH:mm:ss"))}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedButton(onClick = vm::decreaseStake) { Text("-100") }
@@ -951,6 +1080,22 @@ private fun closeTime(raw: String): String {
     if (raw.isBlank()) return "--:--"
     val timeMatch = Regex("""(\d{2}:\d{2})""").findAll(raw).lastOrNull()?.value
     return timeMatch ?: raw.takeLast(5)
+}
+
+private fun rankLabel(score: Int): String = when (score) {
+    in 90..100 -> "S"
+    in 80..89 -> "A"
+    in 70..79 -> "B"
+    in 60..69 -> "C"
+    else -> "D"
+}
+
+private fun gradeLabel(grade: Int?): String = when (grade) {
+    1 -> "SG"
+    2 -> "G1"
+    3 -> "G2"
+    4 -> "G3"
+    else -> "一般"
 }
 
 private fun Double?.f1(): String =

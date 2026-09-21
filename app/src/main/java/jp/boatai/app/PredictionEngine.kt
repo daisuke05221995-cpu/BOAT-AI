@@ -3,6 +3,30 @@ package jp.boatai.app
 import kotlin.math.max
 
 object PredictionEngine {
+    /** 画面表示と一括購入判定に使う、0〜100のレース期待度。 */
+    fun confidence(race: RaceData): Int {
+        val racers = race.racers.map(::racerScore).sortedDescending()
+        if (racers.size < 3) return 0
+        val lead = (racers[0] - racers[1]).coerceAtLeast(0.0)
+        val dataCoverage = race.racers.sumOf { racer ->
+            listOf(
+                racer.nationalWinRate, racer.localWinRate, racer.averageStart,
+                racer.motorTop2, racer.preview?.exhibitionTime
+            ).count { it != null }
+        }.toDouble() / (race.racers.size * 5.0)
+        val previewBonus = if (race.preview != null) 4.0 else 0.0
+        return (55.0 + lead * 1.15 + dataCoverage * 18.0 + previewBonus)
+            .toInt().coerceIn(45, 98)
+    }
+
+    fun rank(race: RaceData): String = when (confidence(race)) {
+        in 90..100 -> "S"
+        in 80..89 -> "A"
+        in 70..79 -> "B"
+        in 60..69 -> "C"
+        else -> "D"
+    }
+
     fun racerScore(racer: Racer): Double {
         val laneBase = when (racer.lane) {
             1 -> 30.0

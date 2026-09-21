@@ -19,8 +19,11 @@ data class BoatUiState(
     val loading: Boolean = false,
     val error: String? = null,
     val selectedRace: RaceData? = null,
+    val selectedVenue: Int? = null,
     val predictions: List<PredictionPick> = emptyList(),
     val oddsLoading: Boolean = false,
+    val oddsError: String? = null,
+    val oddsUpdatedAt: Long? = null,
     val records: List<BetRecord> = emptyList(),
     val predictionHistory: List<PredictionRecord> = emptyList(),
     val selectedForBulk: Set<String> = emptySet(),
@@ -67,6 +70,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     loading = true,
                     error = null,
                     selectedRace = null,
+                    selectedVenue = null,
                     predictions = emptyList(),
                     selectedForBulk = emptySet(),
                     actionMessage = null
@@ -110,6 +114,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 selectedRace = race,
                 predictions = initial,
                 oddsLoading = true,
+                oddsError = null,
                 error = null,
                 actionMessage = null
             )
@@ -122,14 +127,27 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     _ui.update { state ->
                         state.copy(
                             predictions = PredictionEngine.withOdds(initial, odds),
-                            oddsLoading = false
+                            oddsLoading = false,
+                            oddsUpdatedAt = System.currentTimeMillis(),
+                            oddsError = null
                         )
                     }
                 }
-                .onFailure {
-                    _ui.update { state -> state.copy(oddsLoading = false) }
+                .onFailure { error ->
+                    _ui.update { state ->
+                        state.copy(oddsLoading = false, oddsError = error.message ?: "オッズ取得失敗")
+                    }
                 }
-        }
+    }
+
+    fun retryOdds() = _ui.value.selectedRace?.let(::selectRace)
+
+    fun selectVenue(stadiumNumber: Int) {
+        _ui.update { it.copy(selectedVenue = stadiumNumber, actionMessage = null) }
+    }
+
+    fun closeVenue() {
+        _ui.update { it.copy(selectedVenue = null, selectedForBulk = emptySet(), actionMessage = null) }
     }
 
     fun closeRace() {
@@ -143,11 +161,38 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun selectVenuePurchasable(stadiumNumber: Int) {
+        val ids = _ui.value.races.filter {
+            it.stadiumNumber == stadiumNumber && !it.hasResult && PredictionEngine.predict(it).isNotEmpty()
+        }.mapTo(linkedSetOf()) { it.id }
+        _ui.update { it.copy(selectedForBulk = ids, actionMessage = null) }
+    }
+
+    fun selectVenueTop(stadiumNumber: Int, count: Int = 3) {
+        val ids = _ui.value.races.filter {
+            it.stadiumNumber == stadiumNumber && !it.hasResult && PredictionEngine.predict(it).isNotEmpty()
+        }.sortedByDescending(PredictionEngine::confidence).take(count).mapTo(linkedSetOf()) { it.id }
+        _ui.update { it.copy(selectedForBulk = ids, actionMessage = null) }
+    }
+
+    fun selectConfidenceAtLeast(minimum: Int) {
+        val ids = _ui.value.races.filter {
+            !it.hasResult && PredictionEngine.predict(it).isNotEmpty() && PredictionEngine.confidence(it) >= minimum
+        }.mapTo(linkedSetOf()) { it.id }
+        _ui.update {
+            it.copy(
+                selectedForBulk = ids,
+                actionMessage = if (ids.isEmpty()) "AI期待度${minimum}以上の対象レースはありません" else null
+            )
+        }
+    }
+
     fun setTab(tab: Int) {
         _ui.update {
             it.copy(
                 tab = tab.coerceIn(0, 2),
                 selectedRace = null,
+                selectedVenue = null,
                 predictions = emptyList(),
                 actionMessage = null
             )

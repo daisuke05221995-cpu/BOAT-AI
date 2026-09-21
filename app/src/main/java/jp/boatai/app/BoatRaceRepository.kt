@@ -3,6 +3,7 @@ package jp.boatai.app
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.LocalDate
@@ -33,23 +34,35 @@ class BoatRaceRepository {
             .timeout(15_000)
             .get()
 
-        val levelProbe = "//body/main/div/div/div/div[2]/div[3]/ul/li"
-        val baseLevel = if (doc.selectXpath(levelProbe).isNotEmpty()) 1 else 0
-        val divIndex = baseLevel + 7
-
-        buildMap {
-            for (combination in combinations.distinct()) {
-                val parts = combination.split("-").mapNotNull { it.toIntOrNull() }
-                if (parts.size != 3 || parts.distinct().size != 3 || parts.any { it !in 1..6 }) continue
-                val (first, second, third) = parts
-                val cell = TrifectaOddsLocator.locate(first, second, third) ?: continue
-                val xpath = "//body/main/div/div/div/div[2]/div[$divIndex]/table/tbody/tr[${cell.row}]/td[${cell.column}]"
-                val text = doc.selectXpath(xpath).firstOrNull()?.text()?.trim().orEmpty()
-                val odds = text.replace(",", "").toDoubleOrNull()
-                if (odds != null && odds > 0) put(combination, odds)
-            }
+        parseTrifectaOdds(doc, combinations).also {
+            if (it.isEmpty()) throw IllegalStateException("公式オッズ表を解析できませんでした")
         }
     }
+
+    internal fun parseTrifectaOdds(doc: Document, combinations: List<String>): Map<String, Double> {
+        val targets = combinations.distinct().mapNotNull { combination ->
+            val parts = combination.split("-").mapNotNull(String::toIntOrNull)
+            if (parts.size != 3) null else TrifectaOddsLocator.locate(parts[0], parts[1], parts[2])
+                ?.let { Triple(combination, it.row, it.column) }
+        }
+
+        // 公式サイト内のdiv階層は変更されやすい。全tableを調べ、最も多く正しい
+        // オッズを読めた表を採用することで固定XPathへの依存をなくす。
+        return doc.select("table").map { table ->
+            val rows = table.select("tbody tr").ifEmpty { table.select("tr") }
+            buildMap {
+                targets.forEach { (combination, rowNumber, columnNumber) ->
+                    val cells = rows.getOrNull(rowNumber - 1)?.select("th,td").orEmpty()
+                    val raw = cells.getOrNull(columnNumber - 1)?.text().orEmpty()
+                    parseOdds(raw)?.let { put(combination, it) }
+                }
+            }
+        }.maxByOrNull { it.size }.orEmpty()
+    }
+
+    private fun parseOdds(raw: String): Double? = Regex("""\d{1,5}(?:[,.]\d+)?""")
+        .find(raw.replace(" ", ""))?.value?.replace(",", "")?.toDoubleOrNull()
+        ?.takeIf { it > 0.0 }
 
     private fun httpGet(url: String): String {
         val connection = URL(url).openConnection() as HttpURLConnection
