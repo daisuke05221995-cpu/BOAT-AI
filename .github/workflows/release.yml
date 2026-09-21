@@ -3,8 +3,12 @@ name: Release signed BOAT AI APK
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+    paths:
+      - 'app/build.gradle.kts'
 
 permissions:
   contents: write
@@ -99,5 +103,6 @@ jobs:
           else
             gh release create "$TAG" "$APK" "$APK.sha256" \
               --title "BOAT AI $TAG" \
-              --generate-notes
+              --generate-notes \
+              --target "$GITHUB_SHA"
           fi
