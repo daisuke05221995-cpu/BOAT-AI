@@ -7,12 +7,11 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
-
 
 data class BoatUiState(
     val date: LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo")),
@@ -23,19 +22,28 @@ data class BoatUiState(
     val predictions: List<PredictionPick> = emptyList(),
     val oddsLoading: Boolean = false,
     val records: List<BetRecord> = emptyList(),
+    val predictionHistory: List<PredictionRecord> = emptyList(),
+    val selectedForBulk: Set<String> = emptySet(),
     val stakePerPick: Int = 300,
     val tab: Int = 0,
     val lastUpdatedAt: Long? = null,
+    val actionMessage: String? = null,
     val update: AppUpdateState = AppUpdateState()
 )
 
 class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = BoatRaceRepository()
     private val betStore = BetStore(application)
+    private val predictionStore = PredictionHistoryStore(application)
     private val appUpdateManager = AppUpdateManager(application)
     private val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))
 
-    private val _ui = MutableStateFlow(BoatUiState(records = betStore.load()))
+    private val _ui = MutableStateFlow(
+        BoatUiState(
+            records = betStore.load(),
+            predictionHistory = predictionStore.load()
+        )
+    )
     val ui: StateFlow<BoatUiState> = _ui.asStateFlow()
 
     init {
@@ -53,14 +61,27 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     fun loadDate(date: LocalDate) {
         if (date.isAfter(today)) return
         viewModelScope.launch {
-            _ui.update { it.copy(date = date, loading = true, error = null, selectedRace = null, predictions = emptyList()) }
+            _ui.update {
+                it.copy(
+                    date = date,
+                    loading = true,
+                    error = null,
+                    selectedRace = null,
+                    predictions = emptyList(),
+                    selectedForBulk = emptySet(),
+                    actionMessage = null
+                )
+            }
             runCatching { repository.loadDate(date) }
                 .onSuccess { races ->
                     val records = betStore.settle(races)
+                    predictionStore.captureOpenRaces(races)
+                    val predictionHistory = predictionStore.settle(races)
                     _ui.update {
                         it.copy(
                             races = races,
                             records = records,
+                            predictionHistory = predictionHistory,
                             loading = false,
                             error = if (races.isEmpty()) "この日のレースデータがありません" else null,
                             lastUpdatedAt = System.currentTimeMillis()
@@ -68,7 +89,12 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 .onFailure { error ->
-                    _ui.update { it.copy(loading = false, error = error.message ?: "データ取得に失敗しました") }
+                    _ui.update {
+                        it.copy(
+                            loading = false,
+                            error = error.message ?: "データ取得に失敗しました"
+                        )
+                    }
                 }
         }
     }
@@ -79,12 +105,25 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectRace(race: RaceData) {
         val initial = PredictionEngine.predict(race)
-        _ui.update { it.copy(selectedRace = race, predictions = initial, oddsLoading = true, error = null) }
+        _ui.update {
+            it.copy(
+                selectedRace = race,
+                predictions = initial,
+                oddsLoading = true,
+                error = null,
+                actionMessage = null
+            )
+        }
         viewModelScope.launch {
-            runCatching { repository.loadOfficialTrifectaOdds(race, initial.map { it.combination }) }
+            runCatching {
+                repository.loadOfficialTrifectaOdds(race, initial.map { it.combination })
+            }
                 .onSuccess { odds ->
                     _ui.update { state ->
-                        state.copy(predictions = PredictionEngine.withOdds(initial, odds), oddsLoading = false)
+                        state.copy(
+                            predictions = PredictionEngine.withOdds(initial, odds),
+                            oddsLoading = false
+                        )
                     }
                 }
                 .onFailure {
@@ -94,31 +133,123 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun closeRace() {
-        _ui.update { it.copy(selectedRace = null, predictions = emptyList(), oddsLoading = false) }
+        _ui.update {
+            it.copy(
+                selectedRace = null,
+                predictions = emptyList(),
+                oddsLoading = false,
+                actionMessage = null
+            )
+        }
     }
 
     fun setTab(tab: Int) {
-        _ui.update { it.copy(tab = tab, selectedRace = null) }
+        _ui.update {
+            it.copy(
+                tab = tab.coerceIn(0, 2),
+                selectedRace = null,
+                predictions = emptyList(),
+                actionMessage = null
+            )
+        }
     }
 
     fun increaseStake() {
-        _ui.update { it.copy(stakePerPick = (it.stakePerPick + 100).coerceAtMost(1000)) }
+        _ui.update { it.copy(stakePerPick = (it.stakePerPick + 100).coerceAtMost(3000)) }
     }
 
     fun decreaseStake() {
         _ui.update { it.copy(stakePerPick = (it.stakePerPick - 100).coerceAtLeast(100)) }
     }
 
+    fun toggleBulkRace(raceId: String) {
+        val race = _ui.value.races.firstOrNull { it.id == raceId } ?: return
+        if (race.hasResult) return
+        _ui.update { state ->
+            val next = state.selectedForBulk.toMutableSet()
+            if (!next.add(raceId)) next.remove(raceId)
+            state.copy(selectedForBulk = next, actionMessage = null)
+        }
+    }
+
+    fun selectAllPurchasable() {
+        val ids = _ui.value.races
+            .filter { !it.hasResult && PredictionEngine.predict(it).isNotEmpty() }
+            .mapTo(linkedSetOf()) { it.id }
+        _ui.update { it.copy(selectedForBulk = ids, actionMessage = null) }
+    }
+
+    fun clearBulkSelection() {
+        _ui.update { it.copy(selectedForBulk = emptySet(), actionMessage = null) }
+    }
+
+    fun recordSelectedRaces() {
+        val state = _ui.value
+        val races = state.races.filter {
+            it.id in state.selectedForBulk && !it.hasResult
+        }
+        if (races.isEmpty()) {
+            _ui.update { it.copy(actionMessage = "購入するレースを選択してください") }
+            return
+        }
+
+        val before = state.records.size
+        val records = betStore.addRacePicks(races, state.stakePerPick)
+        val addedTickets = (records.size - before).coerceAtLeast(0)
+        _ui.update {
+            it.copy(
+                records = records,
+                selectedForBulk = emptySet(),
+                actionMessage = "${races.size}レース / ${addedTickets}点を購入記録に追加しました"
+            )
+        }
+    }
+
+    fun recordRace(race: RaceData) {
+        if (race.hasResult) return
+        val picks = PredictionEngine.predict(race)
+        if (picks.isEmpty()) return
+        val before = _ui.value.records.size
+        val records = betStore.addPicks(race, picks, _ui.value.stakePerPick)
+        val addedTickets = (records.size - before).coerceAtLeast(0)
+        _ui.update {
+            it.copy(
+                records = records,
+                actionMessage = if (addedTickets > 0) {
+                    "${race.venueName} ${race.raceNumber}Rを${addedTickets}点、購入記録に追加しました"
+                } else {
+                    "${race.venueName} ${race.raceNumber}Rはすでに購入記録済みです"
+                }
+            )
+        }
+    }
+
     fun recordPredictions() {
         val state = _ui.value
         val race = state.selectedRace ?: return
-        if (state.predictions.isEmpty()) return
+        if (state.predictions.isEmpty() || race.hasResult) return
+        val before = state.records.size
         val records = betStore.addPicks(race, state.predictions, state.stakePerPick)
-        _ui.update { it.copy(records = records) }
+        val addedTickets = (records.size - before).coerceAtLeast(0)
+        _ui.update {
+            it.copy(
+                records = records,
+                actionMessage = if (addedTickets > 0) {
+                    "${race.venueName} ${race.raceNumber}Rを${addedTickets}点、購入記録に追加しました"
+                } else {
+                    "このレースはすでに購入記録済みです"
+                }
+            )
+        }
     }
 
     fun clearRecords() {
-        _ui.update { it.copy(records = betStore.clear()) }
+        _ui.update {
+            it.copy(
+                records = betStore.clear(),
+                actionMessage = "実購入の記録を削除しました"
+            )
+        }
     }
 
     fun checkForAppUpdate() {
