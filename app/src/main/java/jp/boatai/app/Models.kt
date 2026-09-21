@@ -112,7 +112,7 @@ data class PredictionRecord(
         put("date", date)
         put("stadiumNumber", stadiumNumber)
         put("raceNumber", raceNumber)
-        put("combinations", JSONArray().apply { combinations.forEach(::put) })
+        put("combinations", JSONArray().apply { combinations.forEach { put(it) } })
         put("stakePerPick", stakePerPick)
         put("resultCombination", resultCombination)
         put("trifectaPayout", trifectaPayout)
@@ -126,7 +126,7 @@ data class PredictionRecord(
                 val array = obj.optJSONArray("combinations")
                 if (array != null) {
                     for (i in 0 until array.length()) {
-                        array.optString(i).takeIf { it.isNotBlank() }?.let(::add)
+                        array.optString(i).takeIf { it.isNotBlank() }?.let { add(it) }
                     }
                 }
             }
