@@ -23,22 +23,53 @@ jobs:
           python3 - <<'PY'
           import base64, pathlib
           s=''.join(pathlib.Path('partial.b64').read_text().split())
-          # The split files are contiguous Base64 text; pad only the final partial stream.
           s += '=' * ((4-len(s)%4)%4)
           pathlib.Path('partial.zip').write_bytes(base64.b64decode(s, validate=False))
           print('decoded bytes', pathlib.Path('partial.zip').stat().st_size)
           PY
 
-      - name: Recover complete ZIP entries
+      - name: Repair partial ZIP
         shell: bash
         run: |
           rm -rf recovered-v0.3.0 repaired.zip
           mkdir -p recovered-v0.3.0
           (yes y | zip -FF partial.zip --out repaired.zip) || true
-          if [ -f repaired.zip ]; then
-            unzip -o repaired.zip -d recovered-v0.3.0 || true
-          fi
-          echo 'Recovered files:'
+          test -f repaired.zip
+
+      - name: Recover known complete entries
+        shell: bash
+        run: |
+          files=(
+            '.github/workflows/build-apk.yml'
+            '.github/workflows/release.yml'
+            'README.md'
+            'app/build.gradle.kts'
+            'app/proguard-rules.pro'
+            'app/src/androidTest/java/jp/boatai/app/MainActivitySmokeTest.kt'
+            'app/src/main/AndroidManifest.xml'
+            'app/src/main/java/jp/boatai/app/AppUpdateManager.kt'
+            'app/src/main/java/jp/boatai/app/BetGateway.kt'
+            'app/src/main/java/jp/boatai/app/BetStore.kt'
+            'app/src/main/java/jp/boatai/app/BoatRaceJsonParser.kt'
+            'app/src/main/java/jp/boatai/app/BoatRaceRepository.kt'
+            'app/src/main/java/jp/boatai/app/MainActivity.kt'
+            'app/src/main/java/jp/boatai/app/BoatViewModel.kt'
+            'app/src/main/java/jp/boatai/app/Models.kt'
+            'app/src/main/java/jp/boatai/app/PredictionEngine.kt'
+            'app/src/main/java/jp/boatai/app/TrifectaOddsLocator.kt'
+            'app/src/main/res/values/themes.xml'
+            'app/src/main/res/xml/file_paths.xml'
+          )
+          for f in "${files[@]}"; do
+            mkdir -p "recovered-v0.3.0/$(dirname "$f")"
+            unzip -p repaired.zip "$f" > "recovered-v0.3.0/$f" || true
+            if [ ! -s "recovered-v0.3.0/$f" ]; then
+              echo "FAILED: $f"
+              rm -f "recovered-v0.3.0/$f"
+            else
+              echo "RECOVERED: $f ($(wc -c < "recovered-v0.3.0/$f") bytes)"
+            fi
+          done
           find recovered-v0.3.0 -type f -print | sort
 
       - name: Commit recovered files
