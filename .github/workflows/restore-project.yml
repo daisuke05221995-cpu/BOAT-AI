@@ -20,8 +20,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -d recovered-v0.3.0
-          cp -a recovered-v0.3.0/. .
+          test -d recovered-v0.3.0/app
+          rm -rf app
+          cp -a recovered-v0.3.0/app ./app
+          cp recovered-v0.3.0/README.md ./README.md
 
       - name: Recreate root Gradle project files
         shell: bash
@@ -87,8 +89,6 @@ jobs:
           test -f app/build.gradle.kts
           test -f app/src/main/AndroidManifest.xml
           test -f app/src/main/java/jp/boatai/app/MainActivity.kt
-          test -f .github/workflows/build-apk.yml
-          test -f .github/workflows/release.yml
           echo "Restored source files: $(find app -type f | wc -l)"
 
       - name: Commit restored project
@@ -96,6 +96,6 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add README.md app .github/workflows/build-apk.yml .github/workflows/release.yml settings.gradle.kts build.gradle.kts gradle.properties .gitignore
+          git add README.md app settings.gradle.kts build.gradle.kts gradle.properties .gitignore
           git commit -m 'Restore BOAT AI v0.3 Android project' || exit 0
           git push
