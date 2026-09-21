@@ -138,6 +138,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                         state.copy(oddsLoading = false, oddsError = error.message ?: "オッズ取得失敗")
                     }
                 }
+        }
     }
 
     fun retryOdds() = _ui.value.selectedRace?.let(::selectRace)
