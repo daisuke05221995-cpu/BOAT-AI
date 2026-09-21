@@ -1,0 +1,55 @@
+name: Recover partial v0.3 source
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/recover-partial.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild partial archive
+        shell: bash
+        run: |
+          cat source-v0.3.0/part00.b64 source-v0.3.0/part01.b64 source-v0.3.0/part02.b64 > partial.b64
+          python3 - <<'PY'
+          import base64, pathlib
+          s=''.join(pathlib.Path('partial.b64').read_text().split())
+          # The split files are contiguous Base64 text; pad only the final partial stream.
+          s += '=' * ((4-len(s)%4)%4)
+          pathlib.Path('partial.zip').write_bytes(base64.b64decode(s, validate=False))
+          print('decoded bytes', pathlib.Path('partial.zip').stat().st_size)
+          PY
+
+      - name: Recover complete ZIP entries
+        shell: bash
+        run: |
+          rm -rf recovered-v0.3.0 repaired.zip
+          mkdir -p recovered-v0.3.0
+          (yes y | zip -FF partial.zip --out repaired.zip) || true
+          if [ -f repaired.zip ]; then
+            unzip -o repaired.zip -d recovered-v0.3.0 || true
+          fi
+          echo 'Recovered files:'
+          find recovered-v0.3.0 -type f -print | sort
+
+      - name: Commit recovered files
+        shell: bash
+        run: |
+          if [ -z "$(find recovered-v0.3.0 -type f -print -quit)" ]; then
+            echo 'No files recovered'
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add recovered-v0.3.0
+          git commit -m 'Recover files from uploaded BOAT AI v0.3 source parts' || exit 0
+          git push
