@@ -1,15 +1,13 @@
 name: Patch monthly prediction summary
 
-on:
-  push:
-    paths:
-      - '.github/workflows/patch-monthly-summary.yml'
+on: [push]
 
 permissions:
   contents: write
 
 jobs:
   patch:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
