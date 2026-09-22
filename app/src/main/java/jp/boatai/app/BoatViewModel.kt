@@ -4,13 +4,13 @@ import android.app.Activity
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
@@ -28,6 +28,7 @@ data class BoatUiState(
     val oddsUpdatedAt: Long? = null,
     val records: List<BetRecord> = emptyList(),
     val predictionHistory: List<PredictionRecord> = emptyList(),
+    val performance: PredictionPerformanceProfile = PredictionPerformanceProfile(),
     val selectedForBulk: Set<String> = emptySet(),
     val stakePerPick: Int = 300,
     val tab: Int = 0,
@@ -45,11 +46,14 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val learningStore = LearningStore(application)
     private val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))
     private var oddsRefreshJob: Job? = null
+    private val initialPredictionHistory = predictionStore.load()
+    private val initialPerformance = PredictionPerformanceProfile.from(initialPredictionHistory)
 
     private val _ui = MutableStateFlow(
         BoatUiState(
             records = betStore.load(),
-            predictionHistory = predictionStore.load()
+            predictionHistory = initialPredictionHistory,
+            performance = initialPerformance
         )
     )
     val ui: StateFlow<BoatUiState> = _ui.asStateFlow()
@@ -57,6 +61,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     init {
         val initialLearning = learningStore.load()
         PredictionEngine.installLearningProfile(initialLearning)
+        PredictionEngine.installPerformanceProfile(initialPerformance)
         _ui.update { it.copy(learnedRaceCount = initialLearning.totalRaceCount) }
         viewModelScope.launch {
             appUpdateManager.state.collectLatest { updateState ->
@@ -87,8 +92,13 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             runCatching { repository.loadDate(date) }
                 .onSuccess { races ->
                     val records = betStore.settle(races)
+
+                    // 予想は結果学習・成績反映より先に保存し、未来情報の混入を防ぐ。
                     predictionStore.captureOpenRaces(races)
                     val predictionHistory = predictionStore.settle(races)
+                    val performance = PredictionPerformanceProfile.from(predictionHistory)
+                    PredictionEngine.installPerformanceProfile(performance)
+
                     val learning = learningStore.observe(races)
                     PredictionEngine.installLearningProfile(learning)
                     _ui.update {
@@ -96,6 +106,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             races = races,
                             records = records,
                             predictionHistory = predictionHistory,
+                            performance = performance,
                             loading = false,
                             error = if (races.isEmpty()) "この日のレースデータがありません" else null,
                             lastUpdatedAt = System.currentTimeMillis(),
@@ -192,27 +203,53 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectVenuePurchasable(stadiumNumber: Int) {
-        val ids = _ui.value.races.filter {
+        val candidates = _ui.value.races.filter {
             it.stadiumNumber == stadiumNumber && it.isPurchasable() && PredictionEngine.predict(it).isNotEmpty()
-        }.mapTo(linkedSetOf()) { it.id }
-        _ui.update { it.copy(selectedForBulk = ids, actionMessage = null) }
-    }
-
-    fun selectVenueTop(stadiumNumber: Int, count: Int = 3) {
-        val ids = _ui.value.races.filter {
-            it.stadiumNumber == stadiumNumber && it.isPurchasable() && PredictionEngine.predict(it).isNotEmpty()
-        }.sortedByDescending(PredictionEngine::confidence).take(count).mapTo(linkedSetOf()) { it.id }
-        _ui.update { it.copy(selectedForBulk = ids, actionMessage = null) }
-    }
-
-    fun selectConfidenceAtLeast(minimum: Int) {
-        val ids = _ui.value.races.filter {
-            it.isPurchasable() && PredictionEngine.predict(it).isNotEmpty() && PredictionEngine.confidence(it) >= minimum
-        }.mapTo(linkedSetOf()) { it.id }
+        }
+        val ids = candidates.filter { PredictionEngine.autoSkipReason(it) == null }
+            .mapTo(linkedSetOf()) { it.id }
+        val skipped = candidates.size - ids.size
         _ui.update {
             it.copy(
                 selectedForBulk = ids,
-                actionMessage = if (ids.isEmpty()) "AI期待度${minimum}以上の対象レースはありません" else null
+                actionMessage = if (skipped > 0) "低実績条件の${skipped}レースを自動見送りしました" else null
+            )
+        }
+    }
+
+    fun selectVenueTop(stadiumNumber: Int, count: Int = 3) {
+        val candidates = _ui.value.races.filter {
+            it.stadiumNumber == stadiumNumber && it.isPurchasable() && PredictionEngine.predict(it).isNotEmpty()
+        }
+        val allowed = candidates.filter { PredictionEngine.autoSkipReason(it) == null }
+        val ids = allowed.sortedByDescending(PredictionEngine::confidence)
+            .take(count)
+            .mapTo(linkedSetOf()) { it.id }
+        val skipped = candidates.size - allowed.size
+        _ui.update {
+            it.copy(
+                selectedForBulk = ids,
+                actionMessage = if (skipped > 0) "低実績条件の${skipped}レースを候補から除外しました" else null
+            )
+        }
+    }
+
+    fun selectConfidenceAtLeast(minimum: Int) {
+        val candidates = _ui.value.races.filter {
+            it.isPurchasable() && PredictionEngine.predict(it).isNotEmpty() && PredictionEngine.confidence(it) >= minimum
+        }
+        val ids = candidates.filter { PredictionEngine.autoSkipReason(it) == null }
+            .mapTo(linkedSetOf()) { it.id }
+        val skipped = candidates.size - ids.size
+        _ui.update {
+            it.copy(
+                selectedForBulk = ids,
+                actionMessage = when {
+                    ids.isEmpty() && skipped > 0 -> "AI期待度${minimum}以上はありますが、低実績条件のため自動見送りしました"
+                    ids.isEmpty() -> "AI期待度${minimum}以上の対象レースはありません"
+                    skipped > 0 -> "${ids.size}レース選択 / 低実績条件${skipped}レースを自動見送り"
+                    else -> null
+                }
             )
         }
     }
@@ -248,10 +285,18 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectAllPurchasable() {
-        val ids = _ui.value.races
-            .filter { it.isPurchasable() && PredictionEngine.predict(it).isNotEmpty() }
+        val candidates = _ui.value.races.filter {
+            it.isPurchasable() && PredictionEngine.predict(it).isNotEmpty()
+        }
+        val ids = candidates.filter { PredictionEngine.autoSkipReason(it) == null }
             .mapTo(linkedSetOf()) { it.id }
-        _ui.update { it.copy(selectedForBulk = ids, actionMessage = null) }
+        val skipped = candidates.size - ids.size
+        _ui.update {
+            it.copy(
+                selectedForBulk = ids,
+                actionMessage = if (skipped > 0) "低実績条件の${skipped}レースを自動見送りしました" else null
+            )
+        }
     }
 
     fun clearBulkSelection() {

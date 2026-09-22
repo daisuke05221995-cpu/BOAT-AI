@@ -33,6 +33,9 @@ class PredictionHistoryStore(context: Context) {
             if (race.racers.size < 3 || race.id in existing) return@forEach
             val picks = PredictionEngine.predict(race)
             if (picks.isEmpty()) return@forEach
+            val confidence = PredictionEngine.confidence(race)
+            val rawConfidence = PredictionEngine.rawConfidence(race)
+            val autoSkipReason = PredictionEngine.autoSkipReason(race)
             current += PredictionRecord(
                 id = race.id,
                 date = race.date,
@@ -43,7 +46,13 @@ class PredictionHistoryStore(context: Context) {
                 resultCombination = null,
                 trifectaPayout = 0,
                 settled = false,
-                createdAt = now
+                createdAt = now,
+                confidence = confidence,
+                rank = PredictionPerformanceProfile.rankFor(rawConfidence),
+                firstLane = picks.firstOrNull()?.combination?.substringBefore("-")?.toIntOrNull(),
+                evaluationEligible = race.isPurchasable(),
+                autoSkipped = autoSkipReason != null,
+                autoSkipReason = autoSkipReason
             )
             existing += race.id
             changed = true
