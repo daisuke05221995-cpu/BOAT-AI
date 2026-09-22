@@ -3,14 +3,19 @@ package jp.boatai.app
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.LocalDate
 
 data class LearningProfile(
     val observedRaceIds: Set<String> = emptySet(),
     val starts: Map<String, Int> = emptyMap(),
     val wins: Map<String, Int> = emptyMap(),
     val windCourseStarts: Map<String, Int> = emptyMap(),
-    val windCourseWins: Map<String, Int> = emptyMap()
+    val windCourseWins: Map<String, Int> = emptyMap(),
+    val historicalRaceCount: Int = 0,
+    val trainedThrough: String? = null
 ) {
+    val totalRaceCount: Int get() = historicalRaceCount + observedRaceIds.size
+
     fun bonus(stadium: Int, lane: Int): Double {
         val safeLane = lane.coerceIn(1, 6)
         val key = "$stadium-$safeLane"
@@ -49,21 +54,19 @@ data class LearningProfile(
 }
 
 class LearningStore(context: Context) {
-    private val prefs = context.getSharedPreferences("boat_ai_learning", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("boat_ai_learning", Context.MODE_PRIVATE)
+    private val historicalBaseline: LearningProfile by lazy { loadHistoricalBaseline() }
 
-    fun load(): LearningProfile = runCatching {
-        val root = JSONObject(prefs.getString(KEY, "{}") ?: "{}")
-        LearningProfile(
-            observedRaceIds = root.optJSONArray("observed")?.stringSet().orEmpty(),
-            starts = root.optJSONObject("starts").intMap(),
-            wins = root.optJSONObject("wins").intMap(),
-            windCourseStarts = root.optJSONObject("windCourseStarts").intMap(),
-            windCourseWins = root.optJSONObject("windCourseWins").intMap()
-        )
-    }.getOrDefault(LearningProfile())
+    init {
+        migrateLocalLearningForHistoricalBaseline()
+    }
+
+    fun load(): LearningProfile = mergeProfiles(historicalBaseline, loadLocal())
 
     fun observe(races: List<RaceData>): LearningProfile {
-        val current = load()
+        val baseline = historicalBaseline
+        val current = loadLocal()
         val observed = current.observedRaceIds.toMutableSet()
         val starts = current.starts.toMutableMap()
         val wins = current.wins.toMutableMap()
@@ -71,7 +74,11 @@ class LearningStore(context: Context) {
         val windCourseWins = current.windCourseWins.toMutableMap()
         var changed = false
 
-        races.filter { it.hasResult && it.id !in observed }.forEach { race ->
+        races.filter {
+            it.hasResult &&
+                it.id !in observed &&
+                isAfterHistoricalBaseline(it.date, baseline.trainedThrough)
+        }.forEach { race ->
             val winnerLane = race.result?.trifectaCombination?.substringBefore("-")?.toIntOrNull()
                 ?.takeIf { it in 1..6 } ?: return@forEach
 
@@ -100,18 +107,87 @@ class LearningStore(context: Context) {
             changed = true
         }
 
-        val next = LearningProfile(
+        val nextLocal = LearningProfile(
             observedRaceIds = observed,
             starts = starts,
             wins = wins,
             windCourseStarts = windCourseStarts,
             windCourseWins = windCourseWins
         )
-        if (changed) save(next)
-        return next
+        if (changed) saveLocal(nextLocal)
+        return mergeProfiles(baseline, nextLocal)
     }
 
-    private fun save(profile: LearningProfile) {
+    private fun loadHistoricalBaseline(): LearningProfile = runCatching {
+        val text = appContext.assets.open(HISTORICAL_ASSET).bufferedReader().use { it.readText() }
+        val root = JSONObject(text)
+        LearningProfile(
+            starts = root.optJSONObject("starts").intMap(),
+            wins = root.optJSONObject("wins").intMap(),
+            windCourseStarts = root.optJSONObject("windCourseStarts").intMap(),
+            windCourseWins = root.optJSONObject("windCourseWins").intMap(),
+            historicalRaceCount = root.optInt("historicalRaceCount", 0).coerceAtLeast(0),
+            trainedThrough = root.optString("trainedThrough").trim().takeIf { it.isNotBlank() }
+        )
+    }.getOrDefault(LearningProfile())
+
+    private fun loadLocal(): LearningProfile = runCatching {
+        val root = JSONObject(prefs.getString(KEY, "{}") ?: "{}")
+        LearningProfile(
+            observedRaceIds = root.optJSONArray("observed")?.stringSet().orEmpty(),
+            starts = root.optJSONObject("starts").intMap(),
+            wins = root.optJSONObject("wins").intMap(),
+            windCourseStarts = root.optJSONObject("windCourseStarts").intMap(),
+            windCourseWins = root.optJSONObject("windCourseWins").intMap()
+        )
+    }.getOrDefault(LearningProfile())
+
+    private fun migrateLocalLearningForHistoricalBaseline() {
+        val through = historicalBaseline.trainedThrough ?: return
+        if (prefs.getString(BASELINE_MIGRATION_KEY, null) == through) return
+
+        val local = loadLocal()
+        val overlapsBaseline = local.observedRaceIds.any { raceId ->
+            val raceDate = parseDate(raceId.take(10))
+            val baselineDate = parseDate(through)
+            raceDate != null && baselineDate != null && !raceDate.isAfter(baselineDate)
+        }
+
+        val editor = prefs.edit()
+        if (overlapsBaseline) editor.remove(KEY)
+        editor.putString(BASELINE_MIGRATION_KEY, through).apply()
+    }
+
+    private fun mergeProfiles(base: LearningProfile, local: LearningProfile): LearningProfile =
+        LearningProfile(
+            observedRaceIds = local.observedRaceIds,
+            starts = mergeCounts(base.starts, local.starts),
+            wins = mergeCounts(base.wins, local.wins),
+            windCourseStarts = mergeCounts(base.windCourseStarts, local.windCourseStarts),
+            windCourseWins = mergeCounts(base.windCourseWins, local.windCourseWins),
+            historicalRaceCount = base.historicalRaceCount,
+            trainedThrough = base.trainedThrough
+        )
+
+    private fun mergeCounts(base: Map<String, Int>, local: Map<String, Int>): Map<String, Int> {
+        if (base.isEmpty()) return local
+        if (local.isEmpty()) return base
+        return buildMap {
+            putAll(base)
+            local.forEach { (key, value) -> put(key, (get(key) ?: 0) + value) }
+        }
+    }
+
+    private fun isAfterHistoricalBaseline(raceDateText: String, trainedThrough: String?): Boolean {
+        val through = trainedThrough ?: return true
+        val raceDate = parseDate(raceDateText.take(10)) ?: return true
+        val baselineDate = parseDate(through) ?: return true
+        return raceDate.isAfter(baselineDate)
+    }
+
+    private fun parseDate(value: String): LocalDate? = runCatching { LocalDate.parse(value) }.getOrNull()
+
+    private fun saveLocal(profile: LearningProfile) {
         val root = JSONObject().apply {
             put("observed", JSONArray(profile.observedRaceIds.toList()))
             put("starts", JSONObject(profile.starts))
@@ -131,5 +207,9 @@ class LearningStore(context: Context) {
         return keys().asSequence().associateWith { optInt(it) }
     }
 
-    companion object { private const val KEY = "profile" }
+    companion object {
+        private const val KEY = "profile"
+        private const val BASELINE_MIGRATION_KEY = "historical_baseline_migrated_through"
+        private const val HISTORICAL_ASSET = "historical_learning.json"
+    }
 }
