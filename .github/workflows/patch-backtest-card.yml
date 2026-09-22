@@ -20,10 +20,10 @@ jobs:
           if 'item { HistoricalBacktestCard() }' in text:
               print('already inserted')
           else:
-              marker='        item { SummaryCard("購入推奨だけ買った場合", recommendedSummary, "AIが購入推奨と判定したレースだけを各${money(PredictionHistoryStore.DEFAULT_SIMULATION_STAKE)}×4点で計算") }'
+              marker='        item { PerformanceFeedbackCard(ui) }'
               if marker not in text:
-                  raise SystemExit('profit summary marker not found')
-              text=text.replace(marker, '        item { HistoricalBacktestCard() }\n' + marker, 1)
+                  raise SystemExit('profit screen insertion marker not found')
+              text=text.replace(marker, '        item { HistoricalBacktestCard() }\n\n' + marker, 1)
               p.write_text(text, encoding='utf-8')
           PY
       - name: Commit patch
@@ -35,5 +35,6 @@ jobs:
             echo 'No changes.'
           else
             git commit -m 'Show 2026 historical backtest in profit screen'
-            git push
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi
