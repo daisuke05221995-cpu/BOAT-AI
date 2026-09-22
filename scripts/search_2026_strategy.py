@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""Search variable 1-10 pick BOAT AI strategies without leaking holdout results.
+"""Search race-specific 1-10 pick BOAT AI strategies with staged validation.
 
-Selection protocol:
-- 2026-01-01..04-30: search/training
-- 2026-05-01..06-30: tuning/selection
-- 2026-07-01..latest: untouched holdout validation
+Protocol:
+- Jan-Apr: train/search coarse race contexts.
+- May-Jun: tune and require the same context/config to remain profitable.
+- Jul-Aug: validation; never used to select a context or stake pattern.
+- Sep-latest: final confirmation is calculated only when Jul-Aug passes.
 
-The selected strategy is chosen before holdout results are inspected. Historical
-closing odds are unavailable, so the live odds final gate is not included.
+Historical closing odds are unavailable, so the live odds final gate is excluded.
+The search therefore focuses on prediction context, point count and 100-yen stake allocation.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -28,15 +30,18 @@ from build_2026_backtest import (
     decision_ready,
     fetch_day,
     parse_day,
+    race_racers,
     race_result,
     raw_confidence,
 )
 
 BUDGET_UNITS = 12  # 12 x 100 yen = 1,200 yen
-MIN_TRAIN_BUYS = 100
-MIN_TUNE_BUYS = 50
-MIN_HOLDOUT_BUYS = 50
-THRESHOLD_EXTRAS = tuple(range(0, 17, 2))
+MIN_CONFIDENCE = 70
+MIN_CONTEXT_TRAIN = 80
+MIN_CONTEXT_TUNE = 30
+MIN_CONTEXT_ROI = 105.0
+MIN_VALIDATION_BUYS = 50
+MIN_FINAL_BUYS = 20
 
 
 def top_picks(score_map: dict[int, float], limit: int = 10) -> list[str]:
@@ -56,7 +61,7 @@ def top_picks(score_map: dict[int, float], limit: int = 10) -> list[str]:
 
 
 def stake_patterns(points: int, total_units: int = BUDGET_UNITS) -> list[tuple[int, ...]]:
-    """All non-increasing 100-yen allocations with at least 100 yen per pick."""
+    """All non-increasing positive 100-yen allocations summing to the budget."""
     patterns: list[tuple[int, ...]] = []
 
     def walk(prefix: tuple[int, ...], remaining: int, left: int, maximum: int) -> None:
@@ -72,26 +77,58 @@ def stake_patterns(points: int, total_units: int = BUDGET_UNITS) -> list[tuple[i
     return patterns
 
 
-def evaluate(records: list[dict[str, Any]], start: date, end: date, points: int, extra: int, stakes: tuple[int, ...]) -> dict[str, Any]:
-    buys = hits = stake = payout = 0
-    for rec in records:
-        day = rec["day"]
-        if day < start or day > end:
-            continue
-        if rec["historySkip"]:
-            continue
-        threshold = min(97, int(rec["baseThreshold"]) + extra)
-        if int(rec["confidence"]) < threshold:
-            continue
-        buys += 1
-        stake += BUDGET_UNITS * 100
-        picks = rec["picks"][:points]
-        combo = rec["combo"]
-        if combo in picks:
-            hits += 1
-            idx = picks.index(combo)
-            payout += int(rec["amount"]) * stakes[idx]
-    roi = payout * 100.0 / stake if stake else 0.0
+def confidence_band(value: int) -> str:
+    if value < 80:
+        return "70-79"
+    if value < 85:
+        return "80-84"
+    if value < 90:
+        return "85-89"
+    if value < 94:
+        return "90-93"
+    return "94+"
+
+
+def first_group(lane: int | None) -> str:
+    if lane == 1:
+        return "1"
+    if lane in (2, 3):
+        return "2-3"
+    return "4-6"
+
+
+def context_key(rec: dict[str, Any]) -> str:
+    return "|".join(
+        [
+            confidence_band(int(rec["confidence"])),
+            first_group(rec.get("firstLane")),
+            "wind5+" if int(rec.get("wind", 0)) >= 5 else "wind0-4",
+            "courseChange" if rec.get("courseChanged") else "courseStable",
+            "historySkip" if rec.get("historySkip") else "historyKeep",
+        ]
+    )
+
+
+def context_payload(key: str) -> dict[str, Any]:
+    confidence, first, wind, course, history = key.split("|")
+    return {
+        "confidenceBand": confidence,
+        "firstLaneGroup": first,
+        "windBand": wind,
+        "courseState": course,
+        "historyState": history,
+    }
+
+
+def empty_stats() -> dict[str, Any]:
+    return {"purchaseRaces": 0, "hits": 0, "stake": 0, "payout": 0}
+
+
+def finalize_stats(stats: dict[str, Any]) -> dict[str, Any]:
+    buys = int(stats.get("purchaseRaces", 0))
+    hits = int(stats.get("hits", 0))
+    stake = int(stats.get("stake", 0))
+    payout = int(stats.get("payout", 0))
     return {
         "purchaseRaces": buys,
         "hits": hits,
@@ -99,17 +136,81 @@ def evaluate(records: list[dict[str, Any]], start: date, end: date, points: int,
         "stake": stake,
         "payout": payout,
         "profit": payout - stake,
-        "roi": round(roi, 1),
+        "roi": round(payout * 100.0 / stake, 1) if stake else 0.0,
     }
 
 
-def config_payload(points: int, extra: int, stakes: tuple[int, ...]) -> dict[str, Any]:
+def evaluate_records(records: list[dict[str, Any]], points: int, stakes: tuple[int, ...]) -> dict[str, Any]:
+    stats = empty_stats()
+    for rec in records:
+        stats["purchaseRaces"] += 1
+        stats["stake"] += BUDGET_UNITS * 100
+        picks = rec["picks"][:points]
+        combo = rec["combo"]
+        if combo in picks:
+            stats["hits"] += 1
+            idx = picks.index(combo)
+            stats["payout"] += int(rec["amount"]) * stakes[idx]
+    return finalize_stats(stats)
+
+
+def evaluate_strategy(
+    records: list[dict[str, Any]],
+    start: date,
+    end: date,
+    selected: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    stats = empty_stats()
+    for rec in records:
+        day = rec["day"]
+        if day < start or day > end:
+            continue
+        selected_context = selected.get(rec["contextKey"])
+        if not selected_context:
+            continue
+        cfg = selected_context["config"]
+        points = int(cfg["points"])
+        stakes = tuple(int(value) // 100 for value in cfg["stakes"])
+        stats["purchaseRaces"] += 1
+        stats["stake"] += BUDGET_UNITS * 100
+        picks = rec["picks"][:points]
+        combo = rec["combo"]
+        if combo in picks:
+            stats["hits"] += 1
+            idx = picks.index(combo)
+            stats["payout"] += int(rec["amount"]) * stakes[idx]
+    return finalize_stats(stats)
+
+
+def evaluate_current_baseline(records: list[dict[str, Any]], start: date, end: date) -> dict[str, Any]:
+    stats = empty_stats()
+    stakes = (5, 4, 2, 1)
+    for rec in records:
+        day = rec["day"]
+        if day < start or day > end:
+            continue
+        if rec["historySkip"] or int(rec["confidence"]) < int(rec["baseThreshold"]):
+            continue
+        stats["purchaseRaces"] += 1
+        stats["stake"] += 1200
+        picks = rec["picks"][:4]
+        if rec["combo"] in picks:
+            stats["hits"] += 1
+            idx = picks.index(rec["combo"])
+            stats["payout"] += int(rec["amount"]) * stakes[idx]
+    return finalize_stats(stats)
+
+
+def config_payload(points: int, stakes: tuple[int, ...]) -> dict[str, Any]:
     return {
         "points": points,
-        "thresholdExtra": extra,
         "stakes": [unit * 100 for unit in stakes],
         "budget": BUDGET_UNITS * 100,
     }
+
+
+def profitable(stats: dict[str, Any], minimum_roi: float = 100.0) -> bool:
+    return stats["roi"] > minimum_roi and stats["profit"] > 0
 
 
 def main() -> None:
@@ -123,8 +224,8 @@ def main() -> None:
 
     today_jst = datetime.now(JST).date()
     data_end = args.end or min(today_jst - timedelta(days=1), date(2026, 12, 31))
-    if data_end < date(2026, 7, 1):
-        raise SystemExit("holdout period has not started yet")
+    if data_end < date(2026, 9, 1):
+        raise SystemExit("final validation period has not started yet")
 
     learning = LearningProfile(json.loads(args.learning.read_text(encoding="utf-8")))
     performance = PerformanceProfile()
@@ -174,23 +275,33 @@ def main() -> None:
             penalty = performance.penalty(venue, raw, first_lane)
             confidence = max(20, min(97, raw + penalty))
             history_skip = performance.auto_skip(venue, raw, first_lane)
+            wind = as_int((race.get("preview") or {}).get("wind_speed"), 0) or 0
+            first_racer = next((r for r in race_racers(race) if r["lane"] == first_lane), None)
+            course = (first_racer or {}).get("course")
+            course_changed = bool(course is not None and first_lane is not None and course != first_lane)
 
-            records.append({
-                "day": day,
-                "confidence": confidence,
-                "baseThreshold": buy_threshold(race, leader_lane),
-                "historySkip": history_skip,
-                "picks": picks,
-                "combo": combo,
-                "amount": trifecta_amount,
-            })
+            if confidence >= MIN_CONFIDENCE:
+                rec = {
+                    "day": day,
+                    "confidence": confidence,
+                    "baseThreshold": buy_threshold(race, leader_lane),
+                    "historySkip": history_skip,
+                    "firstLane": first_lane,
+                    "wind": wind,
+                    "courseChanged": course_changed,
+                    "picks": picks,
+                    "combo": combo,
+                    "amount": trifecta_amount,
+                }
+                rec["contextKey"] = context_key(rec)
+                records.append(rec)
 
-            # Preserve current app performance-memory semantics while searching a new bet strategy.
+            # Preserve the app's current walk-forward performance memory while deriving contexts.
             current_hit = combo in picks[:4]
             perf_payout = trifecta_amount * 3 if current_hit else 0
             observations.append((venue, raw, first_lane, current_hit, 1200, perf_payout))
 
-        # Same-day outcomes are applied only after every race for that day was scored.
+        # No same-day leakage: apply outcomes only after every race that day was scored.
         for race in races:
             learning.observe_race(race)
         for observation in observations:
@@ -198,110 +309,159 @@ def main() -> None:
 
     train_start, train_end = date(2026, 1, 1), date(2026, 4, 30)
     tune_start, tune_end = date(2026, 5, 1), date(2026, 6, 30)
-    holdout_start, holdout_end = date(2026, 7, 1), data_end
+    validation_start, validation_end = date(2026, 7, 1), date(2026, 8, 31)
+    final_start, final_end = date(2026, 9, 1), data_end
 
-    train_candidates: list[dict[str, Any]] = []
-    for points in range(1, 11):
-        for stakes in stake_patterns(points):
-            for extra in THRESHOLD_EXTRAS:
-                train = evaluate(records, train_start, train_end, points, extra, stakes)
-                if train["purchaseRaces"] < MIN_TRAIN_BUYS:
-                    continue
-                train_candidates.append({
-                    "config": config_payload(points, extra, stakes),
-                    "train": train,
-                })
+    by_period_context: dict[str, dict[str, list[dict[str, Any]]]] = {
+        "train": defaultdict(list),
+        "tune": defaultdict(list),
+    }
+    for rec in records:
+        day = rec["day"]
+        if train_start <= day <= train_end:
+            by_period_context["train"][rec["contextKey"]].append(rec)
+        elif tune_start <= day <= tune_end:
+            by_period_context["tune"][rec["contextKey"]].append(rec)
 
-    if not train_candidates:
-        raise SystemExit("no strategy met the minimum training sample")
+    selected_contexts: list[dict[str, Any]] = []
+    selected_map: dict[str, dict[str, Any]] = {}
+    diagnostics: list[dict[str, Any]] = []
 
-    train_candidates.sort(key=lambda item: (item["train"]["roi"], item["train"]["profit"]), reverse=True)
-    top_train = train_candidates[:200]
-
-    tuned: list[dict[str, Any]] = []
-    for candidate in top_train:
-        cfg = candidate["config"]
-        stakes = tuple(value // 100 for value in cfg["stakes"])
-        tune = evaluate(records, tune_start, tune_end, cfg["points"], cfg["thresholdExtra"], stakes)
-        if tune["purchaseRaces"] < MIN_TUNE_BUYS:
+    all_contexts = sorted(set(by_period_context["train"]) | set(by_period_context["tune"]))
+    for key in all_contexts:
+        train_records = by_period_context["train"].get(key, [])
+        tune_records = by_period_context["tune"].get(key, [])
+        if len(train_records) < MIN_CONTEXT_TRAIN or len(tune_records) < MIN_CONTEXT_TUNE:
             continue
-        tuned.append({**candidate, "tune": tune})
 
-    if not tuned:
-        raise SystemExit("no strategy met the minimum tuning sample")
+        best: dict[str, Any] | None = None
+        for points in range(1, 11):
+            for stakes in stake_patterns(points):
+                train = evaluate_records(train_records, points, stakes)
+                tune = evaluate_records(tune_records, points, stakes)
+                score = min(train["roi"], tune["roi"])
+                candidate = {
+                    "contextKey": key,
+                    "context": context_payload(key),
+                    "config": config_payload(points, stakes),
+                    "train": train,
+                    "tune": tune,
+                    "robustRoi": round(score, 1),
+                }
+                if best is None or (
+                    score,
+                    tune["roi"],
+                    train["roi"],
+                    tune["profit"] + train["profit"],
+                ) > (
+                    best["robustRoi"],
+                    best["tune"]["roi"],
+                    best["train"]["roi"],
+                    best["tune"]["profit"] + best["train"]["profit"],
+                ):
+                    best = candidate
 
-    positive_both = [item for item in tuned if item["train"]["roi"] > 100.0 and item["tune"]["roi"] > 100.0]
-    selection_pool = positive_both or tuned
-    selection_pool.sort(
+        if best is None:
+            continue
+        diagnostics.append(best)
+        if (
+            best["robustRoi"] >= MIN_CONTEXT_ROI
+            and profitable(best["train"])
+            and profitable(best["tune"])
+        ):
+            selected_contexts.append(best)
+            selected_map[key] = best
+
+    selected_contexts.sort(
         key=lambda item: (
-            min(item["train"]["roi"], item["tune"]["roi"]),
+            item["robustRoi"],
             item["tune"]["roi"],
             item["train"]["roi"],
-            item["tune"]["profit"],
         ),
         reverse=True,
     )
-    selected = selection_pool[0]
-    cfg = selected["config"]
-    stakes = tuple(value // 100 for value in cfg["stakes"])
-    holdout = evaluate(records, holdout_start, holdout_end, cfg["points"], cfg["thresholdExtra"], stakes)
+    diagnostics.sort(key=lambda item: item["robustRoi"], reverse=True)
 
-    current_cfg = {"points": 4, "thresholdExtra": 0, "stakes": [500, 400, 200, 100], "budget": 1200}
-    current_stakes = (5, 4, 2, 1)
-    current = {
-        "config": current_cfg,
-        "train": evaluate(records, train_start, train_end, 4, 0, current_stakes),
-        "tune": evaluate(records, tune_start, tune_end, 4, 0, current_stakes),
-        "holdout": evaluate(records, holdout_start, holdout_end, 4, 0, current_stakes),
-    }
+    aggregate_train = evaluate_strategy(records, train_start, train_end, selected_map)
+    aggregate_tune = evaluate_strategy(records, tune_start, tune_end, selected_map)
+    aggregate_validation = evaluate_strategy(records, validation_start, validation_end, selected_map)
 
-    qualified = bool(
-        selected["train"]["roi"] > 100.0
-        and selected["tune"]["roi"] > 100.0
-        and holdout["roi"] > 100.0
-        and selected["train"]["profit"] > 0
-        and selected["tune"]["profit"] > 0
-        and holdout["profit"] > 0
-        and holdout["purchaseRaces"] >= MIN_HOLDOUT_BUYS
+    qualified_for_final = bool(
+        selected_contexts
+        and profitable(aggregate_train)
+        and profitable(aggregate_tune)
+        and profitable(aggregate_validation)
+        and aggregate_validation["purchaseRaces"] >= MIN_VALIDATION_BUYS
     )
 
+    final_stats: dict[str, Any] | None = None
+    qualified_for_release = False
+    if qualified_for_final and final_end >= final_start:
+        final_stats = evaluate_strategy(records, final_start, final_end, selected_map)
+        qualified_for_release = bool(
+            profitable(final_stats)
+            and final_stats["purchaseRaces"] >= MIN_FINAL_BUYS
+        )
+
+    baseline = {
+        "train": evaluate_current_baseline(records, train_start, train_end),
+        "tune": evaluate_current_baseline(records, tune_start, tune_end),
+        "validation": evaluate_current_baseline(records, validation_start, validation_end),
+    }
+    if qualified_for_final and final_end >= final_start:
+        baseline["final"] = evaluate_current_baseline(records, final_start, final_end)
+
     result = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "dataThrough": data_end.isoformat(),
-        "method": "walk-forward prediction; strategy chosen on Jan-Apr training + May-Jun tuning; Jul-latest holdout untouched during selection",
+        "method": "walk-forward predictions; context/config chosen on Jan-Apr + May-Jun only; Jul-Aug validation; Sep final evaluated only after validation passes",
         "oddsFinalGateIncluded": False,
         "searchSpace": {
             "points": [1, 10],
-            "thresholdExtras": list(THRESHOLD_EXTRAS),
             "budget": 1200,
             "stakeUnit": 100,
-            "allocationRule": "all non-increasing positive 100-yen allocations summing to 1,200 yen",
-            "trainCandidates": len(train_candidates),
-            "tunedCandidates": len(tuned),
+            "allocationRule": "all non-increasing positive allocations summing to 1,200 yen",
+            "contextDimensions": ["confidenceBand", "firstLaneGroup", "windBand", "courseState", "historyState"],
+            "minimumConfidence": MIN_CONFIDENCE,
+            "minimumContextTrainRaces": MIN_CONTEXT_TRAIN,
+            "minimumContextTuneRaces": MIN_CONTEXT_TUNE,
+            "minimumContextRobustRoi": MIN_CONTEXT_ROI,
         },
         "periods": {
             "train": [train_start.isoformat(), train_end.isoformat()],
             "tune": [tune_start.isoformat(), tune_end.isoformat()],
-            "holdout": [holdout_start.isoformat(), holdout_end.isoformat()],
+            "validation": [validation_start.isoformat(), validation_end.isoformat()],
+            "final": [final_start.isoformat(), final_end.isoformat()],
         },
-        "currentFourPickBaseline": current,
-        "selected": {**selected, "holdout": holdout},
-        "qualifiedForRelease": qualified,
-        "releaseRule": "ROI > 100% and positive profit in train, tune, and holdout; holdout has at least 50 purchases",
+        "selectedContexts": selected_contexts,
+        "aggregate": {
+            "train": aggregate_train,
+            "tune": aggregate_tune,
+            "validation": aggregate_validation,
+            "final": final_stats if final_stats is not None else {"withheld": True},
+        },
+        "currentFourPickBaseline": baseline,
+        "qualifiedForFinal": qualified_for_final,
+        "qualifiedForRelease": qualified_for_release,
+        "releaseRule": "selected contexts profitable in train+tune, aggregate Jul-Aug ROI > 100% with >=50 buys, then Sep-latest ROI > 100% with >=20 buys",
+        "topContextDiagnostics": diagnostics[:20],
         "notes": [
-            "The holdout period is not used to choose the strategy.",
-            "Historical closing odds are unavailable, so live final-odds filtering is excluded.",
-            "Performance-memory auto-skip behavior is preserved from the current app while bet point count/allocation/threshold are searched.",
+            "Point count and stake allocation can differ by race context.",
+            "Jul-Aug results are not used to choose contexts or allocations.",
+            "Sep results are not evaluated unless Jul-Aug validation is already positive.",
+            "Historical closing odds are unavailable, so live final-odds filtering remains excluded.",
         ],
     }
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(json.dumps({
-        "selected": result["selected"],
-        "qualifiedForRelease": qualified,
-        "currentHoldout": current["holdout"],
+        "selectedContexts": len(selected_contexts),
+        "aggregate": result["aggregate"],
+        "qualifiedForFinal": qualified_for_final,
+        "qualifiedForRelease": qualified_for_release,
+        "baselineValidation": baseline["validation"],
     }, ensure_ascii=False, indent=2))
 
 
