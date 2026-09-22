@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Tune a market-edge betting strategy with archived pre-close trifecta odds.
 
-The strategy compares BOAT AI's pre-race trifecta probability with the market's
-normalized implied probability from all 120 archived odds. Parameters are chosen
-using 2026-07-19..2026-08-31 only. September is a strict untouched holdout.
+Parameters are fitted ONLY on 2026-07-19..2026-08-31. September is an untouched
+holdout and is never used to choose a candidate. Race learning and performance
+memory remain walk-forward; same-day results are applied after the whole day.
 """
 from __future__ import annotations
 
@@ -15,9 +15,8 @@ import math
 import time
 import urllib.error
 import urllib.request
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -34,20 +33,27 @@ from build_2026_backtest import (
     parse_day,
     race_result,
     raw_confidence,
+    top_picks,
 )
 
 ODDS_FROM = date(2026, 7, 19)
 TUNE_THROUGH = date(2026, 8, 31)
 HOLDOUT_FROM = date(2026, 9, 1)
-ODDS_URL = "https://raw.githubusercontent.com/BoatraceCSV/boatracecsv.github.io/main/data/previews/od3/{year}/{month:02d}/{day:02d}.csv"
-USER_AGENT = "BOAT-AI-Market-Edge/1.0"
+ODDS_URL = (
+    "https://raw.githubusercontent.com/BoatraceCSV/boatracecsv.github.io/"
+    "main/data/previews/od3/{year}/{month:02d}/{day:02d}.csv"
+)
+USER_AGENT = "BOAT-AI-Market-Edge/1.1"
 
 STAKE_PLANS: dict[str, tuple[int, ...]] = {
     "equal3": (400, 400, 400),
     "balanced3": (500, 400, 300),
     "equal4": (300, 300, 300, 300),
-    "balanced4": (400, 300, 300, 200),
 }
+TEMPERATURES = (8, 12, 16, 20, 24, 32)
+EDGE_MINS = (1.00, 1.10, 1.20, 1.30, 1.45, 1.60)
+EV_MINS = (1.00, 1.05, 1.10, 1.20)
+MODEL_RANKS = (12, 20, 30)
 
 
 @dataclass(frozen=True)
@@ -85,24 +91,28 @@ class Stats:
         }
 
 
-def candidates() -> list[Candidate]:
+def candidate_grid() -> list[Candidate]:
     return [
         Candidate(temp, edge, ev, rank, plan, require)
-        for temp in (8, 12, 16, 20, 24, 32)
-        for edge in (1.00, 1.05, 1.10, 1.20, 1.30, 1.45, 1.60)
-        for ev in (0.90, 1.00, 1.05, 1.10, 1.20, 1.30)
-        for rank in (8, 12, 20, 30)
+        for temp in TEMPERATURES
+        for edge in EDGE_MINS
+        for ev in EV_MINS
+        for rank in MODEL_RANKS
         for plan in STAKE_PLANS
         for require in (True, False)
     ]
 
 
-def fetch_odds_day(day: date, attempts: int = 3) -> tuple[date, dict[str, dict[str, float]] | None, str | None]:
+def fetch_odds_day(
+    day: date, attempts: int = 3
+) -> tuple[date, dict[str, dict[str, float]] | None, str | None]:
     url = ODDS_URL.format(year=day.year, month=day.month, day=day.day)
     last_error = None
     for attempt in range(1, attempts + 1):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "text/csv"})
+            req = urllib.request.Request(
+                url, headers={"User-Agent": USER_AGENT, "Accept": "text/csv"}
+            )
             with urllib.request.urlopen(req, timeout=30) as response:
                 text = response.read().decode("utf-8-sig")
             rows: dict[str, dict[str, float]] = {}
@@ -135,18 +145,23 @@ def fetch_odds_day(day: date, attempts: int = 3) -> tuple[date, dict[str, dict[s
 
 def race_code(day: date, race: dict[str, Any]) -> str | None:
     venue = as_int(race.get("stadium_number"))
-    rno = as_int(race.get("race_number"))
-    if venue is None or rno is None:
+    race_no = as_int(race.get("race_number"))
+    if venue is None or race_no is None:
         return None
-    return f"{day:%Y%m%d}{venue:02d}{rno:02d}"
+    return f"{day:%Y%m%d}{venue:02d}{race_no:02d}"
 
 
-def trifecta_probabilities(score_map: dict[int, float], temperature: int) -> dict[str, float]:
+def trifecta_probabilities(
+    score_map: dict[int, float], temperature: int
+) -> dict[str, float]:
     lanes = sorted(score_map)
     if len(lanes) != 6:
         return {}
     max_score = max(score_map.values())
-    weights = {lane: math.exp((score_map[lane] - max_score) / float(temperature)) for lane in lanes}
+    weights = {
+        lane: math.exp((score_map[lane] - max_score) / float(temperature))
+        for lane in lanes
+    }
     total = sum(weights.values())
     result: dict[str, float] = {}
     for first in lanes:
@@ -168,36 +183,41 @@ def trifecta_probabilities(score_map: dict[int, float], temperature: int) -> dic
 def market_probabilities(odds: dict[str, float]) -> dict[str, float]:
     inverse = {combo: 1.0 / value for combo, value in odds.items() if value > 1.0}
     total = sum(inverse.values())
-    return {combo: value / total for combo, value in inverse.items()} if total > 0 else {}
+    if total <= 0:
+        return {}
+    return {combo: value / total for combo, value in inverse.items()}
 
 
-def selection_for(
-    model_probs: dict[str, float],
+def selection_cache_for_race(
+    probability_cache: dict[int, dict[str, float]],
     market_probs: dict[str, float],
     odds: dict[str, float],
-    candidate: Candidate,
-) -> tuple[list[str], float, float]:
-    model_ranked = sorted(model_probs, key=model_probs.get, reverse=True)
-    allowed = set(model_ranked[:candidate.max_model_rank])
-    rows: list[tuple[str, float, float, float]] = []
-    for combo in allowed:
-        mp = model_probs.get(combo, 0.0)
-        market = market_probs.get(combo, 0.0)
-        price = odds.get(combo, 0.0)
-        if mp <= 0 or market <= 0 or price <= 1.0:
-            continue
-        edge = mp / market
-        ev = mp * price
-        if edge >= candidate.edge_min and ev >= candidate.ev_min:
-            rows.append((combo, ev, edge, mp))
-    rows.sort(key=lambda row: (row[1], row[2], row[3]), reverse=True)
-    stakes = STAKE_PLANS[candidate.plan]
-    picks = [row[0] for row in rows[:len(stakes)]]
-    if len(picks) != len(stakes):
-        return [], 0.0, 0.0
-    weighted_ev = sum(model_probs[pick] * odds[pick] * stake for pick, stake in zip(picks, stakes)) / BUDGET
-    min_edge = min(model_probs[pick] / market_probs[pick] for pick in picks)
-    return picks, weighted_ev, min_edge
+) -> dict[tuple[int, float, float, int], list[str]]:
+    cache: dict[tuple[int, float, float, int], list[str]] = {}
+    for temp, model_probs in probability_cache.items():
+        ranked = sorted(model_probs, key=model_probs.get, reverse=True)
+        for max_rank in MODEL_RANKS:
+            allowed = ranked[:max_rank]
+            rows: list[tuple[str, float, float, float]] = []
+            for combo in allowed:
+                model_p = model_probs.get(combo, 0.0)
+                market_p = market_probs.get(combo, 0.0)
+                price = odds.get(combo, 0.0)
+                if model_p <= 0 or market_p <= 0 or price <= 1.0:
+                    continue
+                edge = model_p / market_p
+                expected_return = model_p * price
+                rows.append((combo, expected_return, edge, model_p))
+            rows.sort(key=lambda row: (row[1], row[2], row[3]), reverse=True)
+            for edge_min in EDGE_MINS:
+                for ev_min in EV_MINS:
+                    selected = [
+                        combo
+                        for combo, ev, edge, _ in rows
+                        if edge >= edge_min and ev >= ev_min
+                    ][:4]
+                    cache[(temp, edge_min, ev_min, max_rank)] = selected
+    return cache
 
 
 def main() -> None:
@@ -238,12 +258,11 @@ def main() -> None:
 
     learning = LearningProfile(json.loads(args.learning.read_text(encoding="utf-8")))
     performance = PerformanceProfile()
-    grid = candidates()
+    grid = candidate_grid()
     tune = {candidate: Stats() for candidate in grid}
     holdout = {candidate: Stats() for candidate in grid}
     matched = 0
 
-    temperatures = sorted({candidate.temperature for candidate in grid})
     for day in dates:
         root = race_payloads.get(day)
         if root is None:
@@ -251,6 +270,7 @@ def main() -> None:
         races = parse_day(root)
         day_odds = odds_payloads.get(day, {})
         observations: list[tuple[int, int, int | None, bool, int, int]] = []
+
         for race in races:
             combo, result_amount = race_result(race)
             if not combo or result_amount <= 0 or not decision_ready(race):
@@ -258,32 +278,22 @@ def main() -> None:
             raw, leader_lane, score_map = raw_confidence(race, learning)
             if raw == 0 or len(score_map) != 6:
                 continue
-            venue = as_int(race.get("stadium_number"), 0) or 0
-            first_lane = leader_lane
-            penalty = performance.penalty(venue, raw, first_lane)
-            confidence = max(20, min(97, raw + penalty))
-            skip_by_history = performance.auto_skip(venue, raw, first_lane)
-            pre_recommended = (not skip_by_history) and confidence >= buy_threshold(race, leader_lane)
 
-            # Keep performance-memory evolution consistent using the current score-ranked four picks.
-            base_order = sorted(score_map, key=score_map.get, reverse=True)
-            base_picks = []
-            for first in base_order:
-                for second in base_order:
-                    if second == first:
-                        continue
-                    for third in base_order:
-                        if third not in (first, second):
-                            base_picks.append(f"{first}-{second}-{third}")
-                            if len(base_picks) == 4:
-                                break
-                    if len(base_picks) == 4:
-                        break
-                if len(base_picks) == 4:
-                    break
+            venue = as_int(race.get("stadium_number"), 0) or 0
+            penalty = performance.penalty(venue, raw, leader_lane)
+            confidence = max(20, min(97, raw + penalty))
+            skip_by_history = performance.auto_skip(venue, raw, leader_lane)
+            pre_recommended = (
+                not skip_by_history
+                and confidence >= buy_threshold(race, leader_lane)
+            )
+
+            base_picks = top_picks(score_map)
             perf_hit = combo in base_picks
             perf_paid = result_amount * 3 if perf_hit else 0
-            observations.append((venue, raw, first_lane, perf_hit, BUDGET, perf_paid))
+            observations.append(
+                (venue, raw, leader_lane, perf_hit, BUDGET, perf_paid)
+            )
 
             if day < ODDS_FROM:
                 continue
@@ -294,24 +304,40 @@ def main() -> None:
             market_probs = market_probabilities(odds)
             if len(market_probs) < 100:
                 continue
+
             matched += 1
-            probability_cache = {temp: trifecta_probabilities(score_map, temp) for temp in temperatures}
+            probability_cache = {
+                temp: trifecta_probabilities(score_map, temp)
+                for temp in TEMPERATURES
+            }
+            selections = selection_cache_for_race(
+                probability_cache, market_probs, odds
+            )
             target = tune if day <= TUNE_THROUGH else holdout
 
             for candidate in grid:
                 if candidate.require_pre_recommend and not pre_recommended:
                     continue
-                picks, _, _ = selection_for(probability_cache[candidate.temperature], market_probs, odds, candidate)
-                if not picks:
-                    continue
+                base_selection = selections[
+                    (
+                        candidate.temperature,
+                        candidate.edge_min,
+                        candidate.ev_min,
+                        candidate.max_model_rank,
+                    )
+                ]
                 stakes = STAKE_PLANS[candidate.plan]
+                picks = base_selection[: len(stakes)]
+                if len(picks) != len(stakes):
+                    continue
                 if combo in picks:
-                    idx = picks.index(combo)
-                    paid = result_amount * (stakes[idx] // 100)
+                    index = picks.index(combo)
+                    paid = result_amount * (stakes[index] // 100)
                     target[candidate].add(True, paid)
                 else:
                     target[candidate].add(False, 0)
 
+        # Update only after all same-day predictions have been evaluated.
         for race in races:
             learning.observe_race(race)
         for observation in observations:
@@ -319,38 +345,47 @@ def main() -> None:
 
     rows: list[dict[str, Any]] = []
     for candidate in grid:
-        tr = tune[candidate].payload()
-        va = holdout[candidate].payload()
-        rows.append({
-            "candidate": asdict(candidate),
-            "stakes": list(STAKE_PLANS[candidate.plan]),
-            "tune": tr,
-            "holdout": va,
-        })
+        train_payload = tune[candidate].payload()
+        holdout_payload = holdout[candidate].payload()
+        rows.append(
+            {
+                "candidate": asdict(candidate),
+                "stakes": list(STAKE_PLANS[candidate.plan]),
+                "tune": train_payload,
+                "holdout": holdout_payload,
+            }
+        )
 
-    # Selection is STRICTLY based on July-August; September is only pass/fail afterwards.
+    # STRICT selection: only July-August is used to choose the one candidate.
     eligible_tune = [row for row in rows if row["tune"]["races"] >= 120]
-    eligible_tune.sort(key=lambda row: (row["tune"]["roi"], row["tune"]["races"]), reverse=True)
+    eligible_tune.sort(
+        key=lambda row: (row["tune"]["roi"], row["tune"]["races"]),
+        reverse=True,
+    )
     selected = eligible_tune[0] if eligible_tune else None
     selected_passes_holdout = bool(
         selected
+        and selected["tune"]["roi"] > 100.0
         and selected["holdout"]["races"] >= 60
         and selected["holdout"]["roi"] > 100.0
-        and selected["tune"]["roi"] > 100.0
     )
 
-    # Diagnostic only. Not used for parameter selection.
+    # Diagnostics only; never used for choosing production parameters.
     stable_positive = [
-        row for row in rows
+        row
+        for row in rows
         if row["tune"]["races"] >= 120
         and row["holdout"]["races"] >= 60
         and row["tune"]["roi"] > 100.0
         and row["holdout"]["roi"] > 100.0
     ]
-    stable_positive.sort(key=lambda row: min(row["tune"]["roi"], row["holdout"]["roi"]), reverse=True)
+    stable_positive.sort(
+        key=lambda row: min(row["tune"]["roi"], row["holdout"]["roi"]),
+        reverse=True,
+    )
 
     payload = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "oddsDataFrom": min(odds_payloads).isoformat() if odds_payloads else None,
         "oddsDataThrough": max(odds_payloads).isoformat() if odds_payloads else None,
@@ -359,7 +394,10 @@ def main() -> None:
         "holdoutFrom": HOLDOUT_FROM.isoformat(),
         "matchedRaces": matched,
         "candidateCount": len(grid),
-        "selectionRule": "highest tune ROI with >=120 tune races; holdout never used to select parameters",
+        "selectionRule": (
+            "highest July-August ROI with >=120 tune races; September never used "
+            "to choose parameters"
+        ),
         "selectedFromTune": selected,
         "selectedPassesHoldout": selected_passes_holdout,
         "diagnosticStablePositiveCount": len(stable_positive),
@@ -367,14 +405,24 @@ def main() -> None:
         "topTune": eligible_tune[:30],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(json.dumps({
-        "matchedRaces": matched,
-        "candidateCount": len(grid),
-        "selectedFromTune": selected,
-        "selectedPassesHoldout": selected_passes_holdout,
-        "diagnosticStablePositiveCount": len(stable_positive),
-    }, ensure_ascii=False, indent=2), flush=True)
+    args.output.write_text(
+        json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    print(
+        json.dumps(
+            {
+                "matchedRaces": matched,
+                "candidateCount": len(grid),
+                "selectedFromTune": selected,
+                "selectedPassesHoldout": selected_passes_holdout,
+                "diagnosticStablePositiveCount": len(stable_positive),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        flush=True,
+    )
 
 
 if __name__ == "__main__":
