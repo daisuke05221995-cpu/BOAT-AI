@@ -4,7 +4,7 @@
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
 - Branch: `main`
-- Current version: `0.8.0`
+- Current version: `0.9.0`
 - Android package: `jp.boatai.app`
 - Release workflow: `.github/workflows/release.yml`
 - Update source: GitHub Releases
@@ -21,6 +21,7 @@
 - 進入変化・強風を含む外れ理由表示
 - 過去日の当時予想・的中率・仮想収支
 - 署名固定の自動Releaseとアプリ内更新
+- 2021-09-22〜2026-09-21の5年分公式成績ベースラインを予想へ接続
 
 ## 学習仕様
 
@@ -34,16 +35,19 @@
 
 - 対象期間: `2021-09-22` 〜 `2026-09-21`
 - 元データ: BOAT RACE公式の成績Kファイル
-- 生レースをAPKへ大量保存せず、会場×艇番・会場×風速帯×実進入コースの集計値だけを `app/src/main/assets/historical_learning.json` に保存する設計。
-- 最初の単一ジョブ方式はGitHub Actionsの45分制限で保存前にタイムアウトしたため廃止。
-- 現在は `.github/workflows/historical-learning.yml` で2021〜2026を6期間に分けて並列集計し、`scripts/merge_historical.py` で最後に結合する。
+- 完成データ: `app/src/main/assets/historical_learning.json`
+- 最終集計: 271,279レース / 1,826日 / 欠損0日
+- 会場×艇番バケット: 138
+- 会場×風速帯×実進入コースバケット: 414
+- 生レースをAPKへ大量保存せず、予想補正に必要な集計値のみAPKへ同梱する。
+- `.github/workflows/historical-learning.yml` で2021〜2026を6期間に分けて並列集計し、`scripts/merge_historical.py` で結合・検証する。
 - 最終結合時に対象期間の連続性、15万レース以上、会場×艇番・風速×進入のバケット数を検証してから自動コミットする。
-- `LearningStore` は完成した `historical_learning.json` をアプリ起動時に自動読込し、端末内の新規学習データと合算して `PredictionEngine` へ渡す実装済み。
+- `LearningStore` は `historical_learning.json` をアプリ起動時に自動読込し、端末内の新規学習データと合算して `PredictionEngine` へ渡す。
 - ベースライン最終日以前のレースは端末側で再学習しないため、5年分データとの二重加算を防止する。
 - 過去バージョンの端末学習がベースライン期間と重複している場合は、一度だけ旧集計をクリアして5年ベースラインへ安全に移行する。
-- AI学習済みレース数は「5年ベースライン件数 + ベースライン後の端末学習件数」を表示する。
+- AI学習済みレース数は「271,279レース + ベースライン後の端末学習件数」を表示する。
+- ベースライン生成・結合・mainへの自動コミットは成功済み。
 - 予想へのベースライン接続実装はユニットテスト、Android lint、Debug APKビルドまで成功確認済み。
-- `historical_learning.json` がまだ存在しない場合は、GitHub Actionsの `Build five-year historical learning` 最新実行を確認する。
 
 ## 続きの始め方
 
@@ -52,6 +56,7 @@
 
 ## 今後の候補
 
+- 5年ベースライン導入後の予想成績を蓄積し、導入前後で比較できる検証画面
 - 学習データのエクスポート/インポート
 - オッズ取得元ごとの整合性チェックと取得診断画面
 - 月別・会場別・AIランク別の収支グラフ
