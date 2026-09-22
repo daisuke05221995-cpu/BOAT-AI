@@ -20,23 +20,25 @@ fun PerformanceFeedbackCard(ui: BoatUiState) {
     val profile = ui.performance
     val overall = profile.overall
     val weak = profile.weakConditions()
-    val skippedCount = ui.predictionHistory.count { it.evaluationEligible && it.autoSkipped }
+    val eligible = ui.predictionHistory.filter { it.settled && it.evaluationEligible }
+    val recommended = ProfitAnalytics.summarize(eligible.filter { it.recommended })
+    val skipped = ProfitAnalytics.summarize(eligible.filterNot { it.recommended })
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text(
-                "AI検証・自動補正",
+                "AI検証・購入判定学習",
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                "結果が出る前に保存できた予想だけで検証します。過去日を後から開いた予想は補正に使いません。",
+                "結果が出る前に保存した予想だけを使い、購入推奨と見送りの判定を検証します。",
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(8.dp))
 
             if (overall.races == 0) {
-                Text("検証対象はまだ0レースです。v0.10.0以降の事前予想から自動で蓄積します。")
+                Text("検証対象はまだ0レースです。事前予想から自動で蓄積します。")
             } else {
                 Text(
                     "検証 ${overall.races}レース / 的中 ${overall.hits} / 的中率 ${performancePercent(overall.hitRate)}",
@@ -45,23 +47,19 @@ fun PerformanceFeedbackCard(ui: BoatUiState) {
                 Text(
                     "仮想購入 ${performanceMoney(overall.stake)} / 払戻 ${performanceMoney(overall.payout)} / 損益 ${performanceSignedMoney(overall.profit)}"
                 )
-                Text(
-                    "回収率 ${performancePercent(overall.roi)} / 自動見送り判定の記録 ${skippedCount}レース",
-                    fontWeight = FontWeight.Bold
-                )
 
                 Spacer(Modifier.height(8.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(8.dp))
-                Text("AIランク別", fontWeight = FontWeight.Bold)
-                listOf("S", "A", "B", "C", "D").forEach { rank ->
-                    profile.byRank[rank]?.takeIf { it.races > 0 }?.let { stats ->
-                        Text(
-                            "${rank}：${stats.hits}/${stats.races}的中　的中率 ${performancePercent(stats.hitRate)}　回収率 ${performancePercent(stats.roi)}",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
+                Text("購入判定別", fontWeight = FontWeight.Bold)
+                Text(
+                    "購入推奨：${recommended.hits}/${recommended.races}的中　的中率 ${performancePercent(recommended.hitRate)}　回収率 ${performancePercent(recommended.roi)}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    "見送り：${skipped.hits}/${skipped.races}的中　的中率 ${performancePercent(skipped.hitRate)}　回収率 ${performancePercent(skipped.roi)}",
+                    style = MaterialTheme.typography.bodySmall
+                )
 
                 Spacer(Modifier.height(8.dp))
                 Text("1着軸別", fontWeight = FontWeight.Bold)
@@ -77,15 +75,12 @@ fun PerformanceFeedbackCard(ui: BoatUiState) {
                 Spacer(Modifier.height(8.dp))
                 Text("弱い条件", fontWeight = FontWeight.Bold)
                 if (weak.isEmpty()) {
-                    Text(
-                        "補正対象になるほど悪い条件はまだありません。",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text("見送り判定を強めるほど悪い条件はまだありません。", style = MaterialTheme.typography.bodySmall)
                 } else {
                     weak.forEach { condition ->
                         Text(
                             "${condition.label}：${condition.stats.races}件 / 回収率 ${performancePercent(condition.stats.roi)} / " +
-                                if (condition.autoSkip) "一括選択から自動見送り" else "期待度 ${condition.penalty}pt補正",
+                                if (condition.autoSkip) "見送り対象" else "内部評価を下方補正",
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -94,7 +89,7 @@ fun PerformanceFeedbackCard(ui: BoatUiState) {
 
             Spacer(Modifier.height(8.dp))
             Text(
-                "補正開始の最低件数：会場24件、AIランク30件、1着軸30件、会場×ランク×1着軸16件。期待度は最大-12pt。十分な件数で回収率55%未満かつ的中率8%未満の条件は一括選択から自動見送りにします。個別購入は手動で可能です。",
+                "内部では細かな数値を学習に使いますが、画面上の最終判断は「購入推奨 / 見送り」の2択です。十分な実績がたまった弱い条件は自動で見送り側へ寄せます。",
                 style = MaterialTheme.typography.bodySmall
             )
         }
