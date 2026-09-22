@@ -47,13 +47,12 @@ STAKE_PLANS: dict[str, tuple[int, ...]] = {
 
 
 @dataclass(frozen=True)
-class Candidate:
+class FilterCandidate:
     base_threshold: int
     lane_mode: str
     max_wind: int
     max_wave: int
     allow_course_change: bool
-    stake_plan: str
 
 
 @dataclass
@@ -97,36 +96,34 @@ def course_changed(race: dict[str, Any], leader_lane: int | None) -> bool:
     return bool(leader and leader.get("course") is not None and leader["course"] != leader_lane)
 
 
-def threshold_for(base: int, race: dict[str, Any], leader_lane: int | None) -> int:
-    return min(97, base + max(0, buy_threshold(race, leader_lane) - 80))
+def threshold_for(base: int, risk_addition: int) -> int:
+    return min(97, base + risk_addition)
 
 
-def candidate_grid() -> list[Candidate]:
-    result: list[Candidate] = []
-    for threshold in (80, 84, 88, 90, 92, 94, 96):
-        for lane_mode in ("all", "1-1", "1-2", "1-3"):
-            for max_wind in (99, 4, 2):
-                for max_wave in (99, 7):
-                    for allow_change in (True, False):
-                        for stake_plan in STAKE_PLANS:
-                            result.append(Candidate(
-                                threshold,
-                                lane_mode,
-                                max_wind,
-                                max_wave,
-                                allow_change,
-                                stake_plan,
-                            ))
+def filter_grid() -> list[FilterCandidate]:
+    return [
+        FilterCandidate(threshold, lane_mode, max_wind, max_wave, allow_change)
+        for threshold in (80, 84, 88, 90, 92, 94, 96)
+        for lane_mode in ("all", "1-1", "1-2", "1-3")
+        for max_wind in (99, 4, 2)
+        for max_wave in (99, 7)
+        for allow_change in (True, False)
+    ]
+
+
+def plan_outcomes(combo: str, trifecta_amount: int, picks: list[str]) -> dict[str, tuple[bool, int]]:
+    result: dict[str, tuple[bool, int]] = {}
+    pick_index = picks.index(combo) if combo in picks else -1
+    for name, stakes in STAKE_PLANS.items():
+        if 0 <= pick_index < len(stakes):
+            result[name] = (True, trifecta_amount * (stakes[pick_index] // 100))
+        else:
+            result[name] = (False, 0)
     return result
 
 
-def plan_outcome(combo: str, trifecta_amount: int, picks: list[str], plan_name: str) -> tuple[bool, int]:
-    stakes = STAKE_PLANS[plan_name]
-    considered = picks[:len(stakes)]
-    if combo not in considered:
-        return False, 0
-    idx = considered.index(combo)
-    return True, trifecta_amount * (stakes[idx] // 100)
+def make_bucket_map(filters: list[FilterCandidate]) -> dict[tuple[FilterCandidate, str], Bucket]:
+    return {(f, plan): Bucket() for f in filters for plan in STAKE_PLANS}
 
 
 def main() -> None:
@@ -145,9 +142,9 @@ def main() -> None:
 
     learning = LearningProfile(json.loads(args.learning.read_text(encoding="utf-8")))
     performance = PerformanceProfile()
-    candidates = candidate_grid()
-    train = {candidate: Bucket() for candidate in candidates}
-    validation = {candidate: Bucket() for candidate in candidates}
+    filters = filter_grid()
+    train = make_bucket_map(filters)
+    validation = make_bucket_map(filters)
 
     dates: list[date] = []
     cursor = args.start
@@ -192,34 +189,32 @@ def main() -> None:
             confidence = max(20, min(97, raw + penalty))
             skip_by_history = performance.auto_skip(venue, raw, first_lane)
 
-            # Keep production performance-memory semantics unchanged while tuning.
             perf_hit = combo in picks
             perf_payout = trifecta_amount * 3 if perf_hit else 0
             observations.append((venue, raw, first_lane, perf_hit, BUDGET, perf_payout))
+            if skip_by_history:
+                continue
 
             preview = race.get("preview") or {}
             wind = as_int(preview.get("wind_speed"), 0) or 0
             wave = as_int(preview.get("wave_height"), 0) or 0
             changed = course_changed(race, leader_lane)
-            outcomes = {
-                name: plan_outcome(combo, trifecta_amount, picks, name)
-                for name in STAKE_PLANS
-            }
-
+            risk_addition = max(0, buy_threshold(race, leader_lane) - 80)
+            outcomes = plan_outcomes(combo, trifecta_amount, picks)
             target = train if day <= TRAIN_END else validation
-            for candidate in candidates:
-                if skip_by_history:
+
+            # Filter only 336 rule combinations first; expand to six stake plans only on matches.
+            for f in filters:
+                if confidence < threshold_for(f.base_threshold, risk_addition):
                     continue
-                if confidence < threshold_for(candidate.base_threshold, race, leader_lane):
+                if not allowed_lane(f.lane_mode, first_lane):
                     continue
-                if not allowed_lane(candidate.lane_mode, first_lane):
+                if wind > f.max_wind or wave > f.max_wave:
                     continue
-                if wind > candidate.max_wind or wave > candidate.max_wave:
+                if changed and not f.allow_course_change:
                     continue
-                if changed and not candidate.allow_course_change:
-                    continue
-                hit, payout = outcomes[candidate.stake_plan]
-                target[candidate].add(hit, payout)
+                for plan, (hit, payout) in outcomes.items():
+                    target[(f, plan)].add(hit, payout)
 
         for race in races:
             learning.observe_race(race)
@@ -227,18 +222,21 @@ def main() -> None:
             performance.observe(*observation)
 
     rows: list[dict[str, Any]] = []
-    for candidate in candidates:
-        tr = train[candidate].payload()
-        va = validation[candidate].payload()
-        robust_roi = min(tr["roi"], va["roi"]) if tr["races"] and va["races"] else 0.0
-        rows.append({
-            "policy": asdict(candidate),
-            "stakes": list(STAKE_PLANS[candidate.stake_plan]),
-            "train": tr,
-            "validation": va,
-            "robustRoi": robust_roi,
-            "positiveBoth": tr["roi"] > 100.0 and va["roi"] > 100.0,
-        })
+    for f in filters:
+        for plan, stakes in STAKE_PLANS.items():
+            tr = train[(f, plan)].payload()
+            va = validation[(f, plan)].payload()
+            robust_roi = min(tr["roi"], va["roi"]) if tr["races"] and va["races"] else 0.0
+            policy = asdict(f)
+            policy["stake_plan"] = plan
+            rows.append({
+                "policy": policy,
+                "stakes": list(stakes),
+                "train": tr,
+                "validation": va,
+                "robustRoi": robust_roi,
+                "positiveBoth": tr["roi"] > 100.0 and va["roi"] > 100.0,
+            })
 
     robust = [r for r in rows if r["train"]["races"] >= 250 and r["validation"]["races"] >= 120]
     robust.sort(key=lambda r: (r["positiveBoth"], r["robustRoi"], r["validation"]["races"]), reverse=True)
@@ -252,7 +250,8 @@ def main() -> None:
         "trainThrough": TRAIN_END.isoformat(),
         "validationFrom": VALIDATION_START.isoformat(),
         "evaluatedRaces": evaluated,
-        "candidateCount": len(candidates),
+        "filterCount": len(filters),
+        "candidateCount": len(rows),
         "oddsFinalGateIncluded": False,
         "minimumRobustSamples": {"train": 250, "validation": 120},
         "positiveRobustCount": sum(1 for r in robust if r["positiveBoth"]),
@@ -264,7 +263,8 @@ def main() -> None:
 
     print(json.dumps({
         "evaluatedRaces": evaluated,
-        "candidateCount": len(candidates),
+        "filterCount": len(filters),
+        "candidateCount": len(rows),
         "positiveRobustCount": payload["positiveRobustCount"],
         "best": payload["topRobust"][0] if payload["topRobust"] else None,
     }, ensure_ascii=False, indent=2), flush=True)
