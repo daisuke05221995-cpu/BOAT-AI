@@ -34,14 +34,27 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Check pre-2026 learning snapshot
+      - name: Check verified pre-2026 learning snapshot
         id: prebase
         run: |
-          if [ -f data/historical_learning_pre2026.json ]; then
-            echo 'exists=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'exists=false' >> "$GITHUB_OUTPUT"
-          fi
+          python - <<'PY'
+          import json, os
+          path='data/historical_learning_pre2026.json'
+          verified=False
+          if os.path.exists(path):
+              try:
+                  data=json.load(open(path, encoding='utf-8'))
+                  verified=(
+                      data.get('trainedThrough') == '2025-12-31'
+                      and data.get('derivationComplete') is True
+                      and int(data.get('subtractedRaceCount', 0)) > 1000
+                  )
+              except Exception:
+                  verified=False
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+              out.write(f"exists={'true' if verified else 'false'}\n")
+          print(f"verified pre-2026 snapshot: {verified}")
+          PY
 
       - name: Install official K-file tools
         if: steps.prebase.outputs.exists != 'true'
@@ -98,6 +111,9 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          pre=json.load(open('data/historical_learning_pre2026.json', encoding='utf-8'))
+          assert pre.get('derivationComplete') is True
+          assert pre.get('trainedThrough') == '2025-12-31'
           data=json.load(open('data/historical_backtest_2026.json', encoding='utf-8'))
           assert data['year'] == 2026
           assert data['dataFrom'] == '2026-01-01'
