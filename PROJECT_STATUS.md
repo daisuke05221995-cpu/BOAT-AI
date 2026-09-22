@@ -30,6 +30,16 @@
 `PredictionEngine.installLearningProfile` で次回予想の選手スコアへ補正する。
 旧v0.7以前の学習JSONに新フィールドが無くても空Mapとして読み込み互換性を維持する。
 
+## 5年分の過去学習ベースライン
+
+- 対象期間: `2021-09-22` 〜 `2026-09-21`
+- 元データ: BOAT RACE公式の成績Kファイル
+- 生レースをAPKへ大量保存せず、会場×艇番・会場×風速帯×実進入コースの集計値だけを `app/src/main/assets/historical_learning.json` に保存する設計。
+- 最初の単一ジョブ方式はGitHub Actionsの45分制限で保存前にタイムアウトしたため廃止。
+- 現在は `.github/workflows/historical-learning.yml` で2021〜2026を6期間に分けて並列集計し、`scripts/merge_historical.py` で最後に結合する。
+- 最終結合時に対象期間の連続性、15万レース以上、会場×艇番・風速×進入のバケット数を検証してから自動コミットする。
+- `historical_learning.json` がまだ存在しない場合は、GitHub Actionsの `Build five-year historical learning` 最新実行を確認する。
+
 ## 続きの始め方
 
 新しいチャットで「GitHubの `daisuke05221995-cpu/BOAT-AI` と `PROJECT_STATUS.md` を確認して続けて」と依頼する。
