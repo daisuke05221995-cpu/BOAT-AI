@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Search BOAT AI rank-pattern betting strategies with staged validation.
+"""Search a walk-forward expected-return BOAT AI betting strategy.
+
+This version avoids selecting rare fixed jackpot patterns. Each race is scored using
+only results available through the previous day. For each of the 120 permutations of
+model rank positions, a shrunk expected return is estimated from global, race-context
+and venue history. Large payouts are capped only for learning so one jackpot cannot
+dominate the estimator; evaluation always uses the real payout.
 
 Protocol:
-- Jan-Apr: train rank-order trifecta patterns and race contexts.
-- May-Jun: tune; a pattern/config must remain profitable here too.
-- Jul-Aug: untouched validation; never used to select patterns/configs.
-- Sep-latest: final confirmation is evaluated only after Jul-Aug passes.
+- Jan-Feb: estimator warm-up only.
+- Mar-Jun: choose threshold / max points / allocation mode from monthly OOS signals.
+- Jul-Aug: untouched validation for this strategy family.
+- Sep-latest: final confirmation is evaluated only if BOTH Jul and Aug are profitable.
 
-Unlike the previous search, this does not assume the score-sorted top-N trifectas are
-best. It evaluates all 120 permutations of model rank positions (1st..6th) and then
-builds context-specific 1-10 pick tickets from rank patterns that survive train+tune.
-Historical closing odds are unavailable, so the live odds final gate is excluded.
+Historical closing odds are unavailable, so the live final-odds gate is excluded.
 """
 
 from __future__ import annotations
@@ -18,6 +21,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
+import math
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
@@ -38,18 +42,17 @@ from build_2026_backtest import (
     raw_confidence,
 )
 
-BUDGET_UNITS = 12  # 12 x 100 yen = 1,200 yen
-MIN_CONFIDENCE = 60
-MIN_CONTEXT_TRAIN = 80
-MIN_CONTEXT_TUNE = 30
-MIN_PATTERN_TRAIN_HITS = 4
-MIN_PATTERN_TUNE_HITS = 2
-MIN_PATTERN_ROBUST_ROI = 103.0
-MIN_CONTEXT_ROBUST_ROI = 103.0
-MIN_VALIDATION_BUYS = 50
-MIN_FINAL_BUYS = 20
-MAX_PATTERN_POOL = 20
+BUDGET_UNITS = 12
+LEARNING_PAYOUT_CAP = 20_000
+CONTEXT_SHRINK = 500.0
+VENUE_SHRINK = 900.0
+MIN_CONTEXT_HISTORY = 120
+MIN_GLOBAL_HISTORY = 800
+MAX_SIGNAL_PATTERNS = 10
 RANK_PATTERNS = tuple(itertools.permutations(range(1, 7), 3))
+THRESHOLDS = (95.0, 100.0, 105.0, 110.0, 115.0, 120.0, 130.0, 140.0)
+MAX_POINTS_OPTIONS = (1, 2, 3, 4, 6, 8, 10)
+ALLOCATION_MODES = ("equal", "edge")
 
 
 def score_top_picks(score_map: dict[int, float], limit: int = 10) -> list[str]:
@@ -68,30 +71,13 @@ def score_top_picks(score_map: dict[int, float], limit: int = 10) -> list[str]:
     return [combo for combo, _ in ranked[:limit]]
 
 
-def stake_patterns(points: int, total_units: int = BUDGET_UNITS) -> list[tuple[int, ...]]:
-    """Non-increasing positive 100-yen allocations summing to 1,200 yen."""
-    patterns: list[tuple[int, ...]] = []
-
-    def walk(prefix: tuple[int, ...], remaining: int, left: int, maximum: int) -> None:
-        if left == 0:
-            if remaining == 0:
-                patterns.append(prefix)
-            return
-        upper = min(maximum, remaining - (left - 1))
-        for value in range(upper, 0, -1):
-            walk(prefix + (value,), remaining - value, left - 1, value)
-
-    walk(tuple(), total_units, points, total_units)
-    return patterns
-
-
 def confidence_band(value: int) -> str:
-    if value < 70:
-        return "60-69"
-    if value < 80:
-        return "70-79"
+    if value < 65:
+        return "<65"
+    if value < 75:
+        return "65-74"
     if value < 85:
-        return "80-84"
+        return "75-84"
     if value < 90:
         return "85-89"
     return "90+"
@@ -106,36 +92,22 @@ def first_group(lane: int | None) -> str:
 
 
 def gap_band(gap: float) -> str:
-    if gap < 4.0:
-        return "gap<4"
-    if gap < 9.0:
-        return "gap4-8"
-    return "gap9+"
+    if gap < 5.0:
+        return "gap<5"
+    if gap < 10.0:
+        return "gap5-9"
+    return "gap10+"
 
 
 def context_key(rec: dict[str, Any]) -> str:
-    return "|".join(
-        [
-            confidence_band(int(rec["confidence"])),
-            first_group(rec.get("firstLane")),
-            gap_band(float(rec.get("scoreGap", 0.0))),
-            "wind5+" if int(rec.get("wind", 0)) >= 5 else "wind0-4",
-            "courseChange" if rec.get("courseChanged") else "courseStable",
-            "historySkip" if rec.get("historySkip") else "historyKeep",
-        ]
-    )
-
-
-def context_payload(key: str) -> dict[str, Any]:
-    confidence, first, gap, wind, course, history = key.split("|")
-    return {
-        "confidenceBand": confidence,
-        "firstLaneGroup": first,
-        "scoreGapBand": gap,
-        "windBand": wind,
-        "courseState": course,
-        "historyState": history,
-    }
+    return "|".join([
+        confidence_band(int(rec["confidence"])),
+        first_group(rec.get("firstLane")),
+        gap_band(float(rec.get("scoreGap", 0.0))),
+        "wind5+" if int(rec.get("wind", 0)) >= 5 else "wind0-4",
+        "courseChange" if rec.get("courseChanged") else "courseStable",
+        "historySkip" if rec.get("historySkip") else "historyKeep",
+    ])
 
 
 def empty_stats() -> dict[str, Any]:
@@ -158,67 +130,85 @@ def finalize_stats(stats: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def rank_pattern_text(pattern: tuple[int, int, int]) -> str:
+def add_stats(target: dict[str, Any], source: dict[str, Any]) -> None:
+    for key in ("purchaseRaces", "hits", "stake", "payout"):
+        target[key] += int(source.get(key, 0))
+
+
+def winning_rank_pattern(combo: str, ranked_lanes: list[int]) -> tuple[int, int, int] | None:
+    try:
+        lanes = [int(v) for v in combo.split("-")]
+    except ValueError:
+        return None
+    if len(lanes) != 3:
+        return None
+    rank_of = {lane: rank for rank, lane in enumerate(ranked_lanes, start=1)}
+    try:
+        return tuple(rank_of[lane] for lane in lanes)  # type: ignore[return-value]
+    except KeyError:
+        return None
+
+
+def pattern_text(pattern: tuple[int, int, int]) -> str:
     return "-".join(str(v) for v in pattern)
 
 
-def pattern_combo(rec: dict[str, Any], pattern: tuple[int, int, int]) -> str:
-    ranked_lanes = rec["rankedLanes"]
-    return "-".join(str(ranked_lanes[position - 1]) for position in pattern)
+def allocate_units(estimates: list[float], threshold: float, mode: str) -> list[int]:
+    points = len(estimates)
+    if points <= 0:
+        return []
+    if points > BUDGET_UNITS:
+        estimates = estimates[:BUDGET_UNITS]
+        points = len(estimates)
+
+    if mode == "equal":
+        base = BUDGET_UNITS // points
+        remainder = BUDGET_UNITS - base * points
+        return [base + (1 if idx < remainder else 0) for idx in range(points)]
+
+    # Edge-proportional: every pick gets 100 yen, remaining units follow estimated edge.
+    units = [1] * points
+    remaining = BUDGET_UNITS - points
+    edges = [max(1.0, value - threshold) for value in estimates]
+    total_edge = sum(edges)
+    if remaining <= 0 or total_edge <= 0:
+        return units
+    raw_extra = [remaining * edge / total_edge for edge in edges]
+    floors = [int(math.floor(value)) for value in raw_extra]
+    for idx, value in enumerate(floors):
+        units[idx] += value
+    leftover = BUDGET_UNITS - sum(units)
+    order = sorted(range(points), key=lambda idx: raw_extra[idx] - floors[idx], reverse=True)
+    for idx in order[:leftover]:
+        units[idx] += 1
+    return units
 
 
-def evaluate_single_pattern(records: list[dict[str, Any]], pattern: tuple[int, int, int]) -> dict[str, Any]:
-    stats = empty_stats()
-    for rec in records:
-        stats["purchaseRaces"] += 1
-        stats["stake"] += 100
-        if rec["combo"] == pattern_combo(rec, pattern):
-            stats["hits"] += 1
-            stats["payout"] += int(rec["amount"])
-    return finalize_stats(stats)
-
-
-def evaluate_pattern_ticket(
-    records: list[dict[str, Any]],
-    patterns: list[tuple[int, int, int]],
-    stakes: tuple[int, ...],
-) -> dict[str, Any]:
-    stats = empty_stats()
-    for rec in records:
-        stats["purchaseRaces"] += 1
-        stats["stake"] += BUDGET_UNITS * 100
-        winning = rec["combo"]
-        for idx, pattern in enumerate(patterns):
-            if winning == pattern_combo(rec, pattern):
-                stats["hits"] += 1
-                stats["payout"] += int(rec["amount"]) * stakes[idx]
-                break
-    return finalize_stats(stats)
-
-
-def evaluate_strategy(
-    records: list[dict[str, Any]],
+def evaluate_signals(
+    signals: list[dict[str, Any]],
     start: date,
     end: date,
-    selected: dict[str, dict[str, Any]],
+    threshold: float,
+    max_points: int,
+    allocation_mode: str,
 ) -> dict[str, Any]:
     stats = empty_stats()
-    for rec in records:
-        day = rec["day"]
+    for signal in signals:
+        day = signal["day"]
         if day < start or day > end:
             continue
-        chosen = selected.get(rec["contextKey"])
-        if not chosen:
+        candidates = [item for item in signal["patterns"] if float(item["expectedReturn"]) >= threshold][:max_points]
+        if not candidates:
             continue
-        cfg = chosen["config"]
-        patterns = [tuple(int(v) for v in text.split("-")) for text in cfg["rankPatterns"]]
-        stakes = tuple(int(value) // 100 for value in cfg["stakes"])
+        estimates = [float(item["expectedReturn"]) for item in candidates]
+        units = allocate_units(estimates, threshold, allocation_mode)
         stats["purchaseRaces"] += 1
         stats["stake"] += BUDGET_UNITS * 100
-        for idx, pattern in enumerate(patterns):
-            if rec["combo"] == pattern_combo(rec, pattern):
+        winning = signal["winningPattern"]
+        for idx, item in enumerate(candidates):
+            if item["pattern"] == winning:
                 stats["hits"] += 1
-                stats["payout"] += int(rec["amount"]) * stakes[idx]
+                stats["payout"] += int(signal["amount"]) * units[idx]
                 break
     return finalize_stats(stats)
 
@@ -236,23 +226,75 @@ def evaluate_current_baseline(records: list[dict[str, Any]], start: date, end: d
         stats["stake"] += 1200
         picks = rec["baselinePicks"][:4]
         if rec["combo"] in picks:
-            stats["hits"] += 1
             idx = picks.index(rec["combo"])
+            stats["hits"] += 1
             stats["payout"] += int(rec["amount"]) * stakes[idx]
     return finalize_stats(stats)
 
 
-def profitable(stats: dict[str, Any], minimum_roi: float = 100.0) -> bool:
-    return stats["roi"] > minimum_roi and stats["profit"] > 0
+def profitable(stats: dict[str, Any]) -> bool:
+    return stats["profit"] > 0 and stats["roi"] > 100.0
 
 
-def config_payload(patterns: list[tuple[int, int, int]], stakes: tuple[int, ...]) -> dict[str, Any]:
-    return {
-        "points": len(patterns),
-        "rankPatterns": [rank_pattern_text(pattern) for pattern in patterns],
-        "stakes": [unit * 100 for unit in stakes],
-        "budget": BUDGET_UNITS * 100,
-    }
+def build_signals(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    global_count = 0
+    global_payout: dict[tuple[int, int, int], float] = defaultdict(float)
+    context_count: dict[str, int] = defaultdict(int)
+    context_payout: dict[str, dict[tuple[int, int, int], float]] = defaultdict(lambda: defaultdict(float))
+    venue_count: dict[int, int] = defaultdict(int)
+    venue_payout: dict[int, dict[tuple[int, int, int], float]] = defaultdict(lambda: defaultdict(float))
+
+    signals: list[dict[str, Any]] = []
+    records_by_day: dict[date, list[dict[str, Any]]] = defaultdict(list)
+    for rec in records:
+        records_by_day[rec["day"]].append(rec)
+
+    for day in sorted(records_by_day):
+        day_records = records_by_day[day]
+        for rec in day_records:
+            key = rec["contextKey"]
+            venue = int(rec["venue"])
+            if global_count < MIN_GLOBAL_HISTORY or context_count[key] < MIN_CONTEXT_HISTORY:
+                continue
+
+            ranked: list[dict[str, Any]] = []
+            for pattern in RANK_PATTERNS:
+                global_mean = global_payout[pattern] / global_count if global_count else 0.0
+                c_count = context_count[key]
+                v_count = venue_count[venue]
+                context_mean = (
+                    context_payout[key][pattern] + CONTEXT_SHRINK * global_mean
+                ) / (c_count + CONTEXT_SHRINK)
+                venue_mean = (
+                    venue_payout[venue][pattern] + VENUE_SHRINK * global_mean
+                ) / (v_count + VENUE_SHRINK) if v_count else global_mean
+                expected = context_mean * 0.65 + venue_mean * 0.25 + global_mean * 0.10
+                ranked.append({"pattern": pattern_text(pattern), "expectedReturn": round(expected, 3)})
+
+            ranked.sort(key=lambda item: float(item["expectedReturn"]), reverse=True)
+            signals.append({
+                "day": day,
+                "patterns": ranked[:MAX_SIGNAL_PATTERNS],
+                "winningPattern": rec["winningPattern"],
+                "amount": rec["amount"],
+            })
+
+        # No same-day leakage: all outcomes are incorporated only after the day's signals are made.
+        for rec in day_records:
+            pattern = rec.get("winningPatternTuple")
+            if pattern is None:
+                continue
+            key = rec["contextKey"]
+            venue = int(rec["venue"])
+            learned_payout = min(int(rec["amount"]), LEARNING_PAYOUT_CAP)
+            global_count += 1
+            context_count[key] += 1
+            venue_count[venue] += 1
+            global_payout[pattern] += learned_payout
+            context_payout[key][pattern] += learned_payout
+            venue_payout[venue][pattern] += learned_payout
+
+    return signals
 
 
 def main() -> None:
@@ -267,11 +309,10 @@ def main() -> None:
     today_jst = datetime.now(JST).date()
     data_end = args.end or min(today_jst - timedelta(days=1), date(2026, 12, 31))
     if data_end < date(2026, 9, 1):
-        raise SystemExit("final validation period has not started yet")
+        raise SystemExit("final period has not started yet")
 
     learning = LearningProfile(json.loads(args.learning.read_text(encoding="utf-8")))
     performance = PerformanceProfile()
-
     dates: list[date] = []
     cursor = args.start
     while cursor <= data_end:
@@ -308,9 +349,10 @@ def main() -> None:
                 continue
 
             ranked_lanes = [lane for lane, _ in sorted(score_map.items(), key=lambda item: item[1], reverse=True)]
+            win_pattern = winning_rank_pattern(combo, ranked_lanes)
+            if win_pattern is None:
+                continue
             score_values = sorted(score_map.values(), reverse=True)
-            score_gap = score_values[0] - score_values[1]
-            baseline_picks = score_top_picks(score_map, 10)
             first_lane = ranked_lanes[0]
             venue = as_int(race.get("stadium_number"), 0) or 0
             penalty = performance.penalty(venue, raw, first_lane)
@@ -319,25 +361,26 @@ def main() -> None:
             wind = as_int((race.get("preview") or {}).get("wind_speed"), 0) or 0
             first_racer = next((r for r in race_racers(race) if r["lane"] == first_lane), None)
             course = (first_racer or {}).get("course")
-            course_changed = bool(course is not None and course != first_lane)
+            baseline_picks = score_top_picks(score_map, 10)
 
-            if confidence >= MIN_CONFIDENCE:
-                rec = {
-                    "day": day,
-                    "confidence": confidence,
-                    "baseThreshold": buy_threshold(race, leader_lane),
-                    "historySkip": history_skip,
-                    "firstLane": first_lane,
-                    "scoreGap": score_gap,
-                    "wind": wind,
-                    "courseChanged": course_changed,
-                    "rankedLanes": ranked_lanes,
-                    "baselinePicks": baseline_picks,
-                    "combo": combo,
-                    "amount": trifecta_amount,
-                }
-                rec["contextKey"] = context_key(rec)
-                records.append(rec)
+            rec = {
+                "day": day,
+                "venue": venue,
+                "confidence": confidence,
+                "baseThreshold": buy_threshold(race, leader_lane),
+                "historySkip": history_skip,
+                "firstLane": first_lane,
+                "scoreGap": score_values[0] - score_values[1],
+                "wind": wind,
+                "courseChanged": bool(course is not None and course != first_lane),
+                "baselinePicks": baseline_picks,
+                "combo": combo,
+                "amount": trifecta_amount,
+                "winningPattern": pattern_text(win_pattern),
+                "winningPatternTuple": win_pattern,
+            }
+            rec["contextKey"] = context_key(rec)
+            records.append(rec)
 
             current_hit = combo in baseline_picks[:4]
             perf_payout = trifecta_amount * 3 if current_hit else 0
@@ -348,174 +391,130 @@ def main() -> None:
         for observation in observations:
             performance.observe(*observation)
 
-    train_start, train_end = date(2026, 1, 1), date(2026, 4, 30)
-    tune_start, tune_end = date(2026, 5, 1), date(2026, 6, 30)
-    validation_start, validation_end = date(2026, 7, 1), date(2026, 8, 31)
+    signals = build_signals(records)
+
+    dev_months = [(2026, 3), (2026, 4), (2026, 5), (2026, 6)]
+    validation_months = [(2026, 7), (2026, 8)]
     final_start, final_end = date(2026, 9, 1), data_end
 
-    by_period_context: dict[str, dict[str, list[dict[str, Any]]]] = {
-        "train": defaultdict(list),
-        "tune": defaultdict(list),
-    }
-    for rec in records:
-        day = rec["day"]
-        if train_start <= day <= train_end:
-            by_period_context["train"][rec["contextKey"]].append(rec)
-        elif tune_start <= day <= tune_end:
-            by_period_context["tune"][rec["contextKey"]].append(rec)
-
-    selected_contexts: list[dict[str, Any]] = []
-    selected_map: dict[str, dict[str, Any]] = {}
-    diagnostics: list[dict[str, Any]] = []
-    all_contexts = sorted(set(by_period_context["train"]) | set(by_period_context["tune"]))
-
-    for key in all_contexts:
-        train_records = by_period_context["train"].get(key, [])
-        tune_records = by_period_context["tune"].get(key, [])
-        if len(train_records) < MIN_CONTEXT_TRAIN or len(tune_records) < MIN_CONTEXT_TUNE:
-            continue
-
-        pattern_candidates: list[dict[str, Any]] = []
-        for pattern in RANK_PATTERNS:
-            train_pattern = evaluate_single_pattern(train_records, pattern)
-            tune_pattern = evaluate_single_pattern(tune_records, pattern)
-            robust = min(train_pattern["roi"], tune_pattern["roi"])
-            if (
-                train_pattern["hits"] >= MIN_PATTERN_TRAIN_HITS
-                and tune_pattern["hits"] >= MIN_PATTERN_TUNE_HITS
-                and profitable(train_pattern)
-                and profitable(tune_pattern)
-                and robust >= MIN_PATTERN_ROBUST_ROI
-            ):
-                pattern_candidates.append({
-                    "pattern": pattern,
-                    "train": train_pattern,
-                    "tune": tune_pattern,
-                    "robustRoi": robust,
+    candidates: list[dict[str, Any]] = []
+    for threshold in THRESHOLDS:
+        for max_points in MAX_POINTS_OPTIONS:
+            for allocation_mode in ALLOCATION_MODES:
+                monthly: dict[str, dict[str, Any]] = {}
+                combined_raw = empty_stats()
+                for year, month in dev_months:
+                    start = date(year, month, 1)
+                    end = (date(year + (month == 12), 1 if month == 12 else month + 1, 1) - timedelta(days=1))
+                    stats = evaluate_signals(signals, start, end, threshold, max_points, allocation_mode)
+                    monthly[f"{year}-{month:02d}"] = stats
+                    add_stats(combined_raw, stats)
+                combined = finalize_stats(combined_raw)
+                month_rois = [monthly[key]["roi"] for key in sorted(monthly)]
+                positive_months = sum(1 for value in monthly.values() if profitable(value))
+                worst_roi = min(month_rois) if month_rois else 0.0
+                candidates.append({
+                    "config": {
+                        "threshold": threshold,
+                        "maxPoints": max_points,
+                        "allocationMode": allocation_mode,
+                        "budget": 1200,
+                    },
+                    "developmentMonths": monthly,
+                    "development": combined,
+                    "positiveMonths": positive_months,
+                    "worstMonthRoi": round(worst_roi, 1),
                 })
 
-        pattern_candidates.sort(
-            key=lambda item: (
-                item["robustRoi"], item["tune"]["roi"], item["train"]["roi"],
-                item["tune"]["hits"] + item["train"]["hits"],
-            ),
-            reverse=True,
-        )
-        pool = pattern_candidates[:MAX_PATTERN_POOL]
-        best: dict[str, Any] | None = None
+    eligible = [
+        item for item in candidates
+        if item["development"]["purchaseRaces"] >= 200
+        and item["positiveMonths"] >= 3
+        and profitable(item["development"])
+    ]
+    selection_pool = eligible or candidates
+    selection_pool.sort(
+        key=lambda item: (
+            item["positiveMonths"],
+            item["worstMonthRoi"],
+            item["development"]["roi"],
+            item["development"]["profit"],
+            item["development"]["purchaseRaces"],
+        ),
+        reverse=True,
+    )
+    selected = selection_pool[0]
+    cfg = selected["config"]
 
-        for points in range(1, min(10, len(pool)) + 1):
-            chosen_patterns = [item["pattern"] for item in pool[:points]]
-            for stakes in stake_patterns(points):
-                train_stats = evaluate_pattern_ticket(train_records, chosen_patterns, stakes)
-                tune_stats = evaluate_pattern_ticket(tune_records, chosen_patterns, stakes)
-                robust = min(train_stats["roi"], tune_stats["roi"])
-                candidate = {
-                    "contextKey": key,
-                    "context": context_payload(key),
-                    "config": config_payload(chosen_patterns, stakes),
-                    "train": train_stats,
-                    "tune": tune_stats,
-                    "robustRoi": round(robust, 1),
-                    "eligiblePatternCount": len(pattern_candidates),
-                }
-                if best is None or (
-                    robust,
-                    tune_stats["roi"],
-                    train_stats["roi"],
-                    tune_stats["profit"] + train_stats["profit"],
-                ) > (
-                    best["robustRoi"],
-                    best["tune"]["roi"],
-                    best["train"]["roi"],
-                    best["tune"]["profit"] + best["train"]["profit"],
-                ):
-                    best = candidate
-
-        if best is None:
-            continue
-        diagnostics.append(best)
-        if (
-            best["robustRoi"] >= MIN_CONTEXT_ROBUST_ROI
-            and profitable(best["train"])
-            and profitable(best["tune"])
-        ):
-            selected_contexts.append(best)
-            selected_map[key] = best
-
-    selected_contexts.sort(key=lambda item: (item["robustRoi"], item["tune"]["roi"]), reverse=True)
-    diagnostics.sort(key=lambda item: item["robustRoi"], reverse=True)
-
-    aggregate_train = evaluate_strategy(records, train_start, train_end, selected_map)
-    aggregate_tune = evaluate_strategy(records, tune_start, tune_end, selected_map)
-    aggregate_validation = evaluate_strategy(records, validation_start, validation_end, selected_map)
+    validation_detail: dict[str, dict[str, Any]] = {}
+    validation_raw = empty_stats()
+    for year, month in validation_months:
+        start = date(year, month, 1)
+        end = (date(year + (month == 12), 1 if month == 12 else month + 1, 1) - timedelta(days=1))
+        stats = evaluate_signals(signals, start, end, cfg["threshold"], cfg["maxPoints"], cfg["allocationMode"])
+        validation_detail[f"{year}-{month:02d}"] = stats
+        add_stats(validation_raw, stats)
+    validation = finalize_stats(validation_raw)
 
     qualified_for_final = bool(
-        selected_contexts
-        and profitable(aggregate_train)
-        and profitable(aggregate_tune)
-        and profitable(aggregate_validation)
-        and aggregate_validation["purchaseRaces"] >= MIN_VALIDATION_BUYS
+        selected in eligible
+        and validation["purchaseRaces"] >= 50
+        and profitable(validation)
+        and all(profitable(stats) for stats in validation_detail.values())
     )
 
     final_stats: dict[str, Any] | None = None
     qualified_for_release = False
     if qualified_for_final and final_end >= final_start:
-        final_stats = evaluate_strategy(records, final_start, final_end, selected_map)
+        final_stats = evaluate_signals(
+            signals, final_start, final_end,
+            cfg["threshold"], cfg["maxPoints"], cfg["allocationMode"],
+        )
         qualified_for_release = bool(
-            profitable(final_stats)
-            and final_stats["purchaseRaces"] >= MIN_FINAL_BUYS
+            final_stats["purchaseRaces"] >= 20 and profitable(final_stats)
         )
 
     baseline = {
-        "train": evaluate_current_baseline(records, train_start, train_end),
-        "tune": evaluate_current_baseline(records, tune_start, tune_end),
-        "validation": evaluate_current_baseline(records, validation_start, validation_end),
+        "development": evaluate_current_baseline(records, date(2026, 3, 1), date(2026, 6, 30)),
+        "validation": evaluate_current_baseline(records, date(2026, 7, 1), date(2026, 8, 31)),
     }
-    if qualified_for_final and final_end >= final_start:
+    if qualified_for_final:
         baseline["final"] = evaluate_current_baseline(records, final_start, final_end)
 
     result = {
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "dataThrough": data_end.isoformat(),
-        "method": "walk-forward predictions; all 120 model-rank trifecta patterns searched on Jan-Apr + May-Jun; Jul-Aug validation; Sep final only after validation passes",
+        "method": "daily walk-forward shrunk expected return for 120 model-rank trifecta patterns; same-day results applied next day",
         "oddsFinalGateIncluded": False,
-        "searchSpace": {
-            "points": [1, 10],
-            "rankPatterns": 120,
-            "budget": 1200,
-            "stakeUnit": 100,
-            "contextDimensions": ["confidenceBand", "firstLaneGroup", "scoreGapBand", "windBand", "courseState", "historyState"],
-            "minimumConfidence": MIN_CONFIDENCE,
-            "minimumContextTrainRaces": MIN_CONTEXT_TRAIN,
-            "minimumContextTuneRaces": MIN_CONTEXT_TUNE,
-            "minimumPatternRobustRoi": MIN_PATTERN_ROBUST_ROI,
-            "minimumContextRobustRoi": MIN_CONTEXT_ROBUST_ROI,
+        "estimator": {
+            "learningPayoutCapPer100": LEARNING_PAYOUT_CAP,
+            "contextShrink": CONTEXT_SHRINK,
+            "venueShrink": VENUE_SHRINK,
+            "minimumContextHistory": MIN_CONTEXT_HISTORY,
+            "minimumGlobalHistory": MIN_GLOBAL_HISTORY,
+            "weights": {"context": 0.65, "venue": 0.25, "global": 0.10},
         },
         "periods": {
-            "train": [train_start.isoformat(), train_end.isoformat()],
-            "tune": [tune_start.isoformat(), tune_end.isoformat()],
-            "validation": [validation_start.isoformat(), validation_end.isoformat()],
+            "warmup": ["2026-01-01", "2026-02-28"],
+            "development": ["2026-03-01", "2026-06-30"],
+            "validation": ["2026-07-01", "2026-08-31"],
             "final": [final_start.isoformat(), final_end.isoformat()],
         },
-        "selectedContexts": selected_contexts,
-        "aggregate": {
-            "train": aggregate_train,
-            "tune": aggregate_tune,
-            "validation": aggregate_validation,
-            "final": final_stats if final_stats is not None else {"withheld": True},
-        },
-        "currentFourPickBaseline": baseline,
+        "selected": selected,
+        "validationMonths": validation_detail,
+        "validation": validation,
+        "final": final_stats if final_stats is not None else {"withheld": True},
         "qualifiedForFinal": qualified_for_final,
         "qualifiedForRelease": qualified_for_release,
-        "releaseRule": "rank-pattern contexts profitable in train+tune; aggregate Jul-Aug ROI > 100% with >=50 buys; then Sep-latest ROI > 100% with >=20 buys",
-        "topContextDiagnostics": diagnostics[:20],
+        "currentFourPickBaseline": baseline,
+        "releaseRule": "development positive in >=3/4 months and combined; Jul and Aug each positive with combined >=50 buys; only then Sep-latest must be positive with >=20 buys",
+        "topCandidates": selection_pool[:10],
         "notes": [
-            "Rank patterns are positions in the model ranking, not fixed boat numbers.",
-            "Point count and stake allocation can differ by race context.",
-            "Jul-Aug results are not used to choose rank patterns or allocations.",
-            "Sep results are not evaluated unless Jul-Aug validation is already positive.",
+            "All estimates are made before the race using outcomes only through the previous day.",
+            "Learning caps large payouts at 20,000 yen per 100 yen to reduce jackpot overfit; evaluation uses full actual payouts.",
+            "Point count is variable from zero (skip) through the selected maxPoints; only patterns above the selected expected-return threshold are bought.",
+            "Sep results remain hidden unless Jul and Aug both pass.",
             "Historical closing odds are unavailable, so live final-odds filtering remains excluded.",
         ],
     }
@@ -523,11 +522,12 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(json.dumps({
-        "selectedContexts": len(selected_contexts),
-        "aggregate": result["aggregate"],
+        "selected": selected,
+        "validationMonths": validation_detail,
+        "validation": validation,
         "qualifiedForFinal": qualified_for_final,
         "qualifiedForRelease": qualified_for_release,
-        "baselineValidation": baseline["validation"],
+        "final": result["final"],
     }, ensure_ascii=False, indent=2))
 
 
