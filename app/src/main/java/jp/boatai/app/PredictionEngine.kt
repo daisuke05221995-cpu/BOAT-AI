@@ -3,7 +3,7 @@ package jp.boatai.app
 import kotlin.math.max
 
 object PredictionEngine {
-    const val BUY_THRESHOLD = 70
+    const val BUY_THRESHOLD = 80
 
     @Volatile private var learningProfile = LearningProfile()
     @Volatile private var persistentPerformanceProfile = PredictionPerformanceProfile()
@@ -64,22 +64,61 @@ object PredictionEngine {
         return performanceProfile.autoSkipReason(race.stadiumNumber, raw, leadingLane(race))
     }
 
+    /**
+     * 購入推奨を固定保存してよいだけの直前情報が揃っているか。
+     * 展示前に「見送り」を固定してしまわないため、事前予想履歴の保存側でも利用する。
+     */
+    fun isDecisionReady(race: RaceData): Boolean {
+        if (race.racers.size != 6 || race.preview == null) return false
+        val previewReady = race.racers.count { racer ->
+            racer.preview?.exhibitionTime != null && racer.preview.course != null
+        }
+        return previewReady >= 5
+    }
+
+    fun buyThreshold(race: RaceData): Int {
+        var threshold = BUY_THRESHOLD
+        val wind = race.preview?.windSpeed ?: 0
+        val wave = race.preview?.waveHeight ?: 0
+        if (wind >= 5) threshold += 4
+        if (wave >= 8) threshold += 2
+        val leader = leadingLane(race)?.let { lane -> race.racers.firstOrNull { it.lane == lane } }
+        if (leader?.preview?.course != null && leader.preview.course != leader.lane) threshold += 3
+        return threshold.coerceAtMost(90)
+    }
+
     fun recommendation(race: RaceData): RecommendationDecision {
-        if (race.racers.size < 3) {
-            return RecommendationDecision(RaceRecommendation.SKIP, "予想に必要な出走データが不足")
+        if (race.racers.size < 6) {
+            return RecommendationDecision(RaceRecommendation.SKIP, "6艇分の出走データが揃っていないため見送り")
+        }
+        if (!isDecisionReady(race)) {
+            return RecommendationDecision(RaceRecommendation.SKIP, "展示・進入など直前情報が揃うまで見送り")
         }
         autoSkipReason(race)?.let { learnedReason ->
             return RecommendationDecision(RaceRecommendation.SKIP, learnedReason)
         }
-        return if (confidence(race) >= BUY_THRESHOLD) {
+
+        val threshold = buyThreshold(race)
+        val score = confidence(race)
+        return if (score >= threshold) {
             RecommendationDecision(
                 RaceRecommendation.BUY,
-                "選手力・コース・機力・直前情報と蓄積実績が購入基準を満たす"
+                "選手力・コース・機力・展示・進入・蓄積実績が厳選購入基準を満たす"
             )
         } else {
+            val risk = buildList {
+                if ((race.preview?.windSpeed ?: 0) >= 5) add("強風")
+                if ((race.preview?.waveHeight ?: 0) >= 8) add("高波")
+                val leader = leadingLane(race)?.let { lane -> race.racers.firstOrNull { it.lane == lane } }
+                if (leader?.preview?.course != null && leader.preview.course != leader.lane) add("進入変化")
+            }
             RecommendationDecision(
                 RaceRecommendation.SKIP,
-                "総合評価が購入基準に届かない"
+                if (risk.isEmpty()) {
+                    "総合評価が厳選購入基準に届かない"
+                } else {
+                    "${risk.joinToString("・")}を考慮すると厳選購入基準に届かない"
+                }
             )
         }
     }
