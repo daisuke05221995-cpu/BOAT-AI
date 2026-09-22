@@ -9,8 +9,8 @@ class ProfitAnalyticsTest {
     @Test
     fun comparesRecommendedOnlyWithAllPredictions() {
         val records = listOf(
-            record("a", hit = true, recommended = true, payout = 1_000),
-            record("b", hit = false, recommended = false, payout = 0)
+            record("a", "2026-09-22", hit = true, recommended = true, payout = 1_000),
+            record("b", "2026-09-22", hit = false, recommended = false, payout = 0)
         )
         val result = ProfitAnalytics.build(records, AnalyticsPeriod.ALL, LocalDate.parse("2026-09-22"))
 
@@ -21,9 +21,31 @@ class ProfitAnalyticsTest {
         assertTrue(result.avoidedLoss > 0)
     }
 
-    private fun record(id: String, hit: Boolean, recommended: Boolean, payout: Int) = PredictionRecord(
+    @Test
+    fun buildsWeeklyMonthlyAndCumulativeRecommendedProfit() {
+        val records = listOf(
+            record("a", "2026-09-10", hit = false, recommended = true, payout = 0),
+            record("b", "2026-09-18", hit = true, recommended = true, payout = 1_000),
+            record("c", "2026-09-22", hit = false, recommended = true, payout = 0),
+            record("d", "2026-08-31", hit = true, recommended = true, payout = 2_000)
+        )
+        val result = ProfitAnalytics.build(records, AnalyticsPeriod.ALL, LocalDate.parse("2026-09-22"))
+
+        assertEquals(2, result.weekRecommended.races)
+        assertEquals(3, result.monthRecommended.races)
+        assertEquals(22, result.monthCumulativeRecommended.size)
+        assertEquals(result.monthRecommended.profit, result.monthCumulativeRecommended.last().profit)
+    }
+
+    private fun record(
+        id: String,
+        date: String,
+        hit: Boolean,
+        recommended: Boolean,
+        payout: Int
+    ) = PredictionRecord(
         id = id,
-        date = "2026-09-22",
+        date = date,
         stadiumNumber = 1,
         raceNumber = 1,
         combinations = listOf("1-2-3"),
