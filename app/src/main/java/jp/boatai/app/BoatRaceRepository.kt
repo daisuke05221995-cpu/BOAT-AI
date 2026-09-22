@@ -14,7 +14,7 @@ class BoatRaceRepository {
 
     suspend fun loadDate(date: LocalDate): List<RaceData> = withContext(Dispatchers.IO) {
         val day = date.format(compact)
-        val url = "https://boatraceopenapi.github.io/api/v1/${date.year}/$day.json"
+        val url = "https://boatraceopenapi.github.io/api/v1/${date.year}/$day.json?ts=${System.currentTimeMillis()}"
         val json = httpGet(url)
         BoatRaceJsonParser.parse(json)
     }
@@ -26,11 +26,13 @@ class BoatRaceRepository {
         if (combinations.isEmpty()) return@withContext emptyMap()
         val day = race.date.replace("-", "")
         val jcd = Venues.code(race.stadiumNumber)
-        val url = "https://www.boatrace.jp/owpc/pc/race/odds3t?hd=$day&jcd=$jcd&rno=${race.raceNumber}"
+        val url = "https://www.boatrace.jp/owpc/pc/race/odds3t?hd=$day&jcd=$jcd&rno=${race.raceNumber}&_=${System.currentTimeMillis()}"
 
         val doc = Jsoup.connect(url)
             .userAgent("Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36 BOAT-AI/0.2")
             .referrer("https://www.boatrace.jp/")
+            .header("Cache-Control", "no-cache, no-store, max-age=0")
+            .header("Pragma", "no-cache")
             .timeout(15_000)
             .get()
 
@@ -40,6 +42,27 @@ class BoatRaceRepository {
     }
 
     internal fun parseTrifectaOdds(doc: Document, combinations: List<String>): Map<String, Double> {
+        val officialTable = doc.select("table.table1").firstOrNull {
+            it.select("tbody tr td.oddsPoint").size >= 100
+        }
+        if (officialTable != null) {
+            val oddsCells = officialTable.select("tbody tr td.oddsPoint")
+            val secondNumbers = officialTable.select("tbody tr td[rowspan=4]")
+                .chunked(6)
+                .flatMap { group -> List(4) { group.mapNotNull { it.text().trim().toIntOrNull() } }.flatten() }
+            val thirdNumbers = officialTable.select("tbody tr td[class^=is-boatColor]")
+                .mapNotNull { it.text().trim().toIntOrNull() }
+            if (secondNumbers.size >= oddsCells.size && thirdNumbers.size >= oddsCells.size) {
+                val wanted = combinations.toSet()
+                return buildMap {
+                    oddsCells.forEachIndexed { index, cell ->
+                        val combination = "${index % 6 + 1}-${secondNumbers[index]}-${thirdNumbers[index]}"
+                        if (combination in wanted) parseOdds(cell.text())?.let { put(combination, it) }
+                    }
+                }
+            }
+        }
+
         val targets = combinations.distinct().mapNotNull { combination ->
             val parts = combination.split("-").mapNotNull(String::toIntOrNull)
             if (parts.size != 3) null else TrifectaOddsLocator.locate(parts[0], parts[1], parts[2])
@@ -52,7 +75,8 @@ class BoatRaceRepository {
             val rows = table.select("tbody tr").ifEmpty { table.select("tr") }
             buildMap {
                 targets.forEach { (combination, rowNumber, columnNumber) ->
-                    val cells = rows.getOrNull(rowNumber - 1)?.select("th,td").orEmpty()
+                    // 見出しthは公式表の列番号に含まれないためtdだけを数える。
+                    val cells = rows.getOrNull(rowNumber - 1)?.select("td").orEmpty()
                     val raw = cells.getOrNull(columnNumber - 1)?.text().orEmpty()
                     parseOdds(raw)?.let { put(combination, it) }
                 }
@@ -73,6 +97,7 @@ class BoatRaceRepository {
             connection.setRequestProperty("User-Agent", "BOAT-AI/0.2 Android")
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Cache-Control", "no-cache")
+            connection.useCaches = false
             connection.connect()
             if (connection.responseCode !in 200..299) {
                 throw IllegalStateException("データ取得失敗 HTTP ${connection.responseCode}")

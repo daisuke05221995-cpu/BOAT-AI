@@ -25,7 +25,7 @@ class BetStore(context: Context) {
 
     fun addRacePicks(races: List<RaceData>, stakePerPick: Int): List<BetRecord> =
         addEntries(
-            races.filter { !it.hasResult }.map { race -> race to PredictionEngine.predict(race) },
+            races.filter { it.isPurchasable() }.map { race -> race to PredictionEngine.predict(race) },
             stakePerPick
         )
 
@@ -40,7 +40,7 @@ class BetStore(context: Context) {
         val now = System.currentTimeMillis()
 
         for ((race, picks) in entries) {
-            if (race.hasResult) continue
+            if (!race.isPurchasable()) continue
             for (pick in picks) {
                 val duplicate = current.any {
                     it.date == race.date &&

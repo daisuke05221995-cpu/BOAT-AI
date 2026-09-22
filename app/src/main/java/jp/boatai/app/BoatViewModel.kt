@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
@@ -40,6 +42,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val predictionStore = PredictionHistoryStore(application)
     private val appUpdateManager = AppUpdateManager(application)
     private val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))
+    private var oddsRefreshJob: Job? = null
 
     private val _ui = MutableStateFlow(
         BoatUiState(
@@ -119,6 +122,20 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 actionMessage = null
             )
         }
+        oddsRefreshJob?.cancel()
+        loadOdds(race, initial)
+        if (race.isPurchasable()) {
+            oddsRefreshJob = viewModelScope.launch {
+                while (_ui.value.selectedRace?.id == race.id && race.isPurchasable()) {
+                    delay(60_000)
+                    loadOdds(race, initial, showLoading = false)
+                }
+            }
+        }
+    }
+
+    private fun loadOdds(race: RaceData, initial: List<PredictionPick>, showLoading: Boolean = true) {
+        if (showLoading) _ui.update { it.copy(oddsLoading = true, oddsError = null) }
         viewModelScope.launch {
             runCatching {
                 repository.loadOfficialTrifectaOdds(race, initial.map { it.combination })
@@ -141,7 +158,10 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun retryOdds() = _ui.value.selectedRace?.let(::selectRace)
+    fun retryOdds() {
+        val race = _ui.value.selectedRace ?: return
+        loadOdds(race, PredictionEngine.predict(race))
+    }
 
     fun selectVenue(stadiumNumber: Int) {
         _ui.update { it.copy(selectedVenue = stadiumNumber, actionMessage = null) }
@@ -152,6 +172,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun closeRace() {
+        oddsRefreshJob?.cancel()
         _ui.update {
             it.copy(
                 selectedRace = null,
@@ -164,21 +185,21 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectVenuePurchasable(stadiumNumber: Int) {
         val ids = _ui.value.races.filter {
-            it.stadiumNumber == stadiumNumber && !it.hasResult && PredictionEngine.predict(it).isNotEmpty()
+            it.stadiumNumber == stadiumNumber && it.isPurchasable() && PredictionEngine.predict(it).isNotEmpty()
         }.mapTo(linkedSetOf()) { it.id }
         _ui.update { it.copy(selectedForBulk = ids, actionMessage = null) }
     }
 
     fun selectVenueTop(stadiumNumber: Int, count: Int = 3) {
         val ids = _ui.value.races.filter {
-            it.stadiumNumber == stadiumNumber && !it.hasResult && PredictionEngine.predict(it).isNotEmpty()
+            it.stadiumNumber == stadiumNumber && it.isPurchasable() && PredictionEngine.predict(it).isNotEmpty()
         }.sortedByDescending(PredictionEngine::confidence).take(count).mapTo(linkedSetOf()) { it.id }
         _ui.update { it.copy(selectedForBulk = ids, actionMessage = null) }
     }
 
     fun selectConfidenceAtLeast(minimum: Int) {
         val ids = _ui.value.races.filter {
-            !it.hasResult && PredictionEngine.predict(it).isNotEmpty() && PredictionEngine.confidence(it) >= minimum
+            it.isPurchasable() && PredictionEngine.predict(it).isNotEmpty() && PredictionEngine.confidence(it) >= minimum
         }.mapTo(linkedSetOf()) { it.id }
         _ui.update {
             it.copy(
@@ -210,7 +231,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleBulkRace(raceId: String) {
         val race = _ui.value.races.firstOrNull { it.id == raceId } ?: return
-        if (race.hasResult) return
+        if (!race.isPurchasable()) return
         _ui.update { state ->
             val next = state.selectedForBulk.toMutableSet()
             if (!next.add(raceId)) next.remove(raceId)
@@ -220,7 +241,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectAllPurchasable() {
         val ids = _ui.value.races
-            .filter { !it.hasResult && PredictionEngine.predict(it).isNotEmpty() }
+            .filter { it.isPurchasable() && PredictionEngine.predict(it).isNotEmpty() }
             .mapTo(linkedSetOf()) { it.id }
         _ui.update { it.copy(selectedForBulk = ids, actionMessage = null) }
     }
@@ -232,7 +253,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     fun recordSelectedRaces() {
         val state = _ui.value
         val races = state.races.filter {
-            it.id in state.selectedForBulk && !it.hasResult
+            it.id in state.selectedForBulk && it.isPurchasable()
         }
         if (races.isEmpty()) {
             _ui.update { it.copy(actionMessage = "購入するレースを選択してください") }
@@ -252,7 +273,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun recordRace(race: RaceData) {
-        if (race.hasResult) return
+        if (!race.isPurchasable()) return
         val picks = PredictionEngine.predict(race)
         if (picks.isEmpty()) return
         val before = _ui.value.records.size
@@ -273,7 +294,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     fun recordPredictions() {
         val state = _ui.value
         val race = state.selectedRace ?: return
-        if (state.predictions.isEmpty() || race.hasResult) return
+        if (state.predictions.isEmpty() || !race.isPurchasable()) return
         val before = state.records.size
         val records = betStore.addPicks(race, state.predictions, state.stakePerPick)
         val addedTickets = (records.size - before).coerceAtLeast(0)

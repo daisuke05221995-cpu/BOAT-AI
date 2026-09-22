@@ -171,7 +171,7 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
         stadium to ui.races.filter { it.stadiumNumber == stadium }
     }.let { list ->
         when (sortMode) {
-            1 -> list.sortedBy { (_, races) -> races.filterNot { it.hasResult }.minOfOrNull { closeTime(it.closedAt) } ?: "99:99" }
+            1 -> list.sortedBy { (_, races) -> races.filter { it.isPurchasable() }.minOfOrNull { closeTime(it.closedAt) } ?: "99:99" }
             2 -> list.sortedByDescending { (_, races) -> races.maxOfOrNull(PredictionEngine::confidence) ?: 0 }
             else -> list
         }
@@ -270,7 +270,7 @@ private fun VenueTile(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val open = races.filterNot { it.hasResult }
+    val open = races.filter { it.isPurchasable() }
     val next = open.minByOrNull { closeTime(it.closedAt) }
     val best = open.maxOfOrNull(PredictionEngine::confidence)
     val first = races.firstOrNull()
@@ -362,10 +362,10 @@ private fun DateSelectorCard(ui: BoatUiState, vm: BoatViewModel) {
 
 @Composable
 private fun BulkPurchaseCard(ui: BoatUiState, vm: BoatViewModel) {
-    val selectedRaces = ui.races.filter { it.id in ui.selectedForBulk && !it.hasResult }
+    val selectedRaces = ui.races.filter { it.id in ui.selectedForBulk && it.isPurchasable() }
     val selectedTickets = selectedRaces.sumOf { PredictionEngine.predict(it).size }
     val total = selectedTickets * ui.stakePerPick
-    val availableCount = ui.races.count { !it.hasResult }
+    val availableCount = ui.races.count { it.isPurchasable() }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
@@ -485,7 +485,7 @@ private fun RacePredictionRow(
 ) {
     val picks = PredictionEngine.predict(race)
     val total = picks.size * stakePerPick
-    val enabled = !race.hasResult && picks.isNotEmpty()
+    val enabled = race.isPurchasable() && picks.isNotEmpty() && purchasedStake == 0
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -506,7 +506,13 @@ private fun RacePredictionRow(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    if (race.hasResult) "確定" else money(total),
+                    when {
+                        race.hasResult -> "結果確定"
+                        race.isPurchasable() -> money(total)
+                        race.date.take(10) < java.time.LocalDate.now(java.time.ZoneId.of("Asia/Tokyo")).toString() -> "終了・結果取得待ち"
+                        !race.isDataComplete -> "情報取得待ち"
+                        else -> "締切済み"
+                    },
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -527,9 +533,10 @@ private fun RacePredictionRow(
             }
             if (purchasedStake > 0) {
                 Text(
-                    "購入記録 ${money(purchasedStake)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold
+                    "✓ 購入済み　${money(purchasedStake)}",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -537,7 +544,7 @@ private fun RacePredictionRow(
                     onClick = onIndividualBuy,
                     enabled = enabled
                 ) {
-                    Text("個別購入")
+                    Text(if (purchasedStake > 0) "購入済み" else if (race.isPurchasable()) "個別購入" else "購入不可")
                 }
                 TextButton(onClick = onDetail) {
                     Text("詳細")
@@ -949,7 +956,7 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
                     }
                     ui.oddsUpdatedAt?.let { updated ->
                         Text(
-                            "オッズ最終取得 ${java.time.Instant.ofEpochMilli(updated).atZone(java.time.ZoneId.of("Asia/Tokyo")).format(DateTimeFormatter.ofPattern("HH:mm:ss"))}",
+                            "オッズ最終取得 ${java.time.Instant.ofEpochMilli(updated).atZone(java.time.ZoneId.of("Asia/Tokyo")).format(DateTimeFormatter.ofPattern("HH:mm:ss"))}（開催中は60秒ごとに更新）",
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -969,10 +976,14 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
                     Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = vm::recordPredictions,
-                        enabled = ui.predictions.isNotEmpty() && !race.hasResult,
+                        enabled = ui.predictions.isNotEmpty() && race.isPurchasable() && ui.records.none {
+                            it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber
+                        },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("このレースを個別購入登録")
+                        Text(if (ui.records.any {
+                            it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber
+                        }) "✓ このレースは購入済み" else "このレースを個別購入登録")
                     }
                     ui.actionMessage?.let {
                         Text(

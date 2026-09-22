@@ -5,18 +5,27 @@ import kotlin.math.max
 object PredictionEngine {
     /** 画面表示と一括購入判定に使う、0〜100のレース期待度。 */
     fun confidence(race: RaceData): Int {
-        val racers = race.racers.map(::racerScore).sortedDescending()
-        if (racers.size < 3) return 0
-        val lead = (racers[0] - racers[1]).coerceAtLeast(0.0)
-        val dataCoverage = race.racers.sumOf { racer ->
-            listOf(
-                racer.nationalWinRate, racer.localWinRate, racer.averageStart,
-                racer.motorTop2, racer.preview?.exhibitionTime
-            ).count { it != null }
-        }.toDouble() / (race.racers.size * 5.0)
-        val previewBonus = if (race.preview != null) 4.0 else 0.0
-        return (55.0 + lead * 1.15 + dataCoverage * 18.0 + previewBonus)
-            .toInt().coerceIn(45, 98)
+        if (race.racers.size < 3) return 0
+        val scored = race.racers.map { it to racerScore(it) }.sortedByDescending { it.second }
+        val leader = scored[0]
+        val runnerUp = scored[1]
+        val scoreGap = (leader.second - runnerUp.second).coerceAtLeast(0.0)
+        val winGap = ((leader.first.nationalWinRate ?: 0.0) -
+            (runnerUp.first.nationalWinRate ?: 0.0)).coerceAtLeast(0.0)
+        val motorGap = ((leader.first.motorTop2 ?: 0.0) -
+            (runnerUp.first.motorTop2 ?: 0.0)).coerceAtLeast(0.0)
+        val startEdge = ((runnerUp.first.averageStart ?: 0.20) -
+            (leader.first.averageStart ?: 0.20)).coerceAtLeast(0.0)
+        val laneBonus = when (leader.first.lane) {
+            1 -> 12.0
+            2 -> 5.0
+            3 -> 2.0
+            else -> 0.0
+        }
+        val previewSpread = race.racers.mapNotNull { it.preview?.exhibitionTime }
+            .let { times -> if (times.size >= 3) ((times.maxOrNull() ?: 0.0) - (times.minOrNull() ?: 0.0)) * 18.0 else 0.0 }
+        return (32.0 + scoreGap * 2.25 + winGap * 2.8 + motorGap * 0.32 +
+            startEdge * 90.0 + laneBonus + previewSpread).toInt().coerceIn(35, 97)
     }
 
     fun rank(race: RaceData): String = when (confidence(race)) {

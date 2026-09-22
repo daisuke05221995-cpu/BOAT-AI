@@ -2,6 +2,11 @@ package jp.boatai.app
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 object Venues {
     private val names = mapOf(
@@ -80,6 +85,18 @@ data class RaceData(
     val id: String get() = "$date-${Venues.code(stadiumNumber)}-$raceNumber"
     val venueName: String get() = Venues.name(stadiumNumber)
     val hasResult: Boolean get() = !result?.trifectaCombination.isNullOrBlank()
+
+    fun isPurchasable(now: LocalDateTime = LocalDateTime.now(ZoneId.of("Asia/Tokyo"))): Boolean {
+        val raceDate = runCatching { LocalDate.parse(date.take(10)) }.getOrNull() ?: return false
+        if (raceDate != now.toLocalDate() || hasResult || racers.size < 3) return false
+        val time = Regex("""(\d{1,2}):(\d{2})""").findAll(closedAt).lastOrNull()?.let {
+            runCatching { LocalTime.of(it.groupValues[1].toInt(), it.groupValues[2].toInt()) }.getOrNull()
+        } ?: return false
+        return now.toLocalTime().isBefore(time)
+    }
+
+    val isDataComplete: Boolean
+        get() = racers.size == 6 && racers.all { it.name.isNotBlank() }
 }
 
 data class PredictionPick(
