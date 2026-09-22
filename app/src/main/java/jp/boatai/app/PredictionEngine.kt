@@ -4,14 +4,21 @@ import kotlin.math.max
 
 object PredictionEngine {
     @Volatile private var learningProfile = LearningProfile()
+    @Volatile private var persistentPerformanceProfile = PredictionPerformanceProfile()
     @Volatile private var performanceProfile = PredictionPerformanceProfile()
 
     fun installLearningProfile(profile: LearningProfile) {
         learningProfile = profile
     }
 
+    fun installPersistentPerformanceProfile(profile: PredictionPerformanceProfile) {
+        persistentPerformanceProfile = profile
+    }
+
     fun installPerformanceProfile(profile: PredictionPerformanceProfile) {
-        performanceProfile = profile
+        // 画面に表示する当該バージョン実績とは分離し、過去バージョンで学んだ
+        // 弱点補正を内部だけで引き継ぐ。毎回再加算せず、保存済み + 現行版だけを合成する。
+        performanceProfile = persistentPerformanceProfile.mergedWith(profile)
     }
 
     /** 画面表示と一括購入判定に使う、0〜100のレース期待度。 */
