@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
-"""Search a walk-forward expected-return BOAT AI betting strategy.
+"""Train position-specific BOAT AI probability models and search 1-10 point tickets.
 
-This version avoids selecting rare fixed jackpot patterns. Each race is scored using
-only results available through the previous day. For each of the 120 permutations of
-model rank positions, a shrunk expected return is estimated from global, race-context
-and venue history. Large payouts are capped only for learning so one jackpot cannot
-dominate the estimator; evaluation always uses the real payout.
+Protocol (leakage-safe):
+- Jan-Apr: train separate softmax models for 1st / 2nd / 3rd place.
+- May-Jun: choose ticket confidence, coverage, max-points and allocation rules.
+- Jul-Aug: untouched validation using a model refit through Jun only.
+- Sep-latest: evaluated only if BOTH Jul and Aug are profitable; model may then be
+  refit through Aug as a pre-declared walk-forward update.
 
-Protocol:
-- Jan-Feb: estimator warm-up only.
-- Mar-Jun: choose threshold / max points / allocation mode from monthly OOS signals.
-- Jul-Aug: untouched validation for this strategy family.
-- Sep-latest: final confirmation is evaluated only if BOTH Jul and Aug are profitable.
-
-Historical closing odds are unavailable, so the live final-odds gate is excluded.
+The three position models replace the old assumption that 1st/2nd/3rd should all use
+one identical racer score ordering. Historical closing odds are unavailable, so the
+live odds final gate is excluded from the historical test.
 """
 
 from __future__ import annotations
@@ -22,11 +19,12 @@ import argparse
 import itertools
 import json
 import math
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+import numpy as np
 
 from build_2026_backtest import (
     JST,
@@ -43,16 +41,20 @@ from build_2026_backtest import (
 )
 
 BUDGET_UNITS = 12
-LEARNING_PAYOUT_CAP = 20_000
-CONTEXT_SHRINK = 500.0
-VENUE_SHRINK = 900.0
-MIN_CONTEXT_HISTORY = 120
-MIN_GLOBAL_HISTORY = 800
-MAX_SIGNAL_PATTERNS = 10
-RANK_PATTERNS = tuple(itertools.permutations(range(1, 7), 3))
-THRESHOLDS = (95.0, 100.0, 105.0, 110.0, 115.0, 120.0, 130.0, 140.0)
-MAX_POINTS_OPTIONS = (1, 2, 3, 4, 6, 8, 10)
-ALLOCATION_MODES = ("equal", "edge")
+REGULARIZATION = 0.05
+EPOCHS = 150
+LEARNING_RATE = 0.22
+MAX_COMBOS = 10
+MAX_POINTS_OPTIONS = (1, 2, 4, 6, 10)
+COVERAGE_OPTIONS = (0.10, 0.15, 0.20, 0.30)
+WINNER_PROB_THRESHOLDS = (0.0, 0.35, 0.45, 0.55)
+ALLOCATION_MODES = ("equal", "probability")
+LEADER_FILTERS = ("all", "lane1")
+COMBOS = tuple(itertools.permutations(range(6), 3))
+
+
+def clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
 
 
 def score_top_picks(score_map: dict[int, float], limit: int = 10) -> list[str]:
@@ -71,230 +73,280 @@ def score_top_picks(score_map: dict[int, float], limit: int = 10) -> list[str]:
     return [combo for combo, _ in ranked[:limit]]
 
 
-def confidence_band(value: int) -> str:
-    if value < 65:
-        return "<65"
-    if value < 75:
-        return "65-74"
-    if value < 85:
-        return "75-84"
-    if value < 90:
-        return "85-89"
-    return "90+"
+def feature_row(
+    racer: dict[str, Any],
+    venue: int,
+    wind: int,
+    wave: int,
+    learning: LearningProfile,
+) -> list[float]:
+    lane = int(racer["lane"])
+    course = int(racer.get("course") or lane)
+    national = racer.get("national_win")
+    local = racer.get("local_win")
+    motor = racer.get("motor_top2")
+    boat = racer.get("boat_top2")
+    avg_start = racer.get("average_start")
+    exhibition = racer.get("exhibition")
+    preview_start = racer.get("preview_start")
+
+    missing = [
+        national is None,
+        local is None,
+        motor is None,
+        boat is None,
+        avg_start is None,
+        exhibition is None,
+        preview_start is None,
+    ]
+
+    national_v = clamp(float(national if national is not None else 5.0), 0.0, 10.0)
+    local_v = clamp(float(local if local is not None else 5.0), 0.0, 10.0)
+    motor_v = clamp(float(motor if motor is not None else 30.0), 0.0, 100.0)
+    boat_v = clamp(float(boat if boat is not None else 30.0), 0.0, 100.0)
+    avg_start_v = clamp(float(avg_start if avg_start is not None else 0.18), 0.0, 0.50)
+    exhibition_v = clamp(float(exhibition if exhibition is not None else 6.90), 6.0, 8.0)
+    preview_start_v = clamp(float(preview_start if preview_start is not None else 0.18), -0.20, 0.60)
+    learning_bonus = learning.bonus(venue, lane, wind, course)
+
+    values = [
+        national_v,
+        local_v,
+        motor_v,
+        boat_v,
+        avg_start_v,
+        exhibition_v,
+        preview_start_v,
+        float(learning_bonus),
+    ]
+    values += [1.0 if lane == value else 0.0 for value in range(1, 7)]
+    values += [1.0 if course == value else 0.0 for value in range(1, 7)]
+    values += [
+        1.0 if course != lane else 0.0,
+        float(wind) * (1.0 if lane == 1 else 0.0),
+        float(wind) * (1.0 if lane >= 4 else 0.0),
+        float(wave) * (1.0 if lane == 1 else 0.0),
+        float(wave) * (1.0 if lane >= 4 else 0.0),
+    ]
+    values += [1.0 if flag else 0.0 for flag in missing]
+    return values
 
 
-def first_group(lane: int | None) -> str:
-    if lane == 1:
-        return "1"
-    if lane in (2, 3):
-        return "2-3"
-    return "4-6"
+def softmax_rows(logits: np.ndarray) -> np.ndarray:
+    shifted = logits - np.max(logits, axis=1, keepdims=True)
+    exp = np.exp(np.clip(shifted, -40.0, 40.0))
+    return exp / np.sum(exp, axis=1, keepdims=True)
 
 
-def gap_band(gap: float) -> str:
-    if gap < 5.0:
-        return "gap<5"
-    if gap < 10.0:
-        return "gap5-9"
-    return "gap10+"
+class PositionModel:
+    def __init__(self, mean: np.ndarray, std: np.ndarray, weights: np.ndarray) -> None:
+        self.mean = mean
+        self.std = std
+        self.weights = weights  # shape (3, feature_count)
+
+    def probabilities(self, features: list[list[float]]) -> np.ndarray:
+        x = np.asarray(features, dtype=np.float64)
+        xs = (x - self.mean) / self.std
+        logits = xs @ self.weights.T  # 6 x 3
+        probs = []
+        for position in range(3):
+            values = logits[:, position]
+            shifted = values - np.max(values)
+            exp = np.exp(np.clip(shifted, -40.0, 40.0))
+            probs.append(exp / np.sum(exp))
+        return np.asarray(probs, dtype=np.float64)  # 3 x 6
 
 
-def context_key(rec: dict[str, Any]) -> str:
-    return "|".join([
-        confidence_band(int(rec["confidence"])),
-        first_group(rec.get("firstLane")),
-        gap_band(float(rec.get("scoreGap", 0.0))),
-        "wind5+" if int(rec.get("wind", 0)) >= 5 else "wind0-4",
-        "courseChange" if rec.get("courseChanged") else "courseStable",
-        "historySkip" if rec.get("historySkip") else "historyKeep",
-    ])
+def fit_position_model(records: list[dict[str, Any]], start: date, end: date) -> PositionModel:
+    subset = [rec for rec in records if start <= rec["day"] <= end]
+    if len(subset) < 1000:
+        raise RuntimeError(f"not enough model training races: {len(subset)}")
+
+    x = np.asarray([rec["features"] for rec in subset], dtype=np.float64)
+    flat = x.reshape(-1, x.shape[-1])
+    mean = flat.mean(axis=0)
+    std = flat.std(axis=0)
+    std = np.where(std < 1e-6, 1.0, std)
+    xs = (x - mean) / std
+    targets = np.asarray([rec["targets"] for rec in subset], dtype=np.int64)
+
+    weights: list[np.ndarray] = []
+    rows = np.arange(len(subset))
+    for position in range(3):
+        w = np.zeros(xs.shape[-1], dtype=np.float64)
+        y = targets[:, position]
+        for epoch in range(EPOCHS):
+            logits = np.einsum("rsf,f->rs", xs, w)
+            probs = softmax_rows(logits)
+            diff = probs
+            diff[rows, y] -= 1.0
+            grad = np.einsum("rs,rsf->f", diff, xs) / len(subset)
+            grad += REGULARIZATION * w
+            step = LEARNING_RATE / math.sqrt(1.0 + epoch / 45.0)
+            w -= step * grad
+        weights.append(w)
+    return PositionModel(mean, std, np.asarray(weights))
 
 
-def empty_stats() -> dict[str, Any]:
-    return {"purchaseRaces": 0, "hits": 0, "stake": 0, "payout": 0}
+def trifecta_distribution(model: PositionModel, rec: dict[str, Any]) -> list[dict[str, Any]]:
+    probs = model.probabilities(rec["features"])
+    ranked: list[tuple[str, float]] = []
+    total = 0.0
+    for first, second, third in COMBOS:
+        value = float(probs[0, first] * probs[1, second] * probs[2, third])
+        total += value
+        ranked.append((f"{first + 1}-{second + 1}-{third + 1}", value))
+    if total <= 0.0:
+        return []
+    ranked.sort(key=lambda item: item[1], reverse=True)
+    return [
+        {"combo": combo, "probability": value / total}
+        for combo, value in ranked[:MAX_COMBOS]
+    ]
 
 
-def finalize_stats(stats: dict[str, Any]) -> dict[str, Any]:
-    buys = int(stats.get("purchaseRaces", 0))
-    hits = int(stats.get("hits", 0))
-    stake = int(stats.get("stake", 0))
-    payout = int(stats.get("payout", 0))
-    return {
-        "purchaseRaces": buys,
-        "hits": hits,
-        "hitRate": round(hits * 100.0 / buys, 1) if buys else 0.0,
-        "stake": stake,
-        "payout": payout,
-        "profit": payout - stake,
-        "roi": round(payout * 100.0 / stake, 1) if stake else 0.0,
-    }
+def make_signals(model: PositionModel, records: list[dict[str, Any]], start: date, end: date) -> list[dict[str, Any]]:
+    signals: list[dict[str, Any]] = []
+    for rec in records:
+        if not (start <= rec["day"] <= end):
+            continue
+        ranked = trifecta_distribution(model, rec)
+        if not ranked:
+            continue
+        p1 = model.probabilities(rec["features"])[0]
+        winner_prob = float(np.max(p1))
+        leader_lane = int(np.argmax(p1)) + 1
+        signals.append({
+            "day": rec["day"],
+            "ranked": ranked,
+            "topProbability": float(ranked[0]["probability"]),
+            "winnerProbability": winner_prob,
+            "leaderLane": leader_lane,
+            "combo": rec["combo"],
+            "amount": rec["amount"],
+        })
+    return signals
 
 
-def add_stats(target: dict[str, Any], source: dict[str, Any]) -> None:
-    for key in ("purchaseRaces", "hits", "stake", "payout"):
-        target[key] += int(source.get(key, 0))
-
-
-def winning_rank_pattern(combo: str, ranked_lanes: list[int]) -> tuple[int, int, int] | None:
-    try:
-        lanes = [int(v) for v in combo.split("-")]
-    except ValueError:
-        return None
-    if len(lanes) != 3:
-        return None
-    rank_of = {lane: rank for rank, lane in enumerate(ranked_lanes, start=1)}
-    try:
-        return tuple(rank_of[lane] for lane in lanes)  # type: ignore[return-value]
-    except KeyError:
-        return None
-
-
-def pattern_text(pattern: tuple[int, int, int]) -> str:
-    return "-".join(str(v) for v in pattern)
-
-
-def allocate_units(estimates: list[float], threshold: float, mode: str) -> list[int]:
-    points = len(estimates)
+def allocate_units(probabilities: list[float], mode: str) -> list[int]:
+    points = len(probabilities)
     if points <= 0:
         return []
-    if points > BUDGET_UNITS:
-        estimates = estimates[:BUDGET_UNITS]
-        points = len(estimates)
-
     if mode == "equal":
         base = BUDGET_UNITS // points
         remainder = BUDGET_UNITS - base * points
         return [base + (1 if idx < remainder else 0) for idx in range(points)]
 
-    # Edge-proportional: every pick gets 100 yen, remaining units follow estimated edge.
     units = [1] * points
     remaining = BUDGET_UNITS - points
-    edges = [max(1.0, value - threshold) for value in estimates]
-    total_edge = sum(edges)
-    if remaining <= 0 or total_edge <= 0:
+    if remaining <= 0:
         return units
-    raw_extra = [remaining * edge / total_edge for edge in edges]
-    floors = [int(math.floor(value)) for value in raw_extra]
+    total = sum(probabilities)
+    if total <= 0:
+        return units
+    raw = [remaining * value / total for value in probabilities]
+    floors = [int(math.floor(value)) for value in raw]
     for idx, value in enumerate(floors):
         units[idx] += value
     leftover = BUDGET_UNITS - sum(units)
-    order = sorted(range(points), key=lambda idx: raw_extra[idx] - floors[idx], reverse=True)
+    order = sorted(range(points), key=lambda idx: raw[idx] - floors[idx], reverse=True)
     for idx in order[:leftover]:
         units[idx] += 1
     return units
 
 
-def evaluate_signals(
-    signals: list[dict[str, Any]],
-    start: date,
-    end: date,
-    threshold: float,
-    max_points: int,
-    allocation_mode: str,
-) -> dict[str, Any]:
-    stats = empty_stats()
+def ticket(signal: dict[str, Any], cfg: dict[str, Any]) -> tuple[list[dict[str, Any]], list[int]]:
+    if float(signal["topProbability"]) < float(cfg["minTopProbability"]):
+        return [], []
+    if float(signal["winnerProbability"]) < float(cfg["minWinnerProbability"]):
+        return [], []
+    if cfg["leaderFilter"] == "lane1" and int(signal["leaderLane"]) != 1:
+        return [], []
+
+    picked: list[dict[str, Any]] = []
+    cumulative = 0.0
+    for item in signal["ranked"]:
+        if len(picked) >= int(cfg["maxPoints"]):
+            break
+        picked.append(item)
+        cumulative += float(item["probability"])
+        if cumulative >= float(cfg["coverage"]):
+            break
+    if not picked:
+        return [], []
+    probabilities = [float(item["probability"]) for item in picked]
+    return picked, allocate_units(probabilities, str(cfg["allocationMode"]))
+
+
+def empty_stats() -> dict[str, int]:
+    return {"purchaseRaces": 0, "hits": 0, "stake": 0, "payout": 0}
+
+
+def finalize_stats(raw: dict[str, int]) -> dict[str, Any]:
+    buys = raw["purchaseRaces"]
+    stake = raw["stake"]
+    payout = raw["payout"]
+    hits = raw["hits"]
+    return {
+        **raw,
+        "profit": payout - stake,
+        "roi": round(payout * 100.0 / stake, 1) if stake else 0.0,
+        "hitRate": round(hits * 100.0 / buys, 1) if buys else 0.0,
+    }
+
+
+def evaluate(signals: list[dict[str, Any]], cfg: dict[str, Any], start: date, end: date) -> dict[str, Any]:
+    raw = empty_stats()
     for signal in signals:
-        day = signal["day"]
-        if day < start or day > end:
+        if not (start <= signal["day"] <= end):
             continue
-        candidates = [item for item in signal["patterns"] if float(item["expectedReturn"]) >= threshold][:max_points]
-        if not candidates:
+        picks, units = ticket(signal, cfg)
+        if not picks:
             continue
-        estimates = [float(item["expectedReturn"]) for item in candidates]
-        units = allocate_units(estimates, threshold, allocation_mode)
-        stats["purchaseRaces"] += 1
-        stats["stake"] += BUDGET_UNITS * 100
-        winning = signal["winningPattern"]
-        for idx, item in enumerate(candidates):
-            if item["pattern"] == winning:
-                stats["hits"] += 1
-                stats["payout"] += int(signal["amount"]) * units[idx]
+        raw["purchaseRaces"] += 1
+        raw["stake"] += BUDGET_UNITS * 100
+        for idx, item in enumerate(picks):
+            if item["combo"] == signal["combo"]:
+                raw["hits"] += 1
+                raw["payout"] += int(signal["amount"]) * units[idx]
                 break
-    return finalize_stats(stats)
+    return finalize_stats(raw)
 
 
-def evaluate_current_baseline(records: list[dict[str, Any]], start: date, end: date) -> dict[str, Any]:
-    stats = empty_stats()
-    stakes = (5, 4, 2, 1)
-    for rec in records:
-        day = rec["day"]
-        if day < start or day > end:
-            continue
-        if rec["historySkip"] or int(rec["confidence"]) < int(rec["baseThreshold"]):
-            continue
-        stats["purchaseRaces"] += 1
-        stats["stake"] += 1200
-        picks = rec["baselinePicks"][:4]
-        if rec["combo"] in picks:
-            idx = picks.index(rec["combo"])
-            stats["hits"] += 1
-            stats["payout"] += int(rec["amount"]) * stakes[idx]
-    return finalize_stats(stats)
+def combined(stats_list: list[dict[str, Any]]) -> dict[str, Any]:
+    raw = empty_stats()
+    for stats in stats_list:
+        for key in raw:
+            raw[key] += int(stats.get(key, 0))
+    return finalize_stats(raw)
 
 
 def profitable(stats: dict[str, Any]) -> bool:
-    return stats["profit"] > 0 and stats["roi"] > 100.0
+    return stats["purchaseRaces"] > 0 and stats["profit"] > 0 and stats["roi"] > 100.0
 
 
-def build_signals(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    global_count = 0
-    global_payout: dict[tuple[int, int, int], float] = defaultdict(float)
-    context_count: dict[str, int] = defaultdict(int)
-    context_payout: dict[str, dict[tuple[int, int, int], float]] = defaultdict(lambda: defaultdict(float))
-    venue_count: dict[int, int] = defaultdict(int)
-    venue_payout: dict[int, dict[tuple[int, int, int], float]] = defaultdict(lambda: defaultdict(float))
-
-    signals: list[dict[str, Any]] = []
-    records_by_day: dict[date, list[dict[str, Any]]] = defaultdict(list)
+def evaluate_current_baseline(records: list[dict[str, Any]], start: date, end: date) -> dict[str, Any]:
+    raw = empty_stats()
+    stakes = (5, 4, 2, 1)
     for rec in records:
-        records_by_day[rec["day"]].append(rec)
+        if not (start <= rec["day"] <= end):
+            continue
+        if rec["historySkip"] or int(rec["confidence"]) < int(rec["baseThreshold"]):
+            continue
+        raw["purchaseRaces"] += 1
+        raw["stake"] += 1200
+        picks = rec["baselinePicks"][:4]
+        if rec["combo"] in picks:
+            idx = picks.index(rec["combo"])
+            raw["hits"] += 1
+            raw["payout"] += int(rec["amount"]) * stakes[idx]
+    return finalize_stats(raw)
 
-    for day in sorted(records_by_day):
-        day_records = records_by_day[day]
-        for rec in day_records:
-            key = rec["contextKey"]
-            venue = int(rec["venue"])
-            if global_count < MIN_GLOBAL_HISTORY or context_count[key] < MIN_CONTEXT_HISTORY:
-                continue
 
-            ranked: list[dict[str, Any]] = []
-            for pattern in RANK_PATTERNS:
-                global_mean = global_payout[pattern] / global_count if global_count else 0.0
-                c_count = context_count[key]
-                v_count = venue_count[venue]
-                context_mean = (
-                    context_payout[key][pattern] + CONTEXT_SHRINK * global_mean
-                ) / (c_count + CONTEXT_SHRINK)
-                venue_mean = (
-                    venue_payout[venue][pattern] + VENUE_SHRINK * global_mean
-                ) / (v_count + VENUE_SHRINK) if v_count else global_mean
-                expected = context_mean * 0.65 + venue_mean * 0.25 + global_mean * 0.10
-                ranked.append({"pattern": pattern_text(pattern), "expectedReturn": round(expected, 3)})
-
-            ranked.sort(key=lambda item: float(item["expectedReturn"]), reverse=True)
-            signals.append({
-                "day": day,
-                "patterns": ranked[:MAX_SIGNAL_PATTERNS],
-                "winningPattern": rec["winningPattern"],
-                "amount": rec["amount"],
-            })
-
-        # No same-day leakage: all outcomes are incorporated only after the day's signals are made.
-        for rec in day_records:
-            pattern = rec.get("winningPatternTuple")
-            if pattern is None:
-                continue
-            key = rec["contextKey"]
-            venue = int(rec["venue"])
-            learned_payout = min(int(rec["amount"]), LEARNING_PAYOUT_CAP)
-            global_count += 1
-            context_count[key] += 1
-            venue_count[venue] += 1
-            global_payout[pattern] += learned_payout
-            context_payout[key][pattern] += learned_payout
-            venue_payout[venue][pattern] += learned_payout
-
-    return signals
+def month_end(year: int, month: int) -> date:
+    if month == 12:
+        return date(year, 12, 31)
+    return date(year, month + 1, 1) - timedelta(days=1)
 
 
 def main() -> None:
@@ -309,10 +361,11 @@ def main() -> None:
     today_jst = datetime.now(JST).date()
     data_end = args.end or min(today_jst - timedelta(days=1), date(2026, 12, 31))
     if data_end < date(2026, 9, 1):
-        raise SystemExit("final period has not started yet")
+        raise SystemExit("final validation period has not started yet")
 
     learning = LearningProfile(json.loads(args.learning.read_text(encoding="utf-8")))
     performance = PerformanceProfile()
+
     dates: list[date] = []
     cursor = args.start
     while cursor <= data_end:
@@ -344,177 +397,182 @@ def main() -> None:
             combo, trifecta_amount = race_result(race)
             if not combo or trifecta_amount <= 0 or not decision_ready(race):
                 continue
+            racers = race_racers(race)
+            if len(racers) != 6:
+                continue
             raw, leader_lane, score_map = raw_confidence(race, learning)
             if raw == 0 or len(score_map) != 6:
                 continue
 
-            ranked_lanes = [lane for lane, _ in sorted(score_map.items(), key=lambda item: item[1], reverse=True)]
-            win_pattern = winning_rank_pattern(combo, ranked_lanes)
-            if win_pattern is None:
+            try:
+                result_lanes = [int(value) for value in combo.split("-")]
+            except ValueError:
                 continue
-            score_values = sorted(score_map.values(), reverse=True)
-            first_lane = ranked_lanes[0]
+            if len(result_lanes) != 3 or any(lane < 1 or lane > 6 for lane in result_lanes):
+                continue
+
             venue = as_int(race.get("stadium_number"), 0) or 0
+            preview = race.get("preview") or {}
+            wind = as_int(preview.get("wind_speed"), 0) or 0
+            wave = as_int(preview.get("wave_height"), 0) or 0
+            features = [feature_row(racer, venue, wind, wave, learning) for racer in racers]
+            baseline_picks = score_top_picks(score_map, 10)
+            first_lane = as_int(baseline_picks[0].split("-")[0]) if baseline_picks else None
             penalty = performance.penalty(venue, raw, first_lane)
             confidence = max(20, min(97, raw + penalty))
             history_skip = performance.auto_skip(venue, raw, first_lane)
-            wind = as_int((race.get("preview") or {}).get("wind_speed"), 0) or 0
-            first_racer = next((r for r in race_racers(race) if r["lane"] == first_lane), None)
-            course = (first_racer or {}).get("course")
-            baseline_picks = score_top_picks(score_map, 10)
 
-            rec = {
+            records.append({
                 "day": day,
-                "venue": venue,
+                "features": features,
+                "targets": [lane - 1 for lane in result_lanes],
+                "combo": combo,
+                "amount": trifecta_amount,
                 "confidence": confidence,
                 "baseThreshold": buy_threshold(race, leader_lane),
                 "historySkip": history_skip,
-                "firstLane": first_lane,
-                "scoreGap": score_values[0] - score_values[1],
-                "wind": wind,
-                "courseChanged": bool(course is not None and course != first_lane),
                 "baselinePicks": baseline_picks,
-                "combo": combo,
-                "amount": trifecta_amount,
-                "winningPattern": pattern_text(win_pattern),
-                "winningPatternTuple": win_pattern,
-            }
-            rec["contextKey"] = context_key(rec)
-            records.append(rec)
+            })
 
             current_hit = combo in baseline_picks[:4]
             perf_payout = trifecta_amount * 3 if current_hit else 0
             observations.append((venue, raw, first_lane, current_hit, 1200, perf_payout))
 
+        # Learning/performance only moves forward after all races of the day were captured.
         for race in races:
             learning.observe_race(race)
         for observation in observations:
             performance.observe(*observation)
 
-    signals = build_signals(records)
-
-    dev_months = [(2026, 3), (2026, 4), (2026, 5), (2026, 6)]
-    validation_months = [(2026, 7), (2026, 8)]
+    train_start, train_end = date(2026, 1, 1), date(2026, 4, 30)
+    tune_start, tune_end = date(2026, 5, 1), date(2026, 6, 30)
+    validation_start, validation_end = date(2026, 7, 1), date(2026, 8, 31)
     final_start, final_end = date(2026, 9, 1), data_end
 
+    model_train = fit_position_model(records, train_start, train_end)
+    tune_signals = make_signals(model_train, records, tune_start, tune_end)
+    if len(tune_signals) < 1000:
+        raise RuntimeError("too few tuning signals")
+
+    top_prob_values = np.asarray([signal["topProbability"] for signal in tune_signals], dtype=np.float64)
+    quantiles = (0.0, 0.35, 0.55, 0.70, 0.82, 0.90)
+    min_top_options = sorted({round(float(np.quantile(top_prob_values, q)), 5) for q in quantiles})
+
     candidates: list[dict[str, Any]] = []
-    for threshold in THRESHOLDS:
-        for max_points in MAX_POINTS_OPTIONS:
-            for allocation_mode in ALLOCATION_MODES:
-                monthly: dict[str, dict[str, Any]] = {}
-                combined_raw = empty_stats()
-                for year, month in dev_months:
-                    start = date(year, month, 1)
-                    end = (date(year + (month == 12), 1 if month == 12 else month + 1, 1) - timedelta(days=1))
-                    stats = evaluate_signals(signals, start, end, threshold, max_points, allocation_mode)
-                    monthly[f"{year}-{month:02d}"] = stats
-                    add_stats(combined_raw, stats)
-                combined = finalize_stats(combined_raw)
-                month_rois = [monthly[key]["roi"] for key in sorted(monthly)]
-                positive_months = sum(1 for value in monthly.values() if profitable(value))
-                worst_roi = min(month_rois) if month_rois else 0.0
-                candidates.append({
-                    "config": {
-                        "threshold": threshold,
-                        "maxPoints": max_points,
-                        "allocationMode": allocation_mode,
-                        "budget": 1200,
-                    },
-                    "developmentMonths": monthly,
-                    "development": combined,
-                    "positiveMonths": positive_months,
-                    "worstMonthRoi": round(worst_roi, 1),
-                })
+    for min_top in min_top_options:
+        for min_winner in WINNER_PROB_THRESHOLDS:
+            for max_points in MAX_POINTS_OPTIONS:
+                for coverage in COVERAGE_OPTIONS:
+                    for allocation_mode in ALLOCATION_MODES:
+                        for leader_filter in LEADER_FILTERS:
+                            cfg = {
+                                "minTopProbability": min_top,
+                                "minWinnerProbability": min_winner,
+                                "maxPoints": max_points,
+                                "coverage": coverage,
+                                "allocationMode": allocation_mode,
+                                "leaderFilter": leader_filter,
+                                "budget": 1200,
+                            }
+                            may = evaluate(tune_signals, cfg, date(2026, 5, 1), date(2026, 5, 31))
+                            june = evaluate(tune_signals, cfg, date(2026, 6, 1), date(2026, 6, 30))
+                            total = combined([may, june])
+                            candidates.append({
+                                "config": cfg,
+                                "tuneMonths": {"2026-05": may, "2026-06": june},
+                                "tune": total,
+                                "worstMonthRoi": min(may["roi"], june["roi"]),
+                            })
 
     eligible = [
         item for item in candidates
-        if item["development"]["purchaseRaces"] >= 200
-        and item["positiveMonths"] >= 3
-        and profitable(item["development"])
+        if item["tuneMonths"]["2026-05"]["purchaseRaces"] >= 50
+        and item["tuneMonths"]["2026-06"]["purchaseRaces"] >= 50
+        and profitable(item["tuneMonths"]["2026-05"])
+        and profitable(item["tuneMonths"]["2026-06"])
+        and profitable(item["tune"])
     ]
     selection_pool = eligible or candidates
     selection_pool.sort(
         key=lambda item: (
-            item["positiveMonths"],
+            1 if item in eligible else 0,
             item["worstMonthRoi"],
-            item["development"]["roi"],
-            item["development"]["profit"],
-            item["development"]["purchaseRaces"],
+            item["tune"]["roi"],
+            item["tune"]["profit"],
+            item["tune"]["purchaseRaces"],
         ),
         reverse=True,
     )
     selected = selection_pool[0]
     cfg = selected["config"]
 
-    validation_detail: dict[str, dict[str, Any]] = {}
-    validation_raw = empty_stats()
-    for year, month in validation_months:
-        start = date(year, month, 1)
-        end = (date(year + (month == 12), 1 if month == 12 else month + 1, 1) - timedelta(days=1))
-        stats = evaluate_signals(signals, start, end, cfg["threshold"], cfg["maxPoints"], cfg["allocationMode"])
-        validation_detail[f"{year}-{month:02d}"] = stats
-        add_stats(validation_raw, stats)
-    validation = finalize_stats(validation_raw)
+    # Refit using all data that would be known before July; validation remains untouched.
+    model_validation = fit_position_model(records, train_start, tune_end)
+    validation_signals = make_signals(model_validation, records, validation_start, validation_end)
+    july = evaluate(validation_signals, cfg, date(2026, 7, 1), date(2026, 7, 31))
+    august = evaluate(validation_signals, cfg, date(2026, 8, 1), date(2026, 8, 31))
+    validation = combined([july, august])
 
     qualified_for_final = bool(
         selected in eligible
         and validation["purchaseRaces"] >= 50
+        and profitable(july)
+        and profitable(august)
         and profitable(validation)
-        and all(profitable(stats) for stats in validation_detail.values())
     )
 
     final_stats: dict[str, Any] | None = None
     qualified_for_release = False
     if qualified_for_final and final_end >= final_start:
-        final_stats = evaluate_signals(
-            signals, final_start, final_end,
-            cfg["threshold"], cfg["maxPoints"], cfg["allocationMode"],
-        )
+        # Pre-declared walk-forward refit through Aug; Sep itself is not used for selection/training.
+        model_final = fit_position_model(records, train_start, validation_end)
+        final_signals = make_signals(model_final, records, final_start, final_end)
+        final_stats = evaluate(final_signals, cfg, final_start, final_end)
         qualified_for_release = bool(
             final_stats["purchaseRaces"] >= 20 and profitable(final_stats)
         )
 
     baseline = {
-        "development": evaluate_current_baseline(records, date(2026, 3, 1), date(2026, 6, 30)),
-        "validation": evaluate_current_baseline(records, date(2026, 7, 1), date(2026, 8, 31)),
+        "tune": evaluate_current_baseline(records, tune_start, tune_end),
+        "validation": evaluate_current_baseline(records, validation_start, validation_end),
     }
     if qualified_for_final:
         baseline["final"] = evaluate_current_baseline(records, final_start, final_end)
 
     result = {
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "dataThrough": data_end.isoformat(),
-        "method": "daily walk-forward shrunk expected return for 120 model-rank trifecta patterns; same-day results applied next day",
+        "method": "separate softmax racer models for 1st/2nd/3rd; normalized 120-combination probability; variable 1-10 point ticket",
         "oddsFinalGateIncluded": False,
-        "estimator": {
-            "learningPayoutCapPer100": LEARNING_PAYOUT_CAP,
-            "contextShrink": CONTEXT_SHRINK,
-            "venueShrink": VENUE_SHRINK,
-            "minimumContextHistory": MIN_CONTEXT_HISTORY,
-            "minimumGlobalHistory": MIN_GLOBAL_HISTORY,
-            "weights": {"context": 0.65, "venue": 0.25, "global": 0.10},
+        "model": {
+            "regularization": REGULARIZATION,
+            "epochs": EPOCHS,
+            "learningRate": LEARNING_RATE,
+            "featureCount": len(records[0]["features"][0]) if records else 0,
+            "trainingRacesJanApr": sum(1 for rec in records if train_start <= rec["day"] <= train_end),
+            "trainingRacesJanJun": sum(1 for rec in records if train_start <= rec["day"] <= tune_end),
         },
         "periods": {
-            "warmup": ["2026-01-01", "2026-02-28"],
-            "development": ["2026-03-01", "2026-06-30"],
-            "validation": ["2026-07-01", "2026-08-31"],
+            "train": [train_start.isoformat(), train_end.isoformat()],
+            "tune": [tune_start.isoformat(), tune_end.isoformat()],
+            "validation": [validation_start.isoformat(), validation_end.isoformat()],
             "final": [final_start.isoformat(), final_end.isoformat()],
         },
         "selected": selected,
-        "validationMonths": validation_detail,
+        "validationMonths": {"2026-07": july, "2026-08": august},
         "validation": validation,
         "final": final_stats if final_stats is not None else {"withheld": True},
         "qualifiedForFinal": qualified_for_final,
         "qualifiedForRelease": qualified_for_release,
         "currentFourPickBaseline": baseline,
-        "releaseRule": "development positive in >=3/4 months and combined; Jul and Aug each positive with combined >=50 buys; only then Sep-latest must be positive with >=20 buys",
-        "topCandidates": selection_pool[:10],
+        "releaseRule": "May and Jun each positive with >=50 buys; Jul and Aug each positive with combined >=50 buys; only then Sep-latest positive with >=20 buys",
+        "topCandidates": selection_pool[:20],
         "notes": [
-            "All estimates are made before the race using outcomes only through the previous day.",
-            "Learning caps large payouts at 20,000 yen per 100 yen to reduce jackpot overfit; evaluation uses full actual payouts.",
-            "Point count is variable from zero (skip) through the selected maxPoints; only patterns above the selected expected-return threshold are bought.",
-            "Sep results remain hidden unless Jul and Aug both pass.",
+            "The 1st, 2nd and 3rd place models have separate learned weights.",
+            "Ticket point count varies by race because picks stop at the selected cumulative probability coverage or maxPoints.",
+            "Jul-Aug are not used to choose the ticket configuration.",
+            "Sep remains withheld unless both Jul and Aug pass; if opened, the model is refit only through Aug as a pre-declared walk-forward update.",
             "Historical closing odds are unavailable, so live final-odds filtering remains excluded.",
         ],
     }
@@ -523,7 +581,7 @@ def main() -> None:
     args.output.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(json.dumps({
         "selected": selected,
-        "validationMonths": validation_detail,
+        "validationMonths": result["validationMonths"],
         "validation": validation,
         "qualifiedForFinal": qualified_for_final,
         "qualifiedForRelease": qualified_for_release,
