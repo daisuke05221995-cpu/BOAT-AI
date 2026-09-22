@@ -13,7 +13,7 @@ object PredictionEngine {
     fun confidence(race: RaceData): Int {
         if (race.racers.size < 3) return 0
         val scored = race.racers.map {
-            it to (racerScore(it) + learningProfile.bonus(race.stadiumNumber, it.lane))
+            it to (racerScore(it) + learningProfile.bonus(race, it))
         }.sortedByDescending { it.second }
         val leader = scored[0]
         val runnerUp = scored[1]
@@ -79,7 +79,7 @@ object PredictionEngine {
     fun predict(race: RaceData, maxPicks: Int = 4): List<PredictionPick> {
         if (race.racers.size < 3) return emptyList()
         val scores = race.racers.associate {
-            it.lane to (racerScore(it) + learningProfile.bonus(race.stadiumNumber, it.lane))
+            it.lane to (racerScore(it) + learningProfile.bonus(race, it))
         }
         val picks = mutableListOf<PredictionPick>()
 
@@ -109,9 +109,12 @@ object PredictionEngine {
         if (result in combinations) return null
         val predictedFirst = combinations.firstOrNull()?.substringBefore("-")
         val actualFirst = result.substringBefore("-")
+        val actualWinner = actualFirst.toIntOrNull()?.let { lane -> race.racers.firstOrNull { it.lane == lane } }
+        val courseChanged = actualWinner?.preview?.course?.let { it != actualWinner.lane } == true
         return when {
             race.preview == null -> "展示・直前情報が未取得の状態で予想"
-            (race.preview.windSpeed ?: 0) >= 5 -> "強風で通常と異なる展開"
+            courseChanged -> "進入変化があり、会場・風速帯・実進入コースの傾向へ学習"
+            (race.preview.windSpeed ?: 0) >= 5 -> "強風で通常と異なる展開。風速帯別コース傾向へ学習"
             predictedFirst != actualFirst -> "1着候補の評価を外したため、会場別コース成績へ学習"
             else -> "1着は一致、2・3着の順序評価を外した"
         }
