@@ -1,26 +1,20 @@
 package jp.boatai.app
 
-import kotlin.math.roundToInt
+import kotlin.math.floor
 
 object BetStrategy {
     const val DEFAULT_BUDGET = 1_200
     const val MIN_BUDGET = 1_000
     const val MAX_BUDGET = 3_000
+    const val MAX_PICKS = 10
 
     fun allocate(race: RaceData, picks: List<PredictionPick>, requestedBudget: Int): List<PredictionPick> {
         if (picks.isEmpty()) return emptyList()
+        val limited = picks.take(MAX_PICKS)
         val budget = requestedBudget.coerceIn(MIN_BUDGET, MAX_BUDGET).roundDown100()
-        val weights = when (picks.size) {
-            1 -> listOf(1.0)
-            2 -> listOf(0.6, 0.4)
-            3 -> listOf(0.5, 0.3, 0.2)
-            else -> listOf(0.4, 0.3, 0.2, 0.1)
-        }
-        val stakes = weights.take(picks.size).map { (budget * it / 100.0).roundToInt() * 100 }.toMutableList()
-        val difference = budget - stakes.sum()
-        if (stakes.isNotEmpty()) stakes[0] += difference
+        val stakes = allocateByRank(limited.size, budget)
 
-        return picks.mapIndexed { index, pick ->
+        return limited.mapIndexed { index, pick ->
             val odds = pick.odds
             val tier = when {
                 index == 0 && (odds == null || odds < 15.0) -> BetTier.MAIN
@@ -29,11 +23,47 @@ object BetStrategy {
                 else -> BetTier.MID
             }
             pick.copy(
-                recommendedStake = stakes.getOrElse(index) { 100 },
+                recommendedStake = stakes[index],
                 tier = tier,
                 reason = reasonFor(race, pick, index)
             )
         }
+    }
+
+    /**
+     * 1〜10点を100円単位で配分し、合計を必ず指定予算に一致させる。
+     * 1〜4点は従来の本線重視比率を維持し、5点以上は順位に応じて緩やかに逓減する。
+     */
+    internal fun allocateByRank(pointCount: Int, requestedBudget: Int): List<Int> {
+        val count = pointCount.coerceIn(1, MAX_PICKS)
+        val budget = requestedBudget.coerceIn(MIN_BUDGET, MAX_BUDGET).roundDown100()
+        val totalUnits = budget / 100
+        require(totalUnits >= count) { "100円未満の買い目は作成できません" }
+
+        val weights = when (count) {
+            1 -> listOf(1.0)
+            2 -> listOf(0.6, 0.4)
+            3 -> listOf(0.5, 0.3, 0.2)
+            4 -> listOf(0.4, 0.3, 0.2, 0.1)
+            else -> (count downTo 1).map(Int::toDouble)
+        }
+        val weightTotal = weights.sum().coerceAtLeast(1.0)
+        val rawUnits = weights.map { totalUnits * it / weightTotal }
+        val units = rawUnits.map { floor(it).toInt().coerceAtLeast(1) }.toMutableList()
+
+        while (units.sum() < totalUnits) {
+            val index = units.indices.maxByOrNull { idx -> rawUnits[idx] - floor(rawUnits[idx]) }
+                ?: 0
+            units[index] += 1
+        }
+        while (units.sum() > totalUnits) {
+            val index = units.indices
+                .filter { units[it] > 1 }
+                .minByOrNull { idx -> rawUnits[idx] - floor(rawUnits[idx]) }
+                ?: break
+            units[index] -= 1
+        }
+        return units.map { it * 100 }
     }
 
     fun reasonFor(race: RaceData, pick: PredictionPick, rankIndex: Int): String {
