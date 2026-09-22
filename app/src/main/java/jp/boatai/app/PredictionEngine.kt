@@ -3,6 +3,8 @@ package jp.boatai.app
 import kotlin.math.max
 
 object PredictionEngine {
+    const val BUY_THRESHOLD = 70
+
     @Volatile private var learningProfile = LearningProfile()
     @Volatile private var persistentPerformanceProfile = PredictionPerformanceProfile()
     @Volatile private var performanceProfile = PredictionPerformanceProfile()
@@ -16,12 +18,10 @@ object PredictionEngine {
     }
 
     fun installPerformanceProfile(profile: PredictionPerformanceProfile) {
-        // 画面に表示する当該バージョン実績とは分離し、過去バージョンで学んだ
-        // 弱点補正を内部だけで引き継ぐ。毎回再加算せず、保存済み + 現行版だけを合成する。
         performanceProfile = persistentPerformanceProfile.mergedWith(profile)
     }
 
-    /** 画面表示と一括購入判定に使う、0〜100のレース期待度。 */
+    /** 内部判定用の0〜100スコア。画面には直接出さず、購入推奨/見送りへ丸める。 */
     fun confidence(race: RaceData): Int {
         val raw = rawConfidence(race)
         if (raw == 0) return 0
@@ -63,6 +63,28 @@ object PredictionEngine {
         if (raw == 0) return null
         return performanceProfile.autoSkipReason(race.stadiumNumber, raw, leadingLane(race))
     }
+
+    fun recommendation(race: RaceData): RecommendationDecision {
+        if (race.racers.size < 3) {
+            return RecommendationDecision(RaceRecommendation.SKIP, "予想に必要な出走データが不足")
+        }
+        autoSkipReason(race)?.let { learnedReason ->
+            return RecommendationDecision(RaceRecommendation.SKIP, learnedReason)
+        }
+        return if (confidence(race) >= BUY_THRESHOLD) {
+            RecommendationDecision(
+                RaceRecommendation.BUY,
+                "選手力・コース・機力・直前情報と蓄積実績が購入基準を満たす"
+            )
+        } else {
+            RecommendationDecision(
+                RaceRecommendation.SKIP,
+                "総合評価が購入基準に届かない"
+            )
+        }
+    }
+
+    fun isRecommended(race: RaceData): Boolean = recommendation(race).recommended
 
     fun racerScore(racer: Racer): Double {
         val laneBase = when (racer.lane) {
