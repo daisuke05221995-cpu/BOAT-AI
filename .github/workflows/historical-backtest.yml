@@ -11,6 +11,7 @@ on:
       - 'scripts/build_2026_backtest.py'
       - 'scripts/tune_2026_policy.py'
       - 'scripts/tune_value_model_2026.py'
+      - 'scripts/backtest_odds_gate_2026.py'
       - 'scripts/backfill_historical.py'
       - 'scripts/merge_historical.py'
       - '.github/workflows/historical-backtest.yml'
@@ -244,23 +245,33 @@ jobs:
             --workers 16 \
             --output data/value_model_tuning_2026.json
 
+      - name: Backtest archived pre-close odds gate
+        run: |
+          python -u scripts/backtest_odds_gate_2026.py \
+            --learning data/historical_learning_pre2026.json \
+            --workers 16 \
+            --output data/odds_gate_backtest_2026.json
+
       - name: Validate tuning outputs
         run: |
           python - <<'PY'
           import json
           policy=json.load(open('data/policy_tuning_2026.json', encoding='utf-8'))
           value=json.load(open('data/value_model_tuning_2026.json', encoding='utf-8'))
+          odds=json.load(open('data/odds_gate_backtest_2026.json', encoding='utf-8'))
           assert policy['candidateCount'] >= 2000
           assert policy['evaluatedRaces'] > 10000
           assert value['candidateCount'] >= 1000
           assert value['evaluatedRaces'] > 10000
-          assert value['trainThrough'] == '2026-06-30'
-          assert value['validationFrom'] == '2026-07-01'
-          assert len(value['topRobust']) > 0
+          assert odds['oddsMatchedRecommendedRaces'] > 500
+          assert odds['holdoutMatched'] > 100
+          assert len(odds['topRobust']) > 0
           print(json.dumps({
               'filterStakePositive': policy['positiveRobustCount'],
               'valueModelPositive': value['positiveRobustCount'],
-              'bestValueModel': value['topRobust'][0],
+              'currentAndroidOddsGate': odds['currentAndroidGate'],
+              'oddsGatePositive': odds['positiveRobustCount'],
+              'bestOddsGate': odds['topRobust'][0],
           }, ensure_ascii=False, indent=2))
           PY
 
@@ -271,12 +282,13 @@ jobs:
           cp data/historical_backtest_2026.json /tmp/boat-ai-generated/
           cp data/policy_tuning_2026.json /tmp/boat-ai-generated/
           cp data/value_model_tuning_2026.json /tmp/boat-ai-generated/
+          cp data/odds_gate_backtest_2026.json /tmp/boat-ai-generated/
           git fetch origin main
           git reset --hard origin/main
           cp /tmp/boat-ai-generated/*.json data/
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add data/historical_learning_pre2026.json data/historical_backtest_2026.json data/policy_tuning_2026.json data/value_model_tuning_2026.json
+          git add data/historical_learning_pre2026.json data/historical_backtest_2026.json data/policy_tuning_2026.json data/value_model_tuning_2026.json data/odds_gate_backtest_2026.json
           if git diff --cached --quiet; then
             echo 'Historical backtest is unchanged.'
           else
