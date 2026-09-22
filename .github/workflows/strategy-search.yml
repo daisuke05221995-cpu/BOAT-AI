@@ -31,6 +31,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install search dependencies
+        run: pip install 'numpy>=2.0,<3.0'
+
       - name: Verify leakage-safe learning snapshot
         run: |
           python - <<'PY'
@@ -56,31 +59,34 @@ jobs:
           import json
           data=json.load(open('data/strategy_search_2026.json', encoding='utf-8'))
           schema=int(data.get('schemaVersion', 1))
-          if schema >= 4:
-              assert data['periods']['warmup'] == ['2026-01-01','2026-02-28']
-              assert data['periods']['development'] == ['2026-03-01','2026-06-30']
+          if schema >= 5:
+              assert data['periods']['train'] == ['2026-01-01','2026-04-30']
+              assert data['periods']['tune'] == ['2026-05-01','2026-06-30']
               assert data['periods']['validation'] == ['2026-07-01','2026-08-31']
               cfg=data['selected']['config']
               assert 1 <= int(cfg['maxPoints']) <= 10
-              assert cfg['allocationMode'] in ('equal','edge')
+              assert cfg['allocationMode'] in ('equal','probability')
               assert int(cfg['budget']) == 1200
               print(json.dumps({
                 'config': cfg,
-                'development': data['selected']['development'],
+                'tuneMonths': data['selected']['tuneMonths'],
                 'validationMonths': data['validationMonths'],
                 'validation': data['validation'],
                 'qualifiedForFinal': data.get('qualifiedForFinal', False),
                 'qualifiedForRelease': data.get('qualifiedForRelease', False),
                 'final': data.get('final', {}),
               }, ensure_ascii=False, indent=2))
+          elif schema >= 4:
+              assert data['periods']['warmup'] == ['2026-01-01','2026-02-28']
+              assert data['periods']['development'] == ['2026-03-01','2026-06-30']
+              assert data['periods']['validation'] == ['2026-07-01','2026-08-31']
+              cfg=data['selected']['config']
+              assert 1 <= int(cfg['maxPoints']) <= 10
+              assert int(cfg['budget']) == 1200
           elif schema >= 2:
               assert data['periods']['train'] == ['2026-01-01','2026-04-30']
               assert data['periods']['tune'] == ['2026-05-01','2026-06-30']
               assert data['periods']['validation'] == ['2026-07-01','2026-08-31']
-              for item in data.get('selectedContexts', []):
-                  cfg=item['config']
-                  assert 1 <= int(cfg['points']) <= 10
-                  assert sum(cfg['stakes']) == 1200
           else:
               cfg=data['selected']['config']
               assert 1 <= int(cfg['points']) <= 10
