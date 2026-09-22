@@ -9,6 +9,7 @@ on:
       - 'scripts/search_2026_strategy.py'
       - 'scripts/search_2026_strategy_v7.py'
       - 'scripts/search_2026_strategy_v8.py'
+      - 'scripts/search_2026_strategy_v9.py'
       - '.github/workflows/strategy-search.yml'
       - 'data/historical_learning_pre2026.json'
 
@@ -22,7 +23,7 @@ concurrency:
 jobs:
   search:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -47,9 +48,9 @@ jobs:
           assert int(data.get('historicalRaceCount', 0)) > 200000
           PY
 
-      - name: Search walk-forward strategy with September holdout
+      - name: Search value strategy with historical trifecta odds
         run: |
-          python -u scripts/search_2026_strategy_v8.py \
+          python -u scripts/search_2026_strategy_v9.py \
             --start 2026-01-01 \
             --learning data/historical_learning_pre2026.json \
             --workers 16 \
@@ -61,39 +62,37 @@ jobs:
           import json
           data=json.load(open('data/strategy_search_2026.json', encoding='utf-8'))
           schema=int(data.get('schemaVersion', 1))
-          if schema >= 5:
+          if schema >= 9:
               assert data['periods']['train'] == ['2026-01-01','2026-04-30']
-              assert data['periods']['tune'] == ['2026-05-01','2026-06-30']
-              assert data['periods']['validation'] == ['2026-07-01','2026-08-31']
+              assert data['periods']['development'] == ['2026-05-01','2026-08-31']
               cfg=data['selected']['config']
               assert 1 <= int(cfg['maxPoints']) <= 10
-              assert cfg['allocationMode'] in ('equal','probability')
+              assert cfg['allocationMode'] in ('equal','probability','edge')
               assert int(cfg['budget']) == 1200
+              assert data.get('oddsFinalGateIncluded') is True
+              coverage=data.get('oddsCoverage', {})
+              assert int(coverage.get('daysLoaded', 0)) >= 100
               print(json.dumps({
                 'schemaVersion': schema,
                 'config': cfg,
-                'tuneMonths': data['selected']['tuneMonths'],
-                'validationMonths': data['validationMonths'],
-                'validation': data['validation'],
+                'developmentMonths': data['selected']['developmentMonths'],
+                'development': data['selected']['development'],
                 'qualifiedForFinal': data.get('qualifiedForFinal', False),
                 'qualifiedForRelease': data.get('qualifiedForRelease', False),
                 'final': data.get('final', {}),
+                'oddsCoverage': coverage,
               }, ensure_ascii=False, indent=2))
-          elif schema >= 4:
-              assert data['periods']['warmup'] == ['2026-01-01','2026-02-28']
-              assert data['periods']['development'] == ['2026-03-01','2026-06-30']
-              assert data['periods']['validation'] == ['2026-07-01','2026-08-31']
+          elif schema >= 8:
+              assert data['periods']['train'] == ['2026-01-01','2026-04-30']
+              assert data['periods']['development'] == ['2026-05-01','2026-08-31']
               cfg=data['selected']['config']
               assert 1 <= int(cfg['maxPoints']) <= 10
               assert int(cfg['budget']) == 1200
-          elif schema >= 2:
+          elif schema >= 5:
               assert data['periods']['train'] == ['2026-01-01','2026-04-30']
-              assert data['periods']['tune'] == ['2026-05-01','2026-06-30']
-              assert data['periods']['validation'] == ['2026-07-01','2026-08-31']
-          else:
               cfg=data['selected']['config']
-              assert 1 <= int(cfg['points']) <= 10
-              assert sum(cfg['stakes']) == 1200
+              assert 1 <= int(cfg['maxPoints']) <= 10
+              assert int(cfg['budget']) == 1200
           PY
 
       - name: Commit strategy search result
