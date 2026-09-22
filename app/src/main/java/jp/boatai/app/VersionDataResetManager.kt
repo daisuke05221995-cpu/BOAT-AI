@@ -8,37 +8,18 @@ class VersionDataResetManager(private val context: Context) {
         val previousVersionCode = meta.getInt(KEY_LAST_VERSION_CODE, -1)
         val memoryStore = PerformanceMemoryStore(context)
 
-        if (previousVersionCode == BuildConfig.VERSION_CODE) {
-            PredictionEngine.installPersistentPerformanceProfile(memoryStore.load())
-            return false
-        }
+        PredictionEngine.installPersistentPerformanceProfile(memoryStore.load())
+        if (previousVersionCode == BuildConfig.VERSION_CODE) return false
 
-        // 表示する実績は予想ロジックのバージョンごとに0から評価する。
-        // 一方、旧バージョンで確定した予想成績から得た弱点補正は内部メモリへ退避し、
-        // 5年分ベースライン・端末内レース学習と同様に予想品質の土台として引き継ぐ。
-        val oldPredictions = PredictionHistoryStore(context).load()
-        val persistentProfile = if (oldPredictions.isNotEmpty()) {
-            memoryStore.mergeFrom(oldPredictions)
-        } else {
-            memoryStore.load()
-        }
-        PredictionEngine.installPersistentPerformanceProfile(persistentProfile)
-
-        context.getSharedPreferences("boat_ai_bets", Context.MODE_PRIVATE)
-            .edit()
-            .remove("records")
-            .commit()
-        context.getSharedPreferences("boat_ai_predictions", Context.MODE_PRIVATE)
-            .edit()
-            .remove("prediction_records")
-            .commit()
-
+        // v0.14.0以降は通常アップデートで予想実績・実購入履歴を削除しない。
+        // 週間/月間累計を継続して追えることを優先し、互換性破壊が必要な場合だけ
+        // 別の明示的マイグレーションを追加する。
         meta.edit()
             .putInt(KEY_LAST_VERSION_CODE, BuildConfig.VERSION_CODE)
             .putString(KEY_LAST_VERSION_NAME, BuildConfig.VERSION_NAME)
             .putLong(KEY_LAST_RESET_AT, System.currentTimeMillis())
             .commit()
-        return true
+        return false
     }
 
     companion object {
