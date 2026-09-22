@@ -1,0 +1,150 @@
+name: Patch monthly prediction summary
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-monthly-summary.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch profit screen
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/jp/boatai/app/MainActivity.kt')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  '    val settled = ui.predictionHistory.filter { it.settled }',
+                  '    val settled = ui.predictionHistory.filter { it.settled && it.evaluationEligible }'
+              ),
+              (
+                  '    val dayAll = ui.predictionHistory.filter { it.date == dateText && it.settled }',
+                  '    val dayAll = ui.predictionHistory.filter { it.date == dateText && it.settled && it.evaluationEligible }'
+              ),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'marker not found: {old}')
+              text = text.replace(old, new, 1)
+
+          old = '''    val dayRecommendedSummary = ProfitAnalytics.summarize(dayRecommended)
+
+    LazyColumn('''
+          new = '''    val dayRecommendedSummary = ProfitAnalytics.summarize(dayRecommended)
+
+    val weekStart = ui.date.minusDays(6)
+    val weekStartText = weekStart.toString()
+    val monthPrefix = String.format(Locale.US, "%04d-%02d", ui.date.year, ui.date.monthValue)
+    val weekAll = settled.filter { record ->
+        val day = record.date.take(10)
+        day >= weekStartText && day <= dateText
+    }
+    val weekRecommendedSummary = ProfitAnalytics.summarize(weekAll.filter { it.recommended })
+    val weekAllSummary = ProfitAnalytics.summarize(weekAll)
+    val weekRecords = ui.records.filter { record ->
+        val day = record.date.take(10)
+        day >= weekStartText && day <= dateText
+    }
+
+    val monthAll = settled.filter { it.date.startsWith(monthPrefix) }
+    val monthRecommendedSummary = ProfitAnalytics.summarize(monthAll.filter { it.recommended })
+    val monthAllSummary = ProfitAnalytics.summarize(monthAll)
+    val monthRecords = ui.records.filter { it.date.startsWith(monthPrefix) }
+
+    LazyColumn('''
+          if old not in text:
+              raise SystemExit('period calculation marker not found')
+          text = text.replace(old, new, 1)
+
+          marker = '''        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp)) {
+                    Text("AI学習状況", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)'''
+          inserted = '''        item {
+            PredictionPeriodSummaryCard(
+                title = "直近7日（${weekStart.monthValue}/${weekStart.dayOfMonth}〜${ui.date.monthValue}/${ui.date.dayOfMonth}）の予想成績",
+                recommended = weekRecommendedSummary,
+                allPredictions = weekAllSummary,
+                actualRecords = weekRecords,
+                note = "直近7日間に締切前保存できた事前予想だけを集計"
+            )
+        }
+
+        item {
+            PredictionPeriodSummaryCard(
+                title = "${ui.date.year}年${ui.date.monthValue}月の月間予想成績",
+                recommended = monthRecommendedSummary,
+                allPredictions = monthAllSummary,
+                actualRecords = monthRecords,
+                note = "この月に購入推奨だけを買い続けた場合の累計。結果後の後付け予想は除外"
+            )
+        }
+
+''' + marker
+          if marker not in text:
+              raise SystemExit('AI learning marker not found')
+          text = text.replace(marker, inserted, 1)
+
+          marker = '''@Composable
+private fun SummaryCard(title: String, summary: AnalyticsSummary, note: String) {'''
+          helper = '''@Composable
+private fun PredictionPeriodSummaryCard(
+    title: String,
+    recommended: AnalyticsSummary,
+    allPredictions: AnalyticsSummary,
+    actualRecords: List<BetRecord>,
+    note: String
+) {
+    val actualStake = actualRecords.sumOf { it.stake }
+    val actualPayout = actualRecords.sumOf { it.payout }
+    val actualRoi = if (actualStake > 0) actualPayout * 100.0 / actualStake else 0.0
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(6.dp))
+            Text("購入推奨のみを買い続けた場合", fontWeight = FontWeight.SemiBold)
+            SummaryCompact(recommended)
+            Text(
+                "期間損益 ${signedMoney(recommended.profit)}　回収率 ${formatPercent(recommended.roi)}",
+                fontWeight = FontWeight.Bold
+            )
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text("全予想（比較用）", fontWeight = FontWeight.SemiBold)
+            SummaryCompact(allPredictions)
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text("実際の購入記録", fontWeight = FontWeight.SemiBold)
+            Text("購入 ${money(actualStake)} / 払戻 ${money(actualPayout)}")
+            Text("損益 ${signedMoney(actualPayout - actualStake)}　回収率 ${formatPercent(actualRoi)}")
+            Spacer(Modifier.height(4.dp))
+            Text(note, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+''' + marker
+          if marker not in text:
+              raise SystemExit('SummaryCard marker not found')
+          text = text.replace(marker, helper, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/jp/boatai/app/MainActivity.kt
+          git commit -m "Add weekly and monthly prediction performance cards"
+          git push
