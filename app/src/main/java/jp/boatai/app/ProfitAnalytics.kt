@@ -32,6 +32,8 @@ data class AdvancedAnalytics(
     val streak: StreakSummary,
     val baseline: AnalyticsSummary,
     val adjusted: AnalyticsSummary,
+    val hitFocused: AnalyticsSummary,
+    val returnFocused: AnalyticsSummary,
     val avoidedLoss: Int
 )
 
@@ -65,6 +67,8 @@ object ProfitAnalytics {
             streak = streak(settled),
             baseline = baseline,
             adjusted = adjusted,
+            hitFocused = summarize(adjustedRecords.filter { it.rank in setOf("S", "A") }),
+            returnFocused = summarize(adjustedRecords.filter { it.rank in setOf("B", "C") }),
             avoidedLoss = (-skippedLoss).coerceAtLeast(0)
         )
     }

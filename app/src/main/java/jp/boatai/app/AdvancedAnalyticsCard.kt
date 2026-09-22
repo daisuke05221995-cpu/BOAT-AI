@@ -89,6 +89,11 @@ fun AdvancedAnalyticsCard(ui: BoatUiState) {
             SummaryLine("補正なし", analytics.baseline)
             SummaryLine("補正あり", analytics.adjusted)
             Text("自動見送りで回避できた損失 ${yen(analytics.avoidedLoss)}", fontWeight = FontWeight.SemiBold)
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text("予想スタイル参考比較", fontWeight = FontWeight.Bold)
+            Text("的中率重視＝AI S/A帯、回収率重視＝AI B/C帯", style = MaterialTheme.typography.bodySmall)
+            SummaryLine("的中率重視", analytics.hitFocused)
+            SummaryLine("回収率重視", analytics.returnFocused)
             if (analytics.baseline.races < 30) {
                 Text("まだ${analytics.baseline.races}件です。30件以上から参考値として確認してください。", style = MaterialTheme.typography.bodySmall)
             }
