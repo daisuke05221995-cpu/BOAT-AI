@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Build the BOAT AI historical learning baseline from official BOAT RACE K files.
+"""Build BOAT AI historical learning aggregates from official BOAT RACE K files.
 
-The resulting JSON intentionally stores aggregated learning statistics rather than
-hundreds of thousands of raw races. This keeps the Android APK small while giving
-PredictionEngine a five-year prior before on-device learning begins.
+This script can build either the full baseline or a partial date range. Partial
+outputs are intended to be merged by scripts/merge_historical.py so GitHub Actions
+can process several date ranges in parallel without hitting a single-job timeout.
 """
 
 from __future__ import annotations
@@ -37,17 +37,22 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--request-delay", type=float, default=0.25)
+    parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="Allow a sub-range output without the full five-year coverage checks.",
+    )
     args = parser.parse_args()
 
     if args.end < args.start:
         raise SystemExit("--end must be on or after --start")
 
-    cache_dir = Path(".historical-lzh-cache")
+    cache_dir = Path(f".historical-lzh-cache-{args.start}-{args.end}")
     downloader = LzhDownloader(
         cache_dir=cache_dir,
         max_workers=max(1, args.workers),
         request_delay=max(0.0, args.request_delay),
-        timeout=90,
+        timeout=45,
     )
     performance_parser = PerformanceParser()
 
@@ -63,119 +68,138 @@ def main() -> None:
     current = args.start
     chunk_size = 31
 
-    while current <= args.end:
-        chunk_end = min(args.end, current + timedelta(days=chunk_size - 1))
-        dates = []
-        cursor = current
-        while cursor <= chunk_end:
-            dates.append(cursor)
-            cursor += timedelta(days=1)
+    try:
+        while current <= args.end:
+            chunk_end = min(args.end, current + timedelta(days=chunk_size - 1))
+            dates: list[date] = []
+            cursor = current
+            while cursor <= chunk_end:
+                dates.append(cursor)
+                cursor += timedelta(days=1)
 
-        results = downloader.download_many(dates, "performance", max_workers=args.workers)
-        for target_date in dates:
-            files = results.get(target_date) or {}
-            if not files:
-                # A no-race day can legitimately have no data. Keep it as failed-day
-                # metadata only; coverage validation uses race counts, not day count.
-                failed_days.append(target_date.isoformat())
-                continue
+            results = downloader.download_many(dates, "performance", max_workers=args.workers)
+            for target_date in dates:
+                files = results.get(target_date) or {}
+                if not files:
+                    # A no-race day can legitimately have no data. Keep it in the
+                    # aggregate metadata; coverage validation is based on race count.
+                    failed_days.append(target_date.isoformat())
+                    continue
 
-            parsed = performance_parser.parse(files)
-            downloaded_days += 1
-
-            race_by_key = {
-                (race.venue_code, race.race_number): race
-                for race in parsed.races
-                if race.venue_code and race.race_number
-            }
-            entries_by_key: dict[tuple[str, int], list] = {}
-            for entry in parsed.entries:
-                key = (entry.venue_code, entry.race_number)
-                entries_by_key.setdefault(key, []).append(entry)
-
-            for key, entries in entries_by_key.items():
-                venue_code, _race_number = key
                 try:
-                    stadium = int(venue_code)
-                except (TypeError, ValueError):
-                    continue
-                if not 1 <= stadium <= 24:
-                    continue
-
-                winner = next((entry for entry in entries if entry.result_position == 1), None)
-                if winner is None or not 1 <= winner.boat_number <= 6:
+                    parsed = performance_parser.parse(files)
+                except Exception as exc:  # Keep one malformed day from losing a whole year.
+                    print(f"warning: parse failed for {target_date}: {exc}", flush=True)
+                    failed_days.append(target_date.isoformat())
                     continue
 
-                valid_entries = [entry for entry in entries if 1 <= entry.boat_number <= 6]
-                if len(valid_entries) < 3:
-                    continue
+                downloaded_days += 1
 
-                historical_race_count += 1
-                venue_race_counts[str(stadium)] += 1
+                race_by_key = {
+                    (race.venue_code, race.race_number): race
+                    for race in parsed.races
+                    if race.venue_code and race.race_number
+                }
+                entries_by_key: dict[tuple[str, int], list] = {}
+                for entry in parsed.entries:
+                    key = (entry.venue_code, entry.race_number)
+                    entries_by_key.setdefault(key, []).append(entry)
 
-                for entry in valid_entries:
-                    starts[f"{stadium}-{entry.boat_number}"] += 1
-                wins[f"{stadium}-{winner.boat_number}"] += 1
+                for key, entries in entries_by_key.items():
+                    venue_code, _race_number = key
+                    try:
+                        stadium = int(venue_code)
+                    except (TypeError, ValueError):
+                        continue
+                    if not 1 <= stadium <= 24:
+                        continue
 
-                race = race_by_key.get(key)
-                wind_speed = race.wind_speed if race is not None else None
-                if wind_speed is None:
-                    continue
+                    winner = next((entry for entry in entries if entry.result_position == 1), None)
+                    if winner is None or not 1 <= winner.boat_number <= 6:
+                        continue
 
-                bucket = wind_bucket(float(wind_speed))
-                for entry in valid_entries:
-                    course = entry.entrance_position
-                    if course is not None and 1 <= course <= 6:
-                        wind_course_starts[f"{stadium}-{bucket}-{course}"] += 1
+                    valid_entries = [entry for entry in entries if 1 <= entry.boat_number <= 6]
+                    if len(valid_entries) < 3:
+                        continue
 
-                winning_course = winner.entrance_position
-                if winning_course is not None and 1 <= winning_course <= 6:
-                    wind_course_wins[f"{stadium}-{bucket}-{winning_course}"] += 1
+                    historical_race_count += 1
+                    venue_race_counts[str(stadium)] += 1
 
+                    for entry in valid_entries:
+                        starts[f"{stadium}-{entry.boat_number}"] += 1
+                    wins[f"{stadium}-{winner.boat_number}"] += 1
+
+                    race = race_by_key.get(key)
+                    wind_speed = race.wind_speed if race is not None else None
+                    if wind_speed is None:
+                        continue
+
+                    bucket = wind_bucket(float(wind_speed))
+                    for entry in valid_entries:
+                        course = entry.entrance_position
+                        if course is not None and 1 <= course <= 6:
+                            wind_course_starts[f"{stadium}-{bucket}-{course}"] += 1
+
+                    winning_course = winner.entrance_position
+                    if winning_course is not None and 1 <= winning_course <= 6:
+                        wind_course_wins[f"{stadium}-{bucket}-{winning_course}"] += 1
+
+            print(
+                f"processed {current.isoformat()}..{chunk_end.isoformat()} "
+                f"races={historical_race_count:,} downloaded_days={downloaded_days} "
+                f"missing_or_no_race_days={len(failed_days)}",
+                flush=True,
+            )
+            current = chunk_end + timedelta(days=1)
+
+        payload = {
+            "schemaVersion": 1,
+            "source": "BOAT RACE official performance K files",
+            "trainedFrom": args.start.isoformat(),
+            "trainedThrough": args.end.isoformat(),
+            "generatedAt": datetime.now(timezone.utc).isoformat(),
+            "historicalRaceCount": historical_race_count,
+            "downloadedDays": downloaded_days,
+            "missingOrNoRaceDays": len(failed_days),
+            "starts": dict(sorted(starts.items())),
+            "wins": dict(sorted(wins.items())),
+            "windCourseStarts": dict(sorted(wind_course_starts.items())),
+            "windCourseWins": dict(sorted(wind_course_wins.items())),
+            "venueRaceCounts": dict(
+                sorted(venue_race_counts.items(), key=lambda item: int(item[0]))
+            ),
+        }
+
+        if args.allow_partial:
+            if historical_race_count <= 0:
+                raise SystemExit("partial historical coverage is empty")
+            if not starts or not wins:
+                raise SystemExit("partial venue/lane learning map is empty")
+        else:
+            # Guard against accidentally publishing a partial five-year baseline.
+            if historical_race_count < 150_000:
+                raise SystemExit(
+                    f"historical coverage too small: {historical_race_count:,} races "
+                    "(expected >= 150,000)"
+                )
+            if len(starts) < 120 or len(wins) < 120:
+                raise SystemExit("venue/lane learning map is unexpectedly sparse")
+            if len(wind_course_starts) < 200 or len(wind_course_wins) < 200:
+                raise SystemExit("wind/course learning map is unexpectedly sparse")
+
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=False),
+            encoding="utf-8",
+        )
         print(
-            f"processed {current.isoformat()}..{chunk_end.isoformat()} "
-            f"races={historical_race_count:,} downloaded_days={downloaded_days}"
+            f"wrote {args.output} with {historical_race_count:,} races; "
+            f"starts={sum(starts.values()):,}, "
+            f"wind-course starts={sum(wind_course_starts.values()):,}",
+            flush=True,
         )
-        current = chunk_end + timedelta(days=1)
-
-    payload = {
-        "schemaVersion": 1,
-        "source": "BOAT RACE official performance K files",
-        "trainedFrom": args.start.isoformat(),
-        "trainedThrough": args.end.isoformat(),
-        "generatedAt": datetime.now(timezone.utc).isoformat(),
-        "historicalRaceCount": historical_race_count,
-        "downloadedDays": downloaded_days,
-        "missingOrNoRaceDays": len(failed_days),
-        "starts": dict(sorted(starts.items())),
-        "wins": dict(sorted(wins.items())),
-        "windCourseStarts": dict(sorted(wind_course_starts.items())),
-        "windCourseWins": dict(sorted(wind_course_wins.items())),
-        "venueRaceCounts": dict(sorted(venue_race_counts.items(), key=lambda item: int(item[0]))),
-    }
-
-    # Guard against accidentally publishing a partial five-year baseline.
-    if historical_race_count < 150_000:
-        raise SystemExit(
-            f"historical coverage too small: {historical_race_count:,} races (expected >= 150,000)"
-        )
-    if len(starts) < 120 or len(wins) < 120:
-        raise SystemExit("venue/lane learning map is unexpectedly sparse")
-    if len(wind_course_starts) < 200 or len(wind_course_wins) < 200:
-        raise SystemExit("wind/course learning map is unexpectedly sparse")
-
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
-        json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=False),
-        encoding="utf-8",
-    )
-    print(
-        f"wrote {args.output} with {historical_race_count:,} races; "
-        f"starts={sum(starts.values()):,}, wind-course starts={sum(wind_course_starts.values()):,}"
-    )
-
-    # The workflow runner is ephemeral, so remove the cache before later steps.
-    shutil.rmtree(cache_dir, ignore_errors=True)
+    finally:
+        shutil.rmtree(cache_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":
