@@ -12,31 +12,73 @@ import java.net.URL
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-class BoatRaceRepository {
+class BoatRaceRepository : RaceDataProvider, OddsProvider {
     private val compact = DateTimeFormatter.ofPattern("yyyyMMdd")
 
-    suspend fun loadDate(date: LocalDate): List<RaceData> = withContext(Dispatchers.IO) {
+    suspend fun loadDate(date: LocalDate): List<RaceData> = loadDateDetailed(date).races
+
+    override suspend fun loadDateDetailed(date: LocalDate): DateLoadResult = withContext(Dispatchers.IO) {
         val day = date.format(compact)
         val url = "https://boatraceopenapi.github.io/api/v1/${date.year}/$day.json?ts=${System.currentTimeMillis()}"
+        val startedAt = System.currentTimeMillis()
         val json = httpGet(url)
-        supplementMissingResults(BoatRaceJsonParser.parse(json), date)
+        val parsed = BoatRaceJsonParser.parse(json)
+        val supplement = supplementMissingResults(parsed, date)
+        val previewCount = supplement.races.count { it.preview != null }
+        val diagnostics = buildList {
+            add(
+                DataSourceDiagnostic(
+                    source = "開催・出走データ",
+                    status = if (parsed.isNotEmpty()) DiagnosticStatus.OK else DiagnosticStatus.WARNING,
+                    detail = "公開データ ${parsed.size}レース / ${System.currentTimeMillis() - startedAt}ms"
+                )
+            )
+            add(
+                DataSourceDiagnostic(
+                    source = "展示・気象データ",
+                    status = if (previewCount > 0 || date.isBefore(LocalDate.now())) DiagnosticStatus.OK else DiagnosticStatus.WAITING,
+                    detail = "展示・気象あり $previewCount/${supplement.races.size}レース"
+                )
+            )
+            add(
+                DataSourceDiagnostic(
+                    source = "公式結果補完",
+                    status = if (supplement.failed == 0) DiagnosticStatus.OK else DiagnosticStatus.WARNING,
+                    detail = "補完 ${supplement.completed}/${supplement.attempted}件" +
+                        if (supplement.failed > 0) " / 失敗 ${supplement.failed}件" else ""
+                )
+            )
+        }
+        DateLoadResult(supplement.races, diagnostics)
     }
 
-    private suspend fun supplementMissingResults(races: List<RaceData>, date: LocalDate): List<RaceData> {
+    private data class ResultSupplement(
+        val races: List<RaceData>,
+        val attempted: Int,
+        val completed: Int,
+        val failed: Int
+    )
+
+    private suspend fun supplementMissingResults(races: List<RaceData>, date: LocalDate): ResultSupplement {
         val now = java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Tokyo"))
         val candidates = races.filter { race ->
             !race.hasResult && race.isDataComplete && !race.isPurchasable(now) &&
                 !date.isAfter(now.toLocalDate())
         }.take(24)
-        if (candidates.isEmpty()) return races
+        if (candidates.isEmpty()) return ResultSupplement(races, 0, 0, 0)
 
         val supplements = coroutineScope {
             candidates.chunked(4).flatMap { group ->
                 group.map { race -> async(Dispatchers.IO) { race.id to loadOfficialResult(race) } }.awaitAll()
             }
         }.mapNotNull { (id, result) -> result?.let { id to it } }.toMap()
-        if (supplements.isEmpty()) return races
-        return races.map { race -> supplements[race.id]?.let { race.copy(result = it) } ?: race }
+        val merged = races.map { race -> supplements[race.id]?.let { race.copy(result = it) } ?: race }
+        return ResultSupplement(
+            races = merged,
+            attempted = candidates.size,
+            completed = supplements.size,
+            failed = candidates.size - supplements.size
+        )
     }
 
     private fun loadOfficialResult(race: RaceData): RaceResultData? {
@@ -64,17 +106,24 @@ class BoatRaceRepository {
     suspend fun loadOfficialTrifectaOdds(
         race: RaceData,
         combinations: List<String>
-    ): Map<String, Double> = withContext(Dispatchers.IO) {
-        if (combinations.isEmpty()) return@withContext emptyMap()
+    ): Map<String, Double> = loadOfficialTrifectaOddsDetailed(race, combinations).odds
+
+    override suspend fun loadOfficialTrifectaOddsDetailed(
+        race: RaceData,
+        combinations: List<String>
+    ): OddsFetchResult = withContext(Dispatchers.IO) {
+        if (combinations.isEmpty()) return@withContext OddsFetchResult(emptyMap(), "未取得", emptyList())
         val day = race.date.replace("-", "")
         val jcd = Venues.code(race.stadiumNumber)
         val suffix = "hd=$day&jcd=$jcd&rno=${race.raceNumber}&_=${System.currentTimeMillis()}"
-        val urls = listOf(
-            "https://www.boatrace.jp/owpc/pc/race/odds3t?$suffix",
-            "https://www.boatrace.jp/owsp/sp/race/odds3t?$suffix"
+        val sources = listOf(
+            "公式PC版" to "https://www.boatrace.jp/owpc/pc/race/odds3t?$suffix",
+            "公式スマホ版" to "https://www.boatrace.jp/owsp/sp/race/odds3t?$suffix"
         )
         var lastError: Throwable? = null
-        for (url in urls) {
+        val diagnostics = mutableListOf<DataSourceDiagnostic>()
+        for ((source, url) in sources) {
+            val startedAt = System.currentTimeMillis()
             runCatching {
                 val doc = Jsoup.connect(url)
                     .userAgent("Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36 BOAT-AI/0.7")
@@ -85,9 +134,24 @@ class BoatRaceRepository {
                     .get()
                 parseTrifectaOdds(doc, combinations).takeIf { it.isNotEmpty() }
                     ?: error("オッズ表の解析結果が空です")
-            }.onSuccess { return@withContext it }.onFailure { lastError = it }
+            }.onSuccess { odds ->
+                diagnostics += DataSourceDiagnostic(
+                    source,
+                    DiagnosticStatus.OK,
+                    "${odds.size}/${combinations.size}点取得 / ${System.currentTimeMillis() - startedAt}ms"
+                )
+                return@withContext OddsFetchResult(odds, source, diagnostics)
+            }.onFailure { error ->
+                lastError = error
+                diagnostics += DataSourceDiagnostic(
+                    source,
+                    DiagnosticStatus.WARNING,
+                    error.message ?: "取得失敗"
+                )
+            }
         }
-        throw IllegalStateException("PC版・スマホ版ともオッズを取得できませんでした", lastError)
+        val detail = diagnostics.joinToString(" / ") { "${it.source}: ${it.detail}" }
+        throw IllegalStateException("オッズ取得失敗（$detail）", lastError)
     }
 
     internal fun parseTrifectaOdds(doc: Document, combinations: List<String>): Map<String, Double> {

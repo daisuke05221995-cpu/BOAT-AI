@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MaterialTheme {
+            BoatAiTheme {
                 BoatAiApp(vm)
             }
         }
@@ -188,6 +188,10 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
 
         item {
             DateSelectorCard(ui, vm)
+        }
+
+        item {
+            DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh)
         }
 
         item { PredictionModeBar(sortMode, { sortMode = it }) }
@@ -364,7 +368,9 @@ private fun DateSelectorCard(ui: BoatUiState, vm: BoatViewModel) {
 private fun BulkPurchaseCard(ui: BoatUiState, vm: BoatViewModel) {
     val selectedRaces = ui.races.filter { it.id in ui.selectedForBulk && it.isPurchasable() }
     val selectedTickets = selectedRaces.sumOf { PredictionEngine.predict(it).size }
-    val total = selectedTickets * ui.stakePerPick
+    val total = selectedRaces.sumOf { race ->
+        BetStrategy.allocate(race, PredictionEngine.predict(race), ui.raceBudget).sumOf { it.recommendedStake }
+    }
     val availableCount = ui.races.count { it.isPurchasable() }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -387,10 +393,7 @@ private fun BulkPurchaseCard(ui: BoatUiState, vm: BoatViewModel) {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = vm::decreaseStake) { Text("-100") }
-                Text(
-                    " 1点 ${money(ui.stakePerPick)} ",
-                    fontWeight = FontWeight.Bold
-                )
+                Text(" 1レース予算 ${money(ui.raceBudget)} ", fontWeight = FontWeight.Bold)
                 OutlinedButton(onClick = vm::increaseStake) { Text("+100") }
             }
 
@@ -411,13 +414,13 @@ private fun BulkPurchaseCard(ui: BoatUiState, vm: BoatViewModel) {
             }
 
             Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = vm::recordSelectedRaces,
+            ConfirmPurchaseButton(
+                label = "選択分を一括購入登録",
+                summary = "${selectedRaces.size}レース・${selectedTickets}点、合計${money(total)}を購入記録へ登録します。",
                 enabled = selectedRaces.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("選択分を一括購入登録")
-            }
+                modifier = Modifier.fillMaxWidth(),
+                onConfirm = vm::recordSelectedRaces
+            )
 
             ui.actionMessage?.let {
                 Spacer(Modifier.height(6.dp))
@@ -457,7 +460,7 @@ private fun VenuePredictionCard(
                 RacePredictionRow(
                     race = race,
                     checked = race.id in ui.selectedForBulk,
-                    stakePerPick = ui.stakePerPick,
+                    raceBudget = ui.raceBudget,
                     purchasedStake = ui.records
                         .filter { it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber }
                         .sumOf { it.stake },
@@ -477,14 +480,14 @@ private fun VenuePredictionCard(
 private fun RacePredictionRow(
     race: RaceData,
     checked: Boolean,
-    stakePerPick: Int,
+    raceBudget: Int,
     purchasedStake: Int,
     onToggle: () -> Unit,
     onIndividualBuy: () -> Unit,
     onDetail: () -> Unit
 ) {
-    val picks = PredictionEngine.predict(race)
-    val total = picks.size * stakePerPick
+    val picks = BetStrategy.allocate(race, PredictionEngine.predict(race), raceBudget)
+    val total = picks.sumOf { it.recommendedStake }
     val enabled = race.isPurchasable() && picks.isNotEmpty() && purchasedStake == 0
 
     Row(
@@ -502,7 +505,7 @@ private fun RacePredictionRow(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    "${race.raceNumber}R　締切 ${closeTime(race.closedAt)}",
+                    "${race.raceNumber}R　締切 ${closeTime(race.closedAt)} ${remainingTime(race)}",
                     fontWeight = FontWeight.Bold
                 )
                 Text(
@@ -547,12 +550,13 @@ private fun RacePredictionRow(
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                OutlinedButton(
-                    onClick = onIndividualBuy,
-                    enabled = enabled
-                ) {
-                    Text(if (purchasedStake > 0) "購入済み" else if (race.isPurchasable()) "個別購入" else "購入不可")
-                }
+                ConfirmPurchaseButton(
+                    label = if (purchasedStake > 0) "購入済み" else if (race.isPurchasable()) "個別購入" else "購入不可",
+                    summary = "${race.venueName} ${race.raceNumber}R・${picks.size}点、合計${money(total)}を登録します。",
+                    enabled = enabled,
+                    outlined = true,
+                    onConfirm = onIndividualBuy
+                )
                 TextButton(onClick = onDetail) {
                     Text("詳細")
                 }
@@ -671,6 +675,10 @@ private fun ResultCard(
             prediction?.let {
                 Spacer(Modifier.height(6.dp))
                 Text(
+                    "予想時AI ${it.rank} / 期待度 ${it.confidence} / 仮想購入 ${money(it.simulatedStake)}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
                     if (it.hit) {
                         "予想的中　想定払戻 ${money(it.simulatedPayout)}"
                     } else {
@@ -688,6 +696,10 @@ private fun ResultCard(
             }
 
             if (purchases.isNotEmpty()) {
+                Text(
+                    "購入買い目：" + purchases.joinToString(" / ") { "${it.combination} ${money(it.stake)}" },
+                    style = MaterialTheme.typography.bodySmall
+                )
                 Text(
                     "実購入 ${money(actualStake)} / 払戻 ${money(actualPayout)} / 収支 ${signedMoney(actualPayout - actualStake)}",
                     style = MaterialTheme.typography.bodySmall
@@ -825,15 +837,16 @@ private fun ProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
             PerformanceFeedbackCard(ui)
         }
 
-        if (ui.records.isNotEmpty()) {
-            item {
-                OutlinedButton(
-                    onClick = vm::clearRecords,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("実購入の記録を全削除")
-                }
-            }
+        item {
+            AdvancedAnalyticsCard(ui)
+        }
+
+        item {
+            BackupCard(ui, vm)
+        }
+
+        item {
+            NotificationSettingsCard(ui, vm)
         }
     }
 }
@@ -1002,35 +1015,39 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
                     }
                     ui.oddsUpdatedAt?.let { updated ->
                         Text(
-                            "オッズ最終取得 ${java.time.Instant.ofEpochMilli(updated).atZone(java.time.ZoneId.of("Asia/Tokyo")).format(DateTimeFormatter.ofPattern("HH:mm:ss"))}（開催中は60秒ごとに更新）",
+                            "${ui.oddsSource ?: "公式"} / 最終取得 ${java.time.Instant.ofEpochMilli(updated).atZone(java.time.ZoneId.of("Asia/Tokyo")).format(DateTimeFormatter.ofPattern("HH:mm:ss"))}" +
+                                if (System.currentTimeMillis() - updated > 90_000) " ⚠ 90秒以上前" else "（60秒更新）",
                             style = MaterialTheme.typography.bodySmall
                         )
+                    }
+                    ui.oddsChange?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall)
+                    }
+                    ui.oddsDecision?.let {
+                        Text(it, fontWeight = FontWeight.SemiBold)
                     }
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedButton(onClick = vm::decreaseStake) { Text("-100") }
-                        Text(
-                            " 各 ${ui.stakePerPick}円 ",
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text(" 1レース予算 ${ui.raceBudget}円 ", fontWeight = FontWeight.Bold)
                         OutlinedButton(onClick = vm::increaseStake) { Text("+100") }
                     }
                     Text(
-                        "合計 ${ui.stakePerPick * ui.predictions.size}円",
+                        "推奨合計 ${ui.predictions.sumOf { it.recommendedStake }}円（1,000〜3,000円）",
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = vm::recordPredictions,
+                    ConfirmPurchaseButton(
+                        label = if (ui.records.any {
+                            it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber
+                        }) "✓ このレースは購入済み" else "このレースを個別購入登録",
+                        summary = "${race.venueName} ${race.raceNumber}R・${ui.predictions.size}点、推奨合計${money(ui.predictions.sumOf { it.recommendedStake })}を登録します。",
                         enabled = ui.predictions.isNotEmpty() && race.isPurchasable() && ui.records.none {
                             it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber
                         },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(if (ui.records.any {
-                            it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber
-                        }) "✓ このレースは購入済み" else "このレースを個別購入登録")
-                    }
+                        modifier = Modifier.fillMaxWidth(),
+                        onConfirm = vm::recordPredictions
+                    )
                     ui.actionMessage?.let {
                         Text(
                             it,
@@ -1041,6 +1058,10 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
                     }
                 }
             }
+        }
+
+        item {
+            DataDiagnosticsCard(ui.oddsDiagnostics, title = "オッズ取得診断", onRetry = vm::retryOdds)
         }
 
         item {
@@ -1115,17 +1136,19 @@ private fun PredictionRow(rank: Int, pick: PredictionPick, stake: Int) {
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                "AI score ${String.format(Locale.US, "%.1f", pick.score)}",
+                "${pick.tier.label} / AI score ${String.format(Locale.US, "%.1f", pick.score)}",
                 style = MaterialTheme.typography.bodySmall
             )
+            Text(pick.reason, style = MaterialTheme.typography.labelSmall)
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 pick.odds?.let { "${String.format(Locale.US, "%.1f", it)}倍" } ?: "オッズ -"
             )
+            Text("推奨 ${money(pick.recommendedStake.takeIf { it > 0 } ?: stake)}", fontWeight = FontWeight.SemiBold)
             pick.odds?.let {
                 Text(
-                    "想定 ${String.format(Locale.US, "%,.0f", it * stake)}円",
+                    "想定 ${String.format(Locale.US, "%,.0f", it * (pick.recommendedStake.takeIf { amount -> amount > 0 } ?: stake))}円",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -1137,6 +1160,21 @@ private fun closeTime(raw: String): String {
     if (raw.isBlank()) return "--:--"
     val timeMatch = Regex("""(\d{2}:\d{2})""").findAll(raw).lastOrNull()?.value
     return timeMatch ?: raw.takeLast(5)
+}
+
+private fun remainingTime(race: RaceData): String {
+    if (!race.isPurchasable()) return ""
+    val time = Regex("""(\d{1,2}):(\d{2})""").findAll(race.closedAt).lastOrNull() ?: return ""
+    val close = runCatching {
+        java.time.LocalDateTime.of(
+            java.time.LocalDate.parse(race.date.take(10)),
+            java.time.LocalTime.of(time.groupValues[1].toInt(), time.groupValues[2].toInt())
+        )
+    }.getOrNull() ?: return ""
+    val minutes = java.time.Duration.between(
+        java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Tokyo")), close
+    ).toMinutes().coerceAtLeast(0)
+    return "（あと${minutes}分）"
 }
 
 private fun rankLabel(score: Int): String = when (score) {

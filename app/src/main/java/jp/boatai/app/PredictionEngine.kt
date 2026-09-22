@@ -111,11 +111,19 @@ object PredictionEngine {
             }
         }
 
-        return picks.sortedByDescending { it.score }.take(maxPicks)
+        return BetStrategy.allocate(race, picks.sortedByDescending { it.score }.take(maxPicks), BetStrategy.DEFAULT_BUDGET)
     }
 
-    fun withOdds(picks: List<PredictionPick>, odds: Map<String, Double>): List<PredictionPick> =
-        picks.map { it.copy(odds = odds[it.combination]) }
+    fun withOdds(
+        race: RaceData,
+        picks: List<PredictionPick>,
+        odds: Map<String, Double>,
+        budget: Int = BetStrategy.DEFAULT_BUDGET
+    ): List<PredictionPick> = BetStrategy.allocate(
+        race,
+        picks.map { it.copy(odds = odds[it.combination]) },
+        budget
+    )
 
     fun missReason(race: RaceData, combinations: List<String>): String? {
         val result = race.result?.trifectaCombination ?: return null

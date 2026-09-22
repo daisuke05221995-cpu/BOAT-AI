@@ -101,7 +101,37 @@ data class RaceData(
 data class PredictionPick(
     val combination: String,
     val score: Double,
-    val odds: Double? = null
+    val odds: Double? = null,
+    val recommendedStake: Int = 0,
+    val tier: BetTier = BetTier.MAIN,
+    val reason: String = ""
+)
+
+enum class BetTier(val label: String) {
+    MAIN("本線"),
+    MID("中穴"),
+    LONG("超穴")
+}
+
+enum class DiagnosticStatus { OK, WARNING, ERROR, WAITING }
+
+data class DataSourceDiagnostic(
+    val source: String,
+    val status: DiagnosticStatus,
+    val detail: String,
+    val checkedAt: Long = System.currentTimeMillis()
+)
+
+data class DateLoadResult(
+    val races: List<RaceData>,
+    val diagnostics: List<DataSourceDiagnostic>
+)
+
+data class OddsFetchResult(
+    val odds: Map<String, Double>,
+    val source: String,
+    val diagnostics: List<DataSourceDiagnostic>,
+    val fetchedAt: Long = System.currentTimeMillis()
 )
 
 data class PredictionRecord(

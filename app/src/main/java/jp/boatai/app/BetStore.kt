@@ -23,10 +23,12 @@ class BetStore(context: Context) {
     fun addPicks(race: RaceData, picks: List<PredictionPick>, stakePerPick: Int): List<BetRecord> =
         addEntries(listOf(race to picks), stakePerPick)
 
-    fun addRacePicks(races: List<RaceData>, stakePerPick: Int): List<BetRecord> =
+    fun addRacePicks(races: List<RaceData>, raceBudget: Int): List<BetRecord> =
         addEntries(
-            races.filter { it.isPurchasable() }.map { race -> race to PredictionEngine.predict(race) },
-            stakePerPick
+            races.filter { it.isPurchasable() }.map { race ->
+                race to BetStrategy.allocate(race, PredictionEngine.predict(race), raceBudget)
+            },
+            300
         )
 
     private fun addEntries(
@@ -50,13 +52,15 @@ class BetStore(context: Context) {
                         !it.settled
                 }
                 if (!duplicate) {
+                    val resolvedStake = pick.recommendedStake.takeIf { it >= 100 && it % 100 == 0 }
+                        ?: stakePerPick
                     current += BetRecord(
                         id = UUID.randomUUID().toString(),
                         date = race.date,
                         stadiumNumber = race.stadiumNumber,
                         raceNumber = race.raceNumber,
                         combination = pick.combination,
-                        stake = stakePerPick,
+                        stake = resolvedStake,
                         payout = 0,
                         settled = false,
                         createdAt = now + sequence++
