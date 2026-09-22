@@ -1,0 +1,80 @@
+name: Tune market-edge strategy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/tune_market_edge_2026.py'
+      - '.github/workflows/market-edge-tuning.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: market-edge-tuning
+  cancel-in-progress: true
+
+jobs:
+  tune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify pre-2026 learning snapshot
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/historical_learning_pre2026.json', encoding='utf-8'))
+          assert data.get('snapshotComplete') is True
+          assert data.get('trainedThrough') == '2025-12-31'
+          assert int(data.get('historicalRaceCount', 0)) > 200000
+          PY
+
+      - name: Tune market-edge strategy
+        run: |
+          python -u scripts/tune_market_edge_2026.py \
+            --learning data/historical_learning_pre2026.json \
+            --workers 16 \
+            --output data/market_edge_tuning_2026.json
+
+      - name: Validate strict holdout result
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/market_edge_tuning_2026.json', encoding='utf-8'))
+          assert data['matchedRaces'] > 3000
+          assert data['candidateCount'] >= 2000
+          selected=data['selectedFromTune']
+          assert selected is not None
+          assert selected['tune']['races'] >= 120
+          print(json.dumps({
+              'selected': selected,
+              'passesHoldout': data['selectedPassesHoldout'],
+              'stablePositiveCountDiagnostic': data['diagnosticStablePositiveCount'],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Publish tuning result safely
+        run: |
+          cp data/market_edge_tuning_2026.json /tmp/market_edge_tuning_2026.json
+          git fetch origin main
+          git reset --hard origin/main
+          cp /tmp/market_edge_tuning_2026.json data/market_edge_tuning_2026.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/market_edge_tuning_2026.json
+          if git diff --cached --quiet; then
+            echo 'Market-edge tuning result is unchanged.'
+          else
+            git commit -m 'Refresh market-edge tuning result'
+            git push origin HEAD:main
+          fi
