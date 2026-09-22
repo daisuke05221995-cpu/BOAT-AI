@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
-"""Search race-specific 1-10 pick BOAT AI strategies with staged validation.
+"""Search BOAT AI rank-pattern betting strategies with staged validation.
 
 Protocol:
-- Jan-Apr: train/search coarse race contexts.
-- May-Jun: tune and require the same context/config to remain profitable.
-- Jul-Aug: validation; never used to select a context or stake pattern.
-- Sep-latest: final confirmation is calculated only when Jul-Aug passes.
+- Jan-Apr: train rank-order trifecta patterns and race contexts.
+- May-Jun: tune; a pattern/config must remain profitable here too.
+- Jul-Aug: untouched validation; never used to select patterns/configs.
+- Sep-latest: final confirmation is evaluated only after Jul-Aug passes.
 
+Unlike the previous search, this does not assume the score-sorted top-N trifectas are
+best. It evaluates all 120 permutations of model rank positions (1st..6th) and then
+builds context-specific 1-10 pick tickets from rank patterns that survive train+tune.
 Historical closing odds are unavailable, so the live odds final gate is excluded.
-The search therefore focuses on prediction context, point count and 100-yen stake allocation.
 """
 
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -36,15 +39,20 @@ from build_2026_backtest import (
 )
 
 BUDGET_UNITS = 12  # 12 x 100 yen = 1,200 yen
-MIN_CONFIDENCE = 70
+MIN_CONFIDENCE = 60
 MIN_CONTEXT_TRAIN = 80
 MIN_CONTEXT_TUNE = 30
-MIN_CONTEXT_ROI = 105.0
+MIN_PATTERN_TRAIN_HITS = 4
+MIN_PATTERN_TUNE_HITS = 2
+MIN_PATTERN_ROBUST_ROI = 103.0
+MIN_CONTEXT_ROBUST_ROI = 103.0
 MIN_VALIDATION_BUYS = 50
 MIN_FINAL_BUYS = 20
+MAX_PATTERN_POOL = 20
+RANK_PATTERNS = tuple(itertools.permutations(range(1, 7), 3))
 
 
-def top_picks(score_map: dict[int, float], limit: int = 10) -> list[str]:
+def score_top_picks(score_map: dict[int, float], limit: int = 10) -> list[str]:
     ranked: list[tuple[str, float]] = []
     lanes = sorted(score_map)
     for first in lanes:
@@ -61,7 +69,7 @@ def top_picks(score_map: dict[int, float], limit: int = 10) -> list[str]:
 
 
 def stake_patterns(points: int, total_units: int = BUDGET_UNITS) -> list[tuple[int, ...]]:
-    """All non-increasing positive 100-yen allocations summing to the budget."""
+    """Non-increasing positive 100-yen allocations summing to 1,200 yen."""
     patterns: list[tuple[int, ...]] = []
 
     def walk(prefix: tuple[int, ...], remaining: int, left: int, maximum: int) -> None:
@@ -78,15 +86,15 @@ def stake_patterns(points: int, total_units: int = BUDGET_UNITS) -> list[tuple[i
 
 
 def confidence_band(value: int) -> str:
+    if value < 70:
+        return "60-69"
     if value < 80:
         return "70-79"
     if value < 85:
         return "80-84"
     if value < 90:
         return "85-89"
-    if value < 94:
-        return "90-93"
-    return "94+"
+    return "90+"
 
 
 def first_group(lane: int | None) -> str:
@@ -97,11 +105,20 @@ def first_group(lane: int | None) -> str:
     return "4-6"
 
 
+def gap_band(gap: float) -> str:
+    if gap < 4.0:
+        return "gap<4"
+    if gap < 9.0:
+        return "gap4-8"
+    return "gap9+"
+
+
 def context_key(rec: dict[str, Any]) -> str:
     return "|".join(
         [
             confidence_band(int(rec["confidence"])),
             first_group(rec.get("firstLane")),
+            gap_band(float(rec.get("scoreGap", 0.0))),
             "wind5+" if int(rec.get("wind", 0)) >= 5 else "wind0-4",
             "courseChange" if rec.get("courseChanged") else "courseStable",
             "historySkip" if rec.get("historySkip") else "historyKeep",
@@ -110,10 +127,11 @@ def context_key(rec: dict[str, Any]) -> str:
 
 
 def context_payload(key: str) -> dict[str, Any]:
-    confidence, first, wind, course, history = key.split("|")
+    confidence, first, gap, wind, course, history = key.split("|")
     return {
         "confidenceBand": confidence,
         "firstLaneGroup": first,
+        "scoreGapBand": gap,
         "windBand": wind,
         "courseState": course,
         "historyState": history,
@@ -140,17 +158,41 @@ def finalize_stats(stats: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def evaluate_records(records: list[dict[str, Any]], points: int, stakes: tuple[int, ...]) -> dict[str, Any]:
+def rank_pattern_text(pattern: tuple[int, int, int]) -> str:
+    return "-".join(str(v) for v in pattern)
+
+
+def pattern_combo(rec: dict[str, Any], pattern: tuple[int, int, int]) -> str:
+    ranked_lanes = rec["rankedLanes"]
+    return "-".join(str(ranked_lanes[position - 1]) for position in pattern)
+
+
+def evaluate_single_pattern(records: list[dict[str, Any]], pattern: tuple[int, int, int]) -> dict[str, Any]:
+    stats = empty_stats()
+    for rec in records:
+        stats["purchaseRaces"] += 1
+        stats["stake"] += 100
+        if rec["combo"] == pattern_combo(rec, pattern):
+            stats["hits"] += 1
+            stats["payout"] += int(rec["amount"])
+    return finalize_stats(stats)
+
+
+def evaluate_pattern_ticket(
+    records: list[dict[str, Any]],
+    patterns: list[tuple[int, int, int]],
+    stakes: tuple[int, ...],
+) -> dict[str, Any]:
     stats = empty_stats()
     for rec in records:
         stats["purchaseRaces"] += 1
         stats["stake"] += BUDGET_UNITS * 100
-        picks = rec["picks"][:points]
-        combo = rec["combo"]
-        if combo in picks:
-            stats["hits"] += 1
-            idx = picks.index(combo)
-            stats["payout"] += int(rec["amount"]) * stakes[idx]
+        winning = rec["combo"]
+        for idx, pattern in enumerate(patterns):
+            if winning == pattern_combo(rec, pattern):
+                stats["hits"] += 1
+                stats["payout"] += int(rec["amount"]) * stakes[idx]
+                break
     return finalize_stats(stats)
 
 
@@ -165,20 +207,19 @@ def evaluate_strategy(
         day = rec["day"]
         if day < start or day > end:
             continue
-        selected_context = selected.get(rec["contextKey"])
-        if not selected_context:
+        chosen = selected.get(rec["contextKey"])
+        if not chosen:
             continue
-        cfg = selected_context["config"]
-        points = int(cfg["points"])
+        cfg = chosen["config"]
+        patterns = [tuple(int(v) for v in text.split("-")) for text in cfg["rankPatterns"]]
         stakes = tuple(int(value) // 100 for value in cfg["stakes"])
         stats["purchaseRaces"] += 1
         stats["stake"] += BUDGET_UNITS * 100
-        picks = rec["picks"][:points]
-        combo = rec["combo"]
-        if combo in picks:
-            stats["hits"] += 1
-            idx = picks.index(combo)
-            stats["payout"] += int(rec["amount"]) * stakes[idx]
+        for idx, pattern in enumerate(patterns):
+            if rec["combo"] == pattern_combo(rec, pattern):
+                stats["hits"] += 1
+                stats["payout"] += int(rec["amount"]) * stakes[idx]
+                break
     return finalize_stats(stats)
 
 
@@ -193,7 +234,7 @@ def evaluate_current_baseline(records: list[dict[str, Any]], start: date, end: d
             continue
         stats["purchaseRaces"] += 1
         stats["stake"] += 1200
-        picks = rec["picks"][:4]
+        picks = rec["baselinePicks"][:4]
         if rec["combo"] in picks:
             stats["hits"] += 1
             idx = picks.index(rec["combo"])
@@ -201,16 +242,17 @@ def evaluate_current_baseline(records: list[dict[str, Any]], start: date, end: d
     return finalize_stats(stats)
 
 
-def config_payload(points: int, stakes: tuple[int, ...]) -> dict[str, Any]:
+def profitable(stats: dict[str, Any], minimum_roi: float = 100.0) -> bool:
+    return stats["roi"] > minimum_roi and stats["profit"] > 0
+
+
+def config_payload(patterns: list[tuple[int, int, int]], stakes: tuple[int, ...]) -> dict[str, Any]:
     return {
-        "points": points,
+        "points": len(patterns),
+        "rankPatterns": [rank_pattern_text(pattern) for pattern in patterns],
         "stakes": [unit * 100 for unit in stakes],
         "budget": BUDGET_UNITS * 100,
     }
-
-
-def profitable(stats: dict[str, Any], minimum_roi: float = 100.0) -> bool:
-    return stats["roi"] > minimum_roi and stats["profit"] > 0
 
 
 def main() -> None:
@@ -246,7 +288,6 @@ def main() -> None:
                 payloads[day] = payload
             elif error != "404":
                 failed_days[day.isoformat()] = error or "unknown"
-
     if failed_days:
         raise SystemExit(f"download failures: {failed_days}")
 
@@ -262,23 +303,23 @@ def main() -> None:
             combo, trifecta_amount = race_result(race)
             if not combo or trifecta_amount <= 0 or not decision_ready(race):
                 continue
-
             raw, leader_lane, score_map = raw_confidence(race, learning)
-            if raw == 0 or not score_map:
-                continue
-            picks = top_picks(score_map, 10)
-            if not picks:
+            if raw == 0 or len(score_map) != 6:
                 continue
 
+            ranked_lanes = [lane for lane, _ in sorted(score_map.items(), key=lambda item: item[1], reverse=True)]
+            score_values = sorted(score_map.values(), reverse=True)
+            score_gap = score_values[0] - score_values[1]
+            baseline_picks = score_top_picks(score_map, 10)
+            first_lane = ranked_lanes[0]
             venue = as_int(race.get("stadium_number"), 0) or 0
-            first_lane = as_int(picks[0].split("-")[0])
             penalty = performance.penalty(venue, raw, first_lane)
             confidence = max(20, min(97, raw + penalty))
             history_skip = performance.auto_skip(venue, raw, first_lane)
             wind = as_int((race.get("preview") or {}).get("wind_speed"), 0) or 0
             first_racer = next((r for r in race_racers(race) if r["lane"] == first_lane), None)
             course = (first_racer or {}).get("course")
-            course_changed = bool(course is not None and first_lane is not None and course != first_lane)
+            course_changed = bool(course is not None and course != first_lane)
 
             if confidence >= MIN_CONFIDENCE:
                 rec = {
@@ -287,21 +328,21 @@ def main() -> None:
                     "baseThreshold": buy_threshold(race, leader_lane),
                     "historySkip": history_skip,
                     "firstLane": first_lane,
+                    "scoreGap": score_gap,
                     "wind": wind,
                     "courseChanged": course_changed,
-                    "picks": picks,
+                    "rankedLanes": ranked_lanes,
+                    "baselinePicks": baseline_picks,
                     "combo": combo,
                     "amount": trifecta_amount,
                 }
                 rec["contextKey"] = context_key(rec)
                 records.append(rec)
 
-            # Preserve the app's current walk-forward performance memory while deriving contexts.
-            current_hit = combo in picks[:4]
+            current_hit = combo in baseline_picks[:4]
             perf_payout = trifecta_amount * 3 if current_hit else 0
             observations.append((venue, raw, first_lane, current_hit, 1200, perf_payout))
 
-        # No same-day leakage: apply outcomes only after every race that day was scored.
         for race in races:
             learning.observe_race(race)
         for observation in observations:
@@ -326,33 +367,63 @@ def main() -> None:
     selected_contexts: list[dict[str, Any]] = []
     selected_map: dict[str, dict[str, Any]] = {}
     diagnostics: list[dict[str, Any]] = []
-
     all_contexts = sorted(set(by_period_context["train"]) | set(by_period_context["tune"]))
+
     for key in all_contexts:
         train_records = by_period_context["train"].get(key, [])
         tune_records = by_period_context["tune"].get(key, [])
         if len(train_records) < MIN_CONTEXT_TRAIN or len(tune_records) < MIN_CONTEXT_TUNE:
             continue
 
+        pattern_candidates: list[dict[str, Any]] = []
+        for pattern in RANK_PATTERNS:
+            train_pattern = evaluate_single_pattern(train_records, pattern)
+            tune_pattern = evaluate_single_pattern(tune_records, pattern)
+            robust = min(train_pattern["roi"], tune_pattern["roi"])
+            if (
+                train_pattern["hits"] >= MIN_PATTERN_TRAIN_HITS
+                and tune_pattern["hits"] >= MIN_PATTERN_TUNE_HITS
+                and profitable(train_pattern)
+                and profitable(tune_pattern)
+                and robust >= MIN_PATTERN_ROBUST_ROI
+            ):
+                pattern_candidates.append({
+                    "pattern": pattern,
+                    "train": train_pattern,
+                    "tune": tune_pattern,
+                    "robustRoi": robust,
+                })
+
+        pattern_candidates.sort(
+            key=lambda item: (
+                item["robustRoi"], item["tune"]["roi"], item["train"]["roi"],
+                item["tune"]["hits"] + item["train"]["hits"],
+            ),
+            reverse=True,
+        )
+        pool = pattern_candidates[:MAX_PATTERN_POOL]
         best: dict[str, Any] | None = None
-        for points in range(1, 11):
+
+        for points in range(1, min(10, len(pool)) + 1):
+            chosen_patterns = [item["pattern"] for item in pool[:points]]
             for stakes in stake_patterns(points):
-                train = evaluate_records(train_records, points, stakes)
-                tune = evaluate_records(tune_records, points, stakes)
-                score = min(train["roi"], tune["roi"])
+                train_stats = evaluate_pattern_ticket(train_records, chosen_patterns, stakes)
+                tune_stats = evaluate_pattern_ticket(tune_records, chosen_patterns, stakes)
+                robust = min(train_stats["roi"], tune_stats["roi"])
                 candidate = {
                     "contextKey": key,
                     "context": context_payload(key),
-                    "config": config_payload(points, stakes),
-                    "train": train,
-                    "tune": tune,
-                    "robustRoi": round(score, 1),
+                    "config": config_payload(chosen_patterns, stakes),
+                    "train": train_stats,
+                    "tune": tune_stats,
+                    "robustRoi": round(robust, 1),
+                    "eligiblePatternCount": len(pattern_candidates),
                 }
                 if best is None or (
-                    score,
-                    tune["roi"],
-                    train["roi"],
-                    tune["profit"] + train["profit"],
+                    robust,
+                    tune_stats["roi"],
+                    train_stats["roi"],
+                    tune_stats["profit"] + train_stats["profit"],
                 ) > (
                     best["robustRoi"],
                     best["tune"]["roi"],
@@ -365,21 +436,14 @@ def main() -> None:
             continue
         diagnostics.append(best)
         if (
-            best["robustRoi"] >= MIN_CONTEXT_ROI
+            best["robustRoi"] >= MIN_CONTEXT_ROBUST_ROI
             and profitable(best["train"])
             and profitable(best["tune"])
         ):
             selected_contexts.append(best)
             selected_map[key] = best
 
-    selected_contexts.sort(
-        key=lambda item: (
-            item["robustRoi"],
-            item["tune"]["roi"],
-            item["train"]["roi"],
-        ),
-        reverse=True,
-    )
+    selected_contexts.sort(key=lambda item: (item["robustRoi"], item["tune"]["roi"]), reverse=True)
     diagnostics.sort(key=lambda item: item["robustRoi"], reverse=True)
 
     aggregate_train = evaluate_strategy(records, train_start, train_end, selected_map)
@@ -412,21 +476,22 @@ def main() -> None:
         baseline["final"] = evaluate_current_baseline(records, final_start, final_end)
 
     result = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "dataThrough": data_end.isoformat(),
-        "method": "walk-forward predictions; context/config chosen on Jan-Apr + May-Jun only; Jul-Aug validation; Sep final evaluated only after validation passes",
+        "method": "walk-forward predictions; all 120 model-rank trifecta patterns searched on Jan-Apr + May-Jun; Jul-Aug validation; Sep final only after validation passes",
         "oddsFinalGateIncluded": False,
         "searchSpace": {
             "points": [1, 10],
+            "rankPatterns": 120,
             "budget": 1200,
             "stakeUnit": 100,
-            "allocationRule": "all non-increasing positive allocations summing to 1,200 yen",
-            "contextDimensions": ["confidenceBand", "firstLaneGroup", "windBand", "courseState", "historyState"],
+            "contextDimensions": ["confidenceBand", "firstLaneGroup", "scoreGapBand", "windBand", "courseState", "historyState"],
             "minimumConfidence": MIN_CONFIDENCE,
             "minimumContextTrainRaces": MIN_CONTEXT_TRAIN,
             "minimumContextTuneRaces": MIN_CONTEXT_TUNE,
-            "minimumContextRobustRoi": MIN_CONTEXT_ROI,
+            "minimumPatternRobustRoi": MIN_PATTERN_ROBUST_ROI,
+            "minimumContextRobustRoi": MIN_CONTEXT_ROBUST_ROI,
         },
         "periods": {
             "train": [train_start.isoformat(), train_end.isoformat()],
@@ -444,11 +509,12 @@ def main() -> None:
         "currentFourPickBaseline": baseline,
         "qualifiedForFinal": qualified_for_final,
         "qualifiedForRelease": qualified_for_release,
-        "releaseRule": "selected contexts profitable in train+tune, aggregate Jul-Aug ROI > 100% with >=50 buys, then Sep-latest ROI > 100% with >=20 buys",
+        "releaseRule": "rank-pattern contexts profitable in train+tune; aggregate Jul-Aug ROI > 100% with >=50 buys; then Sep-latest ROI > 100% with >=20 buys",
         "topContextDiagnostics": diagnostics[:20],
         "notes": [
+            "Rank patterns are positions in the model ranking, not fixed boat numbers.",
             "Point count and stake allocation can differ by race context.",
-            "Jul-Aug results are not used to choose contexts or allocations.",
+            "Jul-Aug results are not used to choose rank patterns or allocations.",
             "Sep results are not evaluated unless Jul-Aug validation is already positive.",
             "Historical closing odds are unavailable, so live final-odds filtering remains excluded.",
         ],
