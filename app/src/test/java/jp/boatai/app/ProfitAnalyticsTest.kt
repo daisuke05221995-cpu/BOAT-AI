@@ -37,12 +37,44 @@ class ProfitAnalyticsTest {
         assertEquals(result.monthRecommended.profit, result.monthCumulativeRecommended.last().profit)
     }
 
+    @Test
+    fun retrospectivePredictionsNeverAffectProfitAnalytics() {
+        val genuine = record(
+            id = "genuine",
+            date = "2026-09-22",
+            hit = true,
+            recommended = true,
+            payout = 1_000,
+            eligible = true
+        )
+        val retrospective = record(
+            id = "retro",
+            date = "2026-09-22",
+            hit = false,
+            recommended = true,
+            payout = 0,
+            eligible = false
+        )
+
+        val result = ProfitAnalytics.build(
+            listOf(genuine, retrospective),
+            AnalyticsPeriod.ALL,
+            LocalDate.parse("2026-09-22")
+        )
+
+        assertEquals(1, result.summary.races)
+        assertEquals(1, result.adjusted.races)
+        assertEquals(1, result.monthRecommended.races)
+        assertEquals(genuine.simulatedProfit, result.monthRecommended.profit)
+    }
+
     private fun record(
         id: String,
         date: String,
         hit: Boolean,
         recommended: Boolean,
-        payout: Int
+        payout: Int,
+        eligible: Boolean = true
     ) = PredictionRecord(
         id = id,
         date = date,
@@ -54,7 +86,7 @@ class ProfitAnalyticsTest {
         trifectaPayout = payout,
         settled = true,
         createdAt = 1,
-        evaluationEligible = true,
+        evaluationEligible = eligible,
         autoSkipped = !recommended,
         recommended = recommended,
         recommendationReason = if (recommended) "購入基準を満たす" else "見送り基準"
