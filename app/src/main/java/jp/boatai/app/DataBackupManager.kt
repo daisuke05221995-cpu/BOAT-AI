@@ -37,7 +37,6 @@ class DataBackupManager(private val context: Context) {
         val predictions = root.getJSONArray("predictions")
         val learning = root.getJSONObject("learning")
 
-        // 全体を検証してから書き込む。途中まで復元された状態を作らない。
         repeat(bets.length()) { BetRecord.fromJson(bets.getJSONObject(it)) }
         repeat(predictions.length()) { PredictionRecord.fromJson(predictions.getJSONObject(it)) }
 
@@ -56,20 +55,22 @@ class DataBackupManager(private val context: Context) {
         val bets = BetStore(context).load()
         val predictions = PredictionHistoryStore(context).load()
         val rows = mutableListOf(
-            listOf("種別", "日付", "場", "R", "買い目", "購入額", "払戻", "収支", "的中", "AIランク")
+            listOf("種別", "日付", "場", "R", "買い目", "購入額", "払戻", "収支", "的中", "購入判定", "判定理由")
         )
         bets.forEach { record ->
             rows += listOf(
                 "実購入", record.date, record.venueName, record.raceNumber.toString(), record.combination,
                 record.stake.toString(), record.payout.toString(), record.profit.toString(),
-                if (record.payout > 0) "的中" else if (record.settled) "不的中" else "結果待ち", ""
+                if (record.payout > 0) "的中" else if (record.settled) "不的中" else "結果待ち", "", ""
             )
         }
         predictions.forEach { record ->
             rows += listOf(
                 "AI予想", record.date, record.venueName, record.raceNumber.toString(), record.combinations.joinToString("/"),
                 record.simulatedStake.toString(), record.simulatedPayout.toString(), record.simulatedProfit.toString(),
-                if (record.hit) "的中" else if (record.settled) "不的中" else "結果待ち", record.rank
+                if (record.hit) "的中" else if (record.settled) "不的中" else "結果待ち",
+                record.recommendation.label,
+                record.recommendationReason.orEmpty()
             )
         }
         return "\uFEFF" + rows.joinToString("\r\n") { row -> row.joinToString(",") { csvCell(it) } }
