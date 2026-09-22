@@ -43,6 +43,27 @@ class PredictionPerformanceProfileTest {
         assertNull(profile.autoSkipReason(6, 84, 1))
     }
 
+    @Test
+    fun mergingProfilesKeepsPreviousAndCurrentVersionSamples() {
+        val previous = PredictionPerformanceProfile.from(
+            (1..20).map { index ->
+                record(id = "old-$index", eligible = true, hit = false, venue = 2, rank = "A", confidence = 84, firstLane = 1)
+            }
+        )
+        val current = PredictionPerformanceProfile.from(
+            (1..10).map { index ->
+                record(id = "new-$index", eligible = true, hit = true, venue = 2, rank = "A", confidence = 84, firstLane = 1)
+            }
+        )
+
+        val merged = previous.mergedWith(current)
+
+        assertEquals(30, merged.overall.races)
+        assertEquals(10, merged.overall.hits)
+        assertEquals(30, merged.byVenue.getValue(2).races)
+        assertEquals(30, merged.byContext.getValue("2:A:1").races)
+    }
+
     private fun record(
         id: String,
         eligible: Boolean,
