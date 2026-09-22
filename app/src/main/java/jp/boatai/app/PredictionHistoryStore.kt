@@ -31,6 +31,10 @@ class PredictionHistoryStore(context: Context) {
 
         races.forEach { race ->
             if (race.racers.size < 3 || race.id in existing) return@forEach
+            // 発売中レースは展示・進入が揃う前に見送り判定を固定しない。
+            // 直前情報が揃った後の購入推奨/見送りだけを評価履歴へ残す。
+            if (race.isPurchasable() && !PredictionEngine.isDecisionReady(race)) return@forEach
+
             val picks = PredictionEngine.predict(race)
             if (picks.isEmpty()) return@forEach
             val confidence = PredictionEngine.confidence(race)
