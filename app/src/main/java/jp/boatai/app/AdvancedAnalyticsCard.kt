@@ -23,6 +23,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
 import java.util.Locale
 import kotlin.math.abs
 
@@ -30,8 +33,63 @@ import kotlin.math.abs
 fun AdvancedAnalyticsCard(ui: BoatUiState) {
     var period by remember { mutableStateOf(AnalyticsPeriod.ALL) }
     var grouping by remember { mutableStateOf("会場") }
-    val analytics = remember(ui.predictionHistory, period) {
-        ProfitAnalytics.build(ui.predictionHistory, period)
+    val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))
+    val analytics = remember(ui.predictionHistory, period, today) {
+        ProfitAnalytics.build(ui.predictionHistory, period, today)
+    }
+    val monthStart = YearMonth.from(today).atDay(1)
+    val actualSettled = ui.records.filter { it.settled }
+    val actualWeek = actualSummary(actualSettled, today.minusDays(6), today)
+    val actualMonth = actualSummary(actualSettled, monthStart, today)
+    val actualCumulative = actualCumulativeByDay(actualSettled, monthStart, today)
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Text("週間・月間累計", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Text("購入推奨だけ買った場合", fontWeight = FontWeight.SemiBold)
+            Text(
+                "直近7日 ${signed(analytics.weekRecommended.profit)} / 回収 ${f1(analytics.weekRecommended.roi)}%　" +
+                    "今月 ${signed(analytics.monthRecommended.profit)} / 回収 ${f1(analytics.monthRecommended.roi)}%"
+            )
+            Text(
+                "今月 ${analytics.monthRecommended.hits}/${analytics.monthRecommended.races}的中　" +
+                    "購入 ${yen(analytics.monthRecommended.stake)} / 払戻 ${yen(analytics.monthRecommended.payout)}",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(6.dp))
+            Text("実購入", fontWeight = FontWeight.SemiBold)
+            Text("直近7日 ${signed(actualWeek.profit)}　今月 ${signed(actualMonth.profit)}")
+            Text(
+                "今月 購入 ${yen(actualMonth.stake)} / 払戻 ${yen(actualMonth.payout)}",
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            HorizontalDivider(Modifier.padding(vertical = 10.dp))
+            val monthPoints = analytics.monthCumulativeRecommended
+            val recentChange = if (monthPoints.size >= 2) {
+                val startIndex = (monthPoints.lastIndex - 7).coerceAtLeast(0)
+                monthPoints.last().profit - monthPoints[startIndex].profit
+            } else 0
+            Text("今月の累計推移", fontWeight = FontWeight.Bold)
+            Text(
+                "現在 ${signed(analytics.monthRecommended.profit)} / 直近7日で ${signed(recentChange)}",
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                when {
+                    recentChange > 0 -> "月間累計は直近7日で上向き"
+                    recentChange < 0 -> "月間累計は直近7日で下向き"
+                    else -> "月間累計は直近7日で横ばい"
+                },
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(6.dp))
+            CumulativeProfitChart(monthPoints, actualCumulative)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("購入推奨累計", style = MaterialTheme.typography.bodySmall)
+                Text("実購入累計", style = MaterialTheme.typography.bodySmall)
+            }
+        }
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -99,6 +157,35 @@ fun AdvancedAnalyticsCard(ui: BoatUiState) {
     }
 }
 
+private data class ActualSummary(val stake: Int, val payout: Int) {
+    val profit: Int get() = payout - stake
+}
+
+private fun actualSummary(records: List<BetRecord>, start: LocalDate, end: LocalDate): ActualSummary {
+    val filtered = records.filter { record ->
+        val date = runCatching { LocalDate.parse(record.date.take(10)) }.getOrNull()
+        date != null && !date.isBefore(start) && !date.isAfter(end)
+    }
+    return ActualSummary(
+        stake = filtered.sumOf { it.stake },
+        payout = filtered.sumOf { it.payout }
+    )
+}
+
+private fun actualCumulativeByDay(records: List<BetRecord>, start: LocalDate, end: LocalDate): List<ProfitPoint> {
+    val byDay = records.groupBy { it.date.take(10) }
+        .mapValues { (_, values) -> values.sumOf { it.profit } }
+    var running = 0
+    val points = mutableListOf<ProfitPoint>()
+    var day = start
+    while (!day.isAfter(end)) {
+        running += byDay[day.toString()] ?: 0
+        points += ProfitPoint(day.dayOfMonth.toString(), running)
+        day = day.plusDays(1)
+    }
+    return points
+}
+
 @Composable
 private fun SummaryLine(label: String, summary: AnalyticsSummary) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -125,6 +212,33 @@ private fun ProfitBarChart(points: List<ProfitPoint>) {
             val bottom = if (point.profit >= 0) center else center + height
             drawRect(if (point.profit >= 0) positive else negative, Offset(left, top), androidx.compose.ui.geometry.Size(right - left, bottom - top))
         }
+    }
+}
+
+@Composable
+private fun CumulativeProfitChart(recommended: List<ProfitPoint>, actual: List<ProfitPoint>) {
+    val recommendationColor = MaterialTheme.colorScheme.primary
+    val actualColor = MaterialTheme.colorScheme.tertiary
+    Canvas(Modifier.fillMaxWidth().height(150.dp)) {
+        val count = maxOf(recommended.size, actual.size)
+        if (count < 2) return@Canvas
+        val values = (recommended + actual).map { it.profit }
+        val maxAbs = values.maxOfOrNull { abs(it) }?.coerceAtLeast(1) ?: 1
+        val center = size.height / 2f
+        drawLine(Color.Gray, Offset(0f, center), Offset(size.width, center), strokeWidth = 1f)
+
+        fun drawSeries(points: List<ProfitPoint>, color: Color) {
+            if (points.size < 2) return
+            val step = size.width / (count - 1).coerceAtLeast(1)
+            points.zipWithNext().forEachIndexed { index, (a, b) ->
+                val y1 = center - (a.profit.toFloat() / maxAbs) * (center - 8f)
+                val y2 = center - (b.profit.toFloat() / maxAbs) * (center - 8f)
+                drawLine(color, Offset(index * step, y1), Offset((index + 1) * step, y2), strokeWidth = 4f)
+            }
+        }
+
+        drawSeries(recommended, recommendationColor)
+        drawSeries(actual, actualColor)
     }
 }
 
