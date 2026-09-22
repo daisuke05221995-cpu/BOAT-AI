@@ -48,10 +48,11 @@ object ProfitAnalytics {
         period: AnalyticsPeriod,
         today: LocalDate = LocalDate.now()
     ): AdvancedAnalytics {
-        val settled = records.filter { it.settled }
+        // 成績評価に使うのは、結果が出る前かつ締切前に保存された事前予想だけ。
+        // 過去日を後から開いて生成された参考予想を損益へ混ぜない。
+        val eligible = records.filter { it.settled && it.evaluationEligible }
             .filter { inPeriod(it.date, period, today) }
             .sortedWith(compareBy<PredictionRecord> { it.date }.thenBy { it.raceNumber })
-        val eligible = settled.filter { it.evaluationEligible }
         val baseline = summarize(eligible)
         val recommendedRecords = eligible.filter { it.recommended }
         val recommended = summarize(recommendedRecords)
@@ -71,18 +72,18 @@ object ProfitAnalytics {
         val monthAll = summarize(allEligible.filter { inRange(it.date, monthStart, today) })
 
         return AdvancedAnalytics(
-            summary = summarize(settled),
-            daily = settled.groupBy { it.date }.map { (date, values) ->
+            summary = summarize(eligible),
+            daily = eligible.groupBy { it.date }.map { (date, values) ->
                 ProfitPoint(date.takeLast(5), values.sumOf { it.simulatedProfit })
             }.takeLast(31),
-            monthly = settled.groupBy { it.date.take(7) }.map { (month, values) ->
+            monthly = eligible.groupBy { it.date.take(7) }.map { (month, values) ->
                 ProfitPoint(month, values.sumOf { it.simulatedProfit })
             }.takeLast(12),
-            byVenue = group(settled) { Venues.name(it.stadiumNumber) },
-            byRank = group(settled) { "AI${it.rank}" },
-            byRecommendation = group(settled) { it.recommendation.label },
-            byFirstLane = group(settled) { "${it.firstLane ?: 0}号艇軸" },
-            streak = streak(settled),
+            byVenue = group(eligible) { Venues.name(it.stadiumNumber) },
+            byRank = group(eligible) { "AI${it.rank}" },
+            byRecommendation = group(eligible) { it.recommendation.label },
+            byFirstLane = group(eligible) { "${it.firstLane ?: 0}号艇軸" },
+            streak = streak(eligible),
             baseline = baseline,
             adjusted = recommended,
             hitFocused = recommended,
