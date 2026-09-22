@@ -518,60 +518,92 @@ private fun ResultCard(race: RaceData, prediction: PredictionRecord?, purchases:
 
 @Composable
 private fun ProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
-    val settled = ui.predictionHistory.filter { it.settled }
+    val settled = ui.predictionHistory.filter { it.settled && it.evaluationEligible }
     val allSummary = ProfitAnalytics.summarize(settled)
     val recommendedSummary = ProfitAnalytics.summarize(settled.filter { it.recommended })
     val skippedSummary = ProfitAnalytics.summarize(settled.filterNot { it.recommended })
 
-    val actualStake = ui.records.sumOf { it.stake }
-    val actualPayout = ui.records.sumOf { it.payout }
+    val settledActual = ui.records.filter { it.settled }
+    val actualStake = settledActual.sumOf { it.stake }
+    val actualPayout = settledActual.sumOf { it.payout }
     val pendingStake = ui.records.filter { !it.settled }.sumOf { it.stake }
 
     val dateText = ui.date.toString()
     val dayRecords = ui.records.filter { it.date == dateText }
-    val dayAll = ui.predictionHistory.filter { it.date == dateText && it.settled }
+    val dayAll = settled.filter { it.date == dateText }
     val dayRecommended = dayAll.filter { it.recommended }
     val dayAllSummary = ProfitAnalytics.summarize(dayAll)
     val dayRecommendedSummary = ProfitAnalytics.summarize(dayRecommended)
+
+    val weekStart = ui.date.minusDays(6)
+    val weekStartText = weekStart.toString()
+    val monthPrefix = String.format(Locale.US, "%04d-%02d", ui.date.year, ui.date.monthValue)
+    val weekAll = settled.filter { record ->
+        val day = record.date.take(10)
+        day >= weekStartText && day <= dateText
+    }
+    val weekRecommendedSummary = ProfitAnalytics.summarize(weekAll.filter { it.recommended })
+    val weekAllSummary = ProfitAnalytics.summarize(weekAll)
+    val weekRecords = ui.records.filter { record ->
+        val day = record.date.take(10)
+        day >= weekStartText && day <= dateText
+    }
+
+    val monthAll = settled.filter { it.date.startsWith(monthPrefix) }
+    val monthRecommendedSummary = ProfitAnalytics.summarize(monthAll.filter { it.recommended })
+    val monthAllSummary = ProfitAnalytics.summarize(monthAll)
+    val monthRecords = ui.records.filter { it.date.startsWith(monthPrefix) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        item { SummaryCard("購入推奨だけ買った場合", recommendedSummary, "AIが購入推奨と判定したレースだけを各${money(PredictionHistoryStore.DEFAULT_SIMULATION_STAKE)}×4点で計算") }
-        item { SummaryCard("全予想を買った場合（比較用）", allSummary, "見送り判定を含む全予想の仮想成績") }
+        item { SummaryCard("購入推奨だけ買った場合（全期間）", recommendedSummary, "締切前に保存できた購入推奨だけを各${money(PredictionHistoryStore.DEFAULT_SIMULATION_STAKE)}×4点で計算") }
+        item { SummaryCard("全予想を買った場合（全期間・比較用）", allSummary, "締切前に保存できた見送り判定を含む全予想の仮想成績") }
         item { SummaryCard("見送り判定の成績（検証用）", skippedSummary, "買わなかったレースの結果も追跡し、判定が正しかったか検証") }
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp)) {
-                    Text("実購入", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("実購入（確定分）", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     Text("購入合計 ${money(actualStake)}")
                     Text("払戻合計 ${money(actualPayout)}")
                     val roi = if (actualStake > 0) actualPayout * 100.0 / actualStake else 0.0
                     Text("損益 ${signedMoney(actualPayout - actualStake)}　回収率 ${formatPercent(roi)}", fontWeight = FontWeight.Bold)
-                    Text("結果待ち ${ui.records.count { !it.settled }}点 / ${money(pendingStake)}", style = MaterialTheme.typography.bodySmall)
+                    Text("結果待ち ${ui.records.count { !it.settled }}点 / ${money(pendingStake)}（確定損益には未算入）", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp)) {
-                    Text("${ui.date} の予想成績", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text("購入推奨のみ", fontWeight = FontWeight.SemiBold)
-                    SummaryCompact(dayRecommendedSummary)
-                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                    Text("全予想", fontWeight = FontWeight.SemiBold)
-                    SummaryCompact(dayAllSummary)
-                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                    val dayStake = dayRecords.sumOf { it.stake }
-                    val dayPayout = dayRecords.sumOf { it.payout }
-                    Text("実際の購入記録", fontWeight = FontWeight.SemiBold)
-                    Text("購入 ${money(dayStake)} / 払戻 ${money(dayPayout)} / 損益 ${signedMoney(dayPayout - dayStake)}")
-                }
-            }
+            PredictionPeriodSummaryCard(
+                title = "${ui.date} の予想成績（今日）",
+                recommended = dayRecommendedSummary,
+                allPredictions = dayAllSummary,
+                actualRecords = dayRecords,
+                note = "この日に締切前保存できた事前予想だけを集計"
+            )
+        }
+
+        item {
+            PredictionPeriodSummaryCard(
+                title = "直近7日（${weekStart.monthValue}/${weekStart.dayOfMonth}〜${ui.date.monthValue}/${ui.date.dayOfMonth}）の予想成績",
+                recommended = weekRecommendedSummary,
+                allPredictions = weekAllSummary,
+                actualRecords = weekRecords,
+                note = "直近7日間に締切前保存できた事前予想だけを集計"
+            )
+        }
+
+        item {
+            PredictionPeriodSummaryCard(
+                title = "${ui.date.year}年${ui.date.monthValue}月の月間予想成績",
+                recommended = monthRecommendedSummary,
+                allPredictions = monthAllSummary,
+                actualRecords = monthRecords,
+                note = "この月に購入推奨だけを買い続けた場合の累計。結果後の後付け予想は除外"
+            )
         }
 
         item {
@@ -588,6 +620,44 @@ private fun ProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
         item { AdvancedAnalyticsCard(ui) }
         item { BackupCard(ui, vm) }
         item { NotificationSettingsCard(ui, vm) }
+    }
+}
+
+@Composable
+private fun PredictionPeriodSummaryCard(
+    title: String,
+    recommended: AnalyticsSummary,
+    allPredictions: AnalyticsSummary,
+    actualRecords: List<BetRecord>,
+    note: String
+) {
+    val settledActual = actualRecords.filter { it.settled }
+    val actualStake = settledActual.sumOf { it.stake }
+    val actualPayout = settledActual.sumOf { it.payout }
+    val pending = actualRecords.filterNot { it.settled }
+    val pendingStake = pending.sumOf { it.stake }
+    val actualRoi = if (actualStake > 0) actualPayout * 100.0 / actualStake else 0.0
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(6.dp))
+            Text("購入推奨のみを買い続けた場合", fontWeight = FontWeight.SemiBold)
+            SummaryCompact(recommended)
+            Text("期間損益 ${signedMoney(recommended.profit)}　回収率 ${formatPercent(recommended.roi)}", fontWeight = FontWeight.Bold)
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text("全予想（比較用）", fontWeight = FontWeight.SemiBold)
+            SummaryCompact(allPredictions)
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text("実際の購入記録（確定分）", fontWeight = FontWeight.SemiBold)
+            Text("購入 ${money(actualStake)} / 払戻 ${money(actualPayout)}")
+            Text("損益 ${signedMoney(actualPayout - actualStake)}　回収率 ${formatPercent(actualRoi)}")
+            if (pending.isNotEmpty()) {
+                Text("結果待ち ${pending.size}点 / ${money(pendingStake)}（確定損益には未算入）", style = MaterialTheme.typography.bodySmall)
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(note, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 
