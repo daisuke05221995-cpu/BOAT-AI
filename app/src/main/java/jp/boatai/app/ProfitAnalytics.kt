@@ -28,6 +28,7 @@ data class AdvancedAnalytics(
     val monthly: List<ProfitPoint>,
     val byVenue: List<GroupPerformance>,
     val byRank: List<GroupPerformance>,
+    val byRecommendation: List<GroupPerformance>,
     val byFirstLane: List<GroupPerformance>,
     val streak: StreakSummary,
     val baseline: AnalyticsSummary,
@@ -48,9 +49,9 @@ object ProfitAnalytics {
             .sortedWith(compareBy<PredictionRecord> { it.date }.thenBy { it.raceNumber })
         val eligible = settled.filter { it.evaluationEligible }
         val baseline = summarize(eligible)
-        val adjustedRecords = eligible.filterNot { it.autoSkipped }
-        val adjusted = summarize(adjustedRecords)
-        val skipped = eligible.filter { it.autoSkipped }
+        val recommendedRecords = eligible.filter { it.recommended }
+        val recommended = summarize(recommendedRecords)
+        val skipped = eligible.filterNot { it.recommended }
         val skippedLoss = skipped.sumOf { it.simulatedProfit }
 
         return AdvancedAnalytics(
@@ -63,17 +64,18 @@ object ProfitAnalytics {
             }.takeLast(12),
             byVenue = group(settled) { Venues.name(it.stadiumNumber) },
             byRank = group(settled) { "AI${it.rank}" },
+            byRecommendation = group(settled) { it.recommendation.label },
             byFirstLane = group(settled) { "${it.firstLane ?: 0}号艇軸" },
             streak = streak(settled),
             baseline = baseline,
-            adjusted = adjusted,
-            hitFocused = summarize(adjustedRecords.filter { it.rank in setOf("S", "A") }),
-            returnFocused = summarize(adjustedRecords.filter { it.rank in setOf("B", "C") }),
+            adjusted = recommended,
+            hitFocused = recommended,
+            returnFocused = summarize(skipped),
             avoidedLoss = (-skippedLoss).coerceAtLeast(0)
         )
     }
 
-    private fun summarize(records: List<PredictionRecord>) = AnalyticsSummary(
+    fun summarize(records: List<PredictionRecord>) = AnalyticsSummary(
         races = records.size,
         hits = records.count { it.hit },
         stake = records.sumOf { it.simulatedStake },
