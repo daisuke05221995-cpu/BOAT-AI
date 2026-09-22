@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Derive a historical learning snapshot by subtracting a later partial aggregate.
+"""Derive a historical learning snapshot by subtracting a later aggregate.
 
 Used to create a 2025-12-31 learning snapshot from the five-year baseline while
 keeping the exact BOAT RACE K-file aggregation semantics used by the app.
+The later aggregate must be complete; otherwise subtraction could leave future
+2026 information in the pre-2026 snapshot.
 """
 
 from __future__ import annotations
@@ -37,15 +39,26 @@ def main() -> None:
     full = json.loads(args.full.read_text(encoding="utf-8"))
     partial = json.loads(args.subtract.read_text(encoding="utf-8"))
 
+    if partial.get("trainedFrom") != "2026-01-01":
+        raise SystemExit(f"unexpected subtraction start: {partial.get('trainedFrom')}")
+    if int(partial.get("missingOrNoRaceDays", 0)) != 0:
+        raise SystemExit("2026 contribution is incomplete; refusing leakage-unsafe subtraction")
+    if int(partial.get("historicalRaceCount", 0)) <= 0:
+        raise SystemExit("2026 contribution is empty")
+
     payload = {
         "schemaVersion": 1,
-        "source": "BOAT RACE official performance K files; derived by exact aggregate subtraction",
+        "source": "BOAT RACE official performance K files; derived by verified complete aggregate subtraction",
         "trainedFrom": full.get("trainedFrom"),
         "trainedThrough": args.through,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "historicalRaceCount": int(full.get("historicalRaceCount", 0)) - int(partial.get("historicalRaceCount", 0)),
         "downloadedDays": max(0, int(full.get("downloadedDays", 0)) - int(partial.get("downloadedDays", 0))),
         "missingOrNoRaceDays": 0,
+        "derivationComplete": True,
+        "subtractedFrom": partial.get("trainedFrom"),
+        "subtractedThrough": partial.get("trainedThrough"),
+        "subtractedRaceCount": int(partial.get("historicalRaceCount", 0)),
     }
     for key in MAP_KEYS:
         payload[key] = subtract_map(full.get(key, {}), partial.get(key, {}))
@@ -62,7 +75,7 @@ def main() -> None:
     )
     print(
         f"wrote {args.output}: races={payload['historicalRaceCount']:,}, "
-        f"through={payload['trainedThrough']}"
+        f"through={payload['trainedThrough']}, verified=true"
     )
 
 
