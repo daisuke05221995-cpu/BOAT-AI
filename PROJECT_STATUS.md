@@ -38,6 +38,11 @@
 - 最初の単一ジョブ方式はGitHub Actionsの45分制限で保存前にタイムアウトしたため廃止。
 - 現在は `.github/workflows/historical-learning.yml` で2021〜2026を6期間に分けて並列集計し、`scripts/merge_historical.py` で最後に結合する。
 - 最終結合時に対象期間の連続性、15万レース以上、会場×艇番・風速×進入のバケット数を検証してから自動コミットする。
+- `LearningStore` は完成した `historical_learning.json` をアプリ起動時に自動読込し、端末内の新規学習データと合算して `PredictionEngine` へ渡す実装済み。
+- ベースライン最終日以前のレースは端末側で再学習しないため、5年分データとの二重加算を防止する。
+- 過去バージョンの端末学習がベースライン期間と重複している場合は、一度だけ旧集計をクリアして5年ベースラインへ安全に移行する。
+- AI学習済みレース数は「5年ベースライン件数 + ベースライン後の端末学習件数」を表示する。
+- 予想へのベースライン接続実装はユニットテスト、Android lint、Debug APKビルドまで成功確認済み。
 - `historical_learning.json` がまだ存在しない場合は、GitHub Actionsの `Build five-year historical learning` 最新実行を確認する。
 
 ## 続きの始め方
