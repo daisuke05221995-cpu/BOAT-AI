@@ -1,0 +1,86 @@
+name: Train learned trifecta rank model
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/train_rank_model_2026.py'
+      - '.github/workflows/rank-model-tuning.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rank-model-tuning
+  cancel-in-progress: true
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install numeric runtime
+        run: pip install 'numpy>=2.0,<3.0'
+
+      - name: Verify pre-2026 learning snapshot
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/historical_learning_pre2026.json', encoding='utf-8'))
+          assert data.get('snapshotComplete') is True
+          assert data.get('trainedThrough') == '2025-12-31'
+          assert int(data.get('historicalRaceCount', 0)) > 200000
+          PY
+
+      - name: Train rank model and run strict holdout
+        run: |
+          python -u scripts/train_rank_model_2026.py \
+            --learning data/historical_learning_pre2026.json \
+            --workers 16 \
+            --output data/rank_model_tuning_2026.json
+
+      - name: Validate result
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/rank_model_tuning_2026.json', encoding='utf-8'))
+          assert data['trainRaces'] > 20000
+          assert data['betRuleCount'] >= 500
+          selected=data['selectedFromTune']
+          assert selected is not None
+          assert selected['tune']['races'] >= 120
+          assert selected['holdout']['races'] >= 60
+          print(json.dumps({
+              'top4HitRateTrain': data['modelTop4HitRateTrain'],
+              'top4HitRateTune': data['modelTop4HitRateTune'],
+              'top4HitRateHoldout': data['modelTop4HitRateHoldout'],
+              'selected': selected,
+              'passesHoldout': data['selectedPassesHoldout'],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Publish result safely
+        run: |
+          cp data/rank_model_tuning_2026.json /tmp/rank_model_tuning_2026.json
+          git fetch origin main
+          git reset --hard origin/main
+          cp /tmp/rank_model_tuning_2026.json data/rank_model_tuning_2026.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/rank_model_tuning_2026.json
+          if git diff --cached --quiet; then
+            echo 'Rank model tuning result is unchanged.'
+          else
+            git commit -m 'Refresh learned rank model tuning result'
+            git push origin HEAD:main
+          fi
