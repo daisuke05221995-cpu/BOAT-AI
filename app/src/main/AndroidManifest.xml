@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
+        android:name=".BoatAiApplication"
         android:allowBackup="true"
         android:label="BOAT AI"
         android:supportsRtl="true"
