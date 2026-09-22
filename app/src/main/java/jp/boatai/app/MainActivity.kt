@@ -530,6 +530,13 @@ private fun RacePredictionRow(
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold
                 )
+                PredictionEngine.autoSkipReason(race)?.let { reason ->
+                    Text(
+                        "自動一括対象外：$reason",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
             if (purchasedStake > 0) {
                 Text(
@@ -807,11 +814,15 @@ private fun ProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
                     Text("AI学習状況", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     Text("学習済み ${ui.learnedRaceCount}レース")
                     Text(
-                        "外れたレースの1着コース傾向を会場別に補正し、次回以降の予想スコアへ反映します。",
+                        "5年ベースラインと端末の新規結果を会場・風速帯・進入コース別に補正し、次回以降の予想スコアへ反映します。",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
             }
+        }
+
+        item {
+            PerformanceFeedbackCard(ui)
         }
 
         if (ui.records.isNotEmpty()) {
