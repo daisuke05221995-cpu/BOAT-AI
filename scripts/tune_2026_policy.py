@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Tune BOAT AI purchase filters with a time split, without using validation data to fit.
+"""Tune BOAT AI purchase policy with an out-of-time holdout.
 
 Training: 2026-01-01..2026-06-30
 Validation: 2026-07-01..latest settled day
 
-The prediction engine, learning updates, performance-memory updates, four picks and
-1,200-yen allocation are kept identical to build_2026_backtest.py. Only the BUY
-filter is varied. Historical closing odds are unavailable and therefore excluded.
+Learning and performance memory are walk-forward and leakage-safe. Historical
+closing odds are unavailable, so the live odds final gate is excluded.
 """
 from __future__ import annotations
 
@@ -16,11 +15,11 @@ from dataclasses import dataclass, asdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from build_2026_backtest import (
     JST,
     BUDGET,
-    STAKE_BY_RANK,
     LearningProfile,
     PerformanceProfile,
     as_int,
@@ -33,10 +32,18 @@ from build_2026_backtest import (
     raw_confidence,
     top_picks,
 )
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 TRAIN_END = date(2026, 6, 30)
 VALIDATION_START = date(2026, 7, 1)
+
+STAKE_PLANS: dict[str, tuple[int, ...]] = {
+    "weighted4": (500, 400, 200, 100),
+    "equal4": (300, 300, 300, 300),
+    "balanced4": (400, 300, 300, 200),
+    "weighted3": (600, 400, 200),
+    "balanced3": (500, 400, 300),
+    "equal3": (400, 400, 400),
+}
 
 
 @dataclass(frozen=True)
@@ -46,6 +53,7 @@ class Candidate:
     max_wind: int
     max_wave: int
     allow_course_change: bool
+    stake_plan: str
 
 
 @dataclass
@@ -90,7 +98,6 @@ def course_changed(race: dict[str, Any], leader_lane: int | None) -> bool:
 
 
 def threshold_for(base: int, race: dict[str, Any], leader_lane: int | None) -> int:
-    # build_2026_backtest.buy_threshold uses base 80; preserve its risk additions.
     return min(97, base + max(0, buy_threshold(race, leader_lane) - 80))
 
 
@@ -101,8 +108,25 @@ def candidate_grid() -> list[Candidate]:
             for max_wind in (99, 4, 2):
                 for max_wave in (99, 7):
                     for allow_change in (True, False):
-                        result.append(Candidate(threshold, lane_mode, max_wind, max_wave, allow_change))
+                        for stake_plan in STAKE_PLANS:
+                            result.append(Candidate(
+                                threshold,
+                                lane_mode,
+                                max_wind,
+                                max_wave,
+                                allow_change,
+                                stake_plan,
+                            ))
     return result
+
+
+def plan_outcome(combo: str, trifecta_amount: int, picks: list[str], plan_name: str) -> tuple[bool, int]:
+    stakes = STAKE_PLANS[plan_name]
+    considered = picks[:len(stakes)]
+    if combo not in considered:
+        return False, 0
+    idx = considered.index(combo)
+    return True, trifecta_amount * (stakes[idx] // 100)
 
 
 def main() -> None:
@@ -158,7 +182,7 @@ def main() -> None:
                 continue
             raw, leader_lane, score_map = raw_confidence(race, learning)
             picks = top_picks(score_map)
-            if raw == 0 or not picks:
+            if raw == 0 or len(picks) < 4:
                 continue
 
             evaluated += 1
@@ -167,19 +191,20 @@ def main() -> None:
             penalty = performance.penalty(venue, raw, first_lane)
             confidence = max(20, min(97, raw + penalty))
             skip_by_history = performance.auto_skip(venue, raw, first_lane)
-            hit = combo in picks
-            perf_payout = trifecta_amount * 3 if hit else 0
-            observations.append((venue, raw, first_lane, hit, BUDGET, perf_payout))
+
+            # Keep production performance-memory semantics unchanged while tuning.
+            perf_hit = combo in picks
+            perf_payout = trifecta_amount * 3 if perf_hit else 0
+            observations.append((venue, raw, first_lane, perf_hit, BUDGET, perf_payout))
 
             preview = race.get("preview") or {}
             wind = as_int(preview.get("wind_speed"), 0) or 0
             wave = as_int(preview.get("wave_height"), 0) or 0
             changed = course_changed(race, leader_lane)
-            winning_payout = 0
-            if hit:
-                idx = picks.index(combo)
-                winning_stake = STAKE_BY_RANK[min(idx, len(STAKE_BY_RANK) - 1)]
-                winning_payout = trifecta_amount * (winning_stake // 100)
+            outcomes = {
+                name: plan_outcome(combo, trifecta_amount, picks, name)
+                for name in STAKE_PLANS
+            }
 
             target = train if day <= TRAIN_END else validation
             for candidate in candidates:
@@ -193,9 +218,9 @@ def main() -> None:
                     continue
                 if changed and not candidate.allow_course_change:
                     continue
-                target[candidate].add(hit, winning_payout)
+                hit, payout = outcomes[candidate.stake_plan]
+                target[candidate].add(hit, payout)
 
-        # Same leakage-safe semantics as the production backtest.
         for race in races:
             learning.observe_race(race)
         for observation in observations:
@@ -208,19 +233,19 @@ def main() -> None:
         robust_roi = min(tr["roi"], va["roi"]) if tr["races"] and va["races"] else 0.0
         rows.append({
             "policy": asdict(candidate),
+            "stakes": list(STAKE_PLANS[candidate.stake_plan]),
             "train": tr,
             "validation": va,
             "robustRoi": robust_roi,
             "positiveBoth": tr["roi"] > 100.0 and va["roi"] > 100.0,
         })
 
-    # Avoid tiny-sample mirages. Keep a broad ranking too for diagnostics.
     robust = [r for r in rows if r["train"]["races"] >= 250 and r["validation"]["races"] >= 120]
     robust.sort(key=lambda r: (r["positiveBoth"], r["robustRoi"], r["validation"]["races"]), reverse=True)
     all_ranked = sorted(rows, key=lambda r: (r["robustRoi"], r["validation"]["races"]), reverse=True)
 
     payload = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "dataFrom": args.start.isoformat(),
         "dataThrough": end.isoformat(),
@@ -231,7 +256,7 @@ def main() -> None:
         "oddsFinalGateIncluded": False,
         "minimumRobustSamples": {"train": 250, "validation": 120},
         "positiveRobustCount": sum(1 for r in robust if r["positiveBoth"]),
-        "topRobust": robust[:30],
+        "topRobust": robust[:40],
         "topAnySample": all_ranked[:20],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
