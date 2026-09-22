@@ -5,13 +5,16 @@ import org.junit.Test
 
 class RecommendationDecisionTest {
     @Test
-    fun strongRaceIsBuyRecommendation() {
+    fun strongRaceWithPreviewIsBuyRecommendation() {
         resetProfiles()
         val race = race(
             racers = listOf(
-                racer(1, 8.0, 8.0, 50.0, 0.12),
-                racer(2, 4.5, 4.0, 25.0, 0.18),
-                racer(3, 4.2, 4.0, 25.0, 0.18)
+                racer(1, 8.0, 8.0, 50.0, 0.12, 6.70),
+                racer(2, 4.5, 4.0, 25.0, 0.18, 6.84),
+                racer(3, 4.2, 4.0, 25.0, 0.18, 6.86),
+                racer(4, 4.0, 3.8, 24.0, 0.19, 6.88),
+                racer(5, 3.8, 3.6, 23.0, 0.19, 6.90),
+                racer(6, 3.5, 3.4, 22.0, 0.20, 6.92)
             )
         )
 
@@ -19,13 +22,27 @@ class RecommendationDecisionTest {
     }
 
     @Test
+    fun missingPreviewIsSkipRecommendation() {
+        resetProfiles()
+        val race = race(
+            racers = (1..6).map { lane -> racer(lane, 7.0, 6.5, 40.0, 0.14, null) },
+            preview = null
+        )
+
+        assertEquals(RaceRecommendation.SKIP, PredictionEngine.recommendation(race).recommendation)
+    }
+
+    @Test
     fun lowAdvantageRaceIsSkipRecommendation() {
         resetProfiles()
         val race = race(
             racers = listOf(
-                racer(1, 0.0, 0.0, 0.0, 0.22),
-                racer(2, 5.0, 5.0, 30.0, 0.16),
-                racer(3, 5.0, 5.0, 30.0, 0.16)
+                racer(1, 4.8, 4.5, 30.0, 0.18, 6.84),
+                racer(2, 5.0, 5.0, 31.0, 0.17, 6.83),
+                racer(3, 5.0, 5.0, 30.0, 0.17, 6.84),
+                racer(4, 4.9, 4.8, 30.0, 0.18, 6.85),
+                racer(5, 4.8, 4.7, 29.0, 0.18, 6.86),
+                racer(6, 4.7, 4.6, 28.0, 0.19, 6.87)
             )
         )
 
@@ -38,7 +55,17 @@ class RecommendationDecisionTest {
         PredictionEngine.installPerformanceProfile(PredictionPerformanceProfile())
     }
 
-    private fun race(racers: List<Racer>) = RaceData(
+    private fun race(
+        racers: List<Racer>,
+        preview: PreviewData? = PreviewData(
+            windSpeed = 2,
+            windDirection = "北",
+            waveHeight = 2,
+            weather = "晴",
+            airTemperature = 25.0,
+            waterTemperature = 24.0
+        )
+    ) = RaceData(
         date = "2026-09-22",
         stadiumNumber = 1,
         raceNumber = 1,
@@ -49,7 +76,7 @@ class RecommendationDecisionTest {
         distance = 1800,
         dayNumber = 1,
         racers = racers,
-        preview = null,
+        preview = preview,
         result = null
     )
 
@@ -58,7 +85,8 @@ class RecommendationDecisionTest {
         national: Double,
         local: Double,
         motor: Double,
-        start: Double
+        start: Double,
+        exhibition: Double?
     ) = Racer(
         lane = lane,
         name = "R$lane",
@@ -80,6 +108,15 @@ class RecommendationDecisionTest {
         boatNumber = null,
         boatTop2 = 30.0,
         boatTop3 = null,
-        preview = null
+        preview = exhibition?.let {
+            PreviewRacer(
+                course = lane,
+                startTiming = start,
+                weight = null,
+                weightAdjustment = null,
+                exhibitionTime = it,
+                tilt = 0.0
+            )
+        }
     )
 }
