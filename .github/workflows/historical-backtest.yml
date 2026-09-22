@@ -10,9 +10,7 @@ on:
     paths:
       - 'scripts/build_2026_backtest.py'
       - 'scripts/build_learning_contribution_from_json.py'
-      - 'scripts/subtract_historical.py'
       - '.github/workflows/historical-backtest.yml'
-      - 'app/src/main/assets/historical_learning.json'
 
 permissions:
   contents: write
@@ -46,9 +44,11 @@ jobs:
               try:
                   data=json.load(open(path, encoding='utf-8'))
                   verified=(
-                      data.get('trainedThrough') == '2025-12-31'
-                      and data.get('derivationComplete') is True
-                      and int(data.get('subtractedRaceCount', 0)) > 1000
+                      data.get('trainedFrom') == '2021-09-22'
+                      and data.get('trainedThrough') == '2025-12-31'
+                      and data.get('snapshotComplete') is True
+                      and int(data.get('historicalRaceCount', 0)) > 200000
+                      and len(data.get('starts', {})) == 144
                   )
               except Exception:
                   verified=False
@@ -57,40 +57,27 @@ jobs:
           print(f"verified pre-2026 snapshot: {verified}")
           PY
 
-      - name: Build complete 2026 learning contribution from race JSON
+      - name: Build direct leakage-safe 2025-12-31 learning snapshot
         if: steps.prebase.outputs.exists != 'true'
         run: |
-          BASELINE_END=$(python - <<'PY'
-          import json
-          data=json.load(open('app/src/main/assets/historical_learning.json', encoding='utf-8'))
-          print(data['trainedThrough'])
-          PY
-          )
           python -u scripts/build_learning_contribution_from_json.py \
-            --start 2026-01-01 \
-            --end "$BASELINE_END" \
-            --workers 12 \
-            --output data/historical_learning_2026_partial.json
+            --start 2021-09-22 \
+            --end 2025-12-31 \
+            --workers 16 \
+            --output data/historical_learning_pre2026.json
           python - <<'PY'
           import json
-          data=json.load(open('data/historical_learning_2026_partial.json', encoding='utf-8'))
-          assert data['trainedFrom'] == '2026-01-01'
+          data=json.load(open('data/historical_learning_pre2026.json', encoding='utf-8'))
+          assert data['trainedFrom'] == '2021-09-22'
+          assert data['trainedThrough'] == '2025-12-31'
+          assert data['snapshotComplete'] is True
           assert data['missingOrNoRaceDays'] == 0
-          assert data['historicalRaceCount'] > 1000
-          assert len(data['starts']) >= 120
-          assert len(data['windCourseStarts']) >= 200
-          print(f"Complete 2026 contribution OK: {data['historicalRaceCount']:,} races")
+          assert data['historicalRaceCount'] > 200000
+          assert len(data['starts']) == 144
+          assert len(data['venueRaceCounts']) == 24
+          assert '23-1' in data['starts'] and '23-6' in data['starts']
+          print(f"Pre-2026 snapshot OK: {data['historicalRaceCount']:,} races / 24 venues")
           PY
-
-      - name: Derive leakage-safe 2025-12-31 learning snapshot
-        if: steps.prebase.outputs.exists != 'true'
-        run: |
-          python scripts/subtract_historical.py \
-            --full app/src/main/assets/historical_learning.json \
-            --subtract data/historical_learning_2026_partial.json \
-            --through 2025-12-31 \
-            --output data/historical_learning_pre2026.json
-          rm -f data/historical_learning_2026_partial.json
 
       - name: Build month and year backtest
         run: |
@@ -98,7 +85,7 @@ jobs:
             --year 2026 \
             --start 2026-01-01 \
             --learning data/historical_learning_pre2026.json \
-            --workers 12 \
+            --workers 16 \
             --output data/historical_backtest_2026.json
 
       - name: Validate generated backtest
@@ -106,8 +93,9 @@ jobs:
           python - <<'PY'
           import json
           pre=json.load(open('data/historical_learning_pre2026.json', encoding='utf-8'))
-          assert pre.get('derivationComplete') is True
+          assert pre.get('snapshotComplete') is True
           assert pre.get('trainedThrough') == '2025-12-31'
+          assert len(pre.get('venueRaceCounts', {})) == 24
           data=json.load(open('data/historical_backtest_2026.json', encoding='utf-8'))
           assert data['year'] == 2026
           assert data['dataFrom'] == '2026-01-01'
