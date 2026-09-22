@@ -8,6 +8,7 @@ on:
     paths:
       - 'scripts/search_2026_strategy.py'
       - 'scripts/search_2026_strategy_v7.py'
+      - 'scripts/search_2026_strategy_v8.py'
       - '.github/workflows/strategy-search.yml'
       - 'data/historical_learning_pre2026.json'
 
@@ -46,9 +47,9 @@ jobs:
           assert int(data.get('historicalRaceCount', 0)) > 200000
           PY
 
-      - name: Search robust race-selectivity strategy
+      - name: Search walk-forward strategy with September holdout
         run: |
-          python -u scripts/search_2026_strategy_v7.py \
+          python -u scripts/search_2026_strategy_v8.py \
             --start 2026-01-01 \
             --learning data/historical_learning_pre2026.json \
             --workers 16 \
