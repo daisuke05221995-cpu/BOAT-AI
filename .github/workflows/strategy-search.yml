@@ -17,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: strategy-search-2026
+  group: strategy-search-2026-v9fast
   cancel-in-progress: true
 
 jobs:
