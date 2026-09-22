@@ -9,6 +9,7 @@ on:
       - main
     paths:
       - 'scripts/build_2026_backtest.py'
+      - 'scripts/tune_2026_policy.py'
       - 'scripts/backfill_historical.py'
       - 'scripts/merge_historical.py'
       - '.github/workflows/historical-backtest.yml'
@@ -228,11 +229,35 @@ jobs:
           }, ensure_ascii=False, indent=2))
           PY
 
+      - name: Tune purchase policy on train and holdout periods
+        run: |
+          python -u scripts/tune_2026_policy.py \
+            --learning data/historical_learning_pre2026.json \
+            --workers 16 \
+            --output data/policy_tuning_2026.json
+
+      - name: Validate policy tuning output
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/policy_tuning_2026.json', encoding='utf-8'))
+          assert data['candidateCount'] >= 300
+          assert data['evaluatedRaces'] > 10000
+          assert data['trainThrough'] == '2026-06-30'
+          assert data['validationFrom'] == '2026-07-01'
+          assert len(data['topRobust']) > 0
+          print(json.dumps({
+              'candidateCount': data['candidateCount'],
+              'positiveRobustCount': data['positiveRobustCount'],
+              'best': data['topRobust'][0],
+          }, ensure_ascii=False, indent=2))
+          PY
+
       - name: Commit refreshed data
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add data/historical_learning_pre2026.json data/historical_backtest_2026.json
+          git add data/historical_learning_pre2026.json data/historical_backtest_2026.json data/policy_tuning_2026.json
           if git diff --cached --quiet; then
             echo 'Historical backtest is unchanged.'
           else
