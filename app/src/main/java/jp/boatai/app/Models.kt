@@ -6,7 +6,6 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 object Venues {
     private val names = mapOf(
@@ -115,7 +114,13 @@ data class PredictionRecord(
     val resultCombination: String?,
     val trifectaPayout: Int,
     val settled: Boolean,
-    val createdAt: Long
+    val createdAt: Long,
+    val confidence: Int = 0,
+    val rank: String = "D",
+    val firstLane: Int? = null,
+    val evaluationEligible: Boolean = false,
+    val autoSkipped: Boolean = false,
+    val autoSkipReason: String? = null
 ) {
     val venueName: String get() = Venues.name(stadiumNumber)
     val simulatedStake: Int get() = stakePerPick * combinations.size
@@ -135,6 +140,12 @@ data class PredictionRecord(
         put("trifectaPayout", trifectaPayout)
         put("settled", settled)
         put("createdAt", createdAt)
+        put("confidence", confidence)
+        put("rank", rank)
+        if (firstLane != null) put("firstLane", firstLane)
+        put("evaluationEligible", evaluationEligible)
+        put("autoSkipped", autoSkipped)
+        put("autoSkipReason", autoSkipReason)
     }
 
     companion object {
@@ -157,7 +168,13 @@ data class PredictionRecord(
                 resultCombination = obj.optString("resultCombination").takeIf { it.isNotBlank() },
                 trifectaPayout = obj.optInt("trifectaPayout"),
                 settled = obj.optBoolean("settled"),
-                createdAt = obj.optLong("createdAt")
+                createdAt = obj.optLong("createdAt"),
+                confidence = obj.optInt("confidence", 0),
+                rank = obj.optString("rank", "D").ifBlank { "D" },
+                firstLane = if (obj.has("firstLane") && !obj.isNull("firstLane")) obj.optInt("firstLane") else null,
+                evaluationEligible = obj.optBoolean("evaluationEligible", false),
+                autoSkipped = obj.optBoolean("autoSkipped", false),
+                autoSkipReason = obj.optString("autoSkipReason").takeIf { it.isNotBlank() }
             )
         }
     }
