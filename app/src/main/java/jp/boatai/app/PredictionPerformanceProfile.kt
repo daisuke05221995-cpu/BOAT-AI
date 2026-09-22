@@ -30,7 +30,7 @@ data class PredictionPerformanceProfile(
         val values = listOf(
             poorPenalty(byVenue[stadiumNumber], 24),
             poorPenalty(byRank[rank], 30),
-            poorPenalty(firstLane?.let(byFirstLane::get), 30),
+            poorPenalty(firstLane?.let { byFirstLane[it] }, 30),
             poorPenalty(firstLane?.let { byContext[contextKey(stadiumNumber, rank, it)] }, 16)
         )
         return values.sum().coerceIn(-12, 0)
@@ -41,7 +41,7 @@ data class PredictionPerformanceProfile(
         val rank = rankFor(rawConfidence)
         val exact = byContext[contextKey(stadiumNumber, rank, lane)]
         if (isSevere(exact, 24)) {
-            return "${Venues.name(stadiumNumber)}・AI$rank・${lane}号艇1着軸の実績が低迷"
+            return "${Venues.name(stadiumNumber)}・AI${rank}・${lane}号艇1着軸の実績が低迷"
         }
 
         val venue = byVenue[stadiumNumber]
@@ -51,7 +51,7 @@ data class PredictionPerformanceProfile(
 
         val rankStats = byRank[rank]
         if (isSevere(rankStats, 80)) {
-            return "AI$rank帯の蓄積実績が低迷"
+            return "AI${rank}帯の蓄積実績が低迷"
         }
 
         val laneStats = byFirstLane[lane]
@@ -64,13 +64,13 @@ data class PredictionPerformanceProfile(
     fun weakConditions(limit: Int = 5): List<PredictionWeakCondition> {
         val candidates = buildList {
             byVenue.forEach { (venue, stats) ->
-                condition("${Venues.name(venue)}", stats, 24)?.let(::add)
+                condition(Venues.name(venue), stats, 24)?.let { add(it) }
             }
             byRank.forEach { (rank, stats) ->
-                condition("AI$rank帯", stats, 30)?.let(::add)
+                condition("AI${rank}帯", stats, 30)?.let { add(it) }
             }
             byFirstLane.forEach { (lane, stats) ->
-                condition("${lane}号艇1着軸", stats, 30)?.let(::add)
+                condition("${lane}号艇1着軸", stats, 30)?.let { add(it) }
             }
             byContext.forEach { (key, stats) ->
                 if (stats.races < 16 || stats.roi >= 90.0) return@forEach
@@ -81,7 +81,7 @@ data class PredictionPerformanceProfile(
                 val lane = parts[2].toIntOrNull() ?: return@forEach
                 add(
                     PredictionWeakCondition(
-                        label = "${Venues.name(venue)}・AI$rank・${lane}号艇軸",
+                        label = "${Venues.name(venue)}・AI${rank}・${lane}号艇軸",
                         stats = stats,
                         penalty = poorPenalty(stats, 16),
                         autoSkip = isSevere(stats, 24)
