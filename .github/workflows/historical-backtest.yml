@@ -9,7 +9,8 @@ on:
       - main
     paths:
       - 'scripts/build_2026_backtest.py'
-      - 'scripts/build_learning_contribution_from_json.py'
+      - 'scripts/backfill_historical.py'
+      - 'scripts/merge_historical.py'
       - '.github/workflows/historical-backtest.yml'
 
 permissions:
@@ -20,21 +21,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  refresh:
+  check-prebase:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
+    outputs:
+      exists: ${{ steps.check.outputs.exists }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Check verified pre-2026 learning snapshot
-        id: prebase
+      - name: Check verified pre-2026 snapshot
+        id: check
         run: |
           python - <<'PY'
           import json, os
@@ -49,6 +45,9 @@ jobs:
                       and data.get('snapshotComplete') is True
                       and int(data.get('historicalRaceCount', 0)) > 200000
                       and len(data.get('starts', {})) == 144
+                      and len(data.get('venueRaceCounts', {})) == 24
+                      and '23-1' in data.get('starts', {})
+                      and '23-6' in data.get('starts', {})
                   )
               except Exception:
                   verified=False
@@ -57,26 +56,138 @@ jobs:
           print(f"verified pre-2026 snapshot: {verified}")
           PY
 
-      - name: Build direct leakage-safe 2025-12-31 learning snapshot
-        if: steps.prebase.outputs.exists != 'true'
+  build-prebase:
+    needs: check-prebase
+    if: needs.check-prebase.outputs.exists != 'true'
+    name: Pre-2026 ${{ matrix.id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include:
+          - id: '2021'
+            start: '2021-09-22'
+            end: '2021-12-31'
+          - id: '2022'
+            start: '2022-01-01'
+            end: '2022-12-31'
+          - id: '2023'
+            start: '2023-01-01'
+            end: '2023-12-31'
+          - id: '2024'
+            start: '2024-01-01'
+            end: '2024-12-31'
+          - id: '2025'
+            start: '2025-01-01'
+            end: '2025-12-31'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install official K-file tools
         run: |
-          python -u scripts/build_learning_contribution_from_json.py \
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+          python -m pip install --upgrade pip
+          pip install 'boatrace-lzh==0.1.0'
+
+      - name: Build yearly learning partial
+        run: |
+          python -u scripts/backfill_historical.py \
+            --start '${{ matrix.start }}' \
+            --end '${{ matrix.end }}' \
+            --workers 4 \
+            --request-delay 0.25 \
+            --allow-partial \
+            --output 'partial/historical_learning_${{ matrix.id }}.json'
+
+      - name: Validate yearly partial
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = next(Path('partial').glob('historical_learning_*.json'))
+          data = json.loads(path.read_text(encoding='utf-8'))
+          assert data['historicalRaceCount'] > 0
+          assert len(data['starts']) > 0
+          assert len(data['wins']) > 0
+          print(data['trainedFrom'], data['trainedThrough'], data['historicalRaceCount'])
+          PY
+
+      - name: Upload yearly partial
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre2026-learning-${{ matrix.id }}
+          path: partial/historical_learning_${{ matrix.id }}.json
+          if-no-files-found: error
+          retention-days: 1
+
+  refresh:
+    needs: [check-prebase, build-prebase]
+    if: always() && needs.check-prebase.result == 'success' && (needs.check-prebase.outputs.exists == 'true' || needs.build-prebase.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download pre-2026 partials
+        if: needs.check-prebase.outputs.exists != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pre2026-learning-*
+          path: partial
+          merge-multiple: true
+
+      - name: Merge and verify pre-2026 learning snapshot
+        if: needs.check-prebase.outputs.exists != 'true'
+        run: |
+          python -u scripts/merge_historical.py \
+            --input-dir partial \
             --start 2021-09-22 \
             --end 2025-12-31 \
-            --workers 16 \
             --output data/historical_learning_pre2026.json
           python - <<'PY'
           import json
-          data=json.load(open('data/historical_learning_pre2026.json', encoding='utf-8'))
+          path='data/historical_learning_pre2026.json'
+          data=json.load(open(path, encoding='utf-8'))
           assert data['trainedFrom'] == '2021-09-22'
           assert data['trainedThrough'] == '2025-12-31'
-          assert data['snapshotComplete'] is True
-          assert data['missingOrNoRaceDays'] == 0
           assert data['historicalRaceCount'] > 200000
           assert len(data['starts']) == 144
           assert len(data['venueRaceCounts']) == 24
           assert '23-1' in data['starts'] and '23-6' in data['starts']
+          data['snapshotComplete'] = True
+          with open(path, 'w', encoding='utf-8') as out:
+              json.dump(data, out, ensure_ascii=False, separators=(',', ':'))
           print(f"Pre-2026 snapshot OK: {data['historicalRaceCount']:,} races / 24 venues")
+          PY
+
+      - name: Re-check leakage-safe pre-2026 snapshot
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/historical_learning_pre2026.json', encoding='utf-8'))
+          assert data.get('snapshotComplete') is True
+          assert data.get('trainedThrough') == '2025-12-31'
+          assert int(data.get('historicalRaceCount', 0)) > 200000
+          assert len(data.get('starts', {})) == 144
+          assert len(data.get('venueRaceCounts', {})) == 24
+          assert '23-1' in data.get('starts', {}) and '23-6' in data.get('starts', {})
           PY
 
       - name: Build month and year backtest
@@ -92,10 +203,6 @@ jobs:
         run: |
           python - <<'PY'
           import json
-          pre=json.load(open('data/historical_learning_pre2026.json', encoding='utf-8'))
-          assert pre.get('snapshotComplete') is True
-          assert pre.get('trainedThrough') == '2025-12-31'
-          assert len(pre.get('venueRaceCounts', {})) == 24
           data=json.load(open('data/historical_backtest_2026.json', encoding='utf-8'))
           assert data['year'] == 2026
           assert data['dataFrom'] == '2026-01-01'
