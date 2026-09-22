@@ -13,7 +13,6 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-import search_2026_strategy_v6_compat  # type: ignore  # noqa: F401
 import search_2026_strategy_v9 as v9
 from build_2026_backtest import JST, LearningProfile
 
