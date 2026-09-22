@@ -78,6 +78,7 @@ jobs:
             --end "$BASELINE_END" \
             --workers 4 \
             --request-delay 0.25 \
+            --allow-partial \
             --output data/historical_learning_2026_partial.json
           python - <<'PY'
           import json
