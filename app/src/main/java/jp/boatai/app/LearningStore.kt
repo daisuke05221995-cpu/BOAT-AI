@@ -12,8 +12,9 @@ data class LearningProfile(
     val windCourseWins: Map<String, Int> = emptyMap()
 ) {
     fun bonus(stadium: Int, lane: Int): Double {
-        val key = "$stadium-$lane"
-        val baseline = listOf(0.55, 0.15, 0.12, 0.10, 0.05, 0.03)[lane - 1]
+        val safeLane = lane.coerceIn(1, 6)
+        val key = "$stadium-$safeLane"
+        val baseline = listOf(0.55, 0.15, 0.12, 0.10, 0.05, 0.03)[safeLane - 1]
         val count = starts[key] ?: 0
         val won = wins[key] ?: 0
         val posterior = (won + baseline * 12.0) / (count + 12.0)
@@ -23,7 +24,7 @@ data class LearningProfile(
     fun bonus(race: RaceData, racer: Racer): Double {
         val venueLane = bonus(race.stadiumNumber, racer.lane)
         val wind = race.preview?.windSpeed ?: return venueLane
-        val actualCourse = racer.preview?.course ?: racer.lane
+        val actualCourse = racer.preview?.course?.takeIf { it in 1..6 } ?: racer.lane.coerceIn(1, 6)
         val key = windCourseKey(race.stadiumNumber, wind, actualCourse)
         val count = windCourseStarts[key] ?: 0
         if (count < 4) return venueLane
@@ -43,7 +44,7 @@ data class LearningProfile(
         }
 
         internal fun windCourseKey(stadium: Int, windSpeed: Int, course: Int): String =
-            "$stadium-${windBucket(windSpeed)}-$course"
+            "$stadium-${windBucket(windSpeed)}-${course.coerceIn(1, 6)}"
     }
 }
 
@@ -72,7 +73,7 @@ class LearningStore(context: Context) {
 
         races.filter { it.hasResult && it.id !in observed }.forEach { race ->
             val winnerLane = race.result?.trifectaCombination?.substringBefore("-")?.toIntOrNull()
-                ?: return@forEach
+                ?.takeIf { it in 1..6 } ?: return@forEach
 
             (1..6).forEach { lane ->
                 val key = "${race.stadiumNumber}-$lane"
@@ -83,18 +84,16 @@ class LearningStore(context: Context) {
 
             race.preview?.windSpeed?.let { windSpeed ->
                 race.racers.forEach { racer ->
-                    val actualCourse = racer.preview?.course ?: racer.lane
+                    val actualCourse = racer.preview?.course?.takeIf { it in 1..6 } ?: racer.lane
                     if (actualCourse in 1..6) {
                         val key = LearningProfile.windCourseKey(race.stadiumNumber, windSpeed, actualCourse)
                         windCourseStarts[key] = (windCourseStarts[key] ?: 0) + 1
                     }
                 }
                 val winner = race.racers.firstOrNull { it.lane == winnerLane }
-                val winningCourse = winner?.preview?.course ?: winnerLane
-                if (winningCourse in 1..6) {
-                    val key = LearningProfile.windCourseKey(race.stadiumNumber, windSpeed, winningCourse)
-                    windCourseWins[key] = (windCourseWins[key] ?: 0) + 1
-                }
+                val winningCourse = winner?.preview?.course?.takeIf { it in 1..6 } ?: winnerLane
+                val key = LearningProfile.windCourseKey(race.stadiumNumber, windSpeed, winningCourse)
+                windCourseWins[key] = (windCourseWins[key] ?: 0) + 1
             }
 
             observed += race.id
