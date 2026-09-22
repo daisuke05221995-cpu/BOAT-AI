@@ -7,8 +7,10 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.Normalizer
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -86,8 +88,9 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
         val url = "https://www.boatrace.jp/owpc/pc/race/raceresult?hd=$day&jcd=${Venues.code(race.stadiumNumber)}&rno=${race.raceNumber}&_=${System.currentTimeMillis()}"
         return runCatching {
             val doc = Jsoup.connect(url)
-                .userAgent("Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36 BOAT-AI/0.6")
+                .userAgent(OFFICIAL_USER_AGENT)
                 .referrer("https://www.boatrace.jp/")
+                .header("Accept-Language", "ja-JP,ja;q=0.9,en-US;q=0.7,en;q=0.5")
                 .header("Cache-Control", "no-cache, no-store, max-age=0")
                 .timeout(12_000)
                 .get()
@@ -122,23 +125,19 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
         )
         var lastError: Throwable? = null
         val diagnostics = mutableListOf<DataSourceDiagnostic>()
+
         for ((source, url) in sources) {
             val startedAt = System.currentTimeMillis()
             runCatching {
-                val doc = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36 BOAT-AI/0.7")
-                    .referrer("https://www.boatrace.jp/")
-                    .header("Cache-Control", "no-cache, no-store, max-age=0")
-                    .header("Pragma", "no-cache")
-                    .timeout(15_000)
-                    .get()
-                parseTrifectaOdds(doc, combinations).takeIf { it.isNotEmpty() }
-                    ?: error("オッズ表の解析結果が空です")
-            }.onSuccess { odds ->
+                val fetched = fetchOfficialPageWithSession(url)
+                val odds = parseTrifectaOdds(fetched.document, combinations)
+                if (odds.isEmpty()) error("オッズ表の解析結果が空です")
+                fetched to odds
+            }.onSuccess { (fetched, odds) ->
                 diagnostics += DataSourceDiagnostic(
                     source,
                     DiagnosticStatus.OK,
-                    "${odds.size}/${combinations.size}点取得 / ${System.currentTimeMillis() - startedAt}ms"
+                    "${odds.size}/${combinations.size}点取得 / ${fetched.attempts}回目 / ${System.currentTimeMillis() - startedAt}ms"
                 )
                 return@withContext OddsFetchResult(odds, source, diagnostics)
             }.onFailure { error ->
@@ -154,25 +153,70 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
         throw IllegalStateException("オッズ取得失敗（$detail）", lastError)
     }
 
-    internal fun parseTrifectaOdds(doc: Document, combinations: List<String>): Map<String, Double> {
-        val officialTable = doc.select("table.table1").firstOrNull {
-            it.select("tbody tr td.oddsPoint").size >= 100
+    private data class SessionFetch(val document: Document, val attempts: Int)
+
+    private fun fetchOfficialPageWithSession(url: String): SessionFetch {
+        var lastError: Throwable? = null
+        repeat(3) { index ->
+            val attempt = index + 1
+            val session = Jsoup.newSession()
+                .userAgent(OFFICIAL_USER_AGENT)
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .header("Accept-Language", "ja-JP,ja;q=0.9,en-US;q=0.7,en;q=0.5")
+                .timeout(20_000)
+                .maxBodySize(0)
+            try {
+                // 公式トップを先に開き、同一セッションのCookieを保持してからレースページへ進む。
+                session.newRequest("https://www.boatrace.jp/")
+                    .header("Cache-Control", "no-cache")
+                    .get()
+                val document = session.newRequest(url)
+                    .referrer("https://www.boatrace.jp/")
+                    .header("Cache-Control", "no-cache, no-store, max-age=0")
+                    .header("Pragma", "no-cache")
+                    .get()
+                if (document.body() == null || document.text().isBlank()) {
+                    error("公式ページの応答が空です")
+                }
+                return SessionFetch(document, attempt)
+            } catch (error: Throwable) {
+                lastError = error
+                if (attempt < 3) Thread.sleep(300L * attempt)
+            }
         }
+        throw IllegalStateException("公式ページ取得に3回失敗しました: ${lastError?.message ?: "不明なエラー"}", lastError)
+    }
+
+    internal fun parseTrifectaOdds(doc: Document, combinations: List<String>): Map<String, Double> {
+        val wanted = combinations.distinct().toSet()
+        if (wanted.isEmpty()) return emptyMap()
+
+        // 現行公式PC版の3連単表は rowspan で2着艇を省略する構造。
+        // 行を論理セルへ展開してから「1着・2着・3着・オッズ」を復元する。
+        val officialTable = doc.select(".table1 table").lastOrNull { it.select(".oddsPoint").isNotEmpty() }
+            ?: doc.select("table").lastOrNull { it.select(".oddsPoint").isNotEmpty() }
         if (officialTable != null) {
-            val oddsCells = officialTable.select("tbody tr td.oddsPoint")
-            val secondNumbers = officialTable.select("tbody tr td[rowspan=4]")
-                .chunked(6)
-                .flatMap { group -> List(4) { group.mapNotNull { it.text().trim().toIntOrNull() } }.flatten() }
-            val thirdNumbers = officialTable.select("tbody tr td[class^=is-boatColor]")
-                .mapNotNull { it.text().trim().toIntOrNull() }
-            if (secondNumbers.size >= oddsCells.size && thirdNumbers.size >= oddsCells.size) {
-                val wanted = combinations.toSet()
-                return buildMap {
-                    oddsCells.forEachIndexed { index, cell ->
-                        val combination = "${index % 6 + 1}-${secondNumbers[index]}-${thirdNumbers[index]}"
-                        if (combination in wanted) parseOdds(cell.text())?.let { put(combination, it) }
+            val firstLanes = officialTable.select("thead th")
+                .mapNotNull { parseLane(it.text()) }
+                .distinct()
+                .take(6)
+            if (firstLanes.isNotEmpty()) {
+                val expandedRows = expandRows(officialTable.select("tbody tr"))
+                val parsed = buildMap {
+                    expandedRows.forEach { row ->
+                        if (row.size < firstLanes.size * 3) return@forEach
+                        firstLanes.forEachIndexed { index, first ->
+                            val offset = index * 3
+                            val second = parseLane(row.getOrNull(offset).orEmpty()) ?: return@forEachIndexed
+                            val third = parseLane(row.getOrNull(offset + 1).orEmpty()) ?: return@forEachIndexed
+                            val odds = parseOdds(row.getOrNull(offset + 2).orEmpty()) ?: return@forEachIndexed
+                            if (first == second || third == first || third == second) return@forEachIndexed
+                            val combination = "$first-$second-$third"
+                            if (combination in wanted) put(combination, odds)
+                        }
                     }
                 }
+                if (parsed.isNotEmpty()) return parsed
             }
         }
 
@@ -182,13 +226,12 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
                 ?.let { Triple(combination, it.row, it.column) }
         }
 
-        // 公式サイト内のdiv階層は変更されやすい。全tableを調べ、最も多く正しい
-        // オッズを読めた表を採用することで固定XPathへの依存をなくす。
+        // スマホ版や将来のDOM変更時は固定divではなく全tableを走査し、
+        // 欲しい買い目を最も多く取得できた表を採用する。
         return doc.select("table").map { table ->
             val rows = table.select("tbody tr").ifEmpty { table.select("tr") }
             buildMap {
                 targets.forEach { (combination, rowNumber, columnNumber) ->
-                    // 見出しthは公式表の列番号に含まれないためtdだけを数える。
                     val cells = rows.getOrNull(rowNumber - 1)?.select("td").orEmpty()
                     val raw = cells.getOrNull(columnNumber - 1)?.text().orEmpty()
                     parseOdds(raw)?.let { put(combination, it) }
@@ -197,9 +240,55 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
         }.maxByOrNull { it.size }.orEmpty()
     }
 
-    private fun parseOdds(raw: String): Double? = Regex("""\d{1,5}(?:[,.]\d+)?""")
-        .find(raw.replace(" ", ""))?.value?.replace(",", "")?.toDoubleOrNull()
-        ?.takeIf { it > 0.0 }
+    private data class SpanCell(val text: String, var rowsLeft: Int)
+
+    private fun expandRows(rows: List<Element>): List<List<String>> {
+        val spans = mutableMapOf<Int, SpanCell>()
+        return rows.map { row ->
+            val expanded = mutableListOf<String>()
+            var column = 0
+
+            fun appendActiveSpans() {
+                while (true) {
+                    val span = spans[column] ?: break
+                    expanded += span.text
+                    span.rowsLeft -= 1
+                    if (span.rowsLeft <= 0) spans.remove(column)
+                    column += 1
+                }
+            }
+
+            row.children()
+                .filter { it.tagName() == "td" || it.tagName() == "th" }
+                .forEach { cell ->
+                    appendActiveSpans()
+                    val text = cell.text().trim()
+                    val rowSpan = cell.attr("rowspan").toIntOrNull()?.coerceAtLeast(1) ?: 1
+                    val colSpan = cell.attr("colspan").toIntOrNull()?.coerceAtLeast(1) ?: 1
+                    repeat(colSpan) {
+                        expanded += text
+                        if (rowSpan > 1) spans[column] = SpanCell(text, rowSpan - 1)
+                        column += 1
+                    }
+                }
+            appendActiveSpans()
+            expanded
+        }
+    }
+
+    private fun parseLane(raw: String): Int? {
+        val normalized = Normalizer.normalize(raw, Normalizer.Form.NFKC)
+        return Regex("[1-6]").find(normalized)?.value?.toIntOrNull()
+    }
+
+    private fun parseOdds(raw: String): Double? {
+        val normalized = Normalizer.normalize(raw, Normalizer.Form.NFKC)
+            .replace(" ", "")
+            .replace(",", "")
+        return Regex("""\d{1,5}(?:\.\d+)?""")
+            .find(normalized)?.value?.toDoubleOrNull()
+            ?.takeIf { it > 0.0 }
+    }
 
     private fun httpGet(url: String): String {
         val connection = URL(url).openConnection() as HttpURLConnection
@@ -219,5 +308,10 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
         } finally {
             connection.disconnect()
         }
+    }
+
+    companion object {
+        private const val OFFICIAL_USER_AGENT =
+            "Mozilla/5.0 (Linux; Android 16; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36"
     }
 }
