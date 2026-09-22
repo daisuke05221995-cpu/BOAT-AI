@@ -46,21 +46,21 @@ object BetStrategy {
             winner?.averageStart?.let { if (it <= 0.16) add("平均ST${"%.2f".format(it)}") }
             winner?.preview?.exhibitionTime?.let { add("展示${"%.2f".format(it)}") }
             race.preview?.windSpeed?.let { if (it >= 5) add("強風${it}m補正") }
-            if (rankIndex == 0) add("総合スコア1位")
+            if (rankIndex == 0) add("総合評価1位")
         }
         return reasons.take(3).joinToString("・").ifBlank { "選手力・コース・機力の総合評価" }
     }
 
     fun oddsDecision(picks: List<PredictionPick>): String {
-        if (picks.isEmpty() || picks.any { it.odds == null }) return "オッズ取得後に購入判断を更新します"
+        if (picks.isEmpty() || picks.any { it.odds == null }) return "オッズ取得後に最終判断を更新します"
         val total = picks.sumOf { it.recommendedStake }.coerceAtLeast(1)
         val returns = picks.map { (it.odds ?: 0.0) * it.recommendedStake }
         val mainReturn = returns.firstOrNull() ?: 0.0
         return when {
-            returns.all { it < total } -> "見送り推奨：どの買い目が的中しても購入額を下回ります"
-            mainReturn >= total * 1.25 -> "購入候補：本線的中でも回収率125%以上です"
-            returns.maxOrNull() ?: 0.0 >= total * 2.0 -> "購入候補：中穴・超穴で十分な払戻余地があります"
-            else -> "慎重：払戻余地が小さいため、締切前のオッズ再確認を推奨"
+            returns.all { it < total } -> "見送り：どの買い目が的中しても購入額を下回ります"
+            mainReturn >= total * 1.25 -> "購入推奨：本線的中でも回収率125%以上です"
+            (returns.maxOrNull() ?: 0.0) >= total * 2.0 -> "購入推奨：中穴・超穴で十分な払戻余地があります"
+            else -> "見送り：払戻余地が小さいため購入基準を満たしません"
         }
     }
 
