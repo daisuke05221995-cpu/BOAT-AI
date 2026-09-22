@@ -1,0 +1,124 @@
+name: Refresh 2026 historical backtest
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 15 * * *'
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/build_2026_backtest.py'
+      - 'scripts/subtract_historical.py'
+      - '.github/workflows/historical-backtest.yml'
+      - 'app/src/main/assets/historical_learning.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: historical-backtest-2026
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check pre-2026 learning snapshot
+        id: prebase
+        run: |
+          if [ -f data/historical_learning_pre2026.json ]; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install official K-file tools
+        if: steps.prebase.outputs.exists != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+          python -m pip install --upgrade pip
+          pip install 'boatrace-lzh==0.1.0'
+
+      - name: Build exact 2026 learning contribution
+        if: steps.prebase.outputs.exists != 'true'
+        run: |
+          BASELINE_END=$(python - <<'PY'
+          import json
+          data=json.load(open('app/src/main/assets/historical_learning.json', encoding='utf-8'))
+          print(data['trainedThrough'])
+          PY
+          )
+          python -u scripts/backfill_historical.py \
+            --start 2026-01-01 \
+            --end "$BASELINE_END" \
+            --workers 4 \
+            --request-delay 0.25 \
+            --allow-partial \
+            --output data/historical_learning_2026_partial.json
+
+      - name: Derive leakage-safe 2025-12-31 learning snapshot
+        if: steps.prebase.outputs.exists != 'true'
+        run: |
+          python scripts/subtract_historical.py \
+            --full app/src/main/assets/historical_learning.json \
+            --subtract data/historical_learning_2026_partial.json \
+            --through 2025-12-31 \
+            --output data/historical_learning_pre2026.json
+          rm -f data/historical_learning_2026_partial.json
+
+      - name: Build month and year backtest
+        run: |
+          python -u scripts/build_2026_backtest.py \
+            --year 2026 \
+            --start 2026-01-01 \
+            --learning data/historical_learning_pre2026.json \
+            --workers 8 \
+            --output data/historical_backtest_2026.json
+
+      - name: Validate generated backtest
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/historical_backtest_2026.json', encoding='utf-8'))
+          assert data['year'] == 2026
+          assert data['dataFrom'] == '2026-01-01'
+          assert data['yearSummary']['totalSettledRaces'] > 1000
+          assert data['yearSummary']['evaluatedRaces'] > 1000
+          assert len(data['months']) >= 1
+          assert data['yearSummary']['purchaseRaces'] + data['yearSummary']['skippedRaces'] == data['yearSummary']['evaluatedRaces']
+          print(json.dumps({
+              'through': data['dataThrough'],
+              'settled': data['yearSummary']['totalSettledRaces'],
+              'evaluated': data['yearSummary']['evaluatedRaces'],
+              'purchase': data['yearSummary']['purchaseRaces'],
+              'skipped': data['yearSummary']['skippedRaces'],
+              'hitRate': data['yearSummary']['hitRate'],
+              'roi': data['yearSummary']['roi'],
+              'profit': data['yearSummary']['profit'],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Commit refreshed data
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/historical_learning_pre2026.json data/historical_backtest_2026.json
+          if git diff --cached --quiet; then
+            echo 'Historical backtest is unchanged.'
+          else
+            git commit -m 'Refresh 2026 historical backtest data'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
