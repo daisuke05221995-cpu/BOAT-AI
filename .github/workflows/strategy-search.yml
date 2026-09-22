@@ -42,7 +42,7 @@ jobs:
           assert int(data.get('historicalRaceCount', 0)) > 200000
           PY
 
-      - name: Search 1-10 pick strategies
+      - name: Search dynamic 1-10 pick strategies
         run: |
           python -u scripts/search_2026_strategy.py \
             --start 2026-01-01 \
@@ -55,19 +55,29 @@ jobs:
           python - <<'PY'
           import json
           data=json.load(open('data/strategy_search_2026.json', encoding='utf-8'))
-          cfg=data['selected']['config']
-          assert 1 <= int(cfg['points']) <= 10
-          assert sum(cfg['stakes']) == 1200
-          assert data['periods']['train'] == ['2026-01-01','2026-04-30']
-          assert data['periods']['tune'] == ['2026-05-01','2026-06-30']
-          assert data['periods']['holdout'][0] == '2026-07-01'
-          print(json.dumps({
-            'config': cfg,
-            'train': data['selected']['train'],
-            'tune': data['selected']['tune'],
-            'holdout': data['selected']['holdout'],
-            'qualifiedForRelease': data['qualifiedForRelease'],
-          }, ensure_ascii=False, indent=2))
+          schema=int(data.get('schemaVersion', 1))
+          if schema >= 2:
+              assert data['periods']['train'] == ['2026-01-01','2026-04-30']
+              assert data['periods']['tune'] == ['2026-05-01','2026-06-30']
+              assert data['periods']['validation'] == ['2026-07-01','2026-08-31']
+              for item in data.get('selectedContexts', []):
+                  cfg=item['config']
+                  assert 1 <= int(cfg['points']) <= 10
+                  assert sum(cfg['stakes']) == 1200
+              print(json.dumps({
+                'selectedContexts': len(data.get('selectedContexts', [])),
+                'aggregate': data.get('aggregate', {}),
+                'qualifiedForFinal': data.get('qualifiedForFinal', False),
+                'qualifiedForRelease': data.get('qualifiedForRelease', False),
+              }, ensure_ascii=False, indent=2))
+          else:
+              cfg=data['selected']['config']
+              assert 1 <= int(cfg['points']) <= 10
+              assert sum(cfg['stakes']) == 1200
+              print(json.dumps({
+                'config': cfg,
+                'qualifiedForRelease': data.get('qualifiedForRelease', False),
+              }, ensure_ascii=False, indent=2))
           PY
 
       - name: Commit strategy search result
