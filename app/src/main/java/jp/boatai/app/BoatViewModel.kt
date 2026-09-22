@@ -57,7 +57,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     init {
         val initialLearning = learningStore.load()
         PredictionEngine.installLearningProfile(initialLearning)
-        _ui.update { it.copy(learnedRaceCount = initialLearning.observedRaceIds.size) }
+        _ui.update { it.copy(learnedRaceCount = initialLearning.totalRaceCount) }
         viewModelScope.launch {
             appUpdateManager.state.collectLatest { updateState ->
                 _ui.update { it.copy(update = updateState) }
@@ -99,7 +99,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             loading = false,
                             error = if (races.isEmpty()) "この日のレースデータがありません" else null,
                             lastUpdatedAt = System.currentTimeMillis(),
-                            learnedRaceCount = learning.observedRaceIds.size
+                            learnedRaceCount = learning.totalRaceCount
                         )
                     }
                 }
