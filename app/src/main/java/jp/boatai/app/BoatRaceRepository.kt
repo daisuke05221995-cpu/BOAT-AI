@@ -1,6 +1,9 @@
 package jp.boatai.app
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
@@ -16,7 +19,46 @@ class BoatRaceRepository {
         val day = date.format(compact)
         val url = "https://boatraceopenapi.github.io/api/v1/${date.year}/$day.json?ts=${System.currentTimeMillis()}"
         val json = httpGet(url)
-        BoatRaceJsonParser.parse(json)
+        supplementMissingResults(BoatRaceJsonParser.parse(json), date)
+    }
+
+    private suspend fun supplementMissingResults(races: List<RaceData>, date: LocalDate): List<RaceData> {
+        val now = java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Tokyo"))
+        val candidates = races.filter { race ->
+            !race.hasResult && race.isDataComplete && !race.isPurchasable(now) &&
+                !date.isAfter(now.toLocalDate())
+        }.take(24)
+        if (candidates.isEmpty()) return races
+
+        val supplements = coroutineScope {
+            candidates.chunked(4).flatMap { group ->
+                group.map { race -> async(Dispatchers.IO) { race.id to loadOfficialResult(race) } }.awaitAll()
+            }
+        }.mapNotNull { (id, result) -> result?.let { id to it } }.toMap()
+        if (supplements.isEmpty()) return races
+        return races.map { race -> supplements[race.id]?.let { race.copy(result = it) } ?: race }
+    }
+
+    private fun loadOfficialResult(race: RaceData): RaceResultData? {
+        val day = race.date.replace("-", "").take(8)
+        val url = "https://www.boatrace.jp/owpc/pc/race/raceresult?hd=$day&jcd=${Venues.code(race.stadiumNumber)}&rno=${race.raceNumber}&_=${System.currentTimeMillis()}"
+        return runCatching {
+            val doc = Jsoup.connect(url)
+                .userAgent("Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36 BOAT-AI/0.6")
+                .referrer("https://www.boatrace.jp/")
+                .header("Cache-Control", "no-cache, no-store, max-age=0")
+                .timeout(12_000)
+                .get()
+            val payoffRow = doc.select("table.table1 tbody tr").firstOrNull { row ->
+                row.select("span.numberSet1_number").size == 3 && row.select("td").any { it.text().contains("¥") }
+            } ?: return@runCatching null
+            val combination = payoffRow.select("span.numberSet1_number")
+                .map { it.text().trim() }.joinToString("-")
+            val payout = payoffRow.select("td").firstOrNull { it.text().contains("¥") }
+                ?.text()?.replace(",", "")?.let { Regex("""\d+""").find(it)?.value?.toIntOrNull() }
+            if (combination.count { it == '-' } != 2 || payout == null) null
+            else RaceResultData(combination, payout, null)
+        }.getOrNull()
     }
 
     suspend fun loadOfficialTrifectaOdds(
