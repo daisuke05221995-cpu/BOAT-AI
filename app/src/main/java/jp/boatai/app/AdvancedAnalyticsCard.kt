@@ -54,14 +54,14 @@ fun AdvancedAnalyticsCard(ui: BoatUiState) {
 
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("会場", "AI", "1着軸").forEach { label ->
+                listOf("会場", "判定", "1着軸").forEach { label ->
                     OutlinedButton(onClick = { grouping = label }) {
                         Text(if (grouping == label) "● $label" else label)
                     }
                 }
             }
             val groups = when (grouping) {
-                "AI" -> analytics.byRank
+                "判定" -> analytics.byRecommendation
                 "1着軸" -> analytics.byFirstLane
                 else -> analytics.byVenue
             }
@@ -84,18 +84,16 @@ fun AdvancedAnalyticsCard(ui: BoatUiState) {
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
-            Text("AI補正 A/B比較", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-            Text("同じ事前予想で、自動見送りなし／ありを比較", style = MaterialTheme.typography.bodySmall)
-            SummaryLine("補正なし", analytics.baseline)
-            SummaryLine("補正あり", analytics.adjusted)
-            Text("自動見送りで回避できた損失 ${yen(analytics.avoidedLoss)}", fontWeight = FontWeight.SemiBold)
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Text("予想スタイル参考比較", fontWeight = FontWeight.Bold)
-            Text("的中率重視＝AI S/A帯、回収率重視＝AI B/C帯", style = MaterialTheme.typography.bodySmall)
-            SummaryLine("的中率重視", analytics.hitFocused)
-            SummaryLine("回収率重視", analytics.returnFocused)
+            Text("購入推奨フィルター比較", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Text("同じ事前予想を、全レース購入した場合と購入推奨だけに絞った場合で比較", style = MaterialTheme.typography.bodySmall)
+            SummaryLine("全予想", analytics.baseline)
+            SummaryLine("購入推奨のみ", analytics.adjusted)
+            SummaryLine("見送り判定", analytics.returnFocused)
+            if (analytics.avoidedLoss > 0) {
+                Text("見送りで回避できた仮想損失 ${yen(analytics.avoidedLoss)}", fontWeight = FontWeight.SemiBold)
+            }
             if (analytics.baseline.races < 30) {
-                Text("まだ${analytics.baseline.races}件です。30件以上から参考値として確認してください。", style = MaterialTheme.typography.bodySmall)
+                Text("まだ${analytics.baseline.races}件です。30件以上から傾向を確認してください。", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -105,7 +103,7 @@ fun AdvancedAnalyticsCard(ui: BoatUiState) {
 private fun SummaryLine(label: String, summary: AnalyticsSummary) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text("$label ${summary.races}R")
-        Text("回収${f1(summary.roi)}%　${signed(summary.profit)}")
+        Text("的中${f1(summary.hitRate)}%　回収${f1(summary.roi)}%　${signed(summary.profit)}")
     }
 }
 
