@@ -43,35 +43,35 @@ data class PredictionPerformanceProfile(
     fun penalty(stadiumNumber: Int, rawConfidence: Int, firstLane: Int?): Int {
         val rank = rankFor(rawConfidence)
         val values = listOf(
-            poorPenalty(byVenue[stadiumNumber], 24),
-            poorPenalty(byRank[rank], 30),
-            poorPenalty(firstLane?.let { byFirstLane[it] }, 30),
-            poorPenalty(firstLane?.let { byContext[contextKey(stadiumNumber, rank, it)] }, 16)
+            poorPenalty(byVenue[stadiumNumber], 20),
+            poorPenalty(byRank[rank], 24),
+            poorPenalty(firstLane?.let { byFirstLane[it] }, 24),
+            poorPenalty(firstLane?.let { byContext[contextKey(stadiumNumber, rank, it)] }, 12)
         )
-        return values.sum().coerceIn(-12, 0)
+        return values.sum().coerceIn(-18, 0)
     }
 
     fun autoSkipReason(stadiumNumber: Int, rawConfidence: Int, firstLane: Int?): String? {
         val lane = firstLane ?: return null
         val rank = rankFor(rawConfidence)
         val exact = byContext[contextKey(stadiumNumber, rank, lane)]
-        if (isSevere(exact, 24)) {
-            return "${Venues.name(stadiumNumber)}・AI${rank}・${lane}号艇1着軸の実績が低迷"
+        if (shouldSkip(exact, 18)) {
+            return "${Venues.name(stadiumNumber)}・AI${rank}・${lane}号艇1着軸の回収実績が購入基準未満"
         }
 
         val venue = byVenue[stadiumNumber]
-        if (isSevere(venue, 60)) {
-            return "${Venues.name(stadiumNumber)}の蓄積実績が低迷"
+        if (shouldSkip(venue, 40)) {
+            return "${Venues.name(stadiumNumber)}の蓄積回収実績が購入基準未満"
         }
 
         val rankStats = byRank[rank]
-        if (isSevere(rankStats, 80)) {
-            return "AI${rank}帯の蓄積実績が低迷"
+        if (shouldSkip(rankStats, 50)) {
+            return "AI${rank}帯の蓄積回収実績が購入基準未満"
         }
 
         val laneStats = byFirstLane[lane]
-        if (isSevere(laneStats, 60)) {
-            return "${lane}号艇1着軸の蓄積実績が低迷"
+        if (shouldSkip(laneStats, 40)) {
+            return "${lane}号艇1着軸の蓄積回収実績が購入基準未満"
         }
         return null
     }
@@ -79,16 +79,16 @@ data class PredictionPerformanceProfile(
     fun weakConditions(limit: Int = 5): List<PredictionWeakCondition> {
         val candidates = buildList {
             byVenue.forEach { (venue, stats) ->
-                condition(Venues.name(venue), stats, 24)?.let { add(it) }
+                condition(Venues.name(venue), stats, 20)?.let { add(it) }
             }
             byRank.forEach { (rank, stats) ->
-                condition("AI${rank}帯", stats, 30)?.let { add(it) }
+                condition("AI${rank}帯", stats, 24)?.let { add(it) }
             }
             byFirstLane.forEach { (lane, stats) ->
-                condition("${lane}号艇1着軸", stats, 30)?.let { add(it) }
+                condition("${lane}号艇1着軸", stats, 24)?.let { add(it) }
             }
             byContext.forEach { (key, stats) ->
-                if (stats.races < 16 || stats.roi >= 90.0) return@forEach
+                if (stats.races < 12 || stats.roi >= 95.0) return@forEach
                 val parts = key.split(":")
                 if (parts.size != 3) return@forEach
                 val venue = parts[0].toIntOrNull() ?: return@forEach
@@ -98,8 +98,8 @@ data class PredictionPerformanceProfile(
                     PredictionWeakCondition(
                         label = "${Venues.name(venue)}・AI${rank}・${lane}号艇軸",
                         stats = stats,
-                        penalty = poorPenalty(stats, 16),
-                        autoSkip = isSevere(stats, 24)
+                        penalty = poorPenalty(stats, 12),
+                        autoSkip = shouldSkip(stats, 18)
                     )
                 )
             }
@@ -115,12 +115,12 @@ data class PredictionPerformanceProfile(
         stats: PredictionPerformanceStats,
         minSamples: Int
     ): PredictionWeakCondition? {
-        if (stats.races < minSamples || stats.roi >= 90.0) return null
+        if (stats.races < minSamples || stats.roi >= 95.0) return null
         return PredictionWeakCondition(
             label = label,
             stats = stats,
             penalty = poorPenalty(stats, minSamples),
-            autoSkip = isSevere(stats, maxOf(minSamples, 24))
+            autoSkip = shouldSkip(stats, maxOf(minSamples, 18))
         )
     }
 
@@ -169,16 +169,17 @@ data class PredictionPerformanceProfile(
         private fun poorPenalty(stats: PredictionPerformanceStats?, minSamples: Int): Int {
             if (stats == null || stats.races < minSamples) return 0
             return when {
-                stats.roi < 55.0 && stats.hitRate < 8.0 -> -5
-                stats.roi < 70.0 -> -4
-                stats.roi < 85.0 -> -2
-                stats.roi < 90.0 -> -1
+                stats.roi < 60.0 -> -7
+                stats.roi < 75.0 -> -5
+                stats.roi < 88.0 -> -3
+                stats.roi < 95.0 -> -1
                 else -> 0
             }
         }
 
-        private fun isSevere(stats: PredictionPerformanceStats?, minSamples: Int): Boolean =
-            stats != null && stats.races >= minSamples && stats.roi < 55.0 && stats.hitRate < 8.0
+        private fun shouldSkip(stats: PredictionPerformanceStats?, minSamples: Int): Boolean =
+            stats != null && stats.races >= minSamples &&
+                (stats.roi < 65.0 || (stats.roi < 80.0 && stats.hitRate < 10.0))
 
         private fun accumulator() = MutableStats()
 
