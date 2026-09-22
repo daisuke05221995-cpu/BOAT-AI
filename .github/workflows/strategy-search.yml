@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - 'scripts/search_2026_strategy.py'
+      - 'scripts/search_2026_strategy_v7.py'
       - '.github/workflows/strategy-search.yml'
       - 'data/historical_learning_pre2026.json'
 
@@ -45,9 +46,9 @@ jobs:
           assert int(data.get('historicalRaceCount', 0)) > 200000
           PY
 
-      - name: Search dynamic 1-10 pick strategies
+      - name: Search robust race-selectivity strategy
         run: |
-          python -u scripts/search_2026_strategy.py \
+          python -u scripts/search_2026_strategy_v7.py \
             --start 2026-01-01 \
             --learning data/historical_learning_pre2026.json \
             --workers 16 \
@@ -68,6 +69,7 @@ jobs:
               assert cfg['allocationMode'] in ('equal','probability')
               assert int(cfg['budget']) == 1200
               print(json.dumps({
+                'schemaVersion': schema,
                 'config': cfg,
                 'tuneMonths': data['selected']['tuneMonths'],
                 'validationMonths': data['validationMonths'],
