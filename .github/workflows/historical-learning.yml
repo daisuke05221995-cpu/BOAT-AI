@@ -137,5 +137,6 @@ jobs:
             echo 'Historical baseline is unchanged.'
           else
             git commit -m 'Update five-year historical learning baseline'
-            git push
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi
