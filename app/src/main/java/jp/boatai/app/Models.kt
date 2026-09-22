@@ -113,6 +113,18 @@ enum class BetTier(val label: String) {
     LONG("超穴")
 }
 
+enum class RaceRecommendation(val label: String) {
+    BUY("購入推奨"),
+    SKIP("見送り")
+}
+
+data class RecommendationDecision(
+    val recommendation: RaceRecommendation,
+    val reason: String
+) {
+    val recommended: Boolean get() = recommendation == RaceRecommendation.BUY
+}
+
 enum class DiagnosticStatus { OK, WARNING, ERROR, WAITING }
 
 data class DataSourceDiagnostic(
@@ -150,9 +162,12 @@ data class PredictionRecord(
     val firstLane: Int? = null,
     val evaluationEligible: Boolean = false,
     val autoSkipped: Boolean = false,
-    val autoSkipReason: String? = null
+    val autoSkipReason: String? = null,
+    val recommended: Boolean = false,
+    val recommendationReason: String? = null
 ) {
     val venueName: String get() = Venues.name(stadiumNumber)
+    val recommendation: RaceRecommendation get() = if (recommended) RaceRecommendation.BUY else RaceRecommendation.SKIP
     val simulatedStake: Int get() = stakePerPick * combinations.size
     val hit: Boolean get() = settled && !resultCombination.isNullOrBlank() && resultCombination in combinations
     val simulatedPayout: Int
@@ -176,6 +191,8 @@ data class PredictionRecord(
         put("evaluationEligible", evaluationEligible)
         put("autoSkipped", autoSkipped)
         put("autoSkipReason", autoSkipReason)
+        put("recommended", recommended)
+        put("recommendationReason", recommendationReason)
     }
 
     companion object {
@@ -188,6 +205,8 @@ data class PredictionRecord(
                     }
                 }
             }
+            val confidence = obj.optInt("confidence", 0)
+            val autoSkipped = obj.optBoolean("autoSkipped", false)
             return PredictionRecord(
                 id = obj.optString("id"),
                 date = obj.optString("date"),
@@ -199,12 +218,14 @@ data class PredictionRecord(
                 trifectaPayout = obj.optInt("trifectaPayout"),
                 settled = obj.optBoolean("settled"),
                 createdAt = obj.optLong("createdAt"),
-                confidence = obj.optInt("confidence", 0),
+                confidence = confidence,
                 rank = obj.optString("rank", "D").ifBlank { "D" },
                 firstLane = if (obj.has("firstLane") && !obj.isNull("firstLane")) obj.optInt("firstLane") else null,
                 evaluationEligible = obj.optBoolean("evaluationEligible", false),
-                autoSkipped = obj.optBoolean("autoSkipped", false),
-                autoSkipReason = obj.optString("autoSkipReason").takeIf { it.isNotBlank() }
+                autoSkipped = autoSkipped,
+                autoSkipReason = obj.optString("autoSkipReason").takeIf { it.isNotBlank() },
+                recommended = if (obj.has("recommended")) obj.optBoolean("recommended") else !autoSkipped && confidence >= 70,
+                recommendationReason = obj.optString("recommendationReason").takeIf { it.isNotBlank() }
             )
         }
     }
