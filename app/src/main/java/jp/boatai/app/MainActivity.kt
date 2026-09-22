@@ -559,6 +559,8 @@ private fun ProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        item { HistoricalBacktestCard() }
+
         item { SummaryCard("購入推奨だけ買った場合（全期間）", recommendedSummary, "締切前に保存できた購入推奨だけを各${money(PredictionHistoryStore.DEFAULT_SIMULATION_STAKE)}×4点で計算") }
         item { SummaryCard("全予想を買った場合（全期間・比較用）", allSummary, "締切前に保存できた見送り判定を含む全予想の仮想成績") }
         item { SummaryCard("見送り判定の成績（検証用）", skippedSummary, "買わなかったレースの結果も追跡し、判定が正しかったか検証") }
@@ -615,8 +617,6 @@ private fun ProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
                 }
             }
         }
-
-        item { HistoricalBacktestCard() }
 
         item { PerformanceFeedbackCard(ui) }
         item { AdvancedAnalyticsCard(ui) }
