@@ -35,7 +35,11 @@ data class AdvancedAnalytics(
     val adjusted: AnalyticsSummary,
     val hitFocused: AnalyticsSummary,
     val returnFocused: AnalyticsSummary,
-    val avoidedLoss: Int
+    val avoidedLoss: Int,
+    val weekRecommended: AnalyticsSummary,
+    val monthRecommended: AnalyticsSummary,
+    val monthAll: AnalyticsSummary,
+    val monthCumulativeRecommended: List<ProfitPoint>
 )
 
 object ProfitAnalytics {
@@ -54,6 +58,18 @@ object ProfitAnalytics {
         val skipped = eligible.filterNot { it.recommended }
         val skippedLoss = skipped.sumOf { it.simulatedProfit }
 
+        val allEligible = records.filter { it.settled && it.evaluationEligible }
+        val weekStart = today.minusDays(6)
+        val monthStart = YearMonth.from(today).atDay(1)
+        val weekRecommended = summarize(
+            allEligible.filter { it.recommended && inRange(it.date, weekStart, today) }
+        )
+        val monthRecommendedRecords = allEligible.filter {
+            it.recommended && inRange(it.date, monthStart, today)
+        }
+        val monthRecommended = summarize(monthRecommendedRecords)
+        val monthAll = summarize(allEligible.filter { inRange(it.date, monthStart, today) })
+
         return AdvancedAnalytics(
             summary = summarize(settled),
             daily = settled.groupBy { it.date }.map { (date, values) ->
@@ -71,7 +87,11 @@ object ProfitAnalytics {
             adjusted = recommended,
             hitFocused = recommended,
             returnFocused = summarize(skipped),
-            avoidedLoss = (-skippedLoss).coerceAtLeast(0)
+            avoidedLoss = (-skippedLoss).coerceAtLeast(0),
+            weekRecommended = weekRecommended,
+            monthRecommended = monthRecommended,
+            monthAll = monthAll,
+            monthCumulativeRecommended = cumulativeByDay(monthRecommendedRecords, monthStart, today)
         )
     }
 
@@ -81,6 +101,24 @@ object ProfitAnalytics {
         stake = records.sumOf { it.simulatedStake },
         payout = records.sumOf { it.simulatedPayout }
     )
+
+    private fun cumulativeByDay(
+        records: List<PredictionRecord>,
+        start: LocalDate,
+        end: LocalDate
+    ): List<ProfitPoint> {
+        val dailyProfit = records.groupBy { it.date.take(10) }
+            .mapValues { (_, values) -> values.sumOf { it.simulatedProfit } }
+        var running = 0
+        val points = mutableListOf<ProfitPoint>()
+        var day = start
+        while (!day.isAfter(end)) {
+            running += dailyProfit[day.toString()] ?: 0
+            points += ProfitPoint(day.dayOfMonth.toString(), running)
+            day = day.plusDays(1)
+        }
+        return points
+    }
 
     private fun group(
         records: List<PredictionRecord>,
@@ -114,5 +152,10 @@ object ProfitAnalytics {
             AnalyticsPeriod.MONTH -> YearMonth.from(date) == YearMonth.from(today)
             AnalyticsPeriod.ALL -> true
         }
+    }
+
+    private fun inRange(dateText: String, start: LocalDate, end: LocalDate): Boolean {
+        val date = runCatching { LocalDate.parse(dateText.take(10)) }.getOrNull() ?: return false
+        return !date.isBefore(start) && !date.isAfter(end)
     }
 }
