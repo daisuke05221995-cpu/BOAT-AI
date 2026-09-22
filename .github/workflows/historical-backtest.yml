@@ -9,6 +9,7 @@ on:
       - main
     paths:
       - 'scripts/build_2026_backtest.py'
+      - 'scripts/build_learning_contribution_from_json.py'
       - 'scripts/subtract_historical.py'
       - '.github/workflows/historical-backtest.yml'
       - 'app/src/main/assets/historical_learning.json'
@@ -23,7 +24,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -56,15 +57,7 @@ jobs:
           print(f"verified pre-2026 snapshot: {verified}")
           PY
 
-      - name: Install official K-file tools
-        if: steps.prebase.outputs.exists != 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y p7zip-full
-          python -m pip install --upgrade pip
-          pip install 'boatrace-lzh==0.1.0'
-
-      - name: Build exact 2026 learning contribution
+      - name: Build complete 2026 learning contribution from race JSON
         if: steps.prebase.outputs.exists != 'true'
         run: |
           BASELINE_END=$(python - <<'PY'
@@ -73,20 +66,20 @@ jobs:
           print(data['trainedThrough'])
           PY
           )
-          python -u scripts/backfill_historical.py \
+          python -u scripts/build_learning_contribution_from_json.py \
             --start 2026-01-01 \
             --end "$BASELINE_END" \
-            --workers 4 \
-            --request-delay 0.25 \
-            --allow-partial \
+            --workers 12 \
             --output data/historical_learning_2026_partial.json
           python - <<'PY'
           import json
           data=json.load(open('data/historical_learning_2026_partial.json', encoding='utf-8'))
           assert data['trainedFrom'] == '2026-01-01'
-          assert data['missingOrNoRaceDays'] == 0, data['missingOrNoRaceDays']
+          assert data['missingOrNoRaceDays'] == 0
           assert data['historicalRaceCount'] > 1000
-          print(f"Exact 2026 contribution OK: {data['historicalRaceCount']:,} races")
+          assert len(data['starts']) >= 120
+          assert len(data['windCourseStarts']) >= 200
+          print(f"Complete 2026 contribution OK: {data['historicalRaceCount']:,} races")
           PY
 
       - name: Derive leakage-safe 2025-12-31 learning snapshot
@@ -105,7 +98,7 @@ jobs:
             --year 2026 \
             --start 2026-01-01 \
             --learning data/historical_learning_pre2026.json \
-            --workers 8 \
+            --workers 12 \
             --output data/historical_backtest_2026.json
 
       - name: Validate generated backtest
