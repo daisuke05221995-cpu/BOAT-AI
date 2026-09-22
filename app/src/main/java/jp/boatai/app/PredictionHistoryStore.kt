@@ -30,10 +30,12 @@ class PredictionHistoryStore(context: Context) {
         val now = System.currentTimeMillis()
 
         races.forEach { race ->
-            if (race.racers.size < 3 || race.id in existing) return@forEach
-            // 発売中レースは展示・進入が揃う前に見送り判定を固定しない。
-            // 直前情報が揃った後の購入推奨/見送りだけを評価履歴へ残す。
-            if (race.isPurchasable() && !PredictionEngine.isDecisionReady(race)) return@forEach
+            // 成績検証へ残すのは、締切前に実際に取得できたレースだけ。
+            // 終了済み・過去日を後から開いた際の後付け予想は作成しない。
+            if (race.racers.size < 3 || race.id in existing || !race.isPurchasable()) return@forEach
+
+            // 展示・進入が揃う前に購入判断を固定しない。
+            if (!PredictionEngine.isDecisionReady(race)) return@forEach
 
             val picks = PredictionEngine.predict(race)
             if (picks.isEmpty()) return@forEach
@@ -54,7 +56,7 @@ class PredictionHistoryStore(context: Context) {
                 confidence = confidence,
                 rank = PredictionPerformanceProfile.rankFor(rawConfidence),
                 firstLane = picks.firstOrNull()?.combination?.substringBefore("-")?.toIntOrNull(),
-                evaluationEligible = race.isPurchasable(),
+                evaluationEligible = true,
                 autoSkipped = !decision.recommended,
                 autoSkipReason = decision.reason.takeIf { !decision.recommended },
                 recommended = decision.recommended,
