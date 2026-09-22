@@ -671,6 +671,13 @@ private fun ResultCard(
                     },
                     fontWeight = FontWeight.SemiBold
                 )
+                PredictionEngine.missReason(race, it.combinations)?.let { reason ->
+                    Text(
+                        "敗因分析：$reason",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
 
             if (purchases.isNotEmpty()) {
@@ -711,6 +718,12 @@ private fun ProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
     val dayRecords = ui.records.filter { it.date == dateText }
     val dayStake = dayRecords.sumOf { it.stake }
     val dayPayout = dayRecords.sumOf { it.payout }
+    val dayPredictions = ui.predictionHistory.filter { it.date == dateText && it.settled }
+    val dayPredictionHits = dayPredictions.count { it.hit }
+    val dayPredictionStake = dayPredictions.sumOf { it.simulatedStake }
+    val dayPredictionPayout = dayPredictions.sumOf { it.simulatedPayout }
+    val dayPredictionRate = if (dayPredictions.isEmpty()) 0.0
+        else dayPredictionHits * 100.0 / dayPredictions.size
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -769,12 +782,34 @@ private fun ProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp)) {
                     Text(
-                        "表示日の実購入",
+                        "${ui.date} のAI予想成績",
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
                     )
+                    Text("的中 $dayPredictionHits / ${dayPredictions.size}レース　${String.format(Locale.US, "%.1f", dayPredictionRate)}%")
+                    Text("全予想を各${money(PredictionHistoryStore.DEFAULT_SIMULATION_STAKE)}で買った場合")
+                    Text("使用 ${money(dayPredictionStake)} / 払戻 ${money(dayPredictionPayout)}")
+                    Text(
+                        "仮想収支 ${signedMoney(dayPredictionPayout - dayPredictionStake)}",
+                        fontWeight = FontWeight.Bold
+                    )
+                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                    Text("実際の購入記録", fontWeight = FontWeight.SemiBold)
                     Text("${ui.date}　購入 ${money(dayStake)}")
                     Text("払戻 ${money(dayPayout)}　損益 ${signedMoney(dayPayout - dayStake)}")
+                }
+            }
+        }
+
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp)) {
+                    Text("AI学習状況", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("学習済み ${ui.learnedRaceCount}レース")
+                    Text(
+                        "外れたレースの1着コース傾向を会場別に補正し、次回以降の予想スコアへ反映します。",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }

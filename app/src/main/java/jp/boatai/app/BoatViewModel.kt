@@ -33,6 +33,7 @@ data class BoatUiState(
     val tab: Int = 0,
     val lastUpdatedAt: Long? = null,
     val actionMessage: String? = null,
+    val learnedRaceCount: Int = 0,
     val update: AppUpdateState = AppUpdateState()
 )
 
@@ -41,6 +42,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val betStore = BetStore(application)
     private val predictionStore = PredictionHistoryStore(application)
     private val appUpdateManager = AppUpdateManager(application)
+    private val learningStore = LearningStore(application)
     private val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))
     private var oddsRefreshJob: Job? = null
 
@@ -53,6 +55,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     val ui: StateFlow<BoatUiState> = _ui.asStateFlow()
 
     init {
+        val initialLearning = learningStore.load()
+        PredictionEngine.installLearningProfile(initialLearning)
+        _ui.update { it.copy(learnedRaceCount = initialLearning.observedRaceIds.size) }
         viewModelScope.launch {
             appUpdateManager.state.collectLatest { updateState ->
                 _ui.update { it.copy(update = updateState) }
@@ -84,6 +89,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     val records = betStore.settle(races)
                     predictionStore.captureOpenRaces(races)
                     val predictionHistory = predictionStore.settle(races)
+                    val learning = learningStore.observe(races)
+                    PredictionEngine.installLearningProfile(learning)
                     _ui.update {
                         it.copy(
                             races = races,
@@ -91,7 +98,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             predictionHistory = predictionHistory,
                             loading = false,
                             error = if (races.isEmpty()) "この日のレースデータがありません" else null,
-                            lastUpdatedAt = System.currentTimeMillis()
+                            lastUpdatedAt = System.currentTimeMillis(),
+                            learnedRaceCount = learning.observedRaceIds.size
                         )
                     }
                 }

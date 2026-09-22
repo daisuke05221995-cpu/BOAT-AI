@@ -68,19 +68,26 @@ class BoatRaceRepository {
         if (combinations.isEmpty()) return@withContext emptyMap()
         val day = race.date.replace("-", "")
         val jcd = Venues.code(race.stadiumNumber)
-        val url = "https://www.boatrace.jp/owpc/pc/race/odds3t?hd=$day&jcd=$jcd&rno=${race.raceNumber}&_=${System.currentTimeMillis()}"
-
-        val doc = Jsoup.connect(url)
-            .userAgent("Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36 BOAT-AI/0.2")
-            .referrer("https://www.boatrace.jp/")
-            .header("Cache-Control", "no-cache, no-store, max-age=0")
-            .header("Pragma", "no-cache")
-            .timeout(15_000)
-            .get()
-
-        parseTrifectaOdds(doc, combinations).also {
-            if (it.isEmpty()) throw IllegalStateException("公式オッズ表を解析できませんでした")
+        val suffix = "hd=$day&jcd=$jcd&rno=${race.raceNumber}&_=${System.currentTimeMillis()}"
+        val urls = listOf(
+            "https://www.boatrace.jp/owpc/pc/race/odds3t?$suffix",
+            "https://www.boatrace.jp/owsp/sp/race/odds3t?$suffix"
+        )
+        var lastError: Throwable? = null
+        for (url in urls) {
+            runCatching {
+                val doc = Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36 BOAT-AI/0.7")
+                    .referrer("https://www.boatrace.jp/")
+                    .header("Cache-Control", "no-cache, no-store, max-age=0")
+                    .header("Pragma", "no-cache")
+                    .timeout(15_000)
+                    .get()
+                parseTrifectaOdds(doc, combinations).takeIf { it.isNotEmpty() }
+                    ?: error("オッズ表の解析結果が空です")
+            }.onSuccess { return@withContext it }.onFailure { lastError = it }
         }
+        throw IllegalStateException("PC版・スマホ版ともオッズを取得できませんでした", lastError)
     }
 
     internal fun parseTrifectaOdds(doc: Document, combinations: List<String>): Map<String, Double> {

@@ -3,10 +3,18 @@ package jp.boatai.app
 import kotlin.math.max
 
 object PredictionEngine {
+    @Volatile private var learningProfile = LearningProfile()
+
+    fun installLearningProfile(profile: LearningProfile) {
+        learningProfile = profile
+    }
+
     /** 画面表示と一括購入判定に使う、0〜100のレース期待度。 */
     fun confidence(race: RaceData): Int {
         if (race.racers.size < 3) return 0
-        val scored = race.racers.map { it to racerScore(it) }.sortedByDescending { it.second }
+        val scored = race.racers.map {
+            it to (racerScore(it) + learningProfile.bonus(race.stadiumNumber, it.lane))
+        }.sortedByDescending { it.second }
         val leader = scored[0]
         val runnerUp = scored[1]
         val scoreGap = (leader.second - runnerUp.second).coerceAtLeast(0.0)
@@ -70,7 +78,9 @@ object PredictionEngine {
 
     fun predict(race: RaceData, maxPicks: Int = 4): List<PredictionPick> {
         if (race.racers.size < 3) return emptyList()
-        val scores = race.racers.associate { it.lane to racerScore(it) }
+        val scores = race.racers.associate {
+            it.lane to (racerScore(it) + learningProfile.bonus(race.stadiumNumber, it.lane))
+        }
         val picks = mutableListOf<PredictionPick>()
 
         for (first in 1..6) {
@@ -93,4 +103,17 @@ object PredictionEngine {
 
     fun withOdds(picks: List<PredictionPick>, odds: Map<String, Double>): List<PredictionPick> =
         picks.map { it.copy(odds = odds[it.combination]) }
+
+    fun missReason(race: RaceData, combinations: List<String>): String? {
+        val result = race.result?.trifectaCombination ?: return null
+        if (result in combinations) return null
+        val predictedFirst = combinations.firstOrNull()?.substringBefore("-")
+        val actualFirst = result.substringBefore("-")
+        return when {
+            race.preview == null -> "展示・直前情報が未取得の状態で予想"
+            (race.preview.windSpeed ?: 0) >= 5 -> "強風で通常と異なる展開"
+            predictedFirst != actualFirst -> "1着候補の評価を外したため、会場別コース成績へ学習"
+            else -> "1着は一致、2・3着の順序評価を外した"
+        }
+    }
 }

@@ -30,7 +30,7 @@ class PredictionHistoryStore(context: Context) {
         val now = System.currentTimeMillis()
 
         races.forEach { race ->
-            if (!race.isPurchasable() || race.id in existing) return@forEach
+            if (race.racers.size < 3 || race.id in existing) return@forEach
             val picks = PredictionEngine.predict(race)
             if (picks.isEmpty()) return@forEach
             current += PredictionRecord(
