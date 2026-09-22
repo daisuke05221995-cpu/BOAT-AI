@@ -8,8 +8,14 @@ class VersionDataResetManager(private val context: Context) {
         val previousVersionCode = meta.getInt(KEY_LAST_VERSION_CODE, -1)
         if (previousVersionCode == BuildConfig.VERSION_CODE) return false
 
-        // 予想成績と実購入履歴は予想ロジックのバージョンごとに評価する。
-        // 学習プロファイルと5年分ベースラインは品質向上の土台なので保持する。
+        // 表示する実績は予想ロジックのバージョンごとに0から評価する。
+        // 一方、旧バージョンで確定した予想成績から得た弱点補正は内部メモリへ退避し、
+        // 5年分ベースライン・端末内レース学習と同様に予想品質の土台として引き継ぐ。
+        val oldPredictions = PredictionHistoryStore(context).load()
+        if (oldPredictions.isNotEmpty()) {
+            PerformanceMemoryStore(context).mergeFrom(oldPredictions)
+        }
+
         context.getSharedPreferences("boat_ai_bets", Context.MODE_PRIVATE)
             .edit()
             .remove("records")
