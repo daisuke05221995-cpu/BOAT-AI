@@ -9,6 +9,13 @@ data class PredictionPerformanceStats(
     val hitRate: Double get() = if (races > 0) hits * 100.0 / races else 0.0
     val roi: Double get() = if (stake > 0) payout * 100.0 / stake else 0.0
     val profit: Int get() = payout - stake
+
+    fun mergedWith(other: PredictionPerformanceStats) = PredictionPerformanceStats(
+        races = races + other.races,
+        hits = hits + other.hits,
+        stake = stake + other.stake,
+        payout = payout + other.payout
+    )
 }
 
 data class PredictionWeakCondition(
@@ -25,6 +32,14 @@ data class PredictionPerformanceProfile(
     val byFirstLane: Map<Int, PredictionPerformanceStats> = emptyMap(),
     val byContext: Map<String, PredictionPerformanceStats> = emptyMap()
 ) {
+    fun mergedWith(other: PredictionPerformanceProfile) = PredictionPerformanceProfile(
+        overall = overall.mergedWith(other.overall),
+        byRank = mergeMaps(byRank, other.byRank),
+        byVenue = mergeMaps(byVenue, other.byVenue),
+        byFirstLane = mergeMaps(byFirstLane, other.byFirstLane),
+        byContext = mergeMaps(byContext, other.byContext)
+    )
+
     fun penalty(stadiumNumber: Int, rawConfidence: Int, firstLane: Int?): Int {
         val rank = rankFor(rawConfidence)
         val values = listOf(
@@ -166,6 +181,19 @@ data class PredictionPerformanceProfile(
             stats != null && stats.races >= minSamples && stats.roi < 55.0 && stats.hitRate < 8.0
 
         private fun accumulator() = MutableStats()
+
+        private fun <K> mergeMaps(
+            first: Map<K, PredictionPerformanceStats>,
+            second: Map<K, PredictionPerformanceStats>
+        ): Map<K, PredictionPerformanceStats> = buildMap {
+            (first.keys + second.keys).forEach { key ->
+                put(
+                    key,
+                    (first[key] ?: PredictionPerformanceStats())
+                        .mergedWith(second[key] ?: PredictionPerformanceStats())
+                )
+            }
+        }
     }
 
     private data class MutableStats(
