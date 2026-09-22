@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Build BOAT AI learning aggregates from historical race JSON for a date range.
 
-This mirrors LearningStore.observe semantics and is used only to remove 2026
-information from the packaged five-year aggregate before walk-forward backtesting.
+The aggregation mirrors LearningStore.observe semantics closely enough for a
+leakage-safe historical snapshot: settled races increment all six lane starts,
+wins use the settled winner, and wind/course learning falls back to lane when a
+preview course is absent. Every requested day must be available.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import math
 import re
 import time
 import urllib.error
@@ -21,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 API = "https://boatraceopenapi.github.io/api/v1/{year}/{day}.json"
-UA = "BOAT-AI-Learning-Derivation/1.0"
+UA = "BOAT-AI-Learning-Snapshot/1.1"
 
 
 def as_int(value: Any, default: int | None = None) -> int | None:
@@ -96,14 +97,9 @@ def aggregate_day(
         if winner is None or not 1 <= winner <= 6:
             continue
 
-        racers_obj = race.get("racers") or {}
-        valid_lanes = [lane for lane in range(1, 7) if isinstance(racers_obj.get(str(lane)) or racers_obj.get(lane), dict)]
-        if len(valid_lanes) < 3:
-            continue
-
         race_count += 1
         venue_counts[str(venue)] += 1
-        for lane in valid_lanes:
+        for lane in range(1, 7):
             starts[f"{venue}-{lane}"] += 1
         wins[f"{venue}-{winner}"] += 1
 
@@ -111,9 +107,12 @@ def aggregate_day(
         wind = as_int(preview.get("wind_speed"))
         if wind is None:
             continue
+        racers_obj = race.get("racers") or {}
         preview_racers = preview.get("racers") or {}
         bucket = wind_bucket(wind)
-        for lane in valid_lanes:
+        for lane in range(1, 7):
+            if not isinstance(racers_obj.get(str(lane)) or racers_obj.get(lane), dict):
+                continue
             pr = preview_racers.get(str(lane)) or preview_racers.get(lane) or {}
             course = as_int(pr.get("course_number"), lane)
             if course is not None and 1 <= course <= 6:
@@ -129,7 +128,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--start", type=date.fromisoformat, required=True)
     parser.add_argument("--end", type=date.fromisoformat, required=True)
-    parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--workers", type=int, default=12)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.end < args.start:
@@ -165,10 +164,10 @@ def main() -> None:
         race_count += aggregate_day(payloads[day], starts, wins, wind_starts, wind_wins, venue_counts)
 
     if race_count <= 1000:
-        raise SystemExit(f"historical contribution too small: {race_count}")
-    if len(starts) < 120 or len(wins) < 120:
+        raise SystemExit(f"historical snapshot too small: {race_count}")
+    if len(starts) < 144 or len(wins) < 140:
         raise SystemExit("venue/lane map too sparse")
-    if len(wind_starts) < 200 or len(wind_wins) < 200:
+    if len(wind_starts) < 300 or len(wind_wins) < 250:
         raise SystemExit("wind/course map too sparse")
 
     payload = {
@@ -180,6 +179,7 @@ def main() -> None:
         "historicalRaceCount": race_count,
         "downloadedDays": len(days),
         "missingOrNoRaceDays": 0,
+        "snapshotComplete": True,
         "starts": dict(sorted(starts.items())),
         "wins": dict(sorted(wins.items())),
         "windCourseStarts": dict(sorted(wind_starts.items())),
@@ -193,6 +193,7 @@ def main() -> None:
         "through": payload["trainedThrough"],
         "days": len(days),
         "races": race_count,
+        "venues": len(venue_counts),
         "starts": sum(starts.values()),
         "windCourseStarts": sum(wind_starts.values()),
     }, ensure_ascii=False, indent=2))
