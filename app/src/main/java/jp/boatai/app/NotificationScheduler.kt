@@ -1,6 +1,7 @@
 package jp.boatai.app
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -49,6 +50,7 @@ class NotificationScheduler(private val context: Context) {
         }
     }
 
+    @SuppressLint("MissingPermission") // canNotify()でAndroid 13以降の実権限を確認済み
     fun notifyNow(title: String, body: String, id: Int) {
         if (!enabled || !canNotify()) return
         ensureChannel()
