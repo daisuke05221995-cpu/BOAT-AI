@@ -39,15 +39,15 @@ jobs:
           if os.path.exists(path):
               try:
                   data=json.load(open(path, encoding='utf-8'))
+                  expected_venues={str(i) for i in range(1,25)}-{'23'}
+                  expected_keys={f'{v}-{lane}' for v in expected_venues for lane in range(1,7)}
                   verified=(
                       data.get('trainedFrom') == '2021-09-22'
                       and data.get('trainedThrough') == '2025-12-31'
                       and data.get('snapshotComplete') is True
                       and int(data.get('historicalRaceCount', 0)) > 200000
-                      and len(data.get('starts', {})) == 144
-                      and len(data.get('venueRaceCounts', {})) == 24
-                      and '23-1' in data.get('starts', {})
-                      and '23-6' in data.get('starts', {})
+                      and set(data.get('venueRaceCounts', {})) == expected_venues
+                      and set(data.get('starts', {})) == expected_keys
                   )
               except Exception:
                   verified=False
@@ -165,16 +165,19 @@ jobs:
           import json
           path='data/historical_learning_pre2026.json'
           data=json.load(open(path, encoding='utf-8'))
+          expected_venues={str(i) for i in range(1,25)}-{'23'}
+          expected_keys={f'{v}-{lane}' for v in expected_venues for lane in range(1,7)}
           assert data['trainedFrom'] == '2021-09-22'
           assert data['trainedThrough'] == '2025-12-31'
           assert data['historicalRaceCount'] > 200000
-          assert len(data['starts']) == 144
-          assert len(data['venueRaceCounts']) == 24
-          assert '23-1' in data['starts'] and '23-6' in data['starts']
+          assert data['missingOrNoRaceDays'] == 0
+          assert set(data['venueRaceCounts']) == expected_venues
+          assert set(data['starts']) == expected_keys
           data['snapshotComplete'] = True
+          data['knownSourceGap'] = 'Official K-file history has no venue 23 lane buckets; neutral priors are used until 2026 walk-forward observations.'
           with open(path, 'w', encoding='utf-8') as out:
               json.dump(data, out, ensure_ascii=False, separators=(',', ':'))
-          print(f"Pre-2026 snapshot OK: {data['historicalRaceCount']:,} races / 24 venues")
+          print(f"Pre-2026 snapshot OK: {data['historicalRaceCount']:,} races / {len(expected_venues)} K-file venues / missing days 0")
           PY
 
       - name: Re-check leakage-safe pre-2026 snapshot
@@ -182,12 +185,14 @@ jobs:
           python - <<'PY'
           import json
           data=json.load(open('data/historical_learning_pre2026.json', encoding='utf-8'))
+          expected_venues={str(i) for i in range(1,25)}-{'23'}
+          expected_keys={f'{v}-{lane}' for v in expected_venues for lane in range(1,7)}
           assert data.get('snapshotComplete') is True
           assert data.get('trainedThrough') == '2025-12-31'
           assert int(data.get('historicalRaceCount', 0)) > 200000
-          assert len(data.get('starts', {})) == 144
-          assert len(data.get('venueRaceCounts', {})) == 24
-          assert '23-1' in data.get('starts', {}) and '23-6' in data.get('starts', {})
+          assert int(data.get('missingOrNoRaceDays', -1)) == 0
+          assert set(data.get('venueRaceCounts', {})) == expected_venues
+          assert set(data.get('starts', {})) == expected_keys
           PY
 
       - name: Build month and year backtest
