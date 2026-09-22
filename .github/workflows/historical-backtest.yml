@@ -65,8 +65,15 @@ jobs:
             --end "$BASELINE_END" \
             --workers 4 \
             --request-delay 0.25 \
-            --allow-partial \
             --output data/historical_learning_2026_partial.json
+          python - <<'PY'
+          import json
+          data=json.load(open('data/historical_learning_2026_partial.json', encoding='utf-8'))
+          assert data['trainedFrom'] == '2026-01-01'
+          assert data['missingOrNoRaceDays'] == 0, data['missingOrNoRaceDays']
+          assert data['historicalRaceCount'] > 1000
+          print(f"Exact 2026 contribution OK: {data['historicalRaceCount']:,} races")
+          PY
 
       - name: Derive leakage-safe 2025-12-31 learning snapshot
         if: steps.prebase.outputs.exists != 'true'
@@ -94,6 +101,7 @@ jobs:
           data=json.load(open('data/historical_backtest_2026.json', encoding='utf-8'))
           assert data['year'] == 2026
           assert data['dataFrom'] == '2026-01-01'
+          assert not data['failedDays'], data['failedDays']
           assert data['yearSummary']['totalSettledRaces'] > 1000
           assert data['yearSummary']['evaluatedRaces'] > 1000
           assert len(data['months']) >= 1
