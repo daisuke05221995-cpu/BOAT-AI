@@ -4,13 +4,26 @@ import kotlin.math.max
 
 object PredictionEngine {
     @Volatile private var learningProfile = LearningProfile()
+    @Volatile private var performanceProfile = PredictionPerformanceProfile()
 
     fun installLearningProfile(profile: LearningProfile) {
         learningProfile = profile
     }
 
+    fun installPerformanceProfile(profile: PredictionPerformanceProfile) {
+        performanceProfile = profile
+    }
+
     /** 画面表示と一括購入判定に使う、0〜100のレース期待度。 */
     fun confidence(race: RaceData): Int {
+        val raw = rawConfidence(race)
+        if (raw == 0) return 0
+        val firstLane = leadingLane(race)
+        val penalty = performanceProfile.penalty(race.stadiumNumber, raw, firstLane)
+        return (raw + penalty).coerceIn(20, 97)
+    }
+
+    fun rawConfidence(race: RaceData): Int {
         if (race.racers.size < 3) return 0
         val scored = race.racers.map {
             it to (racerScore(it) + learningProfile.bonus(race, it))
@@ -36,12 +49,12 @@ object PredictionEngine {
             startEdge * 90.0 + laneBonus + previewSpread).toInt().coerceIn(35, 97)
     }
 
-    fun rank(race: RaceData): String = when (confidence(race)) {
-        in 90..100 -> "S"
-        in 80..89 -> "A"
-        in 70..79 -> "B"
-        in 60..69 -> "C"
-        else -> "D"
+    fun rank(race: RaceData): String = PredictionPerformanceProfile.rankFor(confidence(race))
+
+    fun autoSkipReason(race: RaceData): String? {
+        val raw = rawConfidence(race)
+        if (raw == 0) return null
+        return performanceProfile.autoSkipReason(race.stadiumNumber, raw, leadingLane(race))
     }
 
     fun racerScore(racer: Racer): Double {
@@ -119,4 +132,8 @@ object PredictionEngine {
             else -> "1着は一致、2・3着の順序評価を外した"
         }
     }
+
+    private fun leadingLane(race: RaceData): Int? = race.racers
+        .maxByOrNull { racerScore(it) + learningProfile.bonus(race, it) }
+        ?.lane
 }
