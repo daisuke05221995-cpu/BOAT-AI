@@ -616,6 +616,8 @@ private fun ProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
             }
         }
 
+        item { HistoricalBacktestCard() }
+
         item { PerformanceFeedbackCard(ui) }
         item { AdvancedAnalyticsCard(ui) }
         item { BackupCard(ui, vm) }
