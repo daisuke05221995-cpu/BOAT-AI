@@ -56,11 +56,15 @@ object BetStrategy {
         val total = picks.sumOf { it.recommendedStake }.coerceAtLeast(1)
         val returns = picks.map { (it.odds ?: 0.0) * it.recommendedStake }
         val mainReturn = returns.firstOrNull() ?: 0.0
+        val profitableCount = returns.count { it >= total * 1.20 }
+        val strongUpsideCount = returns.count { it >= total * 2.0 }
         return when {
             returns.all { it < total } -> "見送り：どの買い目が的中しても購入額を下回ります"
-            mainReturn >= total * 1.25 -> "購入推奨：本線的中でも回収率125%以上です"
-            (returns.maxOrNull() ?: 0.0) >= total * 2.0 -> "購入推奨：中穴・超穴で十分な払戻余地があります"
-            else -> "見送り：払戻余地が小さいため購入基準を満たしません"
+            mainReturn >= total * 1.50 && profitableCount >= 2 ->
+                "購入推奨：本線150%以上かつ複数買い目に十分な払戻余地があります"
+            mainReturn >= total * 1.30 && strongUpsideCount >= 2 ->
+                "購入推奨：本線130%以上かつ中穴側にも十分な払戻余地があります"
+            else -> "見送り：払戻余地が厳選購入基準に届きません"
         }
     }
 
