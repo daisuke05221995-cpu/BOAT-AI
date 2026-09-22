@@ -35,7 +35,7 @@ class PredictionHistoryStore(context: Context) {
             if (picks.isEmpty()) return@forEach
             val confidence = PredictionEngine.confidence(race)
             val rawConfidence = PredictionEngine.rawConfidence(race)
-            val autoSkipReason = PredictionEngine.autoSkipReason(race)
+            val decision = PredictionEngine.recommendation(race)
             current += PredictionRecord(
                 id = race.id,
                 date = race.date,
@@ -51,8 +51,10 @@ class PredictionHistoryStore(context: Context) {
                 rank = PredictionPerformanceProfile.rankFor(rawConfidence),
                 firstLane = picks.firstOrNull()?.combination?.substringBefore("-")?.toIntOrNull(),
                 evaluationEligible = race.isPurchasable(),
-                autoSkipped = autoSkipReason != null,
-                autoSkipReason = autoSkipReason
+                autoSkipped = !decision.recommended,
+                autoSkipReason = decision.reason.takeIf { !decision.recommended },
+                recommended = decision.recommended,
+                recommendationReason = decision.reason
             )
             existing += race.id
             changed = true
