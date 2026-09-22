@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""Train position-specific BOAT AI probability models and search 1-10 point tickets.
+"""Train conditional BOAT AI finish-order models and search 1-10 point tickets.
 
-Protocol (leakage-safe):
-- Jan-Apr: train separate softmax models for 1st / 2nd / 3rd place.
+Leakage-safe protocol:
+- Jan-Apr: train sequential models P(1st), P(2nd | 1st), P(3rd | 1st,2nd).
 - May-Jun: choose ticket confidence, coverage, max-points and allocation rules.
 - Jul-Aug: untouched validation using a model refit through Jun only.
 - Sep-latest: evaluated only if BOTH Jul and Aug are profitable; model may then be
   refit through Aug as a pre-declared walk-forward update.
 
-The three position models replace the old assumption that 1st/2nd/3rd should all use
-one identical racer score ordering. Historical closing odds are unavailable, so the
-live odds final gate is excluded from the historical test.
+Historical closing odds are unavailable, so the live final-odds gate is excluded from
+this historical test.
 """
 
 from __future__ import annotations
@@ -51,6 +50,7 @@ WINNER_PROB_THRESHOLDS = (0.0, 0.35, 0.45, 0.55)
 ALLOCATION_MODES = ("equal", "probability")
 LEADER_FILTERS = ("all", "lane1")
 COMBOS = tuple(itertools.permutations(range(6), 3))
+BASE_NUMERIC = 8
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -132,70 +132,209 @@ def feature_row(
     return values
 
 
-def softmax_rows(logits: np.ndarray) -> np.ndarray:
-    shifted = logits - np.max(logits, axis=1, keepdims=True)
+def selected_lane_one_hot(index: int) -> list[float]:
+    return [1.0 if index == value else 0.0 for value in range(6)]
+
+
+def second_rows(base: list[list[float]], first: int) -> list[list[float]]:
+    first_values = base[first]
+    rows: list[list[float]] = []
+    for candidate in range(6):
+        values = list(base[candidate])
+        values += [base[candidate][idx] - first_values[idx] for idx in range(BASE_NUMERIC)]
+        values += selected_lane_one_hot(first)
+        delta = candidate - first
+        values += [
+            delta / 5.0,
+            abs(delta) / 5.0,
+            1.0 if candidate < first else 0.0,
+            1.0 if candidate > first else 0.0,
+        ]
+        rows.append(values)
+    return rows
+
+
+def third_rows(base: list[list[float]], first: int, second: int) -> list[list[float]]:
+    first_values = base[first]
+    second_values = base[second]
+    rows: list[list[float]] = []
+    low = min(first, second)
+    high = max(first, second)
+    for candidate in range(6):
+        values = list(base[candidate])
+        values += [base[candidate][idx] - first_values[idx] for idx in range(BASE_NUMERIC)]
+        values += [base[candidate][idx] - second_values[idx] for idx in range(BASE_NUMERIC)]
+        values += selected_lane_one_hot(first)
+        values += selected_lane_one_hot(second)
+        d_first = candidate - first
+        d_second = candidate - second
+        values += [
+            d_first / 5.0,
+            abs(d_first) / 5.0,
+            d_second / 5.0,
+            abs(d_second) / 5.0,
+            1.0 if low < candidate < high else 0.0,
+        ]
+        rows.append(values)
+    return rows
+
+
+def masked_softmax(logits: np.ndarray, invalid: np.ndarray) -> np.ndarray:
+    masked = np.where(invalid, -1.0e9, logits)
+    shifted = masked - np.max(masked, axis=1, keepdims=True)
     exp = np.exp(np.clip(shifted, -40.0, 40.0))
-    return exp / np.sum(exp, axis=1, keepdims=True)
+    exp = np.where(invalid, 0.0, exp)
+    denom = np.sum(exp, axis=1, keepdims=True)
+    return exp / np.maximum(denom, 1.0e-12)
 
 
-class PositionModel:
-    def __init__(self, mean: np.ndarray, std: np.ndarray, weights: np.ndarray) -> None:
-        self.mean = mean
-        self.std = std
-        self.weights = weights  # shape (3, feature_count)
-
-    def probabilities(self, features: list[list[float]]) -> np.ndarray:
-        x = np.asarray(features, dtype=np.float64)
-        xs = (x - self.mean) / self.std
-        logits = xs @ self.weights.T  # 6 x 3
-        probs = []
-        for position in range(3):
-            values = logits[:, position]
-            shifted = values - np.max(values)
-            exp = np.exp(np.clip(shifted, -40.0, 40.0))
-            probs.append(exp / np.sum(exp))
-        return np.asarray(probs, dtype=np.float64)  # 3 x 6
+def fit_choice_weights(xs: np.ndarray, targets: np.ndarray, invalid: np.ndarray) -> np.ndarray:
+    weights = np.zeros(xs.shape[-1], dtype=np.float64)
+    rows = np.arange(len(xs))
+    for epoch in range(EPOCHS):
+        logits = np.einsum("rsf,f->rs", xs, weights)
+        probs = masked_softmax(logits, invalid)
+        diff = probs.copy()
+        diff[rows, targets] -= 1.0
+        diff = np.where(invalid, 0.0, diff)
+        grad = np.einsum("rs,rsf->f", diff, xs) / len(xs)
+        grad += REGULARIZATION * weights
+        step = LEARNING_RATE / math.sqrt(1.0 + epoch / 45.0)
+        weights -= step * grad
+    return weights
 
 
-def fit_position_model(records: list[dict[str, Any]], start: date, end: date) -> PositionModel:
-    subset = [rec for rec in records if start <= rec["day"] <= end]
-    if len(subset) < 1000:
-        raise RuntimeError(f"not enough model training races: {len(subset)}")
-
-    x = np.asarray([rec["features"] for rec in subset], dtype=np.float64)
+def standardize_tensor(x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     flat = x.reshape(-1, x.shape[-1])
     mean = flat.mean(axis=0)
     std = flat.std(axis=0)
     std = np.where(std < 1e-6, 1.0, std)
-    xs = (x - mean) / std
+    return (x - mean) / std, mean, std
+
+
+class ConditionalPositionModel:
+    def __init__(
+        self,
+        first_mean: np.ndarray,
+        first_std: np.ndarray,
+        first_weights: np.ndarray,
+        second_mean: np.ndarray,
+        second_std: np.ndarray,
+        second_weights: np.ndarray,
+        third_mean: np.ndarray,
+        third_std: np.ndarray,
+        third_weights: np.ndarray,
+    ) -> None:
+        self.first_mean = first_mean
+        self.first_std = first_std
+        self.first_weights = first_weights
+        self.second_mean = second_mean
+        self.second_std = second_std
+        self.second_weights = second_weights
+        self.third_mean = third_mean
+        self.third_std = third_std
+        self.third_weights = third_weights
+
+    @staticmethod
+    def _probabilities(
+        rows: list[list[float]],
+        mean: np.ndarray,
+        std: np.ndarray,
+        weights: np.ndarray,
+        excluded: set[int],
+    ) -> np.ndarray:
+        x = np.asarray(rows, dtype=np.float64)
+        xs = (x - mean) / std
+        logits = xs @ weights
+        invalid = np.asarray([[idx in excluded for idx in range(6)]], dtype=bool)
+        return masked_softmax(logits.reshape(1, 6), invalid)[0]
+
+    def first_probabilities(self, base: list[list[float]]) -> np.ndarray:
+        return self._probabilities(base, self.first_mean, self.first_std, self.first_weights, set())
+
+    def second_probabilities(self, base: list[list[float]], first: int) -> np.ndarray:
+        return self._probabilities(
+            second_rows(base, first),
+            self.second_mean,
+            self.second_std,
+            self.second_weights,
+            {first},
+        )
+
+    def third_probabilities(self, base: list[list[float]], first: int, second: int) -> np.ndarray:
+        return self._probabilities(
+            third_rows(base, first, second),
+            self.third_mean,
+            self.third_std,
+            self.third_weights,
+            {first, second},
+        )
+
+
+def fit_conditional_model(records: list[dict[str, Any]], start: date, end: date) -> ConditionalPositionModel:
+    subset = [rec for rec in records if start <= rec["day"] <= end]
+    if len(subset) < 1000:
+        raise RuntimeError(f"not enough model training races: {len(subset)}")
+
+    base = np.asarray([rec["features"] for rec in subset], dtype=np.float64)
     targets = np.asarray([rec["targets"] for rec in subset], dtype=np.int64)
+    first_targets = targets[:, 0]
+    second_targets = targets[:, 1]
+    third_targets = targets[:, 2]
 
-    weights: list[np.ndarray] = []
+    first_xs, first_mean, first_std = standardize_tensor(base)
+    first_invalid = np.zeros((len(subset), 6), dtype=bool)
+    first_weights = fit_choice_weights(first_xs, first_targets, first_invalid)
+
+    second_raw = np.asarray(
+        [second_rows(rec["features"], int(rec["targets"][0])) for rec in subset],
+        dtype=np.float64,
+    )
+    second_xs, second_mean, second_std = standardize_tensor(second_raw)
+    second_invalid = np.zeros((len(subset), 6), dtype=bool)
+    second_invalid[np.arange(len(subset)), first_targets] = True
+    second_weights = fit_choice_weights(second_xs, second_targets, second_invalid)
+
+    third_raw = np.asarray(
+        [third_rows(rec["features"], int(rec["targets"][0]), int(rec["targets"][1])) for rec in subset],
+        dtype=np.float64,
+    )
+    third_xs, third_mean, third_std = standardize_tensor(third_raw)
+    third_invalid = np.zeros((len(subset), 6), dtype=bool)
     rows = np.arange(len(subset))
-    for position in range(3):
-        w = np.zeros(xs.shape[-1], dtype=np.float64)
-        y = targets[:, position]
-        for epoch in range(EPOCHS):
-            logits = np.einsum("rsf,f->rs", xs, w)
-            probs = softmax_rows(logits)
-            diff = probs
-            diff[rows, y] -= 1.0
-            grad = np.einsum("rs,rsf->f", diff, xs) / len(subset)
-            grad += REGULARIZATION * w
-            step = LEARNING_RATE / math.sqrt(1.0 + epoch / 45.0)
-            w -= step * grad
-        weights.append(w)
-    return PositionModel(mean, std, np.asarray(weights))
+    third_invalid[rows, first_targets] = True
+    third_invalid[rows, second_targets] = True
+    third_weights = fit_choice_weights(third_xs, third_targets, third_invalid)
+
+    return ConditionalPositionModel(
+        first_mean,
+        first_std,
+        first_weights,
+        second_mean,
+        second_std,
+        second_weights,
+        third_mean,
+        third_std,
+        third_weights,
+    )
 
 
-def trifecta_distribution(model: PositionModel, rec: dict[str, Any]) -> list[dict[str, Any]]:
-    probs = model.probabilities(rec["features"])
+def trifecta_distribution(model: ConditionalPositionModel, rec: dict[str, Any]) -> list[dict[str, Any]]:
+    base = rec["features"]
+    first_probs = model.first_probabilities(base)
     ranked: list[tuple[str, float]] = []
-    total = 0.0
-    for first, second, third in COMBOS:
-        value = float(probs[0, first] * probs[1, second] * probs[2, third])
-        total += value
-        ranked.append((f"{first + 1}-{second + 1}-{third + 1}", value))
+    for first in range(6):
+        second_probs = model.second_probabilities(base, first)
+        for second in range(6):
+            if second == first:
+                continue
+            third_probs = model.third_probabilities(base, first, second)
+            for third in range(6):
+                if third in (first, second):
+                    continue
+                value = float(first_probs[first] * second_probs[second] * third_probs[third])
+                ranked.append((f"{first + 1}-{second + 1}-{third + 1}", value))
+    total = sum(value for _, value in ranked)
     if total <= 0.0:
         return []
     ranked.sort(key=lambda item: item[1], reverse=True)
@@ -205,23 +344,21 @@ def trifecta_distribution(model: PositionModel, rec: dict[str, Any]) -> list[dic
     ]
 
 
-def make_signals(model: PositionModel, records: list[dict[str, Any]], start: date, end: date) -> list[dict[str, Any]]:
+def make_signals(model: ConditionalPositionModel, records: list[dict[str, Any]], start: date, end: date) -> list[dict[str, Any]]:
     signals: list[dict[str, Any]] = []
     for rec in records:
         if not (start <= rec["day"] <= end):
             continue
+        first_probs = model.first_probabilities(rec["features"])
         ranked = trifecta_distribution(model, rec)
         if not ranked:
             continue
-        p1 = model.probabilities(rec["features"])[0]
-        winner_prob = float(np.max(p1))
-        leader_lane = int(np.argmax(p1)) + 1
         signals.append({
             "day": rec["day"],
             "ranked": ranked,
             "topProbability": float(ranked[0]["probability"]),
-            "winnerProbability": winner_prob,
-            "leaderLane": leader_lane,
+            "winnerProbability": float(np.max(first_probs)),
+            "leaderLane": int(np.argmax(first_probs)) + 1,
             "combo": rec["combo"],
             "amount": rec["amount"],
         })
@@ -343,12 +480,6 @@ def evaluate_current_baseline(records: list[dict[str, Any]], start: date, end: d
     return finalize_stats(raw)
 
 
-def month_end(year: int, month: int) -> date:
-    if month == 12:
-        return date(year, 12, 31)
-    return date(year, month + 1, 1) - timedelta(days=1)
-
-
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--start", type=date.fromisoformat, default=date(2026, 1, 1))
@@ -438,7 +569,6 @@ def main() -> None:
             perf_payout = trifecta_amount * 3 if current_hit else 0
             observations.append((venue, raw, first_lane, current_hit, 1200, perf_payout))
 
-        # Learning/performance only moves forward after all races of the day were captured.
         for race in races:
             learning.observe_race(race)
         for observation in observations:
@@ -449,7 +579,7 @@ def main() -> None:
     validation_start, validation_end = date(2026, 7, 1), date(2026, 8, 31)
     final_start, final_end = date(2026, 9, 1), data_end
 
-    model_train = fit_position_model(records, train_start, train_end)
+    model_train = fit_conditional_model(records, train_start, train_end)
     tune_signals = make_signals(model_train, records, tune_start, tune_end)
     if len(tune_signals) < 1000:
         raise RuntimeError("too few tuning signals")
@@ -506,8 +636,7 @@ def main() -> None:
     selected = selection_pool[0]
     cfg = selected["config"]
 
-    # Refit using all data that would be known before July; validation remains untouched.
-    model_validation = fit_position_model(records, train_start, tune_end)
+    model_validation = fit_conditional_model(records, train_start, tune_end)
     validation_signals = make_signals(model_validation, records, validation_start, validation_end)
     july = evaluate(validation_signals, cfg, date(2026, 7, 1), date(2026, 7, 31))
     august = evaluate(validation_signals, cfg, date(2026, 8, 1), date(2026, 8, 31))
@@ -524,8 +653,7 @@ def main() -> None:
     final_stats: dict[str, Any] | None = None
     qualified_for_release = False
     if qualified_for_final and final_end >= final_start:
-        # Pre-declared walk-forward refit through Aug; Sep itself is not used for selection/training.
-        model_final = fit_position_model(records, train_start, validation_end)
+        model_final = fit_conditional_model(records, train_start, validation_end)
         final_signals = make_signals(model_final, records, final_start, final_end)
         final_stats = evaluate(final_signals, cfg, final_start, final_end)
         qualified_for_release = bool(
@@ -540,16 +668,18 @@ def main() -> None:
         baseline["final"] = evaluate_current_baseline(records, final_start, final_end)
 
     result = {
-        "schemaVersion": 5,
+        "schemaVersion": 6,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "dataThrough": data_end.isoformat(),
-        "method": "separate softmax racer models for 1st/2nd/3rd; normalized 120-combination probability; variable 1-10 point ticket",
+        "method": "sequential conditional softmax P(1st) * P(2nd|1st) * P(3rd|1st,2nd); variable 1-10 point ticket",
         "oddsFinalGateIncluded": False,
         "model": {
             "regularization": REGULARIZATION,
             "epochs": EPOCHS,
             "learningRate": LEARNING_RATE,
-            "featureCount": len(records[0]["features"][0]) if records else 0,
+            "baseFeatureCount": len(records[0]["features"][0]) if records else 0,
+            "secondFeatureCount": len(second_rows(records[0]["features"], 0)[0]) if records else 0,
+            "thirdFeatureCount": len(third_rows(records[0]["features"], 0, 1)[0]) if records else 0,
             "trainingRacesJanApr": sum(1 for rec in records if train_start <= rec["day"] <= train_end),
             "trainingRacesJanJun": sum(1 for rec in records if train_start <= rec["day"] <= tune_end),
         },
@@ -569,10 +699,10 @@ def main() -> None:
         "releaseRule": "May and Jun each positive with >=50 buys; Jul and Aug each positive with combined >=50 buys; only then Sep-latest positive with >=20 buys",
         "topCandidates": selection_pool[:20],
         "notes": [
-            "The 1st, 2nd and 3rd place models have separate learned weights.",
-            "Ticket point count varies by race because picks stop at the selected cumulative probability coverage or maxPoints.",
-            "Jul-Aug are not used to choose the ticket configuration.",
-            "Sep remains withheld unless both Jul and Aug pass; if opened, the model is refit only through Aug as a pre-declared walk-forward update.",
+            "Second-place probabilities are conditioned on the selected first-place racer and exclude that racer.",
+            "Third-place probabilities are conditioned on the selected first and second racers and exclude both.",
+            "May-Jun choose ticket settings only; Jul-Aug remain untouched validation.",
+            "Sep remains withheld unless both Jul and Aug pass; if opened, the model is refit only through Aug.",
             "Historical closing odds are unavailable, so live final-odds filtering remains excluded.",
         ],
     }
