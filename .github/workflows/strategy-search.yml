@@ -1,0 +1,84 @@
+name: Search profitable 2026 strategy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/search_2026_strategy.py'
+      - '.github/workflows/strategy-search.yml'
+      - 'data/historical_learning_pre2026.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: strategy-search-2026
+  cancel-in-progress: true
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify leakage-safe learning snapshot
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/historical_learning_pre2026.json', encoding='utf-8'))
+          assert data.get('trainedFrom') == '2021-09-22'
+          assert data.get('trainedThrough') == '2025-12-31'
+          assert data.get('snapshotComplete') is True
+          assert int(data.get('historicalRaceCount', 0)) > 200000
+          PY
+
+      - name: Search 1-10 pick strategies
+        run: |
+          python -u scripts/search_2026_strategy.py \
+            --start 2026-01-01 \
+            --learning data/historical_learning_pre2026.json \
+            --workers 16 \
+            --output data/strategy_search_2026.json
+
+      - name: Validate strategy search output
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/strategy_search_2026.json', encoding='utf-8'))
+          cfg=data['selected']['config']
+          assert 1 <= int(cfg['points']) <= 10
+          assert sum(cfg['stakes']) == 1200
+          assert data['periods']['train'] == ['2026-01-01','2026-04-30']
+          assert data['periods']['tune'] == ['2026-05-01','2026-06-30']
+          assert data['periods']['holdout'][0] == '2026-07-01'
+          print(json.dumps({
+            'config': cfg,
+            'train': data['selected']['train'],
+            'tune': data['selected']['tune'],
+            'holdout': data['selected']['holdout'],
+            'qualifiedForRelease': data['qualifiedForRelease'],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Commit strategy search result
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/strategy_search_2026.json
+          if git diff --cached --quiet; then
+            echo 'Strategy search result is unchanged.'
+          else
+            git commit -m 'Refresh 2026 strategy search result'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
