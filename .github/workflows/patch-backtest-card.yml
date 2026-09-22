@@ -1,0 +1,39 @@
+name: Patch historical backtest card
+
+on: [push]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Insert backtest card
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/jp/boatai/app/MainActivity.kt')
+          text=p.read_text(encoding='utf-8')
+          if 'item { HistoricalBacktestCard() }' in text:
+              print('already inserted')
+          else:
+              marker='        item { SummaryCard("購入推奨だけ買った場合", recommendedSummary, "AIが購入推奨と判定したレースだけを各${money(PredictionHistoryStore.DEFAULT_SIMULATION_STAKE)}×4点で計算") }'
+              if marker not in text:
+                  raise SystemExit('profit summary marker not found')
+              text=text.replace(marker, '        item { HistoricalBacktestCard() }\n' + marker, 1)
+              p.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/jp/boatai/app/MainActivity.kt
+          if git diff --cached --quiet; then
+            echo 'No changes.'
+          else
+            git commit -m 'Show 2026 historical backtest in profit screen'
+            git push
+          fi
