@@ -52,7 +52,7 @@ MIN_PROB_OPTIONS = (0.005, 0.010, 0.020, 0.030)
 MAX_ODDS_OPTIONS = (20.0, 40.0, 80.0, 150.0, 9999.0)
 POINT_OPTIONS = (1, 2, 3, 4, 6, 8, 10)
 ALLOCATION_MODES = ("equal", "probability", "edge")
-KEEP_GATES = 50
+KEEP_GATES = 24
 MIN_MONTH_BUYS = 20
 MIN_DEV_BUYS = 120
 ODDS_URL = "https://raw.githubusercontent.com/lamrongol/BoatraceOdds/gh-pages/docs/v3/2026/{day}.json"
@@ -160,7 +160,6 @@ def build_records(start: date, end: date, learning: LearningProfile, workers: in
     while cursor <= end:
         dates.append(cursor)
         cursor += timedelta(days=1)
-
     payloads: dict[date, dict[str, Any]] = {}
     failed_days: dict[str, str] = {}
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
@@ -196,7 +195,6 @@ def build_records(start: date, end: date, learning: LearningProfile, workers: in
                 continue
             if len(result_lanes) != 3 or any(lane < 1 or lane > 6 for lane in result_lanes):
                 continue
-
             venue = as_int(race.get("stadium_number"), 0) or 0
             race_number = as_int(race.get("race_number"), 0) or 0
             if not (1 <= venue <= 24 and 1 <= race_number <= 12):
@@ -214,7 +212,6 @@ def build_records(start: date, end: date, learning: LearningProfile, workers: in
                 1 for racer in racers
                 if int(racer.get("course") or racer["lane"]) != int(racer["lane"])
             )
-
             records.append({
                 "day": day,
                 "venue": venue,
@@ -231,11 +228,9 @@ def build_records(start: date, end: date, learning: LearningProfile, workers: in
                 "historySkip": history_skip,
                 "baselinePicks": baseline_picks,
             })
-
             current_hit = combo in baseline_picks[:4]
             perf_payout = int(amount) * 3 if current_hit else 0
             observations.append((venue, raw, first_lane, current_hit, 1200, perf_payout))
-
         for race in races:
             learning.observe_race(race)
         for observation in observations:
@@ -243,10 +238,10 @@ def build_records(start: date, end: date, learning: LearningProfile, workers: in
     return records, failed_days
 
 
-def full_distribution(model: v6.ConditionalPositionModel, rec: dict[str, Any]) -> list[dict[str, Any]]:
+def full_distribution(model: v6.ConditionalPositionModel, rec: dict[str, Any]) -> list[tuple[str, float]]:
     base = rec["features"]
     first_probs = model.first_probabilities(base)
-    rows: list[dict[str, Any]] = []
+    rows: list[tuple[str, float]] = []
     total = 0.0
     for first in range(6):
         second_probs = model.second_probabilities(base, first)
@@ -258,13 +253,11 @@ def full_distribution(model: v6.ConditionalPositionModel, rec: dict[str, Any]) -
                 if third in (first, second):
                     continue
                 p = float(first_probs[first] * second_probs[second] * third_probs[third])
-                rows.append({"combo": f"{first + 1}-{second + 1}-{third + 1}", "modelP": p})
+                rows.append((f"{first + 1}-{second + 1}-{third + 1}", p))
                 total += p
     if total <= 0:
         return []
-    for row in rows:
-        row["modelP"] = float(row["modelP"]) / total
-    return rows
+    return [(combo, value / total) for combo, value in rows]
 
 
 def make_signals(
@@ -284,65 +277,69 @@ def make_signals(
             missing += 1
             continue
         distribution = full_distribution(model, rec)
-        market_raw: dict[str, float] = {}
-        market_sum = 0.0
-        for combo, odd in race_odds.items():
-            if odd > 0:
-                q = 1.0 / float(odd)
-                market_raw[combo] = q
-                market_sum += q
+        market_sum = sum(1.0 / odd for odd in race_odds.values() if odd > 0)
         if market_sum <= 0:
             missing += 1
             continue
-        items: list[dict[str, Any]] = []
-        for row in distribution:
-            combo = str(row["combo"])
+        items: list[tuple[str, float, float, float]] = []
+        for combo, model_p in distribution:
             odd = race_odds.get(combo)
-            q = market_raw.get(combo)
-            if odd is None or q is None or odd <= 0:
+            if odd is None or odd <= 0:
                 continue
-            items.append({
-                "combo": combo,
-                "modelP": float(row["modelP"]),
-                "marketP": float(q / market_sum),
-                "odds": float(odd),
-            })
+            market_p = (1.0 / float(odd)) / market_sum
+            items.append((combo, float(model_p), market_p, float(odd)))
         if len(items) < 100:
             missing += 1
             continue
         signals.append({
-            "day": rec["day"],
-            "venue": int(rec["venue"]),
-            "raceNumber": int(rec["raceNumber"]),
-            "items": items,
             "combo": str(rec["combo"]),
             "amount": int(rec["amount"]),
+            "items": items,
         })
     return signals, missing
 
 
-def blended_items(signal: dict[str, Any], alpha: float) -> list[dict[str, Any]]:
-    weighted: list[tuple[dict[str, Any], float]] = []
+def prepare_signal(signal: dict[str, Any], alpha: float) -> dict[str, Any]:
+    raw: list[tuple[str, float, float, float]] = []
     denom = 0.0
-    for item in signal["items"]:
-        mp = max(float(item["modelP"]), 1e-12)
-        qp = max(float(item["marketP"]), 1e-12)
-        value = math.exp(alpha * math.log(mp) + (1.0 - alpha) * math.log(qp))
-        weighted.append((item, value))
+    for combo, model_p, market_p, odd in signal["items"]:
+        value = math.exp(
+            alpha * math.log(max(float(model_p), 1e-12)) +
+            (1.0 - alpha) * math.log(max(float(market_p), 1e-12))
+        )
+        raw.append((str(combo), value, float(odd), 0.0))
         denom += value
-    result: list[dict[str, Any]] = []
-    if denom <= 0:
-        return result
-    for item, value in weighted:
-        p = value / denom
-        odd = float(item["odds"])
-        ev = p * odd
-        result.append({**item, "blendP": p, "ev": ev})
-    result.sort(key=lambda row: (float(row["ev"]), float(row["blendP"])), reverse=True)
+    ranked: list[tuple[str, float, float, float]] = []
+    if denom > 0:
+        for combo, value, odd, _ in raw:
+            p = value / denom
+            ranked.append((combo, p, odd, p * odd))
+        ranked.sort(key=lambda row: (row[3], row[1]), reverse=True)
+    return {"combo": signal["combo"], "amount": int(signal["amount"]), "ranked": ranked}
+
+
+def prepare_months(dev: dict[str, list[dict[str, Any]]], alpha: float) -> dict[str, list[dict[str, Any]]]:
+    return {key: [prepare_signal(signal, alpha) for signal in signals] for key, signals in dev.items()}
+
+
+def filter_items(prepared: dict[str, Any], cfg: dict[str, Any], limit: int = 10) -> list[tuple[str, float, float, float]]:
+    result: list[tuple[str, float, float, float]] = []
+    min_ev = float(cfg["minEv"])
+    min_prob = float(cfg["minProbability"])
+    max_odds = float(cfg["maxOdds"])
+    for item in prepared["ranked"]:
+        combo, probability, odd, ev = item
+        if ev < min_ev:
+            break
+        if probability < min_prob or odd > max_odds:
+            continue
+        result.append((combo, probability, odd, ev))
+        if len(result) >= limit:
+            break
     return result
 
 
-def allocate_units(items: list[dict[str, Any]], mode: str) -> list[int]:
+def allocate_units(items: list[tuple[str, float, float, float]], mode: str) -> list[int]:
     points = len(items)
     if points <= 0:
         return []
@@ -355,14 +352,9 @@ def allocate_units(items: list[dict[str, Any]], mode: str) -> list[int]:
             units[idx % points] += 1
         return units
     if mode == "probability":
-        weights = [max(float(item["blendP"]), 0.0) for item in items]
+        weights = [max(item[1], 0.0) for item in items]
     else:
-        weights = []
-        for item in items:
-            odd = max(float(item["odds"]), 1.0001)
-            p = float(item["blendP"])
-            kelly = max(0.0, (p * odd - 1.0) / (odd - 1.0))
-            weights.append(kelly)
+        weights = [max(0.0, (item[1] * item[2] - 1.0) / max(item[2] - 1.0, 1e-9)) for item in items]
     total = sum(weights)
     if total <= 0:
         for idx in range(remaining):
@@ -379,35 +371,27 @@ def allocate_units(items: list[dict[str, Any]], mode: str) -> list[int]:
     return units
 
 
-def choose_ticket(signal: dict[str, Any], cfg: dict[str, Any]) -> tuple[list[dict[str, Any]], list[int]]:
-    ranked = blended_items(signal, float(cfg["alpha"]))
-    eligible = [
-        item for item in ranked
-        if float(item["ev"]) >= float(cfg["minEv"])
-        and float(item["blendP"]) >= float(cfg["minProbability"])
-        and float(item["odds"]) <= float(cfg["maxOdds"])
-    ]
-    picked = eligible[: int(cfg["maxPoints"])]
-    if not picked:
-        return [], []
-    return picked, allocate_units(picked, str(cfg["allocationMode"]))
-
-
-def evaluate(signals: list[dict[str, Any]], cfg: dict[str, Any]) -> dict[str, Any]:
-    raw = empty_stats()
-    for signal in signals:
-        picks, units = choose_ticket(signal, cfg)
-        if not picks:
-            continue
-        raw["purchaseRaces"] += 1
-        raw["stake"] += BUDGET
-        raw["bets"] += len(picks)
-        for idx, item in enumerate(picks):
-            if str(item["combo"]) == signal["combo"]:
-                raw["hits"] += 1
-                raw["payout"] += int(signal["amount"]) * int(units[idx])
-                break
-    return finalize(raw)
+def evaluate_prepared(months: dict[str, list[dict[str, Any]]], cfg: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    monthly: dict[str, dict[str, Any]] = {}
+    max_points = int(cfg["maxPoints"])
+    mode = str(cfg["allocationMode"])
+    for key, signals in months.items():
+        raw = empty_stats()
+        for signal in signals:
+            picks = filter_items(signal, cfg, max_points)
+            if not picks:
+                continue
+            units = allocate_units(picks, mode)
+            raw["purchaseRaces"] += 1
+            raw["stake"] += BUDGET
+            raw["bets"] += len(picks)
+            for idx, item in enumerate(picks):
+                if item[0] == signal["combo"]:
+                    raw["hits"] += 1
+                    raw["payout"] += int(signal["amount"]) * int(units[idx])
+                    break
+        monthly[key] = finalize(raw)
+    return monthly, combine(list(monthly.values()))
 
 
 def robust_score(monthly: dict[str, dict[str, Any]], total: dict[str, Any]) -> tuple[Any, ...]:
@@ -454,8 +438,7 @@ def main() -> None:
     if race_errors:
         raise SystemExit(f"race download failures: {race_errors}")
 
-    odds_start = date(2026, 5, 1)
-    odds_by_day, odds_errors = fetch_odds_range(odds_start, data_end, args.workers)
+    odds_by_day, odds_errors = fetch_odds_range(date(2026, 5, 1), data_end, args.workers)
     if odds_errors:
         raise SystemExit(f"odds download failures: {odds_errors}")
 
@@ -465,6 +448,7 @@ def main() -> None:
 
     gate_candidates: list[dict[str, Any]] = []
     for alpha in ALPHAS:
+        prepared = prepare_months(dev, alpha)
         for min_ev in MIN_EV_OPTIONS:
             for min_prob in MIN_PROB_OPTIONS:
                 for max_odds in MAX_ODDS_OPTIONS:
@@ -477,11 +461,11 @@ def main() -> None:
                         "allocationMode": "equal",
                         "budget": BUDGET,
                     }
-                    monthly = {key: evaluate(signals, cfg) for key, signals in dev.items()}
-                    total = combine(list(monthly.values()))
+                    monthly, total = evaluate_prepared(prepared, cfg)
                     if int(total["purchaseRaces"]) < MIN_DEV_BUYS:
                         continue
                     gate_candidates.append({"config": cfg, "monthly": monthly, "total": total, "score": robust_score(monthly, total)})
+        print(f"alpha={alpha:.2f} gate search complete", flush=True)
 
     if not gate_candidates:
         raise RuntimeError("no historical-odds gate candidates with enough purchases")
@@ -489,15 +473,21 @@ def main() -> None:
     gate_candidates = gate_candidates[:KEEP_GATES]
 
     candidates: list[dict[str, Any]] = []
-    for gate in gate_candidates:
-        base = gate["config"]
-        for points in POINT_OPTIONS:
-            for mode in ALLOCATION_MODES:
-                cfg = {**base, "maxPoints": points, "allocationMode": mode}
-                monthly = {key: evaluate(signals, cfg) for key, signals in dev.items()}
-                total = combine(list(monthly.values()))
-                score = robust_score(monthly, total)
-                candidates.append({"config": cfg, "developmentMonths": monthly, "development": total, "score": score})
+    for alpha in sorted({float(item["config"]["alpha"]) for item in gate_candidates}):
+        prepared = prepare_months(dev, alpha)
+        for gate in [item for item in gate_candidates if float(item["config"]["alpha"]) == alpha]:
+            base = gate["config"]
+            for points in POINT_OPTIONS:
+                for mode in ALLOCATION_MODES:
+                    cfg = {**base, "maxPoints": points, "allocationMode": mode}
+                    monthly, total = evaluate_prepared(prepared, cfg)
+                    candidates.append({
+                        "config": cfg,
+                        "developmentMonths": monthly,
+                        "development": total,
+                        "score": robust_score(monthly, total),
+                    })
+        print(f"alpha={alpha:.2f} ticket search complete", flush=True)
 
     def qualifies(item: dict[str, Any]) -> bool:
         months = list(item["developmentMonths"].values())
@@ -532,7 +522,9 @@ def main() -> None:
         final_model = v6.fit_conditional_model(records, date(2026, 1, 1), date(2026, 8, 31))
         final_signals, final_missing = make_signals(final_model, records, date(2026, 9, 1), data_end, odds_by_day)
         final_signal_count = len(final_signals)
-        final_stats = evaluate(final_signals, cfg)
+        final_prepared = {"2026-09": [prepare_signal(signal, float(cfg["alpha"])) for signal in final_signals]}
+        final_monthly, _ = evaluate_prepared(final_prepared, cfg)
+        final_stats = final_monthly["2026-09"]
         qualified_for_release = bool(
             int(final_stats["purchaseRaces"]) >= 20
             and profitable(final_stats)
