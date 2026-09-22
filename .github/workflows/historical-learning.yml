@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - 'scripts/backfill_historical.py'
+      - 'scripts/merge_historical.py'
       - '.github/workflows/historical-learning.yml'
 
 permissions:
@@ -14,12 +15,37 @@ permissions:
 
 concurrency:
   group: historical-learning
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   backfill:
+    name: Backfill ${{ matrix.id }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        include:
+          - id: '2021'
+            start: '2021-09-22'
+            end: '2021-12-31'
+          - id: '2022'
+            start: '2022-01-01'
+            end: '2022-12-31'
+          - id: '2023'
+            start: '2023-01-01'
+            end: '2023-12-31'
+          - id: '2024'
+            start: '2024-01-01'
+            end: '2024-12-31'
+          - id: '2025'
+            start: '2025-01-01'
+            end: '2025-12-31'
+          - id: '2026'
+            start: '2026-01-01'
+            end: '2026-09-21'
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,37 +62,71 @@ jobs:
           python -m pip install --upgrade pip
           pip install 'boatrace-lzh==0.1.0'
 
-      - name: Build five-year learning baseline
+      - name: Build partial historical learning
         run: |
-          python scripts/backfill_historical.py \
-            --start 2021-09-22 \
-            --end 2026-09-21 \
+          python -u scripts/backfill_historical.py \
+            --start '${{ matrix.start }}' \
+            --end '${{ matrix.end }}' \
             --workers 4 \
             --request-delay 0.25 \
-            --output app/src/main/assets/historical_learning.json
+            --allow-partial \
+            --output 'partial/historical_learning_${{ matrix.id }}.json'
 
-      - name: Validate baseline
+      - name: Validate partial
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          p = Path('app/src/main/assets/historical_learning.json')
-          data = json.loads(p.read_text(encoding='utf-8'))
-          assert data['trainedFrom'] == '2021-09-22'
-          assert data['trainedThrough'] == '2026-09-21'
-          assert data['historicalRaceCount'] >= 150000
-          assert len(data['starts']) >= 120
-          assert len(data['wins']) >= 120
-          assert len(data['windCourseStarts']) >= 200
-          assert len(data['windCourseWins']) >= 200
+          path = next(Path('partial').glob('historical_learning_*.json'))
+          data = json.loads(path.read_text(encoding='utf-8'))
+          assert data['historicalRaceCount'] > 0
+          assert len(data['starts']) > 0
+          assert len(data['wins']) > 0
           print(json.dumps({
+              'range': f"{data['trainedFrom']}..{data['trainedThrough']}",
               'historicalRaceCount': data['historicalRaceCount'],
               'downloadedDays': data['downloadedDays'],
               'missingOrNoRaceDays': data['missingOrNoRaceDays'],
-              'venueBuckets': len(data['starts']),
-              'windCourseBuckets': len(data['windCourseStarts']),
           }, ensure_ascii=False, indent=2))
           PY
+
+      - name: Upload partial
+        uses: actions/upload-artifact@v4
+        with:
+          name: historical-learning-${{ matrix.id }}
+          path: partial/historical_learning_${{ matrix.id }}.json
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Merge and publish baseline
+    needs: backfill
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download partials
+        uses: actions/download-artifact@v4
+        with:
+          pattern: historical-learning-*
+          path: partial
+          merge-multiple: true
+
+      - name: Merge and validate baseline
+        run: |
+          python -u scripts/merge_historical.py \
+            --input-dir partial \
+            --start 2021-09-22 \
+            --end 2026-09-21 \
+            --output app/src/main/assets/historical_learning.json
 
       - name: Commit baseline
         run: |
