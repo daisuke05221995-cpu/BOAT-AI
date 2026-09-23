@@ -12,7 +12,10 @@ object BetStrategy {
         if (picks.isEmpty()) return emptyList()
         val limited = picks.take(MAX_PICKS)
         val budget = requestedBudget.coerceIn(MIN_BUDGET, MAX_BUDGET).roundDown100()
-        val stakes = allocateByRank(limited.size, budget)
+        // If the upstream strategy already allocated stakes (for example the validated
+        // value strategy's equal/probability allocation), preserve that ratio. This
+        // keeps Android execution aligned with the strategy that selected the tickets.
+        val stakes = scaleExistingAllocation(limited, budget) ?: allocateByRank(limited.size, budget)
 
         return limited.mapIndexed { index, pick ->
             val odds = pick.odds
@@ -25,9 +28,35 @@ object BetStrategy {
             pick.copy(
                 recommendedStake = stakes[index],
                 tier = tier,
-                reason = reasonFor(race, pick, index)
+                reason = pick.reason.ifBlank { reasonFor(race, pick, index) }
             )
         }
+    }
+
+    private fun scaleExistingAllocation(picks: List<PredictionPick>, budget: Int): List<Int>? {
+        if (picks.isEmpty() || picks.any { it.recommendedStake < 100 || it.recommendedStake % 100 != 0 }) {
+            return null
+        }
+        val sourceUnits = picks.map { it.recommendedStake / 100 }
+        val sourceTotal = sourceUnits.sum()
+        if (sourceTotal <= 0) return null
+        val targetUnits = budget / 100
+        if (targetUnits < picks.size) return null
+
+        val raw = sourceUnits.map { source -> targetUnits * source.toDouble() / sourceTotal }
+        val units = raw.map { floor(it).toInt().coerceAtLeast(1) }.toMutableList()
+        while (units.sum() < targetUnits) {
+            val index = units.indices.maxByOrNull { idx -> raw[idx] - floor(raw[idx]) } ?: 0
+            units[index] += 1
+        }
+        while (units.sum() > targetUnits) {
+            val index = units.indices
+                .filter { units[it] > 1 }
+                .minByOrNull { idx -> raw[idx] - floor(raw[idx]) }
+                ?: return null
+            units[index] -= 1
+        }
+        return units.map { it * 100 }
     }
 
     /**
