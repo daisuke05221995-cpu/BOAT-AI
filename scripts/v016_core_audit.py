@@ -13,7 +13,8 @@ def annual_gate(*, months, coverage_verified, roi, buys, out_of_time, odds_timin
     if not coverage_verified: reasons.append('RACE_DENOMINATOR_NOT_VERIFIED')
     if roi is None: reasons.append('ANNUAL_ROI_NOT_EVALUATED')
     elif roi < 105.: reasons.append('ANNUAL_ROI_BELOW_105')
-    if buys < core.MIN_ANNUAL_BUYS: reasons.append('ANNUAL_PURCHASE_COUNT_TOO_LOW')
+    if buys is None: reasons.append('ANNUAL_PURCHASE_COUNT_NOT_EVALUATED')
+    elif buys < core.MIN_ANNUAL_BUYS: reasons.append('ANNUAL_PURCHASE_COUNT_TOO_LOW')
     if not out_of_time: reasons.append('NOT_OUT_OF_TIME_VALIDATION')
     if not odds_timing_verified: reasons.append('PRE_CLOSE_ODDS_TIMING_NOT_VERIFIED')
     return {'passed':not reasons,'reasons':reasons}
@@ -32,7 +33,7 @@ def cache_audit(args):
             'missingCalendarMonths':sorted(set(range(1,13))-set(map(int,months))),
             'winningOddsTimes100EqualsPayoutPercent':100*float(close_match.mean()),
             'annualGate':annual_gate(months=map(int,months),coverage_verified=False,roi=None,
-                        buys=0,out_of_time=False,odds_timing_verified=False),
+                        buys=None,out_of_time=False,odds_timing_verified=False),
             'holdoutOpened':False}
     core.dump(args.output,report)
 
@@ -94,6 +95,7 @@ def test():
     assert not annual_gate(**(base|{'coverage_verified':False}))['passed']
     assert not annual_gate(**(base|{'out_of_time':False}))['passed']
     assert not annual_gate(**(base|{'buys':359}))['passed']
+    assert 'ANNUAL_PURCHASE_COUNT_NOT_EVALUATED' in annual_gate(**(base|{'buys':None}))['reasons']
     print('Annual gate boundary/coverage/timing tests passed')
 
 
