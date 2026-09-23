@@ -95,6 +95,36 @@ class ValueStrategyModelTest {
             }
     }
 
+    @Test
+    fun savedDecisionSurvivesOddsRefreshAndAppRestart() {
+        val race = race()
+        val model = model(maxPoints = 2)
+        PredictionEngine.installValueStrategyModel(model)
+        try {
+            val first = PredictionEngine.applyValueOdds(race, model.allCombinations().associateWith { 150.0 })!!
+            assertEquals(RaceRecommendation.BUY, first.recommendation)
+            val refresh = PredictionEngine.applyValueOdds(race, model.allCombinations().associateWith { 100.0 })!!
+            assertEquals(first, refresh)
+
+            val saved = PredictionRecord(
+                id = race.id, date = race.date, stadiumNumber = race.stadiumNumber,
+                raceNumber = race.raceNumber, combinations = first.picks.map { it.combination },
+                stakePerPick = 600, resultCombination = null, trifectaPayout = 0,
+                settled = false, createdAt = 1L, evaluationEligible = true,
+                recommended = true, recommendationReason = first.reason,
+                stakes = first.picks.map { it.recommendedStake }, strategyId = "value-v1"
+            )
+            PredictionEngine.installValueStrategyModel(model)
+            PredictionEngine.restoreValueSelections(listOf(PredictionRecord.fromJson(saved.toJson())))
+            val restored = PredictionEngine.cachedValueSelection(race)!!
+            assertEquals(first.recommendation, restored.recommendation)
+            assertEquals(first.picks.map { it.combination }, restored.picks.map { it.combination })
+            assertEquals(first.picks.map { it.recommendedStake }, restored.picks.map { it.recommendedStake })
+        } finally {
+            PredictionEngine.installValueStrategyModel(null)
+        }
+    }
+
     private fun model(
         maxPoints: Int,
         thirdFeatures: Int = 65,
