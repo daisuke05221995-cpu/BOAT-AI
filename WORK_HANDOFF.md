@@ -242,3 +242,9 @@ v0.15.3で予想履歴保存とユーザー通知を分離した。
 - Run ID: このcommitで起動後追記。現段階では新モデルのROI未測定、採用候補なし。
 - 次の具体的1手: v016-r2 Runを確認し、features→fit-screen→annual→aggregateまで監視。失敗はv016_r2専用ファイルで修正。合格候補があればモデルSHAと買い方を固定して2025 Q4前の独立確認へ進む。全不合格なら6モデルを不採用記録し同じ閾値探索はしない。
 - 2025全期間を現コードでは読取拒否。Q4未開封、LONGSHOT未着手、本番反映なし。取得時刻・中止/返還・除外母集団の制約は継続。
+
+### r2起動チェックポイント
+
+- Run `35875673825`: IN_PROGRESS。https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/35875673825
+- 実装commit `63cf47e9cd44f0f0c34facc3a9cc79a35128a954`。まだ成績未測定、採否未確定。
+- 次: このRunのcheck、features(2023/2024)、fit-screen(6)、annual(6)、aggregateの状態を確認し、完了まで続行する。
