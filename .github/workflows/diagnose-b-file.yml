@@ -1,0 +1,32 @@
+name: Diagnose official B-file layout
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diagnose-b-file.yml']
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y p7zip-full
+          pip install 'boatrace-lzh==0.1.0'
+      - name: Print one official B-file sample
+        run: |
+          python - <<'PY'
+          from datetime import date
+          from boatrace_lzh import LzhDownloader,ScheduleParser
+          downloader=LzhDownloader(cache_dir='.diagnose-b-cache',max_workers=2,request_delay=.2,timeout=30)
+          files=downloader.download(date(2024,5,12),'schedule')
+          assert files, 'B file download empty'
+          print('file count',len(files))
+          for filename,content in list(files.items())[:2]:
+              parsed=ScheduleParser().parse({filename:content})
+              print('file',filename,'length',len(content),'entries',len(parsed.entries))
+              for index,line in enumerate(content.splitlines()[:105]):
+                  if line.strip():print(index,repr(line[:180]))
+          PY
