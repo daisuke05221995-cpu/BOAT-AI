@@ -180,6 +180,7 @@ class NotificationScheduler(private val context: Context) {
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+            .setSilent(true)
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
             .addAction(0, "公式オッズ", officialIntent)
@@ -205,12 +206,17 @@ class NotificationScheduler(private val context: Context) {
             NotificationChannel(CHANNEL, "レース・更新通知", NotificationManager.IMPORTANCE_DEFAULT)
         )
         manager.createNotificationChannel(
-            NotificationChannel(ALERT_CHANNEL, "購入推奨アラート", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "締切約5分前に、AI判定と最新公式オッズの両方を通過したレースだけ通知します"
+            NotificationChannel(ALERT_CHANNEL, "購入推奨アラート（無音）", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "締切約5分前に、AI判定と最新公式オッズの両方を通過したレースだけ画面通知します"
+                setSound(null, null)
+                enableVibration(false)
             }
         )
         manager.createNotificationChannel(
-            NotificationChannel(SERVICE_CHANNEL, "購入推奨判定処理", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(SERVICE_CHANNEL, "購入推奨判定処理（無音）", NotificationManager.IMPORTANCE_LOW).apply {
+                setSound(null, null)
+                enableVibration(false)
+            }
         )
     }
 
@@ -231,8 +237,8 @@ class NotificationScheduler(private val context: Context) {
     companion object {
         val TOKYO: ZoneId = ZoneId.of("Asia/Tokyo")
         const val CHANNEL = "boat_ai_events"
-        const val ALERT_CHANNEL = "boat_ai_buy_alerts"
-        const val SERVICE_CHANNEL = "boat_ai_alert_checks"
+        const val ALERT_CHANNEL = "boat_ai_buy_alerts_silent_v2"
+        const val SERVICE_CHANNEL = "boat_ai_alert_checks_silent_v2"
         const val ACTION_EVALUATE = "jp.boatai.app.action.EVALUATE_BUY_ALERT"
         const val ACTION_SETTLE = "jp.boatai.app.action.SETTLE_PREDICTION_RESULT"
         const val ACTION_BOOTSTRAP = "jp.boatai.app.action.BOOTSTRAP_ALERTS"
@@ -326,15 +332,20 @@ class AlertEvaluationService : Service() {
             manager.createNotificationChannel(
                 NotificationChannel(
                     NotificationScheduler.SERVICE_CHANNEL,
-                    "購入推奨判定処理",
+                    "購入推奨判定処理（無音）",
                     NotificationManager.IMPORTANCE_LOW
-                )
+                ).apply {
+                    setSound(null, null)
+                    enableVibration(false)
+                }
             )
         }
         val notification = NotificationCompat.Builder(this, NotificationScheduler.SERVICE_CHANNEL)
             .setSmallIcon(android.R.drawable.ic_popup_sync)
             .setContentTitle("BOAT AI")
             .setContentText("予想・結果を確認中")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setSilent(true)
             .setOngoing(true)
             .build()
         if (Build.VERSION.SDK_INT >= 29) {
@@ -385,7 +396,6 @@ class AlertEvaluationService : Service() {
                 scheduler.recordCheck(raceId, "レース再取得失敗: ${it.message ?: "不明"}")
                 return
             }
-        // 以前のレースで既に結果が出ているものは、次の5分前評価時にも確定させる。
         PredictionHistoryStore(this).settle(races)
         BetStore(this).settle(races)
 
