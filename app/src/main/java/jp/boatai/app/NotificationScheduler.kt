@@ -351,35 +351,41 @@ class AlertEvaluationService : Service() {
         }
 
         val learning = LearningStore(this).load()
-        val history = PredictionHistoryStore(this).load()
+        val predictionStore = PredictionHistoryStore(this)
+        val history = predictionStore.load()
         PredictionEngine.installLearningProfile(learning)
         PredictionEngine.installPersistentPerformanceProfile(PerformanceMemoryStore(this).load())
         PredictionEngine.installPerformanceProfile(PredictionPerformanceProfile.from(history))
         PredictionEngine.installValueStrategyModel(ValueStrategyModel.load(this))
         PredictionEngine.restoreValueSelections(history)
 
+        val basePicks = PredictionEngine.predict(race, maxPicks = 4)
+        if (basePicks.isEmpty()) {
+            scheduler.recordCheck(raceId, "見送り: 買い目なし")
+            return
+        }
+
         if (PredictionEngine.hasValueStrategyModel()) {
             val combinations = PredictionEngine.valueOddsCombinations()
             val oddsResult = runCatching { repository.loadOfficialTrifectaOddsDetailed(race, combinations) }
                 .getOrElse {
+                    val failed = RecommendationDecision(RaceRecommendation.SKIP, "見送り：公式オッズ取得失敗")
+                    predictionStore.upsertEvaluatedRace(race, basePicks, failed, "value-v1")
                     scheduler.recordCheck(raceId, "公式オッズ取得失敗: ${it.message ?: "不明"}")
                     return
                 }
             PredictionEngine.applyValueOdds(race, oddsResult.odds, learning)
             val decision = PredictionEngine.recommendation(race)
-            if (!decision.recommended) {
-                scheduler.recordCheck(raceId, "見送り: ${decision.reason}")
-                return
-            }
             val picks = PredictionEngine.withOdds(
                 race,
-                PredictionEngine.predict(race),
+                basePicks,
                 oddsResult.odds,
                 BetStrategy.DEFAULT_BUDGET,
                 learning
-            )
-            if (picks.isEmpty()) {
-                scheduler.recordCheck(raceId, "見送り: 買い目なし")
+            ).ifEmpty { basePicks }
+            predictionStore.upsertEvaluatedRace(race, picks, decision, "value-v1")
+            if (!decision.recommended) {
+                scheduler.recordCheck(raceId, "見送り: ${decision.reason}")
                 return
             }
             scheduler.notifyPurchaseRecommendation(race, picks, decision.reason)
@@ -387,35 +393,40 @@ class AlertEvaluationService : Service() {
             return
         }
 
-        val decision = PredictionEngine.recommendation(race)
-        if (!decision.recommended) {
-            scheduler.recordCheck(raceId, "見送り: ${decision.reason}")
+        val baseDecision = PredictionEngine.recommendation(race)
+        if (!baseDecision.recommended) {
+            predictionStore.upsertEvaluatedRace(race, basePicks, baseDecision, "legacy-final-v1")
+            scheduler.recordCheck(raceId, "見送り: ${baseDecision.reason}")
             return
         }
-        val initial = PredictionEngine.predict(race, maxPicks = 4)
-        if (initial.isEmpty()) {
-            scheduler.recordCheck(raceId, "見送り: 買い目なし")
-            return
-        }
+
         val oddsResult = runCatching {
-            repository.loadOfficialTrifectaOddsDetailed(race, initial.map { it.combination })
+            repository.loadOfficialTrifectaOddsDetailed(race, basePicks.map { it.combination })
         }.getOrElse {
+            val failed = RecommendationDecision(RaceRecommendation.SKIP, "見送り：公式オッズ取得失敗")
+            predictionStore.upsertEvaluatedRace(race, basePicks, failed, "legacy-final-v1")
             scheduler.recordCheck(raceId, "公式オッズ取得失敗: ${it.message ?: "不明"}")
             return
         }
         val picks = PredictionEngine.withOdds(
             race,
-            initial,
+            basePicks,
             oddsResult.odds,
             BetStrategy.DEFAULT_BUDGET,
             learning
         )
         val oddsDecision = BetStrategy.oddsDecision(picks)
-        if (!BetStrategy.oddsRecommended(picks)) {
-            scheduler.recordCheck(raceId, "見送り: $oddsDecision")
+        val finalDecision = if (BetStrategy.oddsRecommended(picks)) {
+            RecommendationDecision(RaceRecommendation.BUY, "$oddsDecision / ${baseDecision.reason}")
+        } else {
+            RecommendationDecision(RaceRecommendation.SKIP, oddsDecision)
+        }
+        predictionStore.upsertEvaluatedRace(race, picks.ifEmpty { basePicks }, finalDecision, "legacy-final-v1")
+        if (!finalDecision.recommended) {
+            scheduler.recordCheck(raceId, "見送り: ${finalDecision.reason}")
             return
         }
-        scheduler.notifyPurchaseRecommendation(race, picks, "$oddsDecision / ${decision.reason}")
+        scheduler.notifyPurchaseRecommendation(race, picks, finalDecision.reason)
         scheduler.recordCheck(raceId, "購入推奨通知済み")
     }
 
