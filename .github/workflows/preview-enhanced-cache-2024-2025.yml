@@ -1,0 +1,148 @@
+name: BOAT AI preview-enhanced 2024-2025 signal caches
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/preview-enhanced-cache-2024-2025.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: boat-ai-preview-enhanced-cache-2024-2025
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: preview cache (${{ matrix.year }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2024, 2025]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y p7zip-full
+          pip install 'numpy>=2.0,<3.0' 'boatrace-lzh==0.1.0'
+
+      - name: Download verified learning parts
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35814229078
+          pattern: learning-part-*
+          path: learning-parts
+          merge-multiple: true
+
+      - name: Build leakage-safe pre-year snapshot
+        env:
+          TARGET_YEAR: ${{ matrix.year }}
+        run: |
+          PREVIOUS_YEAR=$((TARGET_YEAR - 1))
+          mkdir -p selected-learning-parts
+          python - <<'PY'
+          import json, os, shutil
+          from pathlib import Path
+          target=int(os.environ['TARGET_YEAR'])
+          for path in sorted(Path('learning-parts').glob('historical_learning_*.json')):
+              data=json.loads(path.read_text(encoding='utf-8'))
+              if int(str(data['trainedThrough'])[:4]) <= target-1:
+                  shutil.copy2(path, Path('selected-learning-parts')/path.name)
+          PY
+          python -u scripts/merge_validation_learning.py \
+            --input-dir selected-learning-parts \
+            --start 2021-09-22 \
+            --end "${PREVIOUS_YEAR}-12-31" \
+            --output "learning_${TARGET_YEAR}.json"
+
+      - name: Build preview-enhanced signal cache
+        env:
+          TARGET_YEAR: ${{ matrix.year }}
+        run: |
+          mkdir -p preview-cache data
+          python -u scripts/build_preview_enhanced_signal_cache.py \
+            --year "$TARGET_YEAR" \
+            --learning "learning_${TARGET_YEAR}.json" \
+            --workers 16 \
+            --output "preview-cache/signal_cache_${TARGET_YEAR}.npz" \
+            --metadata "data/preview_enhanced_cache_${TARGET_YEAR}.json"
+
+      - name: Validate preview coverage
+        env:
+          TARGET_YEAR: ${{ matrix.year }}
+        run: |
+          python - <<'PY'
+          import json, os
+          year=int(os.environ['TARGET_YEAR'])
+          data=json.load(open(f'data/preview_enhanced_cache_{year}.json', encoding='utf-8'))
+          p=data['previewSource']
+          assert p['raceCoverage'] >= 95.0, p
+          assert p['racerCoverage'] >= 95.0, p
+          assert int(data['cachedRaces']) > 30000
+          print(json.dumps({'year':year,'previewSource':p,'cachedRaces':data['cachedRaces']},ensure_ascii=False,indent=2))
+          PY
+
+      - name: Upload preview cache
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-enhanced-signal-cache-${{ matrix.year }}
+          path: |
+            preview-cache/signal_cache_${{ matrix.year }}.npz
+            data/preview_enhanced_cache_${{ matrix.year }}.json
+          retention-days: 30
+
+      - name: Upload metadata separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-enhanced-metadata-${{ matrix.year }}
+          path: data/preview_enhanced_cache_${{ matrix.year }}.json
+          retention-days: 30
+
+  commit-metadata:
+    name: commit preview cache metadata
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Download metadata
+        uses: actions/download-artifact@v4
+        with:
+          pattern: preview-enhanced-metadata-*
+          path: preview-metadata
+          merge-multiple: true
+      - name: Commit metadata
+        run: |
+          mkdir -p data
+          cp preview-metadata/preview_enhanced_cache_*.json data/
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/preview_enhanced_cache_2024.json data/preview_enhanced_cache_2025.json
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'Update preview-enhanced 2024-2025 cache metadata'
+          git pull --rebase origin main
+          git push origin HEAD:main
