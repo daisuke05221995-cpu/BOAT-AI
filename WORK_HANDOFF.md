@@ -4,16 +4,7 @@
 
 Repository: `daisuke05221995-cpu/BOAT-AI`
 Branch: `main`
-安定公開版: `v0.14.1`
-次期候補: `v0.15.0`（未Release）
-
-## 作業開始時に必ず確認
-
-1. `PROJECT_STATUS.md`
-2. `NEXT_WEEK_HANDOFF.md`
-3. `WORK_HANDOFF.md`
-4. 最新commit / GitHub Actions
-5. 本ファイル記載の進行中Run
+安定公開版: `v0.15.0`
 
 ## Work上限・停止時の最重要ルール
 
@@ -24,132 +15,53 @@ Workの使用上限、タイムアウト、コンテキスト不足などで継�
 復帰案内:
 > Workの上限に近づいたためGitHubへ状態を保存しました。通常チャットに戻って「BOAT AIの続き。GitHubのPROJECT_STATUS.md、NEXT_WEEK_HANDOFF.md、WORK_HANDOFF.mdを確認して、進行中Runも確認して続けて」と送ってください。
 
-## Release原則
+## v0.15.0 公開完了
 
-- 成績を良く見せるために検証基準を緩めない。
-- 不合格戦略を正式Releaseしない。
-- 2025-10-01..2025-12-31は最終ホールドアウト。候補を完全固定するまで絶対に開かない。
-- Q4を一度開いた後は、その結果を見て再調整した戦略に対してQ4をholdoutとは呼ばない。
+- versionCode: 18
+- versionName: 0.15.0
+- Release commit: `c17a63ba6f6ec620ffd44fdec82d8559ee50a611`
+- Release Run: `35840056796`
+- Release: `https://github.com/daisuke05221995-cpu/BOAT-AI/releases/tag/v0.15.0`
+- APK: `BOAT-AI-v0.15.0.apk`
+- APK SHA-256: `34540587dcb9913369d006a50cea5f89070f67baec1faaad869b36a91d34d7e4`
 
-## 確定済み
+Release WorkflowでUnit test / lint / signed APK / signature verify / GitHub Release公開まで成功。
 
-### Android側
+## 本番へ入れたもの
 
-Value Strategy統合済み:
-- 公式3連単120通り取得
-- BUY/SKIP確定
-- SKIP時に旧4点へ自動fallbackしない
-- 個別/一括/履歴が同じ凍結買い目を利用
-- purchase時に再予想しない
-- SKIP履歴は仮想投資0円
-- manual override分離
-- 120通り、最大点数、1200円配分、Python parity、判定凍結/復元Unit testあり
+- 予想 / 結果 / 損益 3タブ
+- 一括 / 個別購入記録
+- 購入推奨 / 見送り
+- 結果・払戻・仮想損益・実購入損益
+- 今日 / 7日 / 今月 / 全期間集計
+- 2026年月別 / 年合計バックテスト
+- GitHub Releases自動更新
+- 既存履歴保持
 
-Android Buildは継続して成功。Release asset exporter/promote workflowは安全ロック中。
-現在 versionCode17 / versionName0.14.1。
+月別バックテストは研究用v12ではなく、現行本番ロジックの `data/historical_backtest_2026.json` を表示する。
+締切時3連単オッズを過去データから再現できないため、その最終オッズ判定は参考バックテストに含まない旨をUIへ表示済み。
 
-### v12まで
+## 研究モデルは本番へ入れていない
 
-2026開発ではv12がROI117.3%だったが、独立旧年評価で失敗:
-- 2023 ROI72.0%
-- 2024 ROI45.5%
-- 2025 ROI56.3%
-よってv12は不採用。
+`app/src/main/assets/value_strategy_model.json` は存在しない。
+したがって、複数年で再現性を確認できなかったValue Strategy / race-softmax研究モデルはv0.15.0で有効化されない。
 
-公式B/K旧年データ品質:
-- program metric coverage 2023 97.75%, 2024 98.03%, 2025 97.68%
-- 平均ST 約99.96%
-- 展示タイム100%
+主な不採用結果:
+- v12: 2026 ROI117.3%だが、2023 72.0% / 2024 45.5% / 2025 56.3%
+- rich race-softmax Run `35839229134`: 2024 ROI90.1%、2025固定ROI59.2%
 
-### 直前情報アーカイブの追加
+2025-10-01〜2025-12-31 Q4最終holdoutは未開封。
 
-`BoatraceOpenAPI/previews` が2023-05-01以降利用可能と確認。
-以下を歴史検証へ復元済み:
-- 展示進入コース
-- 展示ST
-- 展示タイム
-- 風速/風向
-- 波高
+## 次の具体的1手
 
-追加:
-- `scripts/historical_preview_overlay.py`
-- `scripts/build_preview_enhanced_signal_cache.py`
+完成後の次作業は以下。
 
-feature parityのため歴史側learningBonusは0固定。
+1. ユーザー実機でv0.15.0をインストール/更新
+2. 予想・結果・損益・月別バックテスト・更新機能を実機確認
+3. 不具合があればv0.15.xで修正
+4. 予想精度改善はv0.16以降の別フェーズ
+5. 新モデル候補を完全固定するまではQ4 holdoutを開かない
 
-Preview cache Runs:
-- 2023 research/cache: `35830131609` SUCCESS
-- 2024/2025 cache: `35830207608` SUCCESS
-
-Artifacts:
-- 2023 `preview-enhanced-2023-research`
-- 2024 `preview-enhanced-signal-cache-2024`
-- 2025 `preview-enhanced-signal-cache-2025`
-
-### 棄却済みPreview戦略
-
-1. 階層市場校正（単年2024校正）
-- 2024 May-SepではEV>=1.00候補がほぼ0。
-
-2. pooled階層校正
-- 2023 May-Sep + 2024 Feb-Aprの34,927 racesでも2024 May-SepのEV>=1候補0。
-
-3. 2023 Jul-Sep校正→2024移植
-- Run `35832317543` SUCCESS
-- 2024 May-Sep購入候補0。
-
-4. stable structural cells
-- Run `35832714141` SUCCESS
-- `data/stable_market_cells_2023_2025.json`
-- selectedCellCount=0。
-
-結論: calibrated-EV / fixed-cell路線を閾値緩和で救済しない。
-
-## 現在の本命: 非線形Market Residual
-
-追加:
-- `scripts/search_nonlinear_market_residual_2023_2025.py`
-- `.github/workflows/nonlinear-market-residual-2023-2025.yml`
-
-方式:
-- 2023 May-Sep preview-enhanced combo dataで、正則化の強い `HistGradientBoostingClassifier` を1本だけ学習。
-- 入力はpre-raceのみ: market/model probability, odds, model/market rank, ratio, trifecta lane structure。
-- venue/month IDは使わない。
-- 2024 May-Sepではモデルを再学習せず、marketへ戻すbetaをlog-lossだけで選択。
-- ticket gridも小さく固定。
-- 完全固定して2025 May-Sepへ評価。
-- 2025 Oct-Decはこのスクリプトでは読まない。
-
-進行中Run:
-**`35833143407`**
-workflow: `BOAT AI nonlinear market residual 2023-2025`
-直近状態: cache取得/Q4保護チェック成功、`Train 2023 residual model, design 2024, frozen-evaluate 2025` が実行中。
-
-## このRun完了後の具体的な次の1手
-
-1. Run `35833143407` の結果確認。
-2. `data/nonlinear_market_residual_2023_2025.json` を読む。
-3. 確認項目:
-   - 2024 market log-loss vs adjusted log-loss
-   - selected beta
-   - basicVolumeFeasible
-   - 2024 design total/月別
-   - 2025 frozen total/月別
-   - largestHitShare
-   - `readyForFinalHoldout`
-4. `readyForFinalHoldout=false`ならQ4は開かず、モデル本体の次改善へ進む。
-5. `readyForFinalHoldout=true`ならモデル・beta・ticket条件をimmutableに固定し、**初めて2025 Oct-Decを一度だけ評価**。
-6. Q4も合格した場合のみ:
-   - 2026同一定義で整合確認（再調整禁止）
-   - Kotlin実装
-   - Python/Kotlin parity test
-   - promotion/export gate更新
-   - model asset生成
-   - Android Unit/lint/build/signature
-   - versionCode18/versionName0.15.0
-   - GitHub Release公開
-   - `PROJECT_STATUS.md` / 本ファイル完成更新
-
-## 通常チャット復帰文
+## 再開文
 
 `BOAT AIの続き。GitHubのPROJECT_STATUS.md、NEXT_WEEK_HANDOFF.md、WORK_HANDOFF.mdを確認して、進行中Runも確認して続けて。`
