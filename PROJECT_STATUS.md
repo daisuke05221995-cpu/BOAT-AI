@@ -20,16 +20,19 @@ v0.15.10ではユーザーデータを削除せず、`CrashRecoveryStore` がunc
 
 原因切り分けのためバックグラウンドService/ReceiverはManifestで一時無効化中。したがって「クラッシュが消えた」だけで根本原因が確定したとは扱わない。自動予想追跡・Alarm/通知を一度に復帰させない。
 
-## Android次作業
+## Android進行中
 
-復旧機構を残したまま、v0.15.8で一度実装した以下を段階的に戻す。
+独立 `SettingsScreen.kt` は復旧安全版へ再追加済み。commit `128df8339ff0a1aebb2124a3767ec7e58698449e`、Build/Unit test/lint Run `35899813231` SUCCESS。
 
-1. 独立した右上設定ボタン/設定画面
+2026-09-24 07:58 JSTから通常チャット側で、復旧モードを残したまま設定UI接続を段階導入中。最初の段階では右上設定ボタンから専用SettingsScreenへ接続し、損益画面内の旧設定折りたたみを外す。変更後は必ずBuild/Unit test/lintを確認してから次の戻るキー制御へ進む。
+
+以降の順番:
+1. 右上設定ボタン/SettingsScreen接続
 2. Android戻るキーの画面階層制御
 3. 完全無音・無振動通知
 4. バックグラウンドReceiver/Serviceは最後に、例外隔離を追加して段階復帰
 
-各段階でUnit test / lint / Debug buildを通す。署名ReleaseはAndroid検証成功時のみ。アンインストール・アプリデータ消去は禁止。
+署名ReleaseはAndroid検証成功時のみ。アンインストール・アプリデータ消去は禁止。
 
 ## 本番予想ロジック
 
@@ -47,7 +50,7 @@ v0.15.10ではユーザーデータを削除せず、`CrashRecoveryStore` がunc
 
 買い方はr2から固定（1200円、最大3点、minEV1.10、minP0.01、最大40倍）。ROIを見て閾値を後付け調整しない。年次ゲートもROI105%以上・360購入以上・30的中以上・最大1的中依存25%以下・最大1的中除外ROI100%以上を維持。
 
-2024 Q1はpre-2024 feature sidecar不足のため、欠損を0購入として年次合格に数えない。まず必要データ境界と時系列テストを実装する。
+r3 chronology guard workflow Run `35926042062` SUCCESS。未来混入防止/holdout封印/欠損四半期fail-closedの基盤を確認済み。次はwalk-forward本計算実装。
 
 ## 再開時に必ず確認
 
