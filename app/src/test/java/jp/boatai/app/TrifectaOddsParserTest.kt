@@ -41,6 +41,52 @@ class TrifectaOddsParserTest {
     }
 
     @Test
+    fun parsesAll120TrifectaOddsFromOfficialRowspanLayout() {
+        val combinationsByFirst = (1..6).associateWith { first ->
+            buildList {
+                for (second in 1..6) {
+                    if (second == first) continue
+                    for (third in 1..6) {
+                        if (third == first || third == second) continue
+                        add(Triple(first, second, third))
+                    }
+                }
+            }
+        }
+        val expected = linkedMapOf<String, Double>()
+        val bodyRows = buildString {
+            repeat(20) { rowIndex ->
+                append("<tr>")
+                for (first in 1..6) {
+                    val (_, second, third) = combinationsByFirst.getValue(first)[rowIndex]
+                    val combination = "$first-$second-$third"
+                    val odds = first * 100.0 + second * 10.0 + third + rowIndex / 100.0
+                    expected[combination] = odds
+                    if (rowIndex % 4 == 0) {
+                        append("<td rowspan=\"4\">$second</td>")
+                    }
+                    append("<td>$third</td><td class=\"oddsPoint\">$odds</td>")
+                }
+                append("</tr>")
+            }
+        }
+        val headers = (1..6).joinToString("") { first ->
+            "<th class=\"is-boatColor$first\">$first</th><th colspan=\"2\">${first}号艇</th>"
+        }
+        val html = "<html><body><div class=\"table1\"><table><thead><tr>$headers</tr></thead><tbody>$bodyRows</tbody></table></div></body></html>"
+        val requested = expected.keys.toList()
+
+        val actual = BoatRaceRepository().parseTrifectaOdds(Jsoup.parse(html), requested)
+
+        assertEquals(120, requested.size)
+        assertEquals(120, actual.size)
+        assertEquals(expected.keys, actual.keys)
+        expected.forEach { (combination, odds) ->
+            assertEquals(odds, actual.getValue(combination), 0.000001)
+        }
+    }
+
+    @Test
     fun findsOddsTableWithoutDependingOnPageDivStructure() {
         val cells = Array(20) { Array(18) { "-" } }
         val requested = mapOf("1-2-3" to 12.4, "3-1-6" to 48.7, "6-5-4" to 101.2)
