@@ -6,6 +6,8 @@ on:
     branches:
       - main
     paths:
+      - 'scripts/build_kfile_validation_records.py'
+      - 'scripts/validate_multiyear_strategy.py'
       - '.github/workflows/multiyear-validation-reuse.yml'
 
 permissions:
@@ -109,6 +111,8 @@ jobs:
           assert 'excluded' in policy
           assert 'excluded from features' in preview_policy
           assert 'prior-race K-file ST mean' in average_policy
+          assert float(source.get('programMetricCoverage',0.0)) >= 90.0
+          assert int(source.get('programMetricMatchedRacers',0)) > 0
           print(json.dumps({
             'year': year,
             'recordSource': source,
@@ -123,8 +127,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fast-validation-${{ matrix.year }}
-          path: validation_${{ matrix.year }}.json
+          path: validation_${TARGET_YEAR}.json
           retention-days: 14
+        env:
+          TARGET_YEAR: ${{ matrix.year }}
 
   merge:
     needs: validate
@@ -191,18 +197,19 @@ jobs:
                   '2023-2025 are independent of the repeated 2026 strategy-development outcomes.',
                   'Each year uses official K-file learning history ending on Dec 31 of the previous year.',
                   'Official B/K archives reconstruct historical features without same-race result leakage.',
+                  'B-file feature coverage is measured on race/lane rows actually used by the model, not on all parsed program lines.',
                   'The v12 guard policy is frozen during this independent validation.',
-                  'Learning artifacts were reused from successful run 35814229078; their generation code is unchanged from the current validation inputs.',
+                  'Learning artifacts were reused from successful run 35814229078.',
                   'A releaseCandidate=true result permits release engineering checks; it is not a guarantee of future profitability.'
               ],
           }
-          Path('data/multiyear_validation.json').write_text(json.dumps(payload, ensure_ascii=False, separators=(',',':')), encoding='utf-8')
+          Path('data/multiyear_validation.json').write_text(json.dumps(payload, ensure_ascii=False,separators=(',',':')), encoding='utf-8')
           print(json.dumps({
               'combined':combined,
               'yearsMeetingStrictCriteria':payload['yearsMeetingStrictCriteria'],
               'independentValidationPassed':all_years_met,
               'releaseCandidate':release_candidate,
-              'yearSummary':[{ 'year':x['targetYear'], 'roi':x['operation']['roi'], 'profit':x['operation']['profit'], 'positiveMonths':x['positiveOperationMonths'], 'worstMonthRoi':x['worstOperationMonthRoi'], 'passed':x['historicalCriteriaMet']} for x in years],
+              'yearSummary':[{ 'year':x['targetYear'], 'roi':x['operation']['roi'], 'profit':x['operation']['profit'], 'positiveMonths':x['positiveOperationMonths'], 'worstMonthRoi':x['worstOperationMonthRoi'], 'passed':x['historicalCriteriaMet'], 'programMetricCoverage':x['recordSource']['programMetricCoverage']} for x in years],
           }, ensure_ascii=False, indent=2))
           PY
 
