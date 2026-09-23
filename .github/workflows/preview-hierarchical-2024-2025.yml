@@ -1,0 +1,99 @@
+name: BOAT AI frozen preview hierarchical evaluation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/search_preview_hierarchical_2024_2025.py'
+      - '.github/workflows/preview-hierarchical-2024-2025.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: boat-ai-preview-hierarchical-2024-2025
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install NumPy
+        run: pip install 'numpy>=2.0,<3.0'
+
+      - name: Download preview-enhanced 2024-2025 caches
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35830207608
+          pattern: preview-enhanced-signal-cache-*
+          path: preview-cache
+          merge-multiple: true
+
+      - name: Verify holdout isolation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          names=sorted(p.name for p in Path('preview-cache').glob('*.npz'))
+          assert names == ['signal_cache_2024.npz','signal_cache_2025.npz'], names
+          print(names)
+          PY
+
+      - name: Design 2024 and frozen-evaluate 2025
+        run: |
+          mkdir -p data
+          python -u scripts/search_preview_hierarchical_2024_2025.py \
+            --cache-dir preview-cache \
+            --output data/preview_hierarchical_2024_2025.json
+
+      - name: Validate final holdout remains unopened
+        run: |
+          python - <<'PY'
+          import json
+          p='data/preview_hierarchical_2024_2025.json'
+          data=json.load(open(p,encoding='utf-8'))
+          assert data['holdoutPolicy']['opened'] is False
+          assert data['holdoutPolicy']['reserved'] == '2025-10-01..2025-12-31'
+          assert data['releaseQualified'] is False
+          print(json.dumps({
+            'selected':data['selectedTicketConfig'],
+            'design2024':data['design2024']['total'],
+            'frozen2025':data['frozenEvaluation2025']['total'],
+            'readyForFinalHoldout':data['readyForFinalHoldout'],
+          },ensure_ascii=False,indent=2))
+          PY
+
+      - name: Upload research result
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-hierarchical-2024-2025
+          path: data/preview_hierarchical_2024_2025.json
+          retention-days: 30
+
+      - name: Commit research result
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/preview_hierarchical_2024_2025.json
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'Update frozen preview hierarchical evaluation'
+          git pull --rebase origin main
+          git push origin HEAD:main
