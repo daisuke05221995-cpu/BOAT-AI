@@ -6,56 +6,44 @@
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
 - Branch: `main`
-- 復旧公開版: `v0.15.10`
-- versionCode: 28 / versionName: 0.15.10
-- Release commit: `a6062755ac65a2b4048c6ad3a122ccf30524ddb0`
-- Signed Release Run `35884992894`: SUCCESS
-- Release: `https://github.com/daisuke05221995-cpu/BOAT-AI/releases/tag/v0.15.10`
+- 公開中復旧版: `v0.15.10` / versionCode 28
+- 復旧モードと `CrashRecoveryStore` は維持。ユーザーデータ削除・アンインストールは禁止。
 
-## 実機状態
+## Android段階復帰
 
-ユーザー実機でv0.15.10復旧モードが正常起動。復旧画面から通常モードへ入った後も、直前まで再現していたクラッシュは現時点で再発していない。
+完了済み:
+- 独立SettingsScreen追加: Run `35899813231` SUCCESS。
+- 右上⚙→専用設定画面、損益内設定を分離: Run `35931513963` SUCCESS。
+- Android戻るキー階層制御: Run `35932095259` SUCCESS。予想ホームでは戻るキーで終了しない。
+- 全通知を新しいvisual-only channel IDへ変更し、channelでsound=null/vibration=false、通知Builderでもsilent指定: Run `35932491385` SUCCESS。
 
-`CrashRecoveryStore` と `RecoveryActivity` は維持し、ユーザーデータを削除しない。アンインストール・アプリストレージ消去は禁止。
+背景クラッシュ対策 commit `285e9303f5e3a0909ef9fb7c60d8726fe135259f`:
+- ReceiverからForegroundServiceを起動できない場合を捕捉し、プロセスを落とさず非致命ログへ保存。
+- ServiceのstartForeground失敗と処理中例外を捕捉。
+- AlarmManager登録失敗を捕捉。
+- Android 15対策としてBOOT_COMPLETEDからdataSync FGSを直接起動せず、次回Alarm再予約だけ行う。
+- Exact Alarm許可変更BroadcastからもdataSync FGSを直接起動しない。
+- `CrashRecoveryStore.recordNonFatal()` を追加。
 
-クラッシュ原因切り分けのためバックグラウンドService/ReceiverはManifestで一時無効化中。自動予想追跡・Alarm/通知は一度に戻さない。
+現在: 上記background hardening状態のUnit test / lint / Debug APK検証を実行する。Manifestの背景Service/Receiverはまだdisabledのまま。検証成功後に段階的に再有効化する。
 
-## Android再実装状況
-
-独立 `SettingsScreen.kt` は復旧安全版へ再追加済み。commit `128df8339ff0a1aebb2124a3767ec7e58698449e`、Build/Unit test/lint Run `35899813231` SUCCESS。
-
-2026-09-24 08:00 JST時点、右上設定ボタンとSettingsScreen接続を段階導入中。損益内の旧設定折りたたみは専用設定画面へ移す。これがBuild/Unit test/lint成功後にのみ、戻るキー制御へ進む。
-
-次の順番:
-1. 右上設定ボタン/SettingsScreen接続を検証
-2. Android戻るキーの画面階層制御
-3. 完全無音・無振動通知
-4. バックグラウンドReceiver/Serviceを例外隔離付きで段階復帰
-
-署名ReleaseはAndroid検証成功時のみ。復旧モードとクラッシュ記録を削除しない。
-
-## 継続機能
-
-- 4タブ `予想 / 購入 / 結果 / 損益`
-- 半自動一括公式投票ハンドオフ
-- BUY/SKIP履歴と結果settle
-- 実購入/AI仮想損益
-- GitHub Releases更新
+再有効化順:
+1. 購入通知 `AlertEvaluationService` / `BoatNotificationReceiver` / ExactAlarm receiver / boot recovery。
+2. Build成功確認。
+3. 事前予想 `PredictionTrackingService` / receiver / boot receiver。
+4. MainActivity通常起動時に安全なtracking再予約を追加。
+5. Build成功後のみversion bump & signed Release。
 
 ## v0.16研究
 
-CORE r1旧144条件は2024通年で不採用確定。十分な件数の最高ROI 94.081871%。同じ閾値gridを再探索しない。
+r1/r2は不採用固定。最終2025 Q4 holdoutは未開封。
 
-CORE r2は6モデル全不採用。fundamental-small/mediumは2024 ROI 79.93/80.12%。residual-smallはROI 139.79%だが47購入・3的中、最大1的中除外ROI 82.55%で不採用。placeは購入0。校正監査Run `35876699180` SUCCESS。
+r3 walk-forward Run `35931987036` SUCCESS。固定買い方の2024 Q2-Q4結果:
+- residual-small: ROI 91.62%、541購入、27的中、WF logloss 3.750245 vs static r2 3.749849 → calibration FAIL。
+- place-small: ROI 331.67%だが15購入・2的中、WF logloss 3.754098 vs static 3.754326 / market 3.757604 → calibration PASSだが件数不足で収益モデル未合格。
 
-`data/v016_r3_protocol.json` を事前登録済み。r3は旧閾値調整ではなく、residual-small / place-smallを各評価四半期より前だけで再学習するwalk-forward仮説。買い条件は1200円、最大3点、minEV 1.10、minP 0.01、最大40倍に固定し、ROIを見て後付け変更しない。
-
-r3 chronology guard Run `35926042062` SUCCESS。次はwalk-forward本計算実装。
-
-年間ゲートはROI>=105%、360購入以上、30的中以上、最大1的中依存<=25%、最大1的中除外ROI>=100%。
-
-**2025-10-01〜2025-12-31 final holdoutは未開封。候補を完全固定するまで開かない。**
+Q1はpre-2024 sidecar不足でBLOCKED。0購入扱いしない。事前登録ルールに従い、place-smallのQ1を評価できるデータを構築可能か確認してからr3年次判定を行う。買い条件は後付け変更しない。
 
 ## 再開時
 
-`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、最新main commit、進行中Actionsを必ず確認。Androidと研究ファイルを同時に競合編集しない。
+`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、最新main、進行中Actionsを確認する。
