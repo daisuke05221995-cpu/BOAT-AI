@@ -89,7 +89,12 @@ class PredictionHistoryStore(context: Context) {
                 autoSkipped = !decision.recommended,
                 autoSkipReason = decision.reason.takeIf { !decision.recommended },
                 recommended = decision.recommended,
-                recommendationReason = decision.reason
+                recommendationReason = decision.reason,
+                stakes = if (valueSelection?.recommendation == RaceRecommendation.BUY) {
+                    picks.map { it.recommendedStake }
+                } else {
+                    emptyList()
+                }
             )
             existing += race.id
             changed = true
