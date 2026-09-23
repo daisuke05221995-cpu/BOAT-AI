@@ -202,13 +202,34 @@ object PredictionEngine {
         return laneBase + national + local + motor + boat + start + exhibition + previewStart + course
     }
 
+    /**
+     * AI strategy picks. Once the promoted value model is installed, a SKIP or an
+     * as-yet unevaluated race intentionally returns no picks. It must never silently
+     * fall back to the legacy four-point strategy in automated/history paths.
+     */
     fun predict(race: RaceData, maxPicks: Int = 4): List<PredictionPick> {
-        valueSelections[race.id]?.let { selection ->
-            if (selection.recommendation == RaceRecommendation.BUY && selection.picks.isNotEmpty()) {
-                return selection.picks.take(maxPicks)
+        if (valueStrategyModel != null) {
+            val selection = valueSelections[race.id] ?: return emptyList()
+            return if (selection.recommendation == RaceRecommendation.BUY) {
+                selection.picks.take(maxPicks.coerceAtLeast(1))
+            } else {
+                emptyList()
             }
         }
+        return legacyPrediction(race, maxPicks, BetStrategy.DEFAULT_BUDGET)
+    }
 
+    /**
+     * Explicit manual override for a user who chooses to buy a race the validated
+     * value strategy marked SKIP. This is never used for AI recommendation/history.
+     */
+    fun manualOverridePicks(
+        race: RaceData,
+        budget: Int = BetStrategy.DEFAULT_BUDGET,
+        maxPicks: Int = 4
+    ): List<PredictionPick> = legacyPrediction(race, maxPicks, budget)
+
+    private fun legacyPrediction(race: RaceData, maxPicks: Int, budget: Int): List<PredictionPick> {
         if (race.racers.size < 3) return emptyList()
         val scores = race.racers.associate {
             it.lane to (racerScore(it) + learningProfile.bonus(race, it))
@@ -230,7 +251,11 @@ object PredictionEngine {
             }
         }
 
-        return BetStrategy.allocate(race, picks.sortedByDescending { it.score }.take(maxPicks), BetStrategy.DEFAULT_BUDGET)
+        return BetStrategy.allocate(
+            race,
+            picks.sortedByDescending { it.score }.take(maxPicks.coerceAtLeast(1)),
+            budget
+        )
     }
 
     fun withOdds(
@@ -240,9 +265,13 @@ object PredictionEngine {
         budget: Int = BetStrategy.DEFAULT_BUDGET,
         learningOverride: LearningProfile? = null
     ): List<PredictionPick> {
-        val valueSelection = applyValueOdds(race, odds, learningOverride)
-        if (valueSelection != null && valueSelection.recommendation == RaceRecommendation.BUY) {
-            return BetStrategy.allocate(race, valueSelection.picks, budget)
+        if (valueStrategyModel != null) {
+            val valueSelection = applyValueOdds(race, odds, learningOverride) ?: return emptyList()
+            return if (valueSelection.recommendation == RaceRecommendation.BUY) {
+                BetStrategy.allocate(race, valueSelection.picks, budget)
+            } else {
+                emptyList()
+            }
         }
         return BetStrategy.allocate(
             race,
