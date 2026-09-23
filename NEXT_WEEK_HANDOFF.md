@@ -24,9 +24,10 @@
 
 独立 `SettingsScreen.kt` は復旧安全版へ再追加済み。commit `128df8339ff0a1aebb2124a3767ec7e58698449e`、Build/Unit test/lint Run `35899813231` SUCCESS。
 
-次は以下を必ず1段階ずつ導入し、各段階でUnit test / lint / Debug buildを通す。
+2026-09-24 08:00 JST時点、右上設定ボタンとSettingsScreen接続を段階導入中。損益内の旧設定折りたたみは専用設定画面へ移す。これがBuild/Unit test/lint成功後にのみ、戻るキー制御へ進む。
 
-1. MainActivity右上設定ボタンからSettingsScreenへ接続
+次の順番:
+1. 右上設定ボタン/SettingsScreen接続を検証
 2. Android戻るキーの画面階層制御
 3. 完全無音・無振動通知
 4. バックグラウンドReceiver/Serviceを例外隔離付きで段階復帰
@@ -48,6 +49,8 @@ CORE r1旧144条件は2024通年で不採用確定。十分な件数の最高ROI
 CORE r2は6モデル全不採用。fundamental-small/mediumは2024 ROI 79.93/80.12%。residual-smallはROI 139.79%だが47購入・3的中、最大1的中除外ROI 82.55%で不採用。placeは購入0。校正監査Run `35876699180` SUCCESS。
 
 `data/v016_r3_protocol.json` を事前登録済み。r3は旧閾値調整ではなく、residual-small / place-smallを各評価四半期より前だけで再学習するwalk-forward仮説。買い条件は1200円、最大3点、minEV 1.10、minP 0.01、最大40倍に固定し、ROIを見て後付け変更しない。
+
+r3 chronology guard Run `35926042062` SUCCESS。次はwalk-forward本計算実装。
 
 年間ゲートはROI>=105%、360購入以上、30的中以上、最大1的中依存<=25%、最大1的中除外ROI>=100%。
 
