@@ -354,7 +354,7 @@ internal class ValueStrategyModel private constructor(
                     weights = obj.getJSONArray("weights").doubleArray()
                 )
             }
-            ValueStrategyModel(
+            return ValueStrategyModel(
                 trainedThrough = root.getString("trainedThrough"),
                 config = config,
                 first = section("first"),
