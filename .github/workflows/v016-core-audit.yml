@@ -1,0 +1,91 @@
+name: v016 CORE annual coverage and rejection audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/v016_core_audit.py
+      - .github/workflows/v016-core-audit.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v016-core-audit
+  cancel-in-progress: false
+jobs:
+  cache-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024, 2025]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - run: python scripts/v016_core_audit.py test
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 35868298662
+          name: v016-core-prepared-${{ matrix.year }}
+          path: prepared
+      - run: |
+          python scripts/v016_core_audit.py cache --year ${{ matrix.year }} \
+            --cache prepared/prepared_${{ matrix.year }}.npz \
+            --output results/cache-audit-${{ matrix.year }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-core-cache-audit-${{ matrix.year }}
+          path: results/
+          retention-days: 90
+
+  aggregate:
+    needs: cache-audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v016-core-cache-audit-*
+          merge-multiple: true
+          path: results
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 35868298662
+          pattern: v016-core-screen-*
+          merge-multiple: true
+          path: results
+      - run: |
+          python scripts/v016_core_audit.py aggregate --input results \
+            --run '${{ github.run_id }}' --output data/v016_core_audit.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-core-audit
+          path: data/v016_core_audit.json
+          retention-days: 90
+      - name: Commit research audit only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/v016_core_audit.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'Record v016 CORE rejection and annual data audit'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main || exit 1
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1

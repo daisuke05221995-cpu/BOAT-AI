@@ -1,0 +1,65 @@
+{
+  "checkedAt": "2026-09-23T13:45:00Z",
+  "researchOnly": true,
+  "releaseQualified": false,
+  "existingSource": {
+    "repository": "lamrongol/BoatraceOdds",
+    "ref": "a2e5bfe1c377cc7fd17a2d65bbe219304587d3ed",
+    "scraperBlob": "dfd527e2f3394e1f36d73c40ec173c719aac5607",
+    "sourceUrl": "https://github.com/lamrongol/BoatraceOdds/blob/gh-pages/scraper.php",
+    "retrievalPolicy": "scraper.php uses Carbon::yesterday and optional backward historical day; not an archived five-minute-before-close observation.",
+    "coverage": {
+      "2022": "directory absent (HTTP 404; v3 root lists only 2023..2026)",
+      "2023": {
+        "dailyFiles": 350,
+        "first": "2023-01-16",
+        "last": "2023-12-31",
+        "missing": "2023-01-01..2023-01-15"
+      },
+      "2024": {
+        "dailyFiles": 366,
+        "first": "2024-01-01",
+        "last": "2024-12-31"
+      }
+    },
+    "caveat": "File names establish available dates only, not per-race completeness or timestamp validity. 2025 Q4 daily files were never read."
+  },
+  "alternative": {
+    "repository": "BoatraceCSV/BoatraceCSV.github.io",
+    "path": "data/previews/od3",
+    "availableYearDirectories": [
+      "2026"
+    ],
+    "docs": "https://boatracecsv.github.io/docs/data/previews.html",
+    "fields": [
+      "締切時刻",
+      "取得日時"
+    ],
+    "documentedTiming": "1-10 minutes before close, normally ~5 minutes",
+    "scope": "Potential timing-valid recent validation source; cannot supply 2022/2023/2024 annual histories."
+  },
+  "officialSemantics": {
+    "url": "https://www.boatrace.jp/owpc/pc/extra/about.html",
+    "finding": "After-close displayed odds are closing-time odds, not final settled odds reflecting start accidents."
+  },
+  "annualPlanAttempt": {
+    "proposed": "Train 2022, evaluate full 2023 and 2024",
+    "status": "BLOCKED_ON_CURRENT_SOURCE",
+    "reasons": [
+      "2022 odds unavailable in current mirror",
+      "2023 first 15 days missing",
+      "pre-close timestamps not preserved by current research cache"
+    ]
+  },
+  "nextSteps": [
+    "Keep r1 thresholds fixed and preserve all 144 failures; do not open Q4 to search for a rescue.",
+    "Build and verify full 2024 coverage separately; it is available in the mirror, but one full year alone cannot establish multi-year reproducibility.",
+    "Obtain a documented earlier training source and missing 2023 dates; any replacement must be separately versioned and audited before a new pre-registered protocol.",
+    "Validate recent predictions with timestamped 2026 od3 snapshots, enforcing capture<close and excluding hindsight-derived fields; do not present this as an annual test.",
+    "Keep CORE and LONGSHOT blocked from production until annual and timing gates pass; final integration belongs to normal chat."
+  ],
+  "holdoutPolicy": {
+    "period": "2025-10-01..2025-12-31",
+    "opened": false
+  }
+}
