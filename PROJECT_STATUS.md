@@ -1,5 +1,14 @@
 # BOAT AI 引継ぎメモ
 
+## 開発チェックポイント（2026-09-23）
+
+- 安定公開版は v0.14.1。v0.15.0は独立検証待ちで未Release。
+- Android統合: Kotlin公開範囲のビルド不具合を修正。BUY/SKIPテスト、購入見積もりの一致、買い目別仮想損益保存、モデル不整合時の安全見送りを追加。
+- 最新Build Run: 35815647539（Android検証中）。GitHub上の最新版は WORK_HANDOFF.md の更新も含む。
+- 2023/2024/2025独立検証Run: 35814229078（4学習ジョブ成功、3年の年別検証中）。data/multiyear_validation.json は未生成。
+- 次の作業: Build結果と年別検証結果を確認。失敗はjobログから修正。releaseCandidate=trueの場合のみモデルExport/Parity/署名Releaseへ進む。厳格条件は変更しない。
+
+
 ## 現在の状態
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
