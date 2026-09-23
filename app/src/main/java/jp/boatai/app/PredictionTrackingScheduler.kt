@@ -130,7 +130,7 @@ class PredictionTrackingScheduler(private val context: Context) {
         const val ACTION_SETTLE = "jp.boatai.app.action.TRACK_PREDICTION_SETTLE"
         const val EXTRA_RACE_ID = "tracking_race_id"
         const val EXTRA_DATE = "tracking_date"
-        const val SERVICE_CHANNEL = "boat_ai_prediction_tracking_visual_v2"
+        const val SERVICE_CHANNEL = "boat_ai_prediction_tracking"
         const val SERVICE_NOTIFICATION_ID = 9_911
         private const val ALERT_LEAD_MINUTES = 5
         private const val TRACKING_DELAY_MS = 30_000L
@@ -196,7 +196,7 @@ class PredictionTrackingService : Service() {
             manager.createNotificationChannel(
                 NotificationChannel(
                     PredictionTrackingScheduler.SERVICE_CHANNEL,
-                    "事前予想の自動記録（表示のみ）",
+                    "事前予想の自動記録",
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
                     description = "全レースの締切前予想を結果・損益検証用に保存します"
@@ -210,8 +210,6 @@ class PredictionTrackingService : Service() {
             .setContentTitle("BOAT AI")
             .setContentText("事前予想を記録中")
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setDefaults(0)
-            .setVibrate(longArrayOf(0L))
             .setSilent(true)
             .setOngoing(true)
             .build()

@@ -215,6 +215,7 @@ fun CompactResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
 fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
     var period by remember { mutableIntStateOf(0) }
     var showAiDetails by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
 
     val dateText = ui.date.toString()
     val weekStart = ui.date.minusDays(6).toString()
@@ -304,6 +305,15 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
             item { AdvancedAnalyticsCard(ui) }
         }
 
+        item {
+            OutlinedButton(onClick = { showSettings = !showSettings }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (showSettings) "設定を閉じる ▲" else "通知・バックアップ設定 ▼")
+            }
+        }
+        if (showSettings) {
+            item { BackupCard(ui, vm) }
+            item { NotificationSettingsCard(ui, vm) }
+        }
     }
 }
 

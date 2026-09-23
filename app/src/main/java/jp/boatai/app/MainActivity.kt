@@ -2,7 +2,6 @@ package jp.boatai.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -30,7 +29,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,9 +51,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,17 +84,6 @@ private fun BoatAiApp(vm: BoatViewModel) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val selected = ui.selectedRace
     val selectedVenue = ui.selectedVenue
-    var settingsOpen by rememberSaveable { mutableStateOf(false) }
-
-    BackHandler(enabled = true) {
-        when {
-            settingsOpen -> settingsOpen = false
-            selected != null -> vm.closeRace()
-            selectedVenue != null -> vm.closeVenue()
-            ui.tab != 0 -> vm.setTab(0)
-            else -> Unit
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -106,7 +91,6 @@ private fun BoatAiApp(vm: BoatViewModel) {
                 title = {
                     Text(
                         when {
-                            settingsOpen -> "設定"
                             selected != null -> "${selected.venueName} ${selected.raceNumber}R"
                             selectedVenue != null -> "${Venues.name(selectedVenue)} 開催レース"
                             ui.tab == 0 -> "予想  v${BuildConfig.VERSION_NAME}"
@@ -117,34 +101,23 @@ private fun BoatAiApp(vm: BoatViewModel) {
                     )
                 },
                 navigationIcon = {
-                    if (settingsOpen || selected != null || selectedVenue != null) {
-                        IconButton(onClick = {
-                            when {
-                                settingsOpen -> settingsOpen = false
-                                selected != null -> vm.closeRace()
-                                else -> vm.closeVenue()
-                            }
-                        }) {
+                    if (selected != null || selectedVenue != null) {
+                        IconButton(onClick = if (selected != null) vm::closeRace else vm::closeVenue) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                         }
                     }
                 },
                 actions = {
-                    if (!settingsOpen && selected == null && selectedVenue == null) {
-                        if (ui.tab in 0..2) {
-                            IconButton(onClick = vm::refresh) {
-                                Icon(Icons.Default.Refresh, contentDescription = "更新")
-                            }
-                        }
-                        IconButton(onClick = { settingsOpen = true }) {
-                            Icon(Icons.Default.Settings, contentDescription = "設定")
+                    if (selected == null && selectedVenue == null && ui.tab in 0..2) {
+                        IconButton(onClick = vm::refresh) {
+                            Icon(Icons.Default.Refresh, contentDescription = "更新")
                         }
                     }
                 }
             )
         },
         bottomBar = {
-            if (!settingsOpen && selected == null && selectedVenue == null) {
+            if (selected == null && selectedVenue == null) {
                 NavigationBar {
                     NavigationBarItem(
                         selected = ui.tab == 0,
@@ -176,7 +149,6 @@ private fun BoatAiApp(vm: BoatViewModel) {
     ) { innerPadding ->
         Box(Modifier.fillMaxSize().padding(innerPadding)) {
             when {
-                settingsOpen -> SettingsScreen(ui, vm)
                 selected != null -> RaceDetailScreen(ui, vm)
                 selectedVenue != null -> VenueDetailScreen(ui, vm, selectedVenue)
                 ui.tab == 0 -> PredictionScreen(ui, vm)
