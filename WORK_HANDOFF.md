@@ -2,172 +2,153 @@
 
 更新日: 2026-09-23
 
-このファイルは、ChatGPT Workと通常チャットを往復してもBOAT AI開発を同じ位置から再開するためのチェックポイントです。
-
-## 作業開始時に必ず確認
-
-1. Repository: `daisuke05221995-cpu/BOAT-AI`
-2. Branch: `main`
-3. `PROJECT_STATUS.md`
-4. `NEXT_WEEK_HANDOFF.md`
-5. `WORK_HANDOFF.md`
-6. 最新commit
-7. 進行中GitHub Actions
-8. `data/strategy_search_2026.json`
-9. `data/multiyear_validation.json`
-10. v14以降の研究結果JSONがあれば確認
-
-## Workでの基本ルール
-
-- ユーザーへ細かい確認を繰り返さず、既存方針に沿って完成まで進める。
-- 検証条件は成績を良く見せるために勝手に緩めない。
-- 不合格戦略を正式Releaseしない。
-- GitHub Actions失敗時はログを確認し、原因を直して再実行する。
-- 長時間処理でも重要な節目ごとにcommitし、次回再開可能な状態を保つ。
-- ユーザーには長時間無言にせず、短い進捗を返す。
-
-## 上限・停止・タイムアウト対策（最重要）
-
-Workの使用上限、時間上限、コンテキスト上限、ツール制限などで完成まで継続できなくなりそうな場合は、黙って終了しない。
-
-終了前に必ず:
-1. 有効な変更をGitHubへcommit/push。
-2. `PROJECT_STATUS.md` とこのファイルへ現在位置を保存。
-3. 進行中Run ID、status、失敗ならjob/stepを保存。
-4. 次に実行すべき具体的な1手を保存。
-5. ユーザーへ通常チャットへ戻るよう案内。
-
-復帰案内:
-> Workの上限に近づいたため、続きが消えないようGitHubへ状態を保存しました。通常のチャットに戻って「BOAT AIの続き。GitHubのPROJECT_STATUS.md、NEXT_WEEK_HANDOFF.md、WORK_HANDOFF.mdを確認して、進行中Runも確認して続けて」と送ってください。
-
-## 現在の作業地点
-
+Repository: `daisuke05221995-cpu/BOAT-AI`
+Branch: `main`
 安定公開版: `v0.14.1`
 次期候補: `v0.15.0`（未Release）
 
-### 2026 v12
+## 作業開始時に必ず確認
 
-2026年5〜9月の開発結果:
-- ROI 117.3%
-- 損益 +498,780円
-- 2,407購入推奨レース
-- プラス月 4/5
-- 最悪月ROI 94.7%
-- `historicalCriteriaMet=true`
+1. `PROJECT_STATUS.md`
+2. `NEXT_WEEK_HANDOFF.md`
+3. `WORK_HANDOFF.md`
+4. 最新commit / GitHub Actions
+5. 本ファイル記載の進行中Run
 
-ただし2026は繰り返し開発へ使ったため、この結果単独ではReleaseしない。
+## Work上限・停止時の最重要ルール
 
-### v12 複数年検証結果
+Workの使用上限、タイムアウト、コンテキスト不足などで継続できなくなりそうな場合は黙って終了しない。
+終了前に必ず有効な変更をcommit/pushし、このファイルへ現在位置・Run ID・次の具体的1手を保存する。
+その後ユーザーへ通常チャットへ戻るよう案内する。
 
-公式B/Kファイルからリークなしで2023〜2025を復元し、過去3連単オッズと結合して完走済み。
+復帰案内:
+> Workの上限に近づいたためGitHubへ状態を保存しました。通常チャットに戻って「BOAT AIの続き。GitHubのPROJECT_STATUS.md、NEXT_WEEK_HANDOFF.md、WORK_HANDOFF.mdを確認して、進行中Runも確認して続けて」と送ってください。
 
-データ品質:
-- 2023 program metric coverage: 97.75%
-- 2024: 98.03%
-- 2025: 97.68%
-- 平均ST coverage: 約99.96%
-- 展示タイム coverage: 100%
+## Release原則
 
-v12旧年運用成績:
-- 2023: ROI 72.0%, 7,381購入, 0/5月プラス
-- 2024: ROI 45.5%, 867購入, 0/5月プラス
-- 2025: ROI 56.3%, 1,326購入, 0/5月プラス
+- 成績を良く見せるために検証基準を緩めない。
+- 不合格戦略を正式Releaseしない。
+- 2025-10-01..2025-12-31は最終ホールドアウト。候補を完全固定するまで絶対に開かない。
+- Q4を一度開いた後は、その結果を見て再調整した戦略に対してQ4をholdoutとは呼ばない。
 
-`releaseCandidate=false`。v12は正式Releaseしない。
-2023〜2025年5〜9月は既に結果を見ているため今後は開発データ扱い。
-
-### v13 結果
-
-`validate_multiyear_strategy_v13.py` で、alphaをROIではなくlog-lossだけで校正し、買い条件を2〜4月で固定する方式を試した。
-
-Run: `35823941965`
-結果: 2023/2024/2025すべて同じ理由でresearch step failure。
-原因: `no v13 ticket configuration met calibration-volume guard`。
-つまり確率精度を優先して市場側へ縮めると、minEV >=1.02で十分な購入件数を作れる設定が無かった。
-無理にalphaを上げて買わせる方向には進めない。
-
-### v14（現在進行中）
-
-新規:
-- `scripts/build_market_signal_cache.py`
-- `.github/workflows/build-market-signal-cache.yml`
-- `scripts/search_multiyear_strategy_v14.py`
-
-v14方針:
-- モデル確率 / 市場確率のlog-ratioを固定binへ分類。
-- 過去の実績から各binの市場比勝率multiplierを推定。
-- multiplierは固定prior=100で市場(1.0)へ縮約、0.50〜1.75にcap。
-- bin境界/prior/capは結果を見て探索しない。
-- 2023年5〜9月だけでticket条件を設計。
-- ticket条件を凍結し、2024/2025年5〜9月へそのまま適用。
-- 2024/25の結果を見てticket条件を変更しない。
-
-重い公式B/K復元を毎回繰り返さないため、3年分の120通りAI確率・市場確率・オッズ・結果をNPZへキャッシュ中。
-
-現行キャッシュRun:
-- **35824767175**
-- workflow: `Build archived market signal caches`
-- 2023/2024/2025を並列生成中。
-- 成功したらArtifactのrun-id 35824767175をv14研究Workflowから再利用する。
-
-### 最終ホールドアウト（絶対に先に開かない）
-
-**2025年10月1日〜12月31日をv14以降の最終ホールドアウトとして予約。**
-
-重要ルール:
-- 今までの予想戦略検証は基本的に9月末までで、2025年10〜12月の戦略成績はまだ見ていない。
-- v14のアルゴリズム・bin・prior・cap・ticket条件を完全固定するまで2025年10〜12月を評価しない。
-- v14が2023設計＋2024/2025年5〜9月の固定条件評価で十分安定した場合のみ、一度だけ2025年10〜12月を開く。
-- 2025年10〜12月を見た後に条件を変更したら、その期間は以後holdoutとは呼ばない。
-- 最終Release判断ではこのルールを必ず保持する。
+## 確定済み
 
 ### Android側
 
 Value Strategy統合済み:
 - 公式3連単120通り取得
-- Value StrategyでBUY/SKIP確定
-- SKIP時に旧4点へ自動フォールバックしない
-- 個別/一括/履歴が同じ確定買い目を使用
-- 購入時に再予想しない
+- BUY/SKIP確定
+- SKIP時に旧4点へ自動fallbackしない
+- 個別/一括/履歴が同じ凍結買い目を利用
+- purchase時に再予想しない
 - SKIP履歴は仮想投資0円
-- manual overrideを分離
-- BUY/SKIP、120通り、最大10点、1200円配分、Python parity、判定凍結/復元Unit testあり
+- manual override分離
+- 120通り、最大点数、1200円配分、Python parity、判定凍結/復元Unit testあり
 
-最新Android Build確認済み:
-- Run `35817872634`: SUCCESS
-- Unit tests / lint / Debug APKすべてSUCCESS
+Android Buildは継続して成功。Release asset exporter/promote workflowは安全ロック中。
+現在 versionCode17 / versionName0.14.1。
 
-現Android `ValueStrategyModel` は静的alpha/config前提。最終戦略がv14方式になった場合は empirical bin multiplier を実装し、Python/Kotlin parity testを追加する必要がある。
+### v12まで
 
-### Release安全ロック
+2026開発ではv12がROI117.3%だったが、独立旧年評価で失敗:
+- 2023 ROI72.0%
+- 2024 ROI45.5%
+- 2025 ROI56.3%
+よってv12は不採用。
 
-現在 `promote-value-model.yml` / `export_value_strategy_model.py` は旧v12独立検証ゲートでロックされており、assetは生成不能。これは意図どおり。
+公式B/K旧年データ品質:
+- program metric coverage 2023 97.75%, 2024 98.03%, 2025 97.68%
+- 平均ST 約99.96%
+- 展示タイム100%
 
-最終Release工程:
-1. 最終戦略を固定。
-2. 予約済み2025年10〜12月holdoutを一度だけ評価。
-3. 合格なら2026整合性確認。
-4. Python/Kotlin parity。
-5. Releaseゲートを最終戦略用へ更新。
-6. model asset生成。
-7. Android Unit test/lint/Build成功。
-8. 月別損益UI/説明を最終戦略へ更新。
-9. versionCode 18 / versionName 0.15.0。
-10. signed Release APK・署名検証・GitHub Release公開。
-11. `PROJECT_STATUS.md` とこのファイルを完成状態へ更新。
+### 直前情報アーカイブの追加
 
-現在:
-- versionCode 17
-- versionName 0.14.1
+`BoatraceOpenAPI/previews` が2023-05-01以降利用可能と確認。
+以下を歴史検証へ復元済み:
+- 展示進入コース
+- 展示ST
+- 展示タイム
+- 風速/風向
+- 波高
 
-## 次の具体的な1手
+追加:
+- `scripts/historical_preview_overlay.py`
+- `scripts/build_preview_enhanced_signal_cache.py`
 
-1. **Run 35824767175** の3年signal cache完了を確認。
-2. Artifactが揃ったらv14研究Workflowを作成し、そのrun-idからcacheを取得。
-3. v14で2023 design / 2024・2025 May-Sep frozen-config評価。
-4. 結果が不安定なら2025 Oct-Decは開かず、開発期間だけでv15以降へ改善。
-5. 結果が十分安定した時だけアルゴリズムを完全固定して2025 Oct-Dec holdoutを一度だけ評価。
-6. Release条件を満たすまではv0.15.0を公開しない。
+feature parityのため歴史側learningBonusは0固定。
+
+Preview cache Runs:
+- 2023 research/cache: `35830131609` SUCCESS
+- 2024/2025 cache: `35830207608` SUCCESS
+
+Artifacts:
+- 2023 `preview-enhanced-2023-research`
+- 2024 `preview-enhanced-signal-cache-2024`
+- 2025 `preview-enhanced-signal-cache-2025`
+
+### 棄却済みPreview戦略
+
+1. 階層市場校正（単年2024校正）
+- 2024 May-SepではEV>=1.00候補がほぼ0。
+
+2. pooled階層校正
+- 2023 May-Sep + 2024 Feb-Aprの34,927 racesでも2024 May-SepのEV>=1候補0。
+
+3. 2023 Jul-Sep校正→2024移植
+- Run `35832317543` SUCCESS
+- 2024 May-Sep購入候補0。
+
+4. stable structural cells
+- Run `35832714141` SUCCESS
+- `data/stable_market_cells_2023_2025.json`
+- selectedCellCount=0。
+
+結論: calibrated-EV / fixed-cell路線を閾値緩和で救済しない。
+
+## 現在の本命: 非線形Market Residual
+
+追加:
+- `scripts/search_nonlinear_market_residual_2023_2025.py`
+- `.github/workflows/nonlinear-market-residual-2023-2025.yml`
+
+方式:
+- 2023 May-Sep preview-enhanced combo dataで、正則化の強い `HistGradientBoostingClassifier` を1本だけ学習。
+- 入力はpre-raceのみ: market/model probability, odds, model/market rank, ratio, trifecta lane structure。
+- venue/month IDは使わない。
+- 2024 May-Sepではモデルを再学習せず、marketへ戻すbetaをlog-lossだけで選択。
+- ticket gridも小さく固定。
+- 完全固定して2025 May-Sepへ評価。
+- 2025 Oct-Decはこのスクリプトでは読まない。
+
+進行中Run:
+**`35833143407`**
+workflow: `BOAT AI nonlinear market residual 2023-2025`
+直近状態: cache取得/Q4保護チェック成功、`Train 2023 residual model, design 2024, frozen-evaluate 2025` が実行中。
+
+## このRun完了後の具体的な次の1手
+
+1. Run `35833143407` の結果確認。
+2. `data/nonlinear_market_residual_2023_2025.json` を読む。
+3. 確認項目:
+   - 2024 market log-loss vs adjusted log-loss
+   - selected beta
+   - basicVolumeFeasible
+   - 2024 design total/月別
+   - 2025 frozen total/月別
+   - largestHitShare
+   - `readyForFinalHoldout`
+4. `readyForFinalHoldout=false`ならQ4は開かず、モデル本体の次改善へ進む。
+5. `readyForFinalHoldout=true`ならモデル・beta・ticket条件をimmutableに固定し、**初めて2025 Oct-Decを一度だけ評価**。
+6. Q4も合格した場合のみ:
+   - 2026同一定義で整合確認（再調整禁止）
+   - Kotlin実装
+   - Python/Kotlin parity test
+   - promotion/export gate更新
+   - model asset生成
+   - Android Unit/lint/build/signature
+   - versionCode18/versionName0.15.0
+   - GitHub Release公開
+   - `PROJECT_STATUS.md` / 本ファイル完成更新
 
 ## 通常チャット復帰文
 
