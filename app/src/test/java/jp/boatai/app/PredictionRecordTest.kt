@@ -65,4 +65,19 @@ class PredictionRecordTest {
         val restored = PredictionRecord.fromJson(original.toJson())
         assertEquals(original, restored)
     }
+
+    @Test
+    fun valueStrategyKeepsPerCombinationStakesForVirtualPayout() {
+        val record = PredictionRecord(
+            id = "2026-09-23-01-1", date = "2026-09-23", stadiumNumber = 1, raceNumber = 1,
+            combinations = listOf("1-2-3", "1-3-2", "2-1-3"), stakePerPick = 300,
+            resultCombination = "1-3-2", trifectaPayout = 2_450, settled = true,
+            createdAt = 3L, stakes = listOf(500, 600, 100)
+        )
+
+        assertEquals(1_200, record.simulatedStake)
+        assertEquals(14_700, record.simulatedPayout)
+        assertEquals(13_500, record.simulatedProfit)
+        assertEquals(record, PredictionRecord.fromJson(record.toJson()))
+    }
 }
