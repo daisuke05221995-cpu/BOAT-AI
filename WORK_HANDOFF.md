@@ -14,16 +14,17 @@
 6. 最新commit
 7. 進行中GitHub Actions
 8. `data/strategy_search_2026.json`
-9. `data/multiyear_validation.json` が存在すれば必ず確認
+9. `data/multiyear_validation.json`
+10. `data/strategy_v13_multiyear.json` が存在すれば確認
 
 ## Workでの基本ルール
 
 - ユーザーへ細かい確認を繰り返さず、既存方針に沿って完成まで進める。
-- 独立検証の合格条件は勝手に緩めない。
-- `releaseCandidate=true` にならない限り新Value Strategyを正式Releaseしない。
+- 検証条件は成績を良く見せるために勝手に緩めない。
+- 不合格戦略を正式Releaseしない。
 - GitHub Actions失敗時はログを確認し、原因を直して再実行する。
-- 中途半端な実装をReleaseしない。
-- 長時間作業でも重要な節目ごとにcommitし、次回再開可能な状態を保つ。
+- 長時間処理でも重要な節目ごとにcommitし、次回再開可能な状態を保つ。
+- ユーザーには長時間無言にせず、短い進捗を返す。
 
 ## 上限・停止・タイムアウト対策（最重要）
 
@@ -53,47 +54,52 @@ Workの使用上限、時間上限、コンテキスト上限、ツール制限�
 - プラス月 4/5
 - 最悪月ROI 94.7%
 - `historicalCriteriaMet=true`
-- 2026は繰り返し開発へ使ったため、これ単独ではReleaseしない。
 
-本番候補 `nextLiveConfig`:
-- alpha 0.25
-- minEv 1.05
-- minProbability 0.005
-- maxOdds 150.0
-- maxPoints 2
-- allocationMode equal
-- budget 1200
+ただし2026は繰り返し開発へ使ったため、この結果単独ではReleaseしない。
 
-### 独立複数年検証（最優先）
+### v12 複数年検証結果
 
-現行Run: **35817304411**
-head commit: `acca55854ce44ea4dcc61e69f4eeb7a2f30081cf`
+公式B/Kファイルからリークなしで2023〜2025を復元し、過去3連単オッズと結合して完走済み。
 
-最新確認時:
-- learning-parts 2021: SUCCESS
-- learning-parts 2022: SUCCESS
-- learning-parts 2023: SUCCESS
-- learning-parts 2024: IN_PROGRESS
-- 2023/2024/2025 validateは2024 learning完了待ち
+データ品質（実際の予測レースへ一致した事前指標coverage）:
+- 2023: 97.75%
+- 2024: 98.03%
+- 2025: 97.68%
+- 平均ST coverage: 約99.96%
+- 展示タイム coverage: 100%
 
-直前Run `35814229078` の失敗原因は戦略成績ではなく、公式Bファイルの事前指標coverageが4.81%しか取れないパース不具合だった。
-原因: 歴史Bファイルは1ファイルに複数会場（`21BBGN`, `20BBGN`, ...）が連結されるのに、旧実装が1ファイル1会場と仮定していた。
+したがって旧年の不振はパーサ不足ではなくv12戦略側の問題と判断。
 
-修正済み `scripts/build_kfile_validation_records.py`:
-- Bファイル会場ヘッダを行単位で追跡。
-- 会場ごとの1〜12Rへ正しく紐付け。
-- 選手行の固定スペース依存を廃止し、級別後の数値から全国/当地勝率・motor/boat 2連率を抽出。
-- Kファイルの対象レース実ST/実進入/結果時風波は同レース予測に使わない。
-- 平均STは前年まで＋前日までのK結果から再構成。
+v12旧年運用成績:
+- 2023: ROI 72.0%, 7,381購入, 0/5月プラス
+- 2024: ROI 45.5%, 867購入, 0/5月プラス
+- 2025: ROI 56.3%, 1,326購入, 0/5月プラス
 
-厳格Release条件は2023/2024/2025の各年すべて:
-- 5〜9月 ROI >= 105%
-- 4/5月以上プラス
-- 最悪月 ROI >= 90%
-- 各月50購入以上
-- 年500購入以上
-さらに2026 `historicalCriteriaMet=true`。
-基準は緩めない。
+`releaseCandidate=false`。v12は正式Releaseしない。
+
+重要: 2023〜2025はこの結果を既に確認済みなので、今後は完全未使用holdoutではなく**開発データ**として扱う。
+
+### v13 研究版（現在進行中）
+
+新規:
+- `scripts/validate_multiyear_strategy_v13.py`
+- `.github/workflows/strategy-v13-research.yml`
+
+v13方針:
+- AI/市場ブレンド係数alphaをROIで選ばない。
+- alphaは過去月の正解3連単に対するlog-lossだけで校正。
+- alpha候補に0.0（市場単独）も含む。
+- 買い条件（minEV/minProbability/maxOdds/maxPoints/資金配分）は2〜4月で1回だけ選択。
+- 5〜9月は買い条件を固定。
+- 毎月変えてよいのはalphaだけで、対象月より前の結果しか使わない。
+- 2023〜2025は開発データなので、v13が良くてもそれだけでReleaseロックを解除しない。
+
+現行v13 Run:
+- **35823941965**
+- head commit: `3c87cc756d1911dec20439af2ed1a924d62fe838`
+- 2023/2024/2025を並列実行。
+- 最新確認時: 3年とも `Run v13 research` 本計算中。
+- 完了後 `data/strategy_v13_multiyear.json` をcommitする。
 
 ### Android側
 
@@ -104,53 +110,47 @@ Value Strategy統合済み:
 - 個別/一括/履歴が同じ確定買い目を使用
 - 購入時に再予想しない
 - SKIP履歴は仮想投資0円
-- 手動でSKIPを買う場合のみ明示的なmanual override
+- 手動でSKIPを買う場合のみmanual override
 - BUY/SKIP、120通り、最大10点、1200円配分、Python parity、判定凍結/復元Unit testあり
 
-最新Android Build:
-- Run **35817872634**: SUCCESS
+最新Android Build確認済み:
+- Run `35817872634`: SUCCESS
 - Unit tests / lint / Debug APKすべてSUCCESS
 
 ### 月別バックテスト表示
 
-v0.15用に旧4点バックテスト表示からv12戦略表示へ修正済み。
-- `HistoricalBacktestRepository.kt`: `data/strategy_search_2026.json` を読む。
-- `HistoricalBacktestCard.kt`: 過去3連単オッズ込みv12を表示。
-- 1〜4月は学習・校正期間として成績を作らない。
+v0.15用UIは新Value Strategy表示へ修正済み。
+- 1〜4月は学習・校正期間。
 - 5〜9月を運用検証として表示。
 - 2026だけではRelease判定しない旨を明示。
-- この変更込みBuild Run `35817872634` SUCCESS。
+
+ただし最終採用戦略がv13以降へ変わる場合、表示JSON/説明も最終戦略へ合わせて再更新すること。
 
 ### 昇格・Release安全ロック
 
-`promote-value-model.yml` と `export_value_strategy_model.py` は以下を全要求:
-- validationYears == [2023, 2024, 2025]
-- 3年すべて strict criteria pass
-- `independentValidationPassed=true`
-- `releaseCandidate=true`
-- 2026 criteria pass
+既存 `promote-value-model.yml` / `export_value_strategy_model.py` はv12用独立検証ゲートを要求しているため、現在は昇格不能で正しい。
 
-合格すると `app/src/main/assets/value_strategy_model.json` を生成・commit。
-不合格ならassetは生成しない。
+最終戦略を採用する場合は:
+1. 最終戦略を固定。
+2. 可能な限り未使用期間または厳格な時系列外検証を実施。
+3. Android/Python parityを確認。
+4. Releaseゲートを最終戦略用へ更新。
+5. asset生成。
+6. Android Build/Unit test/lint成功。
+7. `versionCode 18`, `versionName 0.15.0`へ変更。
+8. signed Release APKと署名検証を通してGitHub Release公開。
 
-Release Workflowは `app/build.gradle.kts` 更新で起動。
 現在:
 - versionCode 17
 - versionName 0.14.1
 
-独立検証＋asset昇格＋最終Build成功後だけ:
-- versionCode 18
-- versionName 0.15.0
-へ変更し、signed Release APK、署名検証、GitHub Releaseへ進む。
-
 ## 次の具体的な1手
 
-1. **Run 35817304411** を確認。
-2. 2024 learning完了後、2023/2024/2025 validate結果を確認。
-3. パーサ/coverageの技術エラーならログを見て修正し再実行。
-4. 成績結果まで成功したら `data/multiyear_validation.json` を確認。
-5. `releaseCandidate=true` なら Promote Workflow → asset生成 → Android Build/Parity確認 → versionCode18/versionName0.15.0 → Release。
-6. `releaseCandidate=false` なら基準を下げずReleaseしない。3年結果は一度見た時点で完全未使用holdoutではなくなるため、その事実を保持して次の改善を設計する。
+1. **Run 35823941965** を確認。
+2. 成功なら `data/strategy_v13_multiyear.json` を確認し、2023/2024/2025各年・合計ROI、プラス月数、最悪月、選ばれたalpha/固定買い条件を確認。
+3. v13が改善しない場合、基準を緩めず、AI確率と市場確率の比をbin/isotonic等で校正する次方式へ進む。
+4. v13が安定して改善した場合、設定を固定して2026を確認し、Android ValueStrategyModelへ同じ計算を実装してparity testを追加。
+5. Release条件を満たすまではv0.15.0を公開しない。
 
 ## 通常チャット復帰文
 
