@@ -257,3 +257,9 @@ v0.15.3で予想履歴保存とユーザー通知を分離した。
 - 2023年9月でもresidualの高ROIは1的中依存。複数年収益再現性の合格には程遠く、2025独立確認を行う候補なし。2025は全期間未追加参照、Q4封印、LONGSHOT未着手。
 - 追加実施: 保存済み予測と特徴量Artifactだけを再利用する12並列校正監査。モデル再学習・買い方再探索はしない。日単位bootstrapで市場に対するlogloss差を確認し、予測期待ROIと実績ROIの乖離を記録する。
 - 次の具体的1手: `v016-r2-audit.yml` の新Run（起動後追記）を確認して監査結果を取得。結果/制約/次研究の根拠をreportとこのファイルへ保存する。
+
+### 校正監査Run起動
+
+- Run `35876699180`: IN_PROGRESS。https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/35876699180
+- 実装commit `450ededf920fef483983d2fa179fac25934afc52`。r2本体Run `35875673825` はSUCCESSで全6モデル不採用確定。
+- 次: 12並列auditとaggregateの成否を確認し、`data/v016_r2_audit.json` を読む。
