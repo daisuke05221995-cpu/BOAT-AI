@@ -1,0 +1,154 @@
+name: BOAT AI preview-enhanced 2023 research
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/historical_preview_overlay.py'
+      - 'scripts/build_preview_enhanced_signal_cache.py'
+      - '.github/workflows/preview-enhanced-2023-research.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: boat-ai-preview-enhanced-2023
+  cancel-in-progress: true
+
+jobs:
+  research:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y p7zip-full
+          pip install 'numpy>=2.0,<3.0' 'boatrace-lzh==0.1.0'
+
+      - name: Download verified learning parts
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35814229078
+          pattern: learning-part-*
+          path: learning-parts
+          merge-multiple: true
+
+      - name: Build pre-2023 learning snapshot
+        run: |
+          mkdir -p selected-learning-parts
+          python - <<'PY'
+          import json, shutil
+          from pathlib import Path
+          for path in sorted(Path('learning-parts').glob('historical_learning_*.json')):
+              data=json.loads(path.read_text(encoding='utf-8'))
+              if int(str(data['trainedThrough'])[:4]) <= 2022:
+                  shutil.copy2(path, Path('selected-learning-parts')/path.name)
+          PY
+          python -u scripts/merge_validation_learning.py \
+            --input-dir selected-learning-parts \
+            --start 2021-09-22 \
+            --end 2022-12-31 \
+            --output learning_2023.json
+
+      - name: Build preview-enhanced signal cache
+        run: |
+          mkdir -p preview-cache data
+          python -u scripts/build_preview_enhanced_signal_cache.py \
+            --year 2023 \
+            --learning learning_2023.json \
+            --workers 16 \
+            --output preview-cache/signal_cache_2023.npz \
+            --metadata data/preview_enhanced_cache_2023.json
+
+      - name: Validate preview coverage
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/preview_enhanced_cache_2023.json', encoding='utf-8'))
+          preview=data['previewSource']
+          assert preview['raceCoverage'] >= 95.0, preview
+          assert preview['racerCoverage'] >= 95.0, preview
+          assert data['previewArchive']['availableFrom'] == '2023-05-01'
+          assert 'learning bonus input forced to zero' in data['featurePolicy']
+          print(json.dumps(preview, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Run hierarchical edge diagnostic on preview model
+        run: |
+          python -u scripts/diagnose_v15_hierarchical_edge.py \
+            --cache-dir preview-cache \
+            --output data/v15_preview_enhanced_edge_2023.json
+
+      - name: Run residual stacker diagnostic on preview model
+        run: |
+          python -u scripts/diagnose_v16_market_residual_stacker.py \
+            --cache-dir preview-cache \
+            --output data/v16_preview_enhanced_stacker_2023.json
+
+      - name: Summarize comparison
+        run: |
+          python - <<'PY'
+          import json
+          h=json.load(open('data/v15_preview_enhanced_edge_2023.json', encoding='utf-8'))
+          s=json.load(open('data/v16_preview_enhanced_stacker_2023.json', encoding='utf-8'))
+          assert h['candidateOutcomesRead'] is False
+          assert s['candidateOutcomesRead'] is False
+          summary={
+              'previewCoverage': json.load(open('data/preview_enhanced_cache_2023.json', encoding='utf-8'))['previewSource'],
+              'hierarchical': {
+                  'maxEv': h['maxCalibratedEv'],
+                  'ev102Races': h['aggregateRaceCounts']['ev1.02'],
+                  'ev105Races': h['aggregateRaceCounts']['ev1.05'],
+              },
+              'stacker': {
+                  'marketValidationLogLoss': s['marketValidationLogLoss'],
+                  'stackerValidationLogLoss': s['stackerValidationLogLoss'],
+                  'maxEv': s['maxCalibratedEv'],
+                  'ev102Races': s['aggregateRaceCounts']['ev1.02'],
+              },
+          }
+          with open('data/preview_enhanced_2023_summary.json','w',encoding='utf-8') as f:
+              json.dump(summary,f,ensure_ascii=False,separators=(',',':'))
+          print(json.dumps(summary, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload preview research
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-enhanced-2023-research
+          path: |
+            preview-cache/signal_cache_2023.npz
+            data/preview_enhanced_cache_2023.json
+            data/v15_preview_enhanced_edge_2023.json
+            data/v16_preview_enhanced_stacker_2023.json
+            data/preview_enhanced_2023_summary.json
+          retention-days: 30
+
+      - name: Commit diagnostics
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/preview_enhanced_cache_2023.json data/v15_preview_enhanced_edge_2023.json data/v16_preview_enhanced_stacker_2023.json data/preview_enhanced_2023_summary.json
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'Update preview-enhanced 2023 research'
+          git pull --rebase origin main
+          git push origin HEAD:main
