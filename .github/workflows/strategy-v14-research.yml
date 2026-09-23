@@ -1,8 +1,12 @@
 name: BOAT AI v14 empirical calibration research
 
-# Kept manual-only until cache run 35824767175 is confirmed successful.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/search_multiyear_strategy_v14.py'
+      - '.github/workflows/strategy-v14-research.yml'
 
 permissions:
   actions: read
@@ -57,12 +61,15 @@ jobs:
           assert data['researchOnly'] is True
           assert data['releaseQualified'] is False
           assert [row['year'] for row in data['yearResults']] == [2023, 2024, 2025]
-          assert data['yearResults'][0]['role'] == 'design'
-          assert data['yearResults'][1]['role'] == 'frozen-config evaluation'
-          assert data['yearResults'][2]['role'] == 'frozen-config evaluation'
+          assert data['yearResults'][0]['role'] == 'ticket-design'
+          assert data['yearResults'][1]['role'] == 'fully-frozen evaluation'
+          assert data['yearResults'][2]['role'] == 'fully-frozen evaluation'
+          assert data['holdoutPolicy']['reserved'] == '2025-10-01..2025-12-31'
+          assert data['holdoutPolicy']['opened'] is False
           print(json.dumps({
               'selectedTicketConfig': data['selectedTicketConfig'],
-              'validation2024to2025': data['validation2024to2025'],
+              'evaluation2024to2025': data['evaluation2024to2025'],
+              'holdoutPolicy': data['holdoutPolicy'],
           }, ensure_ascii=False, indent=2))
           PY
 
