@@ -54,8 +54,8 @@ fun HistoricalBacktestCard() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("2026年 AI過去バックテスト", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text("自分で購入していなくても、公式の過去レースで購入価値を検証", style = MaterialTheme.typography.bodySmall)
+                    Text("2026年 AI値戦略検証", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("実購入と無関係に、過去レース＋過去3連単オッズで購入価値を検証", style = MaterialTheme.typography.bodySmall)
                 }
                 OutlinedButton(onClick = { refreshKey++ }, enabled = !loading) { Text("更新") }
             }
@@ -64,7 +64,7 @@ fun HistoricalBacktestCard() {
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(modifier = Modifier.height(22.dp), strokeWidth = 2.dp)
-                    Text("　2026年データを取得中…")
+                    Text("　戦略検証データを取得中…")
                 }
                 return@Column
             }
@@ -72,7 +72,7 @@ fun HistoricalBacktestCard() {
             val data = loadResult.data
             if (data == null) {
                 Spacer(Modifier.height(8.dp))
-                Text(loadResult.error ?: "バックテストデータを取得できません", color = MaterialTheme.colorScheme.error)
+                Text(loadResult.error ?: "戦略検証データを取得できません", color = MaterialTheme.colorScheme.error)
                 return@Column
             }
 
@@ -87,9 +87,9 @@ fun HistoricalBacktestCard() {
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 if (selectedMonth == null) {
-                    Button(onClick = { selectedMonth = null }) { Text("${data.year}年") }
+                    Button(onClick = { selectedMonth = null }) { Text("検証合計") }
                 } else {
-                    OutlinedButton(onClick = { selectedMonth = null }) { Text("${data.year}年") }
+                    OutlinedButton(onClick = { selectedMonth = null }) { Text("検証合計") }
                 }
                 data.months.forEach { period ->
                     val month = period.month ?: return@forEach
@@ -103,34 +103,64 @@ fun HistoricalBacktestCard() {
 
             val period = selectedMonth?.let { month -> data.months.firstOrNull { it.month == month } }
                 ?: data.yearSummary
-            val title = period.month?.let { "${period.year}年${it}月" } ?: "${period.year}年 年間"
+            val title = period.month?.let { "${period.year}年${it}月" } ?: "${period.year}年 5〜9月運用検証合計"
 
             Spacer(Modifier.height(10.dp))
             Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-            if (period.month == data.months.lastOrNull()?.month) {
-                Text("集計 ${data.dataThrough} まで", style = MaterialTheme.typography.bodySmall)
+            Text(period.phase, style = MaterialTheme.typography.bodySmall)
+            if (period.month == data.months.lastOrNull()?.month || period.month == null) {
+                Text("データ ${data.dataThrough} まで", style = MaterialTheme.typography.bodySmall)
+            }
+
+            if (!period.statsAvailable) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if ((period.month ?: 0) <= 4) {
+                        "この月はモデル学習・設定校正に使用したため、独立した運用成績としては表示しません。"
+                    } else {
+                        "この月の運用検証データはまだありません。"
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "成績を後付けで良く見せないため、設定選定に使った期間と運用評価期間を分けています。",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                return@Column
             }
 
             Spacer(Modifier.height(8.dp))
             Text("購入推奨 ${period.purchaseRaces}レース / 見送り ${period.skippedRaces}レース", fontWeight = FontWeight.SemiBold)
-            Text("判定対象 ${period.evaluatedRaces}レース / 判定対象外 ${period.unavailableRaces}レース")
+            Text("オッズ判定対象 ${period.evaluatedRaces}レース / オッズ欠損 ${period.unavailableRaces}レース")
             Text("購入率 ${pct(period.purchaseRate)}")
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Text("購入推奨だけ買った場合", fontWeight = FontWeight.SemiBold)
+            Text("購入推奨だけ1レース${yen(data.simulationBudget)}で買った場合", fontWeight = FontWeight.SemiBold)
             Text("的中 ${period.purchaseHits}/${period.purchaseRaces}　的中率 ${pct(period.hitRate)}")
             Text("購入 ${yen(period.stake)} / 払戻 ${yen(period.payout)}")
             Text("損益 ${signedYen(period.profit)}　回収率 ${pct(period.roi)}", fontWeight = FontWeight.Bold)
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Text("全予想4点の的中 ${period.allPredictionHits}/${period.evaluatedRaces}", style = MaterialTheme.typography.bodySmall)
-            Text("見送りのうち4点予想自体は的中 ${period.skippedPredictionHits}レース", style = MaterialTheme.typography.bodySmall)
-            Spacer(Modifier.height(6.dp))
             Text(
-                "2025年末までの学習状態から日ごとに予想→結果学習を繰り返したバックテストです。" +
-                    "1レース${yen(data.simulationBudget)}を4点に配分。過去の締切オッズが公開データにないため、オッズ取得後の最終見送り判定だけは含みません。",
+                if (data.oddsFinalGateIncluded) {
+                    "過去3連単オッズを使った期待値判定を含むv12ウォークフォワード検証です。"
+                } else {
+                    "オッズ最終判定を含まない参考検証です。"
+                },
                 style = MaterialTheme.typography.bodySmall
             )
+            Text(
+                "5〜9月は各月の開始前までの情報だけで設定を決めて評価しています。1〜4月は学習・校正期間のため運用ROIには含めません。",
+                style = MaterialTheme.typography.bodySmall
+            )
+            if (data.releaseDeferredForIndependentValidation) {
+                Text(
+                    "2026年の数値だけでは公開判定にせず、2023〜2025年の独立検証を別途要求しています。",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
