@@ -7,7 +7,8 @@ on:
       - main
     paths:
       - 'scripts/validate_multiyear_strategy.py'
-      - 'scripts/build_learning_contribution_from_json.py'
+      - 'scripts/backfill_historical.py'
+      - 'scripts/merge_validation_learning.py'
       - 'scripts/search_2026_strategy.py'
       - 'scripts/search_2026_strategy_v9.py'
       - 'scripts/search_2026_strategy_v11.py'
@@ -22,9 +23,67 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
+  learning-parts:
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - label: '2021'
+            start: '2021-09-22'
+            end: '2021-12-31'
+          - label: '2022'
+            start: '2022-01-01'
+            end: '2022-12-31'
+          - label: '2023'
+            start: '2023-01-01'
+            end: '2023-12-31'
+          - label: '2024'
+            start: '2024-01-01'
+            end: '2024-12-31'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install official K-file dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y p7zip-full
+          pip install 'boatrace-lzh==0.1.0'
+
+      - name: Build official K-file learning part
+        env:
+          PART_LABEL: ${{ matrix.label }}
+          PART_START: ${{ matrix.start }}
+          PART_END: ${{ matrix.end }}
+        run: |
+          python -u scripts/backfill_historical.py \
+            --start "$PART_START" \
+            --end "$PART_END" \
+            --workers 4 \
+            --request-delay 0.25 \
+            --allow-partial \
+            --output "historical_learning_${PART_LABEL}.json"
+
+      - name: Upload learning part
+        uses: actions/upload-artifact@v4
+        with:
+          name: learning-part-${{ matrix.label }}
+          path: historical_learning_${{ matrix.label }}.json
+          retention-days: 14
+
+  validate:
+    needs: learning-parts
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
     strategy:
       fail-fast: false
       max-parallel: 3
@@ -40,18 +99,43 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install dependencies
+      - name: Install model dependency
         run: pip install 'numpy>=2.0,<3.0'
 
-      - name: Build leakage-safe pre-year learning snapshot
+      - name: Download official learning parts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: learning-part-*
+          path: learning-parts
+          merge-multiple: true
+
+      - name: Build leakage-safe pre-year snapshot
         env:
           TARGET_YEAR: ${{ matrix.year }}
         run: |
           PREVIOUS_YEAR=$((TARGET_YEAR - 1))
-          python -u scripts/build_learning_contribution_from_json.py \
+          mkdir -p selected-learning-parts
+          python - <<'PY'
+          import json, os, shutil
+          from pathlib import Path
+          target=int(os.environ['TARGET_YEAR'])
+          cutoff=target-1
+          selected=[]
+          for path in sorted(Path('learning-parts').glob('historical_learning_*.json')):
+              data=json.loads(path.read_text(encoding='utf-8'))
+              end_year=int(str(data['trainedThrough'])[:4])
+              if end_year <= cutoff:
+                  dst=Path('selected-learning-parts')/path.name
+                  shutil.copy2(path,dst)
+                  selected.append(path.name)
+          if not selected:
+              raise SystemExit('no eligible learning parts')
+          print('selected:', selected)
+          PY
+          python -u scripts/merge_validation_learning.py \
+            --input-dir selected-learning-parts \
             --start 2021-09-22 \
             --end "${PREVIOUS_YEAR}-12-31" \
-            --workers 16 \
             --output "learning_${TARGET_YEAR}.json"
 
       - name: Validate guarded strategy independently
@@ -59,7 +143,7 @@ jobs:
           TARGET_YEAR: ${{ matrix.year }}
         run: |
           python -u scripts/validate_multiyear_strategy.py \
-            --year "${TARGET_YEAR}" \
+            --year "$TARGET_YEAR" \
             --learning "learning_${TARGET_YEAR}.json" \
             --workers 16 \
             --output "validation_${TARGET_YEAR}.json"
@@ -157,7 +241,7 @@ jobs:
               'releaseRule':'2023, 2024 and 2025 must EACH pass the same strict May-Sep rule (ROI >=105%, >=4/5 positive months, worst month ROI >=90%, >=50 buys/month, >=500 buys total), and 2026 development criteria must also be met.',
               'notes':[
                   '2023-2025 are independent of the repeated 2026 strategy-development outcomes.',
-                  'Each year uses a learning snapshot ending on Dec 31 of the previous year.',
+                  'Each year uses official K-file learning history ending on Dec 31 of the previous year.',
                   'The v12 guard policy is frozen during this independent validation.',
                   'A releaseCandidate=true result permits release engineering checks; it is not a guarantee of future profitability.',
               ],
