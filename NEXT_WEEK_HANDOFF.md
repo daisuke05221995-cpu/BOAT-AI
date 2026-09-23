@@ -6,43 +6,45 @@
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
 - Branch: `main`
-- 公開中復旧版: `v0.15.10` / versionCode 28
-- 復旧モードと `CrashRecoveryStore` は維持。ユーザーデータ削除・アンインストールは禁止。
+- 公開版: `v0.15.11` / versionCode 29
+- Release commit: `ed72d4bc74e4aa95d722b95b96736dbbcd63861b`
+- Signed Release Run: `35934156174`
+- Release: `https://github.com/daisuke05221995-cpu/BOAT-AI/releases/tag/v0.15.11`
+- APK SHA-256: `d3e7f57450c67d80a0bd2ab322fabc886eb365e4899bf00576321062079727ae`
 
-## Android段階復帰
+## Android v0.15.11
 
-完了済み:
-- 独立SettingsScreen追加: Run `35899813231` SUCCESS。
-- 右上⚙→専用設定画面、損益内設定を分離: Run `35931513963` SUCCESS。
-- Android戻るキー階層制御: Run `35932095259` SUCCESS。予想ホームでは戻るキーで終了しない。
-- 全通知を新しいvisual-only channel IDへ変更し、channelでsound=null/vibration=false、通知Builderでもsilent指定: Run `35932491385` SUCCESS。
+完了:
+- 右上⚙→独立設定画面。
+- 損益画面から設定欄を分離。
+- Android戻るキーを画面階層に合わせて制御。予想ホームでは誤って終了しない。
+- 通知は全て画面表示のみ。音・振動なし。
+- Receiver / FGS / Alarm失敗を非致命ログへ隔離。
+- Android 15のBOOT_COMPLETEDからdataSync FGSを直接起動しない。
+- purchase alert背景処理を再有効化。
+- PredictionTracking背景処理を再有効化。
+- 通常起動時にPredictionTracking Alarmを安全に再予約。
+- `RecoveryActivity` / `CrashRecoveryStore` は維持。
+- 最終Debug検証 Run `35933816561`: Unit test / lint / APK build SUCCESS。
+- Signed Release Run `35934156174`: Release unit test / lint / signed APK / signature verify / GitHub Release publish SUCCESS。
 
-背景クラッシュ対策 commit `285e9303f5e3a0909ef9fb7c60d8726fe135259f`:
-- ReceiverからForegroundServiceを起動できない場合を捕捉し、プロセスを落とさず非致命ログへ保存。
-- ServiceのstartForeground失敗と処理中例外を捕捉。
-- AlarmManager登録失敗を捕捉。
-- Android 15対策としてBOOT_COMPLETEDからdataSync FGSを直接起動せず、次回Alarm再予約だけ行う。
-- Exact Alarm許可変更BroadcastからもdataSync FGSを直接起動しない。
-- `CrashRecoveryStore.recordNonFatal()` を追加。
-
-現在: 上記background hardening状態のUnit test / lint / Debug APK検証を実行する。Manifestの背景Service/Receiverはまだdisabledのまま。検証成功後に段階的に再有効化する。
-
-再有効化順:
-1. 購入通知 `AlertEvaluationService` / `BoatNotificationReceiver` / ExactAlarm receiver / boot recovery。
-2. Build成功確認。
-3. 事前予想 `PredictionTrackingService` / receiver / boot receiver。
-4. MainActivity通常起動時に安全なtracking再予約を追加。
-5. Build成功後のみversion bump & signed Release。
+実機確認時はアンインストールやデータ消去をせず、v0.15.11へ上書き更新する。もしクラッシュした場合は復旧モードへ戻り、保存されたクラッシュ情報を確認する。
 
 ## v0.16研究
 
-r1/r2は不採用固定。最終2025 Q4 holdoutは未開封。
+r1/r2/r3はすべて本番不採用。
 
-r3 walk-forward Run `35931987036` SUCCESS。固定買い方の2024 Q2-Q4結果:
-- residual-small: ROI 91.62%、541購入、27的中、WF logloss 3.750245 vs static r2 3.749849 → calibration FAIL。
-- place-small: ROI 331.67%だが15購入・2的中、WF logloss 3.754098 vs static 3.754326 / market 3.757604 → calibration PASSだが件数不足で収益モデル未合格。
+r3 place-small 2024通年:
+- Q1 ROI 136.67%、9購入、1的中、Q1 calibration FAIL。
+- 年間 ROI 258.54%、24購入、3的中。
+- 最大1的中依存 59.63%。
+- 最大1的中除外ROI 104.38%。
+- 年間gate FAIL。
+- `reject_r3_place_small`。
 
-Q1はpre-2024 sidecar不足でBLOCKED。0購入扱いしない。事前登録ルールに従い、place-smallのQ1を評価できるデータを構築可能か確認してからr3年次判定を行う。買い条件は後付け変更しない。
+最終2025 Q4 holdoutは未開封。
+
+次は同じ閾値調整を繰り返さず、展示タイム差・展示ST・進入変化・1号艇信頼度低下・モーター/選手相対差などを用いた別構造のCORE BUY仮説へ進む。
 
 ## 再開時
 
