@@ -2,8 +2,9 @@
 """Export the selected walk-forward value model for the Android app.
 
 The exporter refuses to publish an asset unless the latest strategy search is marked
-qualifiedForRelease. Model parameters are trained only through dataThrough, so the
-asset can be used for races after that date with the selected nextLiveConfig.
+qualifiedForRelease and independent validation is no longer deferred. Model parameters
+are trained only through dataThrough, so the asset can be used for races after that
+date with the selected nextLiveConfig.
 """
 from __future__ import annotations
 
@@ -32,6 +33,8 @@ def main() -> None:
     strategy = json.loads(args.strategy.read_text(encoding="utf-8"))
     if int(strategy.get("schemaVersion", 0)) < 11:
         raise SystemExit("strategy schema 11+ is required")
+    if strategy.get("releaseDeferredForIndependentValidation") is True:
+        raise SystemExit("strategy release is deferred until independent multi-year validation completes")
     if strategy.get("qualifiedForRelease") is not True:
         raise SystemExit("strategy is not qualified for release")
     config = strategy.get("nextLiveConfig")
