@@ -12,6 +12,7 @@ on:
       - 'scripts/search_2026_strategy_v9.py'
       - 'scripts/search_2026_strategy_v10.py'
       - 'scripts/search_2026_strategy_v11.py'
+      - 'scripts/search_2026_strategy_v12.py'
       - '.github/workflows/strategy-search.yml'
       - 'data/historical_learning_pre2026.json'
 
@@ -19,7 +20,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: strategy-search-2026-v11
+  group: strategy-search-2026-v12
   cancel-in-progress: true
 
 jobs:
@@ -50,9 +51,9 @@ jobs:
           assert int(data.get('historicalRaceCount', 0)) > 200000
           PY
 
-      - name: Run v11 monthly adaptive odds-value walk-forward
+      - name: Run v12 guarded monthly adaptive odds-value walk-forward
         run: |
-          python -u scripts/search_2026_strategy_v11.py \
+          python -u scripts/search_2026_strategy_v12.py \
             --start 2026-01-01 \
             --learning data/historical_learning_pre2026.json \
             --workers 16 \
@@ -63,13 +64,18 @@ jobs:
           python - <<'PY'
           import json
           data=json.load(open('data/strategy_search_2026.json', encoding='utf-8'))
-          assert int(data.get('schemaVersion', 0)) >= 11
+          assert int(data.get('schemaVersion', 0)) >= 12
           assert data['periods']['calibration'] == ['2026-02-01','2026-04-30']
           cfg=data['nextLiveConfig']
           assert 1 <= int(cfg['maxPoints']) <= 10
           assert cfg['allocationMode'] in ('equal','probability')
           assert int(cfg['budget']) == 1200
           assert data.get('oddsFinalGateIncluded') is True
+          assert data.get('qualifiedForRelease') is False
+          assert data.get('releaseDeferredForIndependentValidation') is True
+          guard=data.get('guardPolicy', {})
+          assert float(guard.get('minVolumeRetention', 0)) >= 0.5
+          assert len(data.get('guardDecisions', [])) >= 5
           coverage=data.get('oddsCoverage', {})
           assert int(coverage.get('daysLoaded', 0)) >= 150
           print(json.dumps({
@@ -77,9 +83,11 @@ jobs:
             'operation': data['operation'],
             'positiveOperationMonths': data['positiveOperationMonths'],
             'worstOperationMonthRoi': data['worstOperationMonthRoi'],
+            'historicalCriteriaMet': data['historicalCriteriaMet'],
             'qualifiedForRelease': data['qualifiedForRelease'],
+            'releaseDeferredForIndependentValidation': data['releaseDeferredForIndependentValidation'],
             'nextLiveConfig': cfg,
-            'oddsCoverage': coverage,
+            'guardDecisions': data['guardDecisions'],
           }, ensure_ascii=False, indent=2))
           PY
 
@@ -91,7 +99,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'Strategy search result is unchanged.'
           else
-            git commit -m 'Refresh 2026 strategy search result'
+            git commit -m 'Refresh 2026 guarded strategy result'
             git pull --rebase origin main
             git push origin HEAD:main
           fi
