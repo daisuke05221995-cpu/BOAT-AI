@@ -1,0 +1,101 @@
+name: BOAT AI rich race-softmax 2023-2025
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/search_rich_race_softmax_2023_2025.py'
+      - '.github/workflows/rich-race-softmax-2023-2025.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: boat-ai-rich-race-softmax-2023-2025
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'numpy>=2.0,<3.0'
+
+      - name: Download rich preview caches
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35833959070
+          pattern: preview-rich-signal-cache-*
+          path: downloaded-rich
+          merge-multiple: true
+
+      - name: Normalize cache layout and protect Q4 holdout
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          target=Path('rich-cache'); target.mkdir(parents=True,exist_ok=True)
+          found={}
+          for p in Path('downloaded-rich').rglob('signal_cache_*.npz'):
+              if p.name in ('signal_cache_2023.npz','signal_cache_2024.npz','signal_cache_2025.npz'):
+                  found[p.name]=p
+          expected={'signal_cache_2023.npz','signal_cache_2024.npz','signal_cache_2025.npz'}
+          assert set(found)==expected,{k:str(v) for k,v in found.items()}
+          for name,p in found.items(): shutil.copy2(p,target/name)
+          print({k:str(v) for k,v in found.items()})
+          PY
+
+      - name: Train rich race-softmax, design 2024, frozen-evaluate 2025
+        run: |
+          mkdir -p data research-model
+          python -u scripts/search_rich_race_softmax_2023_2025.py \
+            --cache-dir rich-cache \
+            --output data/rich_race_softmax_2023_2025.json \
+            --model-output research-model/rich_race_softmax_model.npz
+
+      - name: Verify final holdout remains unopened
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('data/rich_race_softmax_2023_2025.json',encoding='utf-8'))
+          assert d['holdoutPolicy']['opened'] is False
+          assert d['holdoutPolicy']['reserved']=='2025-10-01..2025-12-31'
+          assert d['releaseQualified'] is False
+          print(json.dumps({
+              'model':d['model'],
+              'betaSelection':d['betaSelection'],
+              'basicVolumeFeasible':d['basicVolumeFeasible'],
+              'selected':d.get('selectedTicketConfig'),
+              'design2024':d.get('design2024',{}).get('total'),
+              'frozen2025':d.get('frozenEvaluation2025',{}).get('total'),
+              'readyForFinalHoldout':d['readyForFinalHoldout'],
+          },ensure_ascii=False,indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rich-race-softmax-2023-2025
+          path: |
+            data/rich_race_softmax_2023_2025.json
+            research-model/rich_race_softmax_model.npz
+          retention-days: 30
+
+      - name: Commit research result
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/rich_race_softmax_2023_2025.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Update rich race-softmax result'
+          git pull --rebase origin main
+          git push origin HEAD:main
