@@ -39,12 +39,31 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <service
+            android:name=".PredictionTrackingService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <receiver
             android:name=".BoatNotificationReceiver"
             android:exported="false" />
 
         <receiver
+            android:name=".PredictionTrackingReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".BoatAlertBootRecoveryReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".PredictionTrackingBootReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter>
