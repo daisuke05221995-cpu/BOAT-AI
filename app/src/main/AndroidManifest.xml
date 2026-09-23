@@ -40,7 +40,7 @@
 
         <service
             android:name=".AlertEvaluationService"
-            android:enabled="false"
+            android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
@@ -52,7 +52,7 @@
 
         <receiver
             android:name=".BoatNotificationReceiver"
-            android:enabled="false"
+            android:enabled="true"
             android:exported="false" />
 
         <receiver
@@ -62,7 +62,7 @@
 
         <receiver
             android:name=".ExactAlarmPermissionReceiver"
-            android:enabled="false"
+            android:enabled="true"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
@@ -71,7 +71,7 @@
 
         <receiver
             android:name=".BoatAlertBootRecoveryReceiver"
-            android:enabled="false"
+            android:enabled="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
