@@ -94,7 +94,8 @@ class PredictionHistoryStore(context: Context) {
                     picks.map { it.recommendedStake }
                 } else {
                     emptyList()
-                }
+                },
+                strategyId = if (valueSelection != null) "value-v1" else null
             )
             existing += race.id
             changed = true
