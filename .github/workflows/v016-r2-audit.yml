@@ -1,0 +1,85 @@
+name: v016 r2 saved-prediction calibration audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/v016_r2audit.py
+      - .github/workflows/v016-r2-audit.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v016-r2-audit
+  cancel-in-progress: false
+env:
+  OPENBLAS_NUM_THREADS: '1'
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+        family: [fundamental, residual, place]
+        capacity: [small, medium]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35875673825'
+          name: v016-r2-features-${{ matrix.year }}
+          path: features
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35875673825'
+          name: v016-r2-result-${{ matrix.family }}-${{ matrix.capacity }}-${{ matrix.year }}
+          path: predictions
+      - run: |
+          python scripts/v016_r2audit.py audit --year ${{ matrix.year }} --cache features/features_${{ matrix.year }}.npz \
+            --prediction predictions/result-${{ matrix.family }}-${{ matrix.capacity }}-${{ matrix.year }}.npz \
+            --output results/audit-${{ matrix.family }}-${{ matrix.capacity }}-${{ matrix.year }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r2-audit-${{ matrix.family }}-${{ matrix.capacity }}-${{ matrix.year }}
+          path: results/
+          retention-days: 90
+  aggregate:
+    needs: audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v016-r2-audit-*
+          path: results
+          merge-multiple: true
+      - run: python scripts/v016_r2audit.py aggregate --input results --run '${{ github.run_id }}' --output data/v016_r2_audit.json
+      - name: Save research-only audit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/v016_r2_audit.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'Record v016 r2 probability calibration audit [skip ci]'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main || exit 1
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1

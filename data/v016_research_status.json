@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-09-23",
-  "phase": "CORE_R1_AND_ANNUAL2024_FINISHED_REJECTED",
+  "phase": "CORE_R2_REJECTED_CALIBRATION_AUDIT_PENDING",
   "goalCompleted": false,
   "researchOnly": true,
   "productionModified": false,
@@ -19,6 +19,10 @@
     },
     "annual2024": {
       "id": 35870380669,
+      "status": "success"
+    },
+    "coreR2": {
+      "id": 35875673825,
       "status": "success"
     }
   },
@@ -216,11 +220,141 @@
     "run": 35870380669,
     "artifactName": "v016-annual-cache-2024",
     "artifactId": 10755851267,
-    "expires": "2026-12-22"
+    "expires": "2026-12-22",
+    "r2": {
+      "run": 35875673825,
+      "features2023": "v016-r2-features-2023",
+      "features2024": "v016-r2-features-2024",
+      "expires": "2026-12-22"
+    }
   },
-  "next": "New pre-registered CORE hypothesis; reuse annual cache; no retuning to rescue rejected r1; no Q4 or LONGSHOT before qualified CORE.",
+  "next": "Finish saved-prediction calibration audit, then record why improved probability loss did not create sufficient profitable CORE volume. No threshold retuning.",
   "limitations": [
     "2024 is development; multiyear release gate not passed",
     "Historical odds timing and eligible-settled-race denominator remain unverified for live deployment"
-  ]
+  ],
+  "coreR2": {
+    "candidateCount": 6,
+    "qualifiedCount": 0,
+    "resultsFile": "data/v016_r2_result.json",
+    "rows": [
+      {
+        "modelId": "fundamental-medium",
+        "purchaseRaces": 34652,
+        "bets": 64485,
+        "hits": 2183,
+        "stake": 41582400,
+        "payout": 33314880,
+        "profit": -8267520,
+        "roi": 80.11774212166686,
+        "largestHitShare": 0.1440797625565513,
+        "roiWithoutLargestHit": 80.0023086690523,
+        "maxDrawdown": 8276800,
+        "payoutMinus5PercentRoi": 76.11185501558352,
+        "rejectionReasons": [
+          "roi < 105",
+          "roiWithoutLargestHit < 100"
+        ]
+      },
+      {
+        "modelId": "fundamental-small",
+        "purchaseRaces": 33198,
+        "bets": 60919,
+        "hits": 2003,
+        "stake": 39837600,
+        "payout": 31843420,
+        "profit": -7994180,
+        "roi": 79.93307829788944,
+        "largestHitShare": 0.15073757781042363,
+        "roiWithoutLargestHit": 79.81258911179388,
+        "maxDrawdown": 7995080,
+        "payoutMinus5PercentRoi": 75.93642438299496,
+        "rejectionReasons": [
+          "roi < 105",
+          "roiWithoutLargestHit < 100"
+        ]
+      },
+      {
+        "modelId": "place-medium",
+        "purchaseRaces": 0,
+        "bets": 0,
+        "hits": 0,
+        "stake": 0,
+        "payout": 0,
+        "profit": 0,
+        "roi": 0,
+        "largestHitShare": 0,
+        "roiWithoutLargestHit": 0,
+        "maxDrawdown": 0,
+        "payoutMinus5PercentRoi": 0,
+        "rejectionReasons": [
+          "roi < 105",
+          "purchaseRaces < 360",
+          "hits < 30",
+          "roiWithoutLargestHit < 100"
+        ]
+      },
+      {
+        "modelId": "place-small",
+        "purchaseRaces": 0,
+        "bets": 0,
+        "hits": 0,
+        "stake": 0,
+        "payout": 0,
+        "profit": 0,
+        "roi": 0,
+        "largestHitShare": 0,
+        "roiWithoutLargestHit": 0,
+        "maxDrawdown": 0,
+        "payoutMinus5PercentRoi": 0,
+        "rejectionReasons": [
+          "roi < 105",
+          "purchaseRaces < 360",
+          "hits < 30",
+          "roiWithoutLargestHit < 100"
+        ]
+      },
+      {
+        "modelId": "residual-medium",
+        "purchaseRaces": 65,
+        "bets": 83,
+        "hits": 2,
+        "stake": 78000,
+        "payout": 36960,
+        "profit": -41040,
+        "roi": 47.38461538461539,
+        "largestHitShare": 74.02597402597402,
+        "roiWithoutLargestHit": 12.307692307692308,
+        "maxDrawdown": 58800,
+        "payoutMinus5PercentRoi": 45.01538461538462,
+        "rejectionReasons": [
+          "roi < 105",
+          "purchaseRaces < 360",
+          "hits < 30",
+          "roiWithoutLargestHit < 100",
+          "largestHitShare > 25"
+        ]
+      },
+      {
+        "modelId": "residual-small",
+        "purchaseRaces": 47,
+        "bets": 52,
+        "hits": 3,
+        "stake": 56400,
+        "payout": 78840,
+        "profit": 22440,
+        "roi": 139.7872340425532,
+        "largestHitShare": 40.94368340943684,
+        "roiWithoutLargestHit": 82.55319148936171,
+        "maxDrawdown": 31200,
+        "payoutMinus5PercentRoi": 132.79787234042553,
+        "rejectionReasons": [
+          "purchaseRaces < 360",
+          "hits < 30",
+          "roiWithoutLargestHit < 100",
+          "largestHitShare > 25"
+        ]
+      }
+    ]
+  }
 }
