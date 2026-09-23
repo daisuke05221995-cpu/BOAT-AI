@@ -1,0 +1,180 @@
+name: v016 CORE r2 conditional hypotheses
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/v016_r2_*.py
+      - data/v016_r2_protocol.json
+      - .github/workflows/v016-r2.yml
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: v016-r2
+  cancel-in-progress: false
+env:
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '2'
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - run: python scripts/v016_r2_test.py
+
+  features:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - year: 2023
+            run: '35833959070'
+            artifact: preview-rich-signal-cache-2023
+            file: rich-cache/signal_cache_2023.npz
+          - year: 2024
+            run: '35870380669'
+            artifact: v016-annual-cache-2024
+            file: annual_2024.npz
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/cache@v4
+        id: sidecar
+        with:
+          path: features/
+          key: v016-r2-features-${{ matrix.year }}-${{ hashFiles('scripts/v016_r2_features.py', 'data/v016_r2_protocol.json') }}
+      - uses: actions/download-artifact@v4
+        if: steps.sidecar.outputs.cache-hit != 'true'
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ matrix.run }}
+          name: ${{ matrix.artifact }}
+          path: original
+      - if: steps.sidecar.outputs.cache-hit != 'true'
+        run: |
+          python -u scripts/v016_r2_features.py --year ${{ matrix.year }} \
+            --cache original/${{ matrix.file }} --output features/features_${{ matrix.year }}.npz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r2-features-${{ matrix.year }}
+          path: features/
+          retention-days: 90
+
+  fit-screen:
+    needs: features
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [fundamental, residual, place]
+        capacity: [small, medium]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-r2-features-2023
+          path: features
+      - run: |
+          python -u scripts/v016_r2_model.py fit --cache features/features_2023.npz \
+            --family ${{ matrix.family }} --capacity ${{ matrix.capacity }} --output model
+          python -u scripts/v016_r2_model.py evaluate --year 2023 --cache features/features_2023.npz \
+            --model model --output screen/result-${{ matrix.family }}-${{ matrix.capacity }}-2023.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r2-model-${{ matrix.family }}-${{ matrix.capacity }}
+          path: model/
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r2-result-${{ matrix.family }}-${{ matrix.capacity }}-2023
+          path: screen/
+          retention-days: 90
+
+  annual:
+    needs: fit-screen
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [fundamental, residual, place]
+        capacity: [small, medium]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-r2-features-2024
+          path: features
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-r2-model-${{ matrix.family }}-${{ matrix.capacity }}
+          path: model
+      - run: |
+          python -u scripts/v016_r2_model.py evaluate --year 2024 --cache features/features_2024.npz \
+            --model model --output results/result-${{ matrix.family }}-${{ matrix.capacity }}-2024.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r2-result-${{ matrix.family }}-${{ matrix.capacity }}-2024
+          path: results/
+          retention-days: 90
+
+  aggregate:
+    needs: annual
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v016-r2-result-*
+          path: results
+          merge-multiple: true
+      - run: |
+          python scripts/v016_r2_model.py aggregate --input results --run '${{ github.run_id }}' \
+            --output data/v016_r2_result.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r2-final-result
+          path: data/v016_r2_result.*
+          retention-days: 90
+      - name: Save research-only results without overwriting concurrent app work
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/v016_r2_result.json data/v016_r2_result.md
+          git diff --cached --quiet && exit 0
+          git commit -m 'Record v016 r2 conditional CORE results [skip ci]'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main || exit 1
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1

@@ -1,0 +1,25 @@
+{
+  "revision": "r2-conditional-choice-1",
+  "purpose": "New CORE hypotheses, not a repeat of the rejected 144 threshold configurations",
+  "families": {
+    "fundamental": "Conditional finish probabilities from relative pre-race abilities, exhibition and weather; no market features in the learner",
+    "residual": "Conditional market log-probability offset plus learned corrections from abilities, lane-one weakness and market concentration",
+    "place": "Keep market first-place marginal fixed; learn corrections only to conditional second and third place probabilities"
+  },
+  "capacities": {"small": {"num_leaves": 7, "max_depth": 3, "min_data_in_leaf": 300}, "medium": {"num_leaves": 15, "max_depth": 4, "min_data_in_leaf": 200}},
+  "training": "2023-05-01..2023-07-31",
+  "earlyStopping": "2023-08-01..2023-08-31; conditional log loss only, never ROI",
+  "screen": "2023-09-01..2023-09-30; diagnostics, no monthly profit requirement",
+  "annualValidation": "2024-01-01..2024-12-31; previously explored development year, not pristine holdout",
+  "fixedPolicy": {"budget": 1200, "maxPoints": 3, "minEv": 1.10, "minProbability": 0.01, "maxOdds": 40},
+  "annualGate": {"roi": 105, "purchaseRaces": 360, "minimumHits": 30, "largestHitShareMax": 25, "roiWithoutLargestHitMin": 100},
+  "featureCoveragePerMonthMin": 0.95,
+  "lightgbm": {"version": "4.6.0", "learning_rate": 0.03, "lambda_l2": 20, "rounds": 400, "early_stopping_rounds": 30, "seed": 1602},
+  "sourceCommits": {"programs": "d3e37a2b5bce2bc10ac9d8154713cfe250aa5fa1", "previews": "5089ce91e150538a8adc8da86ca403f578343318"},
+  "cacheReuse": {"2023": {"run": 35833959070, "artifact": "preview-rich-signal-cache-2023"}, "2024": {"run": 35870380669, "artifact": "v016-annual-cache-2024"}},
+  "nextValidation": "Only after a 2024 candidate passes, freeze one model and policy by SHA256 and evaluate pre-Q4 2025. No automatic Q4 opening or LONGSHOT work.",
+  "candidateRanking": "Among annual passers: highest ROI without largest hit, then number of purchases, then model ID",
+  "limitations": ["2023 training/validation is not an independent annual replication", "Historical odds capture time is unverified; archive is not proof of live five-minutes-before-close performance", "2024 cache conditions on six-boat settled races; excluded-race execution/cancellation behavior remains unvalidated"],
+  "holdoutOpened": false,
+  "releaseQualified": false
+}
