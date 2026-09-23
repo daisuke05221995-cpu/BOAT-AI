@@ -12,9 +12,6 @@ object BetStrategy {
         if (picks.isEmpty()) return emptyList()
         val limited = picks.take(MAX_PICKS)
         val budget = requestedBudget.coerceIn(MIN_BUDGET, MAX_BUDGET).roundDown100()
-        // If the upstream strategy already allocated stakes (for example the validated
-        // value strategy's equal/probability allocation), preserve that ratio. This
-        // keeps Android execution aligned with the strategy that selected the tickets.
         val stakes = scaleExistingAllocation(limited, budget) ?: allocateByRank(limited.size, budget)
 
         return limited.mapIndexed { index, pick ->
@@ -59,10 +56,6 @@ object BetStrategy {
         return units.map { it * 100 }
     }
 
-    /**
-     * 1〜10点を100円単位で配分し、合計を必ず指定予算に一致させる。
-     * 1〜4点は従来の本線重視比率を維持し、5点以上は順位に応じて緩やかに逓減する。
-     */
     internal fun allocateByRank(pointCount: Int, requestedBudget: Int): List<Int> {
         val count = pointCount.coerceIn(1, MAX_PICKS)
         val budget = requestedBudget.coerceIn(MIN_BUDGET, MAX_BUDGET).roundDown100()
@@ -81,8 +74,7 @@ object BetStrategy {
         val units = rawUnits.map { floor(it).toInt().coerceAtLeast(1) }.toMutableList()
 
         while (units.sum() < totalUnits) {
-            val index = units.indices.maxByOrNull { idx -> rawUnits[idx] - floor(rawUnits[idx]) }
-                ?: 0
+            val index = units.indices.maxByOrNull { idx -> rawUnits[idx] - floor(rawUnits[idx]) } ?: 0
             units[index] += 1
         }
         while (units.sum() > totalUnits) {
@@ -125,6 +117,17 @@ object BetStrategy {
                 "購入推奨：本線130%以上かつ中穴側にも十分な払戻余地があります"
             else -> "見送り：払戻余地が厳選購入基準に届きません"
         }
+    }
+
+    fun oddsRecommended(picks: List<PredictionPick>): Boolean {
+        if (picks.isEmpty() || picks.any { it.odds == null }) return false
+        val total = picks.sumOf { it.recommendedStake }.coerceAtLeast(1)
+        val returns = picks.map { (it.odds ?: 0.0) * it.recommendedStake }
+        val mainReturn = returns.firstOrNull() ?: 0.0
+        val profitableCount = returns.count { it >= total * 1.20 }
+        val strongUpsideCount = returns.count { it >= total * 2.0 }
+        return (mainReturn >= total * 1.50 && profitableCount >= 2) ||
+            (mainReturn >= total * 1.30 && strongUpsideCount >= 2)
     }
 
     fun oddsChange(before: List<PredictionPick>, after: List<PredictionPick>): String? {
