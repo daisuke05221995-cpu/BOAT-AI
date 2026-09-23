@@ -37,20 +37,40 @@ class PredictionHistoryStore(context: Context) {
             // 展示・進入が揃う前に購入判断を固定しない。
             if (!PredictionEngine.isDecisionReady(race)) return@forEach
 
-            val picks = PredictionEngine.predict(race)
-            if (picks.isEmpty()) return@forEach
+            val valueSelection = if (PredictionEngine.hasValueStrategyModel()) {
+                // Promoted value strategy decisions are only valid after the full official
+                // trifecta market has been fetched. Never persist the temporary WAIT/SKIP
+                // state or legacy picks while official odds are still pending.
+                PredictionEngine.cachedValueSelection(race) ?: return@forEach
+            } else {
+                null
+            }
+
+            val decision = valueSelection?.let {
+                RecommendationDecision(it.recommendation, it.reason)
+            } ?: PredictionEngine.recommendation(race)
+            val picks = if (valueSelection != null) {
+                if (valueSelection.recommendation == RaceRecommendation.BUY) valueSelection.picks else emptyList()
+            } else {
+                PredictionEngine.predict(race)
+            }
+
+            // Legacy engine always has prediction combinations. A validated value SKIP is
+            // intentionally stored with zero hypothetical stake rather than inventing old
+            // four-point bets that the new strategy explicitly rejected.
+            if (valueSelection == null && picks.isEmpty()) return@forEach
+
             val confidence = PredictionEngine.confidence(race)
             val rawConfidence = PredictionEngine.rawConfidence(race)
-            val decision = PredictionEngine.recommendation(race)
-            // Validated value-strategy picks already carry their intended budget.
-            // PredictionRecord currently stores one stake per pick, so use the strategy
-            // stake only when every selected pick has the same positive amount. Legacy
-            // 4-point rank allocation keeps the historical 300 yen/pick simulation.
             val strategyStakePerPick = picks.map { it.recommendedStake }
                 .filter { it >= 100 && it % 100 == 0 }
                 .distinct()
                 .singleOrNull()
-            val simulationStake = strategyStakePerPick ?: stakePerPick
+            val simulationStake = when {
+                valueSelection != null && !decision.recommended -> 0
+                strategyStakePerPick != null -> strategyStakePerPick
+                else -> stakePerPick
+            }
             current += PredictionRecord(
                 id = race.id,
                 date = race.date,
