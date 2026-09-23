@@ -1,0 +1,769 @@
+{
+  "runId": "35931987036",
+  "protocol": "v016-core-r3-walk-forward-v1",
+  "r3ProtocolSha256": "5ccb55ff26a5ed37b89c1691e9247d01626881497cae37bc0478957a10367efc",
+  "q1State": "BLOCKED_UNTIL_PRE2024_FEATURE_SIDECAR_EXISTS",
+  "annualComplete": false,
+  "annualPass": false,
+  "families": {
+    "residual": {
+      "q2ToQ4": {
+        "purchaseRaces": 541,
+        "hits": 27,
+        "stake": 649200,
+        "payout": 594780,
+        "profit": -54420,
+        "roi": 91.6173752310536,
+        "largestHitPayout": 0,
+        "largestHitShare": 0.0,
+        "roiWithoutLargestHit": 91.6173752310536
+      },
+      "predictionMetrics": {
+        "walkForwardLogloss": 3.7502451201042057,
+        "staticR2Logloss": 3.749848933741685,
+        "marketLogloss": 3.7576038576237334,
+        "deltaVsStatic": 0.00039618636252081174,
+        "deltaVsMarket": -0.007358737519527647
+      },
+      "calibrationGate": false,
+      "quarterResults": [
+        {
+          "protocol": "v016-core-r3-walk-forward-v1",
+          "family": "residual",
+          "capacity": "small",
+          "quarter": "q2",
+          "manifest": {
+            "protocol": "v016-core-r3-walk-forward-v1",
+            "family": "residual",
+            "capacity": "small",
+            "quarter": "q2",
+            "trainRaces": 8868,
+            "validationRaces": 4161,
+            "trainStart": "2024-01-01",
+            "trainEnd": "2024-02-29",
+            "validationStart": "2024-03-01",
+            "validationEnd": "2024-03-31",
+            "evalStart": "2024-04-01",
+            "r3ProtocolSha256": "5ccb55ff26a5ed37b89c1691e9247d01626881497cae37bc0478957a10367efc",
+            "r2ProtocolSha256": "c036f90ba253683b540c2ee4224ca6bbde58629886fb614b51803f677e5f1206",
+            "featureSchemaSha256": "91f7238faf87ab7ecd9c73af3260e8f5da5e430ea481a16afb07d1866561d7b4",
+            "codeSha256": "b9193c9b13eb6205ac6a00ac09e768164b28874aac690639534f96fb0cdf38ec",
+            "lightgbmVersion": "4.6.0",
+            "stages": {
+              "0": {
+                "iterations": 349,
+                "validationLogloss": 1.154509003225976,
+                "sha256": "b9d65fe4cf5852875e8da2c5776f436a06c5d51caa7222532fdb89f98676615b",
+                "features": 233
+              },
+              "1": {
+                "iterations": 147,
+                "validationLogloss": 1.3068155596781688,
+                "sha256": "8ba176a9e74530fd8d7f128f39facbed61c1efc8f075931bb0c878ade71ead29",
+                "features": 289
+              },
+              "2": {
+                "iterations": 265,
+                "validationLogloss": 1.2312610702716156,
+                "sha256": "bb64cd534aa9f854e755ba4c4b280774224510a53e920b37c87a01f44919ccd6",
+                "features": 345
+              }
+            },
+            "holdoutOpened": false
+          },
+          "total": {
+            "purchaseRaces": 360,
+            "bets": 417,
+            "hits": 16,
+            "stake": 432000,
+            "payout": 328980,
+            "profit": -103020,
+            "roi": 76.15277777777777,
+            "largestHitShare": 13.788072223235455,
+            "roiWithoutLargestHit": 65.65277777777777,
+            "maxDrawdown": 111180,
+            "payoutMinus5PercentRoi": 72.34513888888888
+          },
+          "months": {
+            "4": {
+              "purchaseRaces": 114,
+              "bets": 135,
+              "hits": 3,
+              "stake": 136800,
+              "payout": 67380,
+              "profit": -69420,
+              "roi": 49.25438596491228,
+              "largestHitShare": 67.31967943009795,
+              "roiWithoutLargestHit": 16.096491228070175,
+              "maxDrawdown": 111180,
+              "payoutMinus5PercentRoi": 46.791666666666664
+            },
+            "5": {
+              "purchaseRaces": 113,
+              "bets": 135,
+              "hits": 8,
+              "stake": 135600,
+              "payout": 171480,
+              "profit": 35880,
+              "roi": 126.46017699115045,
+              "largestHitShare": 23.44296710986704,
+              "roiWithoutLargestHit": 96.8141592920354,
+              "maxDrawdown": 39600,
+              "payoutMinus5PercentRoi": 120.13716814159292
+            },
+            "6": {
+              "purchaseRaces": 133,
+              "bets": 147,
+              "hits": 5,
+              "stake": 159600,
+              "payout": 90120,
+              "profit": -69480,
+              "roi": 56.46616541353384,
+              "largestHitShare": 26.498002663115845,
+              "roiWithoutLargestHit": 41.50375939849624,
+              "maxDrawdown": 71400,
+              "payoutMinus5PercentRoi": 53.642857142857146
+            }
+          },
+          "predictionMetrics": {
+            "walkForwardLogloss": 3.718399034955821,
+            "staticR2Logloss": 3.7163715834820774,
+            "marketLogloss": 3.7248583018165204,
+            "deltaVsStatic": 0.0020274514737437244,
+            "deltaVsMarket": -0.006459266860699309,
+            "usableRaces": 13132,
+            "allRaces": 13140
+          },
+          "fixedPolicy": {
+            "budget": 1200,
+            "maxPoints": 3,
+            "minEv": 1.1,
+            "minProbability": 0.01,
+            "maxOdds": 40.0
+          },
+          "featureCacheSha256": "e6096db02dd897ee355aa5cd87a2b5e6f598fb2496eaf4da938ebe2aa33d1ba9",
+          "baselinePredictionSha256": "628281b9429259962dbe0b845a4685067dd8a2e137a9333bdbcfe08b49d11af2",
+          "futureLabelMutationInvariant": true,
+          "finalHoldoutOpened": false,
+          "releaseQualified": false
+        },
+        {
+          "protocol": "v016-core-r3-walk-forward-v1",
+          "family": "residual",
+          "capacity": "small",
+          "quarter": "q3",
+          "manifest": {
+            "protocol": "v016-core-r3-walk-forward-v1",
+            "family": "residual",
+            "capacity": "small",
+            "quarter": "q3",
+            "trainRaces": 21766,
+            "validationRaces": 4395,
+            "trainStart": "2024-01-01",
+            "trainEnd": "2024-05-31",
+            "validationStart": "2024-06-01",
+            "validationEnd": "2024-06-30",
+            "evalStart": "2024-07-01",
+            "r3ProtocolSha256": "5ccb55ff26a5ed37b89c1691e9247d01626881497cae37bc0478957a10367efc",
+            "r2ProtocolSha256": "c036f90ba253683b540c2ee4224ca6bbde58629886fb614b51803f677e5f1206",
+            "featureSchemaSha256": "91f7238faf87ab7ecd9c73af3260e8f5da5e430ea481a16afb07d1866561d7b4",
+            "codeSha256": "b9193c9b13eb6205ac6a00ac09e768164b28874aac690639534f96fb0cdf38ec",
+            "lightgbmVersion": "4.6.0",
+            "stages": {
+              "0": {
+                "iterations": 258,
+                "validationLogloss": 1.169553187442963,
+                "sha256": "6ab3df54ea14dc8c2813b8ae8313b460ab16a5e02477ffe0658219fa8f731d9c",
+                "features": 233
+              },
+              "1": {
+                "iterations": 360,
+                "validationLogloss": 1.3473712951392356,
+                "sha256": "83cb576b7f5a58d4e4236cdb41abaa32209d063c8eb782eb0a0ca8f88a53a73a",
+                "features": 289
+              },
+              "2": {
+                "iterations": 395,
+                "validationLogloss": 1.2413939617060934,
+                "sha256": "cf8e9dbefa822e5746aa9a4f7e1d769883e40897e7be74dd83e21e248ba4b619",
+                "features": 345
+              }
+            },
+            "holdoutOpened": false
+          },
+          "total": {
+            "purchaseRaces": 111,
+            "bets": 119,
+            "hits": 6,
+            "stake": 133200,
+            "payout": 134640,
+            "profit": 1440,
+            "roi": 101.08108108108108,
+            "largestHitShare": 32.97682709447415,
+            "roiWithoutLargestHit": 67.74774774774775,
+            "maxDrawdown": 47160,
+            "payoutMinus5PercentRoi": 96.02702702702703
+          },
+          "months": {
+            "7": {
+              "purchaseRaces": 47,
+              "bets": 51,
+              "hits": 3,
+              "stake": 56400,
+              "payout": 39840,
+              "profit": -16560,
+              "roi": 70.63829787234043,
+              "largestHitShare": 42.16867469879518,
+              "roiWithoutLargestHit": 40.851063829787236,
+              "maxDrawdown": 29160,
+              "payoutMinus5PercentRoi": 67.1063829787234
+            },
+            "8": {
+              "purchaseRaces": 37,
+              "bets": 40,
+              "hits": 3,
+              "stake": 44400,
+              "payout": 94800,
+              "profit": 50400,
+              "roi": 213.51351351351352,
+              "largestHitShare": 46.835443037974684,
+              "roiWithoutLargestHit": 113.51351351351352,
+              "maxDrawdown": 25200,
+              "payoutMinus5PercentRoi": 202.83783783783784
+            },
+            "9": {
+              "purchaseRaces": 27,
+              "bets": 28,
+              "hits": 0,
+              "stake": 32400,
+              "payout": 0,
+              "profit": -32400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 32400,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "predictionMetrics": {
+            "walkForwardLogloss": 3.7843269046011767,
+            "staticR2Logloss": 3.783710869930499,
+            "marketLogloss": 3.791889248924195,
+            "deltaVsStatic": 0.0006160346706778341,
+            "deltaVsMarket": -0.007562344323018166,
+            "usableRaces": 13333,
+            "allRaces": 13339
+          },
+          "fixedPolicy": {
+            "budget": 1200,
+            "maxPoints": 3,
+            "minEv": 1.1,
+            "minProbability": 0.01,
+            "maxOdds": 40.0
+          },
+          "featureCacheSha256": "e6096db02dd897ee355aa5cd87a2b5e6f598fb2496eaf4da938ebe2aa33d1ba9",
+          "baselinePredictionSha256": "628281b9429259962dbe0b845a4685067dd8a2e137a9333bdbcfe08b49d11af2",
+          "futureLabelMutationInvariant": true,
+          "finalHoldoutOpened": false,
+          "releaseQualified": false
+        },
+        {
+          "protocol": "v016-core-r3-walk-forward-v1",
+          "family": "residual",
+          "capacity": "small",
+          "quarter": "q4",
+          "manifest": {
+            "protocol": "v016-core-r3-walk-forward-v1",
+            "family": "residual",
+            "capacity": "small",
+            "quarter": "q4",
+            "trainRaces": 35375,
+            "validationRaces": 4119,
+            "trainStart": "2024-01-01",
+            "trainEnd": "2024-08-31",
+            "validationStart": "2024-09-01",
+            "validationEnd": "2024-09-30",
+            "evalStart": "2024-10-01",
+            "r3ProtocolSha256": "5ccb55ff26a5ed37b89c1691e9247d01626881497cae37bc0478957a10367efc",
+            "r2ProtocolSha256": "c036f90ba253683b540c2ee4224ca6bbde58629886fb614b51803f677e5f1206",
+            "featureSchemaSha256": "91f7238faf87ab7ecd9c73af3260e8f5da5e430ea481a16afb07d1866561d7b4",
+            "codeSha256": "b9193c9b13eb6205ac6a00ac09e768164b28874aac690639534f96fb0cdf38ec",
+            "lightgbmVersion": "4.6.0",
+            "stages": {
+              "0": {
+                "iterations": 395,
+                "validationLogloss": 1.1592420196375681,
+                "sha256": "e9339366119689221597c2bebb29300893154d679796f143d77dc826640d5d18",
+                "features": 233
+              },
+              "1": {
+                "iterations": 234,
+                "validationLogloss": 1.364842390667118,
+                "sha256": "00c39198e459627b5fdbf656cd36db82d3fee154fbb21032aaae25f4188b3a5c",
+                "features": 289
+              },
+              "2": {
+                "iterations": 278,
+                "validationLogloss": 1.2407246869381205,
+                "sha256": "4e92076ccfd33d92efae64dd33f2193d5ae4ee50354fc96e4be86d56cf266aaf",
+                "features": 345
+              }
+            },
+            "holdoutOpened": false
+          },
+          "total": {
+            "purchaseRaces": 70,
+            "bets": 87,
+            "hits": 5,
+            "stake": 84000,
+            "payout": 131160,
+            "profit": 47160,
+            "roi": 156.14285714285714,
+            "largestHitShare": 34.58371454711802,
+            "roiWithoutLargestHit": 102.14285714285714,
+            "maxDrawdown": 33600,
+            "payoutMinus5PercentRoi": 148.3357142857143
+          },
+          "months": {
+            "10": {
+              "purchaseRaces": 24,
+              "bets": 30,
+              "hits": 2,
+              "stake": 28800,
+              "payout": 88440,
+              "profit": 59640,
+              "roi": 307.0833333333333,
+              "largestHitShare": 51.28900949796472,
+              "roiWithoutLargestHit": 149.58333333333334,
+              "maxDrawdown": 14400,
+              "payoutMinus5PercentRoi": 291.7291666666667
+            },
+            "11": {
+              "purchaseRaces": 25,
+              "bets": 33,
+              "hits": 3,
+              "stake": 30000,
+              "payout": 42720,
+              "profit": 12720,
+              "roi": 142.4,
+              "largestHitShare": 48.174157303370784,
+              "roiWithoutLargestHit": 73.8,
+              "maxDrawdown": 9600,
+              "payoutMinus5PercentRoi": 135.28
+            },
+            "12": {
+              "purchaseRaces": 21,
+              "bets": 24,
+              "hits": 0,
+              "stake": 25200,
+              "payout": 0,
+              "profit": -25200,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 25200,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "predictionMetrics": {
+            "walkForwardLogloss": 3.747351589456168,
+            "staticR2Logloss": 3.748901464379667,
+            "marketLogloss": 3.755437285516595,
+            "deltaVsStatic": -0.0015498749234992282,
+            "deltaVsMarket": -0.008085696060426972,
+            "usableRaces": 12514,
+            "allRaces": 12657
+          },
+          "fixedPolicy": {
+            "budget": 1200,
+            "maxPoints": 3,
+            "minEv": 1.1,
+            "minProbability": 0.01,
+            "maxOdds": 40.0
+          },
+          "featureCacheSha256": "e6096db02dd897ee355aa5cd87a2b5e6f598fb2496eaf4da938ebe2aa33d1ba9",
+          "baselinePredictionSha256": "628281b9429259962dbe0b845a4685067dd8a2e137a9333bdbcfe08b49d11af2",
+          "futureLabelMutationInvariant": true,
+          "finalHoldoutOpened": false,
+          "releaseQualified": false
+        }
+      ]
+    },
+    "place": {
+      "q2ToQ4": {
+        "purchaseRaces": 15,
+        "hits": 2,
+        "stake": 18000,
+        "payout": 59700,
+        "profit": 41700,
+        "roi": 331.6666666666667,
+        "largestHitPayout": 0,
+        "largestHitShare": 0.0,
+        "roiWithoutLargestHit": 331.6666666666667
+      },
+      "predictionMetrics": {
+        "walkForwardLogloss": 3.7540979561707886,
+        "staticR2Logloss": 3.7543260000035517,
+        "marketLogloss": 3.7576038576237334,
+        "deltaVsStatic": -0.00022804383276309181,
+        "deltaVsMarket": -0.0035059014529448262
+      },
+      "calibrationGate": true,
+      "quarterResults": [
+        {
+          "protocol": "v016-core-r3-walk-forward-v1",
+          "family": "place",
+          "capacity": "small",
+          "quarter": "q2",
+          "manifest": {
+            "protocol": "v016-core-r3-walk-forward-v1",
+            "family": "place",
+            "capacity": "small",
+            "quarter": "q2",
+            "trainRaces": 8868,
+            "validationRaces": 4161,
+            "trainStart": "2024-01-01",
+            "trainEnd": "2024-02-29",
+            "validationStart": "2024-03-01",
+            "validationEnd": "2024-03-31",
+            "evalStart": "2024-04-01",
+            "r3ProtocolSha256": "5ccb55ff26a5ed37b89c1691e9247d01626881497cae37bc0478957a10367efc",
+            "r2ProtocolSha256": "c036f90ba253683b540c2ee4224ca6bbde58629886fb614b51803f677e5f1206",
+            "featureSchemaSha256": "91f7238faf87ab7ecd9c73af3260e8f5da5e430ea481a16afb07d1866561d7b4",
+            "codeSha256": "b9193c9b13eb6205ac6a00ac09e768164b28874aac690639534f96fb0cdf38ec",
+            "lightgbmVersion": "4.6.0",
+            "stages": {
+              "1": {
+                "iterations": 147,
+                "validationLogloss": 1.3068155596781688,
+                "sha256": "8ba176a9e74530fd8d7f128f39facbed61c1efc8f075931bb0c878ade71ead29",
+                "features": 289
+              },
+              "2": {
+                "iterations": 265,
+                "validationLogloss": 1.2312610702716156,
+                "sha256": "bb64cd534aa9f854e755ba4c4b280774224510a53e920b37c87a01f44919ccd6",
+                "features": 345
+              }
+            },
+            "holdoutOpened": false
+          },
+          "total": {
+            "purchaseRaces": 7,
+            "bets": 7,
+            "hits": 0,
+            "stake": 8400,
+            "payout": 0,
+            "profit": -8400,
+            "roi": 0.0,
+            "largestHitShare": 0.0,
+            "roiWithoutLargestHit": 0.0,
+            "maxDrawdown": 8400,
+            "payoutMinus5PercentRoi": 0.0
+          },
+          "months": {
+            "4": {
+              "purchaseRaces": 4,
+              "bets": 4,
+              "hits": 0,
+              "stake": 4800,
+              "payout": 0,
+              "profit": -4800,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 4800,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "5": {
+              "purchaseRaces": 2,
+              "bets": 2,
+              "hits": 0,
+              "stake": 2400,
+              "payout": 0,
+              "profit": -2400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 2400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "6": {
+              "purchaseRaces": 1,
+              "bets": 1,
+              "hits": 0,
+              "stake": 1200,
+              "payout": 0,
+              "profit": -1200,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 1200,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "predictionMetrics": {
+            "walkForwardLogloss": 3.7217825959870785,
+            "staticR2Logloss": 3.721026554769794,
+            "marketLogloss": 3.7248583018165204,
+            "deltaVsStatic": 0.0007560412172846753,
+            "deltaVsMarket": -0.0030757058294419437,
+            "usableRaces": 13132,
+            "allRaces": 13140
+          },
+          "fixedPolicy": {
+            "budget": 1200,
+            "maxPoints": 3,
+            "minEv": 1.1,
+            "minProbability": 0.01,
+            "maxOdds": 40.0
+          },
+          "featureCacheSha256": "e6096db02dd897ee355aa5cd87a2b5e6f598fb2496eaf4da938ebe2aa33d1ba9",
+          "baselinePredictionSha256": "99c27b67b02cf8bf925ae02e0ae020d73595f6a245124e1c39673b9833a94692",
+          "futureLabelMutationInvariant": true,
+          "finalHoldoutOpened": false,
+          "releaseQualified": false
+        },
+        {
+          "protocol": "v016-core-r3-walk-forward-v1",
+          "family": "place",
+          "capacity": "small",
+          "quarter": "q3",
+          "manifest": {
+            "protocol": "v016-core-r3-walk-forward-v1",
+            "family": "place",
+            "capacity": "small",
+            "quarter": "q3",
+            "trainRaces": 21766,
+            "validationRaces": 4395,
+            "trainStart": "2024-01-01",
+            "trainEnd": "2024-05-31",
+            "validationStart": "2024-06-01",
+            "validationEnd": "2024-06-30",
+            "evalStart": "2024-07-01",
+            "r3ProtocolSha256": "5ccb55ff26a5ed37b89c1691e9247d01626881497cae37bc0478957a10367efc",
+            "r2ProtocolSha256": "c036f90ba253683b540c2ee4224ca6bbde58629886fb614b51803f677e5f1206",
+            "featureSchemaSha256": "91f7238faf87ab7ecd9c73af3260e8f5da5e430ea481a16afb07d1866561d7b4",
+            "codeSha256": "b9193c9b13eb6205ac6a00ac09e768164b28874aac690639534f96fb0cdf38ec",
+            "lightgbmVersion": "4.6.0",
+            "stages": {
+              "1": {
+                "iterations": 360,
+                "validationLogloss": 1.3473712951392356,
+                "sha256": "83cb576b7f5a58d4e4236cdb41abaa32209d063c8eb782eb0a0ca8f88a53a73a",
+                "features": 289
+              },
+              "2": {
+                "iterations": 395,
+                "validationLogloss": 1.2413939617060934,
+                "sha256": "cf8e9dbefa822e5746aa9a4f7e1d769883e40897e7be74dd83e21e248ba4b619",
+                "features": 345
+              }
+            },
+            "holdoutOpened": false
+          },
+          "total": {
+            "purchaseRaces": 6,
+            "bets": 6,
+            "hits": 1,
+            "stake": 7200,
+            "payout": 44400,
+            "profit": 37200,
+            "roi": 616.6666666666666,
+            "largestHitShare": 100.0,
+            "roiWithoutLargestHit": 0.0,
+            "maxDrawdown": 6000,
+            "payoutMinus5PercentRoi": 585.8333333333334
+          },
+          "months": {
+            "7": {
+              "purchaseRaces": 1,
+              "bets": 1,
+              "hits": 0,
+              "stake": 1200,
+              "payout": 0,
+              "profit": -1200,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 1200,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "8": {
+              "purchaseRaces": 5,
+              "bets": 5,
+              "hits": 1,
+              "stake": 6000,
+              "payout": 44400,
+              "profit": 38400,
+              "roi": 740.0,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 4800,
+              "payoutMinus5PercentRoi": 703.0
+            },
+            "9": {
+              "purchaseRaces": 0,
+              "bets": 0,
+              "hits": 0,
+              "stake": 0,
+              "payout": 0,
+              "profit": 0,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 0,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "predictionMetrics": {
+            "walkForwardLogloss": 3.7890405152071978,
+            "staticR2Logloss": 3.789426288434363,
+            "marketLogloss": 3.791889248924195,
+            "deltaVsStatic": -0.0003857732271650427,
+            "deltaVsMarket": -0.0028487337169971205,
+            "usableRaces": 13333,
+            "allRaces": 13339
+          },
+          "fixedPolicy": {
+            "budget": 1200,
+            "maxPoints": 3,
+            "minEv": 1.1,
+            "minProbability": 0.01,
+            "maxOdds": 40.0
+          },
+          "featureCacheSha256": "e6096db02dd897ee355aa5cd87a2b5e6f598fb2496eaf4da938ebe2aa33d1ba9",
+          "baselinePredictionSha256": "99c27b67b02cf8bf925ae02e0ae020d73595f6a245124e1c39673b9833a94692",
+          "futureLabelMutationInvariant": true,
+          "finalHoldoutOpened": false,
+          "releaseQualified": false
+        },
+        {
+          "protocol": "v016-core-r3-walk-forward-v1",
+          "family": "place",
+          "capacity": "small",
+          "quarter": "q4",
+          "manifest": {
+            "protocol": "v016-core-r3-walk-forward-v1",
+            "family": "place",
+            "capacity": "small",
+            "quarter": "q4",
+            "trainRaces": 35375,
+            "validationRaces": 4119,
+            "trainStart": "2024-01-01",
+            "trainEnd": "2024-08-31",
+            "validationStart": "2024-09-01",
+            "validationEnd": "2024-09-30",
+            "evalStart": "2024-10-01",
+            "r3ProtocolSha256": "5ccb55ff26a5ed37b89c1691e9247d01626881497cae37bc0478957a10367efc",
+            "r2ProtocolSha256": "c036f90ba253683b540c2ee4224ca6bbde58629886fb614b51803f677e5f1206",
+            "featureSchemaSha256": "91f7238faf87ab7ecd9c73af3260e8f5da5e430ea481a16afb07d1866561d7b4",
+            "codeSha256": "b9193c9b13eb6205ac6a00ac09e768164b28874aac690639534f96fb0cdf38ec",
+            "lightgbmVersion": "4.6.0",
+            "stages": {
+              "1": {
+                "iterations": 234,
+                "validationLogloss": 1.364842390667118,
+                "sha256": "00c39198e459627b5fdbf656cd36db82d3fee154fbb21032aaae25f4188b3a5c",
+                "features": 289
+              },
+              "2": {
+                "iterations": 278,
+                "validationLogloss": 1.2407246869381205,
+                "sha256": "4e92076ccfd33d92efae64dd33f2193d5ae4ee50354fc96e4be86d56cf266aaf",
+                "features": 345
+              }
+            },
+            "holdoutOpened": false
+          },
+          "total": {
+            "purchaseRaces": 2,
+            "bets": 4,
+            "hits": 1,
+            "stake": 2400,
+            "payout": 15300,
+            "profit": 12900,
+            "roi": 637.5,
+            "largestHitShare": 100.0,
+            "roiWithoutLargestHit": 0.0,
+            "maxDrawdown": 1200,
+            "payoutMinus5PercentRoi": 605.625
+          },
+          "months": {
+            "10": {
+              "purchaseRaces": 1,
+              "bets": 2,
+              "hits": 0,
+              "stake": 1200,
+              "payout": 0,
+              "profit": -1200,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 1200,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "11": {
+              "purchaseRaces": 1,
+              "bets": 2,
+              "hits": 1,
+              "stake": 1200,
+              "payout": 15300,
+              "profit": 14100,
+              "roi": 1275.0,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 0,
+              "payoutMinus5PercentRoi": 1211.25
+            },
+            "12": {
+              "purchaseRaces": 0,
+              "bets": 0,
+              "hits": 0,
+              "stake": 0,
+              "payout": 0,
+              "profit": 0,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 0,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "predictionMetrics": {
+            "walkForwardLogloss": 3.7507797661675952,
+            "staticR2Logloss": 3.7518724415219884,
+            "marketLogloss": 3.755437285516595,
+            "deltaVsStatic": -0.0010926753543931689,
+            "deltaVsMarket": -0.004657519348999717,
+            "usableRaces": 12514,
+            "allRaces": 12657
+          },
+          "fixedPolicy": {
+            "budget": 1200,
+            "maxPoints": 3,
+            "minEv": 1.1,
+            "minProbability": 0.01,
+            "maxOdds": 40.0
+          },
+          "featureCacheSha256": "e6096db02dd897ee355aa5cd87a2b5e6f598fb2496eaf4da938ebe2aa33d1ba9",
+          "baselinePredictionSha256": "99c27b67b02cf8bf925ae02e0ae020d73595f6a245124e1c39673b9833a94692",
+          "futureLabelMutationInvariant": true,
+          "finalHoldoutOpened": false,
+          "releaseQualified": false
+        }
+      ]
+    }
+  },
+  "continueToQ1DataBuild": [
+    "place"
+  ],
+  "decision": "build_missing_pre2024_sidecar",
+  "finalHoldoutOpened": false,
+  "releaseQualified": false,
+  "notes": [
+    "Q2-Q4 are development evidence only; no annual pass is possible while Q1 is incomplete.",
+    "Betting thresholds/budget are frozen from r2 and were not tuned to these results.",
+    "2025-10-01..2025-12-31 was never read."
+  ]
+}
