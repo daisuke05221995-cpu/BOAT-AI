@@ -331,7 +331,10 @@ internal class ValueStrategyModel private constructor(
         private const val ASSET_NAME = "value_strategy_model.json"
 
         fun load(context: Context): ValueStrategyModel? = runCatching {
-            val text = context.assets.open(ASSET_NAME).bufferedReader().use { it.readText() }
+            fromJson(context.assets.open(ASSET_NAME).bufferedReader().use { it.readText() })
+        }.getOrNull()
+
+        internal fun fromJson(text: String): ValueStrategyModel {
             val root = JSONObject(text)
             val configJson = root.getJSONObject("strategy")
             val config = ValueStrategyConfig(
@@ -358,7 +361,7 @@ internal class ValueStrategyModel private constructor(
                 second = section("second"),
                 third = section("third")
             )
-        }.getOrNull()
+        }
 
         private fun JSONArray.doubleArray(): DoubleArray = DoubleArray(length()) { index -> getDouble(index) }
     }
