@@ -23,6 +23,11 @@ class BetStore(context: Context) {
     fun addPicks(race: RaceData, picks: List<PredictionPick>, stakePerPick: Int): List<BetRecord> =
         addEntries(listOf(race to picks), stakePerPick)
 
+    /**
+     * Legacy convenience path. New value-strategy bulk actions should prefer
+     * addResolvedRacePicks so the already evaluated official-odds decision is not
+     * recomputed at purchase-record time.
+     */
     fun addRacePicks(races: List<RaceData>, raceBudget: Int): List<BetRecord> =
         addEntries(
             races.filter { it.isPurchasable() }.map { race ->
@@ -30,6 +35,11 @@ class BetStore(context: Context) {
             },
             300
         )
+
+    fun addResolvedRacePicks(
+        entries: List<Pair<RaceData, List<PredictionPick>>>,
+        fallbackStakePerPick: Int = 300
+    ): List<BetRecord> = addEntries(entries, fallbackStakePerPick)
 
     private fun addEntries(
         entries: List<Pair<RaceData, List<PredictionPick>>>,
