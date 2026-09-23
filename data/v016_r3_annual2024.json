@@ -1,0 +1,103 @@
+{
+  "protocol": "v016-core-r3-walk-forward-v1",
+  "family": "place-small",
+  "year": 2024,
+  "q1": {
+    "protocol": "v016-core-r3-walk-forward-v1",
+    "family": "place",
+    "capacity": "small",
+    "quarter": "q1",
+    "manifest": {
+      "train": "2023-10-01..2023-11-30",
+      "validation": "2023-12-01..2023-12-31",
+      "trainRaces": 7851,
+      "validationRaces": 4628,
+      "stages": {
+        "1": {
+          "iterations": 137,
+          "validationLogloss": 1.3377896335212378,
+          "sha256": "67011b83fe61476c18806908e1dca08ca92849fa0af1b62a3a06d957025b404b"
+        },
+        "2": {
+          "iterations": 218,
+          "validationLogloss": 1.2303608238620478,
+          "sha256": "4af1a29d39731ead631ce632f54e8d246eb8db18575b3feb688d2cd1d3194b32"
+        }
+      }
+    },
+    "total": {
+      "purchaseRaces": 9,
+      "bets": 10,
+      "hits": 1,
+      "stake": 10800,
+      "payout": 14760,
+      "profit": 3960,
+      "roi": 136.66666666666666,
+      "largestHitShare": 100.0,
+      "roiWithoutLargestHit": 0.0,
+      "maxDrawdown": 4800,
+      "payoutMinus5PercentRoi": 129.83333333333334,
+      "largestHitPayout": 14760
+    },
+    "predictionMetrics": {
+      "walkForwardLogloss": 3.7301632483666234,
+      "staticR2Logloss": 3.728498806819573,
+      "marketLogloss": 3.731980748717581,
+      "deltaVsStatic": 0.001664441547050366,
+      "deltaVsMarket": -0.0018175003509575127,
+      "usableRaces": 13029,
+      "allRaces": 13043
+    },
+    "fixedPolicy": {
+      "budget": 1200,
+      "maxPoints": 3,
+      "minEv": 1.1,
+      "minProbability": 0.01,
+      "maxOdds": 40.0
+    },
+    "priorCacheSha256": "56001733f15b2243df4f2c74f29345de2c32803a34de7364eceee3decda4443b",
+    "currentCacheSha256": "e6096db02dd897ee355aa5cd87a2b5e6f598fb2496eaf4da938ebe2aa33d1ba9",
+    "baselinePredictionSha256": "99c27b67b02cf8bf925ae02e0ae020d73595f6a245124e1c39673b9833a94692",
+    "futureLabelMutationInvariant": true,
+    "finalHoldoutOpened": false,
+    "releaseQualified": false
+  },
+  "q2ToQ4": {
+    "purchaseRaces": 15,
+    "hits": 2,
+    "stake": 18000,
+    "payout": 59700,
+    "profit": 41700,
+    "roi": 331.6666666666667,
+    "largestHitPayout": 44400,
+    "largestHitShare": 74.37185929648241,
+    "roiWithoutLargestHit": 85.0
+  },
+  "annual": {
+    "purchaseRaces": 24,
+    "hits": 3,
+    "stake": 28800,
+    "payout": 74460,
+    "profit": 45660,
+    "roi": 258.5416666666667,
+    "largestHitPayout": 44400,
+    "largestHitShare": 59.6293311845286,
+    "roiWithoutLargestHit": 104.375
+  },
+  "annualGate": {
+    "roi_min_percent": 105.0,
+    "purchase_races_min": 360,
+    "hits_min": 30,
+    "largest_hit_share_max_percent": 25.0,
+    "roi_without_largest_hit_min_percent": 100.0
+  },
+  "q1CalibrationGate": false,
+  "annualPass": false,
+  "releaseQualified": false,
+  "finalHoldoutOpened": false,
+  "decision": "reject_r3_place_small",
+  "notes": [
+    "Betting policy remained fixed from r2",
+    "2025-10-01..2025-12-31 was not read"
+  ]
+}
