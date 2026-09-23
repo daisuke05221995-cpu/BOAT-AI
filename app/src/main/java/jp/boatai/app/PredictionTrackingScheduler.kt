@@ -130,7 +130,7 @@ class PredictionTrackingScheduler(private val context: Context) {
         const val ACTION_SETTLE = "jp.boatai.app.action.TRACK_PREDICTION_SETTLE"
         const val EXTRA_RACE_ID = "tracking_race_id"
         const val EXTRA_DATE = "tracking_date"
-        const val SERVICE_CHANNEL = "boat_ai_prediction_tracking"
+        const val SERVICE_CHANNEL = "boat_ai_prediction_tracking_visual_only_v4"
         const val SERVICE_NOTIFICATION_ID = 9_911
         private const val ALERT_LEAD_MINUTES = 5
         private const val TRACKING_DELAY_MS = 30_000L

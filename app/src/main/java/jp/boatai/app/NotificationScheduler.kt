@@ -203,7 +203,11 @@ class NotificationScheduler(private val context: Context) {
         if (Build.VERSION.SDK_INT < 26) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL, "レース・更新通知", NotificationManager.IMPORTANCE_DEFAULT)
+            NotificationChannel(CHANNEL, "レース・更新通知（無音）", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "BOAT AIの画面通知です。音と振動は使用しません"
+                setSound(null, null)
+                enableVibration(false)
+            }
         )
         manager.createNotificationChannel(
             NotificationChannel(ALERT_CHANNEL, "購入推奨アラート（無音）", NotificationManager.IMPORTANCE_HIGH).apply {
@@ -224,6 +228,7 @@ class NotificationScheduler(private val context: Context) {
         .setSmallIcon(android.R.drawable.ic_dialog_info)
         .setContentTitle(title)
         .setContentText(body)
+        .setSilent(true)
         .setAutoCancel(true)
         .build()
 
@@ -236,9 +241,9 @@ class NotificationScheduler(private val context: Context) {
 
     companion object {
         val TOKYO: ZoneId = ZoneId.of("Asia/Tokyo")
-        const val CHANNEL = "boat_ai_events"
-        const val ALERT_CHANNEL = "boat_ai_buy_alerts_silent_v2"
-        const val SERVICE_CHANNEL = "boat_ai_alert_checks_silent_v2"
+        const val CHANNEL = "boat_ai_events_visual_only_v4"
+        const val ALERT_CHANNEL = "boat_ai_buy_alerts_visual_only_v4"
+        const val SERVICE_CHANNEL = "boat_ai_alert_checks_visual_only_v4"
         const val ACTION_EVALUATE = "jp.boatai.app.action.EVALUATE_BUY_ALERT"
         const val ACTION_SETTLE = "jp.boatai.app.action.SETTLE_PREDICTION_RESULT"
         const val ACTION_BOOTSTRAP = "jp.boatai.app.action.BOOTSTRAP_ALERTS"
