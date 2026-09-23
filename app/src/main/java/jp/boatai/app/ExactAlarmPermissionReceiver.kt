@@ -5,7 +5,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.core.content.ContextCompat
 
 /**
  * Android 12+ の「アラームとリマインダー」が許可された直後に、
@@ -26,13 +25,8 @@ class ExactAlarmPermissionReceiver : BroadcastReceiver() {
 
         val notificationScheduler = NotificationScheduler(context)
         if (notificationScheduler.enabled) {
-            notificationScheduler.scheduleDailyBootstrap()
-            ContextCompat.startForegroundService(
-                context,
-                Intent(context, AlertEvaluationService::class.java).apply {
-                    action = NotificationScheduler.ACTION_BOOTSTRAP
-                }
-            )
+            runCatching { notificationScheduler.scheduleDailyBootstrap() }
+                .onFailure { CrashRecoveryStore(context).recordNonFatal("ExactAlarmPermissionReceiver", it) }
         }
     }
 }

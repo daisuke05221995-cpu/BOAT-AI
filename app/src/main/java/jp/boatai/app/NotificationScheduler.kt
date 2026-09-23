@@ -126,15 +126,17 @@ class NotificationScheduler(private val context: Context) {
 
     @SuppressLint("ScheduleExactAlarm")
     private fun scheduleAlarm(triggerAtMillis: Long, pendingIntent: PendingIntent) {
-        if (Build.VERSION.SDK_INT >= 23) {
-            if (exactAlarmReady) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        runCatching {
+            if (Build.VERSION.SDK_INT >= 23) {
+                if (exactAlarmReady) {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                } else {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                }
             } else {
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
             }
-        } else {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-        }
+        }.onFailure { CrashRecoveryStore(context).recordNonFatal("NotificationScheduler.scheduleAlarm", it) }
     }
 
     @SuppressLint("MissingPermission")
@@ -266,24 +268,29 @@ class BoatNotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val scheduler = NotificationScheduler(context)
         if (!scheduler.enabled) return
-        when (intent.action) {
-            NotificationScheduler.ACTION_EVALUATE,
-            NotificationScheduler.ACTION_SETTLE -> {
-                val serviceIntent = Intent(context, AlertEvaluationService::class.java).apply {
-                    action = intent.action
-                    putExtra(NotificationScheduler.EXTRA_RACE_ID, intent.getStringExtra(NotificationScheduler.EXTRA_RACE_ID))
-                    putExtra(NotificationScheduler.EXTRA_DATE, intent.getStringExtra(NotificationScheduler.EXTRA_DATE))
-                }
-                ContextCompat.startForegroundService(context, serviceIntent)
-            }
-            NotificationScheduler.ACTION_BOOTSTRAP -> {
-                ContextCompat.startForegroundService(
-                    context,
-                    Intent(context, AlertEvaluationService::class.java).apply {
-                        action = NotificationScheduler.ACTION_BOOTSTRAP
+        runCatching {
+            when (intent.action) {
+                NotificationScheduler.ACTION_EVALUATE,
+                NotificationScheduler.ACTION_SETTLE -> {
+                    val serviceIntent = Intent(context, AlertEvaluationService::class.java).apply {
+                        action = intent.action
+                        putExtra(NotificationScheduler.EXTRA_RACE_ID, intent.getStringExtra(NotificationScheduler.EXTRA_RACE_ID))
+                        putExtra(NotificationScheduler.EXTRA_DATE, intent.getStringExtra(NotificationScheduler.EXTRA_DATE))
                     }
-                )
+                    ContextCompat.startForegroundService(context, serviceIntent)
+                }
+                NotificationScheduler.ACTION_BOOTSTRAP -> {
+                    ContextCompat.startForegroundService(
+                        context,
+                        Intent(context, AlertEvaluationService::class.java).apply {
+                            action = NotificationScheduler.ACTION_BOOTSTRAP
+                        }
+                    )
+                }
             }
+        }.onFailure {
+            CrashRecoveryStore(context).recordNonFatal("BoatNotificationReceiver.${intent.action}", it)
+            scheduler.recordCheck(intent.getStringExtra(NotificationScheduler.EXTRA_RACE_ID) ?: "receiver", "バックグラウンド起動失敗: ${it.javaClass.simpleName}")
         }
     }
 }
@@ -293,13 +300,10 @@ class BoatAlertBootReceiver : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val scheduler = NotificationScheduler(context)
         if (!scheduler.enabled) return
-        scheduler.scheduleDailyBootstrap()
-        ContextCompat.startForegroundService(
-            context,
-            Intent(context, AlertEvaluationService::class.java).apply {
-                action = NotificationScheduler.ACTION_BOOTSTRAP
-            }
-        )
+        // Android 15 forbids some dataSync foreground-service starts directly from BOOT_COMPLETED.
+        // Rebuild the next Alarm only; the Alarm receiver starts work when its trigger arrives.
+        runCatching { scheduler.scheduleDailyBootstrap() }
+            .onFailure { CrashRecoveryStore(context).recordNonFatal("BoatAlertBootReceiver", it) }
     }
 }
 
@@ -309,7 +313,13 @@ class AlertEvaluationService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startAsForeground()
+        try {
+            startAsForeground()
+        } catch (error: Throwable) {
+            CrashRecoveryStore(this).recordNonFatal("AlertEvaluationService.startForeground", error)
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
         scope.launch {
             try {
                 when (intent?.action) {
@@ -323,6 +333,9 @@ class AlertEvaluationService : Service() {
                         intent.getStringExtra(NotificationScheduler.EXTRA_RACE_ID)
                     )
                 }
+            } catch (error: Throwable) {
+                CrashRecoveryStore(this@AlertEvaluationService).recordNonFatal("AlertEvaluationService.${intent?.action}", error)
+                runCatching { NotificationScheduler(this@AlertEvaluationService).recordCheck("service", "処理失敗: ${error.javaClass.simpleName}") }
             } finally {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf(startId)

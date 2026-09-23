@@ -105,13 +105,15 @@ class PredictionTrackingScheduler(private val context: Context) {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        when {
-            Build.VERSION.SDK_INT >= 23 && exactAlarmReady ->
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending)
-            Build.VERSION.SDK_INT >= 23 ->
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending)
-            else -> alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending)
-        }
+        runCatching {
+            when {
+                Build.VERSION.SDK_INT >= 23 && exactAlarmReady ->
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending)
+                Build.VERSION.SDK_INT >= 23 ->
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending)
+                else -> alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending)
+            }
+        }.onFailure { CrashRecoveryStore(context).recordNonFatal("PredictionTrackingScheduler.schedule.$action", it) }
     }
 
     private fun closeAt(race: RaceData): LocalDateTime? {
@@ -149,17 +151,20 @@ class PredictionTrackingReceiver : BroadcastReceiver() {
             putExtra(PredictionTrackingScheduler.EXTRA_RACE_ID, intent.getStringExtra(PredictionTrackingScheduler.EXTRA_RACE_ID))
             putExtra(PredictionTrackingScheduler.EXTRA_DATE, intent.getStringExtra(PredictionTrackingScheduler.EXTRA_DATE))
         }
-        ContextCompat.startForegroundService(context, serviceIntent)
+        runCatching { ContextCompat.startForegroundService(context, serviceIntent) }
+            .onFailure { CrashRecoveryStore(context).recordNonFatal("PredictionTrackingReceiver.${intent.action}", it) }
     }
 }
 
 class PredictionTrackingBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
-        PredictionTrackingScheduler(context).apply {
-            scheduleDailyBootstrap()
-            scheduleBootstrapSoon(60_000L)
-        }
+        runCatching {
+            PredictionTrackingScheduler(context).apply {
+                scheduleDailyBootstrap()
+                scheduleBootstrapSoon(60_000L)
+            }
+        }.onFailure { CrashRecoveryStore(context).recordNonFatal("PredictionTrackingBootReceiver", it) }
     }
 }
 
@@ -169,7 +174,13 @@ class PredictionTrackingService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startAsForeground()
+        try {
+            startAsForeground()
+        } catch (error: Throwable) {
+            CrashRecoveryStore(this).recordNonFatal("PredictionTrackingService.startForeground", error)
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
         scope.launch {
             try {
                 when (intent?.action) {
@@ -182,6 +193,8 @@ class PredictionTrackingService : Service() {
                         intent.getStringExtra(PredictionTrackingScheduler.EXTRA_DATE)
                     )
                 }
+            } catch (error: Throwable) {
+                CrashRecoveryStore(this@PredictionTrackingService).recordNonFatal("PredictionTrackingService.${intent?.action}", error)
             } finally {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf(startId)

@@ -27,6 +27,28 @@ class CrashRecoveryStore(context: Context) {
         prefs.edit().remove(KEY_LAST_CRASH).remove(KEY_LAST_CRASH_AT).commit()
     }
 
+    fun recordNonFatal(scope: String, throwable: Throwable) {
+        runCatching {
+            val writer = StringWriter()
+            throwable.printStackTrace(PrintWriter(writer))
+            val report = buildString {
+                appendLine("BOAT AI v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                appendLine("time=${System.currentTimeMillis()}")
+                appendLine("scope=$scope")
+                appendLine("device=${Build.MANUFACTURER} ${Build.MODEL}")
+                appendLine("android=${Build.VERSION.RELEASE} sdk=${Build.VERSION.SDK_INT}")
+                appendLine()
+                append(writer.toString())
+            }.take(MAX_CRASH_CHARS)
+            prefs.edit()
+                .putString(KEY_LAST_BACKGROUND_FAILURE, report)
+                .putLong(KEY_LAST_BACKGROUND_FAILURE_AT, System.currentTimeMillis())
+                .commit()
+        }
+    }
+
+    fun lastBackgroundFailure(): String? = prefs.getString(KEY_LAST_BACKGROUND_FAILURE, null)
+
     fun installHandler() {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
@@ -64,6 +86,8 @@ class CrashRecoveryStore(context: Context) {
         private const val KEY_NORMAL_BOOT = "normal_boot_enabled"
         private const val KEY_LAST_CRASH = "last_crash"
         private const val KEY_LAST_CRASH_AT = "last_crash_at"
+        private const val KEY_LAST_BACKGROUND_FAILURE = "last_background_failure"
+        private const val KEY_LAST_BACKGROUND_FAILURE_AT = "last_background_failure_at"
         private const val MAX_CRASH_CHARS = 16_000
     }
 }
