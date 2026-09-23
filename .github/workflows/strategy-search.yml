@@ -50,7 +50,7 @@ jobs:
           assert int(data.get('historicalRaceCount', 0)) > 200000
           PY
 
-      - name: Run monthly adaptive odds-value walk-forward
+      - name: Run v11 monthly adaptive odds-value walk-forward
         run: |
           python -u scripts/search_2026_strategy_v11.py \
             --start 2026-01-01 \
