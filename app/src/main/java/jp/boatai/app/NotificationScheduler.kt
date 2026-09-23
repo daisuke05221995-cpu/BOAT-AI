@@ -180,6 +180,8 @@ class NotificationScheduler(private val context: Context) {
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+            .setDefaults(0)
+            .setVibrate(longArrayOf(0L))
             .setSilent(true)
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
@@ -203,17 +205,21 @@ class NotificationScheduler(private val context: Context) {
         if (Build.VERSION.SDK_INT < 26) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL, "レース・更新通知", NotificationManager.IMPORTANCE_DEFAULT)
+            NotificationChannel(CHANNEL, "BOAT AI通知（表示のみ）", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "BOAT AIからの通知を音・振動なしで表示します"
+                setSound(null, null)
+                enableVibration(false)
+            }
         )
         manager.createNotificationChannel(
-            NotificationChannel(ALERT_CHANNEL, "購入推奨アラート（無音）", NotificationManager.IMPORTANCE_HIGH).apply {
+            NotificationChannel(ALERT_CHANNEL, "購入推奨アラート（表示のみ）", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "締切約5分前に、AI判定と最新公式オッズの両方を通過したレースだけ画面通知します"
                 setSound(null, null)
                 enableVibration(false)
             }
         )
         manager.createNotificationChannel(
-            NotificationChannel(SERVICE_CHANNEL, "購入推奨判定処理（無音）", NotificationManager.IMPORTANCE_LOW).apply {
+            NotificationChannel(SERVICE_CHANNEL, "購入推奨判定処理（表示のみ）", NotificationManager.IMPORTANCE_LOW).apply {
                 setSound(null, null)
                 enableVibration(false)
             }
@@ -224,6 +230,10 @@ class NotificationScheduler(private val context: Context) {
         .setSmallIcon(android.R.drawable.ic_dialog_info)
         .setContentTitle(title)
         .setContentText(body)
+        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+        .setDefaults(0)
+        .setVibrate(longArrayOf(0L))
+        .setSilent(true)
         .setAutoCancel(true)
         .build()
 
@@ -236,9 +246,9 @@ class NotificationScheduler(private val context: Context) {
 
     companion object {
         val TOKYO: ZoneId = ZoneId.of("Asia/Tokyo")
-        const val CHANNEL = "boat_ai_events"
-        const val ALERT_CHANNEL = "boat_ai_buy_alerts_silent_v2"
-        const val SERVICE_CHANNEL = "boat_ai_alert_checks_silent_v2"
+        const val CHANNEL = "boat_ai_events_visual_v3"
+        const val ALERT_CHANNEL = "boat_ai_buy_alerts_visual_v3"
+        const val SERVICE_CHANNEL = "boat_ai_alert_checks_visual_v3"
         const val ACTION_EVALUATE = "jp.boatai.app.action.EVALUATE_BUY_ALERT"
         const val ACTION_SETTLE = "jp.boatai.app.action.SETTLE_PREDICTION_RESULT"
         const val ACTION_BOOTSTRAP = "jp.boatai.app.action.BOOTSTRAP_ALERTS"
@@ -332,7 +342,7 @@ class AlertEvaluationService : Service() {
             manager.createNotificationChannel(
                 NotificationChannel(
                     NotificationScheduler.SERVICE_CHANNEL,
-                    "購入推奨判定処理（無音）",
+                    "購入推奨判定処理（表示のみ）",
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
                     setSound(null, null)
@@ -345,6 +355,8 @@ class AlertEvaluationService : Service() {
             .setContentTitle("BOAT AI")
             .setContentText("予想・結果を確認中")
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setDefaults(0)
+            .setVibrate(longArrayOf(0L))
             .setSilent(true)
             .setOngoing(true)
             .build()
