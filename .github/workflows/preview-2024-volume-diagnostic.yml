@@ -1,0 +1,62 @@
+name: BOAT AI preview 2024 volume diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/diagnose_preview_2024_volume.py'
+      - '.github/workflows/preview-2024-volume-diagnostic.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: boat-ai-preview-2024-volume-diagnostic
+  cancel-in-progress: true
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'numpy>=2.0,<3.0'
+      - name: Download 2024 preview cache
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35830207608
+          name: preview-enhanced-signal-cache-2024
+          path: downloaded
+      - name: Normalize cache path
+        run: |
+          mkdir -p preview-cache
+          find downloaded -name 'signal_cache_2024.npz' -print -exec cp {} preview-cache/signal_cache_2024.npz \;
+          test -f preview-cache/signal_cache_2024.npz
+      - name: Diagnose 2024 volume
+        run: |
+          mkdir -p data
+          python -u scripts/diagnose_preview_2024_volume.py \
+            --cache-dir preview-cache \
+            --output data/preview_2024_volume_diagnostic.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preview-2024-volume-diagnostic
+          path: data/preview_2024_volume_diagnostic.json
+          retention-days: 30
+      - name: Commit diagnostic
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/preview_2024_volume_diagnostic.json
+          git commit -m 'Update preview 2024 volume diagnostic' || exit 0
+          git pull --rebase origin main
+          git push origin HEAD:main
