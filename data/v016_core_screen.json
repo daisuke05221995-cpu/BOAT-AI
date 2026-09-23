@@ -1,0 +1,2056 @@
+{
+  "stage": "core-development-screen",
+  "researchOnly": true,
+  "releaseQualified": false,
+  "testedConfigurations": 144,
+  "eligibleCount": 0,
+  "selected": null,
+  "bestDiagnostics": [
+    {
+      "configHash": "e45d57e131808664801c2fb19534f5aa1b74dd376a0c5e39da9e7511590f51d9",
+      "config": {
+        "family": "blend",
+        "parameterIndex": 0,
+        "parameter": 0.15,
+        "minEv": 1.1,
+        "minProbability": 0.03,
+        "maxOdds": 40,
+        "maxPoints": 4,
+        "budget": 1200
+      },
+      "years": {
+        "2023": {
+          "config": {
+            "family": "blend",
+            "parameterIndex": 0,
+            "parameter": 0.15,
+            "minEv": 1.1,
+            "minProbability": 0.03,
+            "maxOdds": 40,
+            "maxPoints": 4,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 28,
+            "bets": 29,
+            "hits": 1,
+            "stake": 33600,
+            "payout": 36360,
+            "profit": 2760,
+            "roi": 108.21428571428571,
+            "largestHitShare": 100.0,
+            "roiWithoutLargestHit": 0.0,
+            "maxDrawdown": 27600,
+            "payoutMinus5PercentRoi": 102.80357142857143
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 11,
+              "bets": 11,
+              "hits": 1,
+              "stake": 13200,
+              "payout": 36360,
+              "profit": 23160,
+              "roi": 275.45454545454544,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 7200,
+              "payoutMinus5PercentRoi": 261.6818181818182
+            },
+            "6": {
+              "purchaseRaces": 7,
+              "bets": 7,
+              "hits": 0,
+              "stake": 8400,
+              "payout": 0,
+              "profit": -8400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 8400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "7": {
+              "purchaseRaces": 7,
+              "bets": 8,
+              "hits": 0,
+              "stake": 8400,
+              "payout": 0,
+              "profit": -8400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 8400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "8": {
+              "purchaseRaces": 3,
+              "bets": 3,
+              "hits": 0,
+              "stake": 3600,
+              "payout": 0,
+              "profit": -3600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 3600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "9": {
+              "purchaseRaces": 0,
+              "bets": 0,
+              "hits": 0,
+              "stake": 0,
+              "payout": 0,
+              "profit": 0,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 0,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "screenPass": false
+        },
+        "2024": {
+          "config": {
+            "family": "blend",
+            "parameterIndex": 0,
+            "parameter": 0.15,
+            "minEv": 1.1,
+            "minProbability": 0.03,
+            "maxOdds": 40,
+            "maxPoints": 4,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 15,
+            "bets": 15,
+            "hits": 1,
+            "stake": 18000,
+            "payout": 42360,
+            "profit": 24360,
+            "roi": 235.33333333333334,
+            "largestHitShare": 100.0,
+            "roiWithoutLargestHit": 0.0,
+            "maxDrawdown": 9600,
+            "payoutMinus5PercentRoi": 223.56666666666666
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 3,
+              "bets": 3,
+              "hits": 0,
+              "stake": 3600,
+              "payout": 0,
+              "profit": -3600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 3600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "6": {
+              "purchaseRaces": 7,
+              "bets": 7,
+              "hits": 1,
+              "stake": 8400,
+              "payout": 42360,
+              "profit": 33960,
+              "roi": 504.2857142857143,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 6000,
+              "payoutMinus5PercentRoi": 479.07142857142856
+            },
+            "7": {
+              "purchaseRaces": 2,
+              "bets": 2,
+              "hits": 0,
+              "stake": 2400,
+              "payout": 0,
+              "profit": -2400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 2400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "8": {
+              "purchaseRaces": 2,
+              "bets": 2,
+              "hits": 0,
+              "stake": 2400,
+              "payout": 0,
+              "profit": -2400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 2400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "9": {
+              "purchaseRaces": 1,
+              "bets": 1,
+              "hits": 0,
+              "stake": 1200,
+              "payout": 0,
+              "profit": -1200,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 1200,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "screenPass": false
+        }
+      },
+      "minRoi": 108.21428571428571,
+      "pooledRoi": 152.5581395348837
+    },
+    {
+      "configHash": "ba33295769d2645d7b891aa5ecc10e97e739dfa1df1b54faab77405c18052b83",
+      "config": {
+        "family": "blend",
+        "parameterIndex": 0,
+        "parameter": 0.15,
+        "minEv": 1.1,
+        "minProbability": 0.03,
+        "maxOdds": 40,
+        "maxPoints": 3,
+        "budget": 1200
+      },
+      "years": {
+        "2023": {
+          "config": {
+            "family": "blend",
+            "parameterIndex": 0,
+            "parameter": 0.15,
+            "minEv": 1.1,
+            "minProbability": 0.03,
+            "maxOdds": 40,
+            "maxPoints": 3,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 28,
+            "bets": 29,
+            "hits": 1,
+            "stake": 33600,
+            "payout": 36360,
+            "profit": 2760,
+            "roi": 108.21428571428571,
+            "largestHitShare": 100.0,
+            "roiWithoutLargestHit": 0.0,
+            "maxDrawdown": 27600,
+            "payoutMinus5PercentRoi": 102.80357142857143
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 11,
+              "bets": 11,
+              "hits": 1,
+              "stake": 13200,
+              "payout": 36360,
+              "profit": 23160,
+              "roi": 275.45454545454544,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 7200,
+              "payoutMinus5PercentRoi": 261.6818181818182
+            },
+            "6": {
+              "purchaseRaces": 7,
+              "bets": 7,
+              "hits": 0,
+              "stake": 8400,
+              "payout": 0,
+              "profit": -8400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 8400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "7": {
+              "purchaseRaces": 7,
+              "bets": 8,
+              "hits": 0,
+              "stake": 8400,
+              "payout": 0,
+              "profit": -8400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 8400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "8": {
+              "purchaseRaces": 3,
+              "bets": 3,
+              "hits": 0,
+              "stake": 3600,
+              "payout": 0,
+              "profit": -3600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 3600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "9": {
+              "purchaseRaces": 0,
+              "bets": 0,
+              "hits": 0,
+              "stake": 0,
+              "payout": 0,
+              "profit": 0,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 0,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "screenPass": false
+        },
+        "2024": {
+          "config": {
+            "family": "blend",
+            "parameterIndex": 0,
+            "parameter": 0.15,
+            "minEv": 1.1,
+            "minProbability": 0.03,
+            "maxOdds": 40,
+            "maxPoints": 3,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 15,
+            "bets": 15,
+            "hits": 1,
+            "stake": 18000,
+            "payout": 42360,
+            "profit": 24360,
+            "roi": 235.33333333333334,
+            "largestHitShare": 100.0,
+            "roiWithoutLargestHit": 0.0,
+            "maxDrawdown": 9600,
+            "payoutMinus5PercentRoi": 223.56666666666666
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 3,
+              "bets": 3,
+              "hits": 0,
+              "stake": 3600,
+              "payout": 0,
+              "profit": -3600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 3600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "6": {
+              "purchaseRaces": 7,
+              "bets": 7,
+              "hits": 1,
+              "stake": 8400,
+              "payout": 42360,
+              "profit": 33960,
+              "roi": 504.2857142857143,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 6000,
+              "payoutMinus5PercentRoi": 479.07142857142856
+            },
+            "7": {
+              "purchaseRaces": 2,
+              "bets": 2,
+              "hits": 0,
+              "stake": 2400,
+              "payout": 0,
+              "profit": -2400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 2400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "8": {
+              "purchaseRaces": 2,
+              "bets": 2,
+              "hits": 0,
+              "stake": 2400,
+              "payout": 0,
+              "profit": -2400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 2400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "9": {
+              "purchaseRaces": 1,
+              "bets": 1,
+              "hits": 0,
+              "stake": 1200,
+              "payout": 0,
+              "profit": -1200,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 1200,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "screenPass": false
+        }
+      },
+      "minRoi": 108.21428571428571,
+      "pooledRoi": 152.5581395348837
+    },
+    {
+      "configHash": "de7fd6d693c733a2de57559d71630c5f7eb74781d551df4f5b7810c9c2bc2480",
+      "config": {
+        "family": "blend",
+        "parameterIndex": 0,
+        "parameter": 0.15,
+        "minEv": 1.0,
+        "minProbability": 0.03,
+        "maxOdds": 40,
+        "maxPoints": 3,
+        "budget": 1200
+      },
+      "years": {
+        "2023": {
+          "config": {
+            "family": "blend",
+            "parameterIndex": 0,
+            "parameter": 0.15,
+            "minEv": 1.0,
+            "minProbability": 0.03,
+            "maxOdds": 40,
+            "maxPoints": 3,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 104,
+            "bets": 115,
+            "hits": 6,
+            "stake": 124800,
+            "payout": 136380,
+            "profit": 11580,
+            "roi": 109.27884615384616,
+            "largestHitShare": 27.18873735151782,
+            "roiWithoutLargestHit": 79.5673076923077,
+            "maxDrawdown": 96000,
+            "payoutMinus5PercentRoi": 103.81490384615384
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 34,
+              "bets": 37,
+              "hits": 2,
+              "stake": 40800,
+              "payout": 23700,
+              "profit": -17100,
+              "roi": 58.088235294117645,
+              "largestHitShare": 76.70886075949367,
+              "roiWithoutLargestHit": 13.529411764705882,
+              "maxDrawdown": 30000,
+              "payoutMinus5PercentRoi": 55.18382352941177
+            },
+            "6": {
+              "purchaseRaces": 20,
+              "bets": 24,
+              "hits": 0,
+              "stake": 24000,
+              "payout": 0,
+              "profit": -24000,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 24000,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "7": {
+              "purchaseRaces": 23,
+              "bets": 27,
+              "hits": 0,
+              "stake": 27600,
+              "payout": 0,
+              "profit": -27600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 27600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "8": {
+              "purchaseRaces": 23,
+              "bets": 23,
+              "hits": 3,
+              "stake": 27600,
+              "payout": 75600,
+              "profit": 48000,
+              "roi": 273.9130434782609,
+              "largestHitShare": 43.80952380952381,
+              "roiWithoutLargestHit": 153.91304347826087,
+              "maxDrawdown": 14400,
+              "payoutMinus5PercentRoi": 260.2173913043478
+            },
+            "9": {
+              "purchaseRaces": 4,
+              "bets": 4,
+              "hits": 1,
+              "stake": 4800,
+              "payout": 37080,
+              "profit": 32280,
+              "roi": 772.5,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 3600,
+              "payoutMinus5PercentRoi": 733.875
+            }
+          },
+          "screenPass": false
+        },
+        "2024": {
+          "config": {
+            "family": "blend",
+            "parameterIndex": 0,
+            "parameter": 0.15,
+            "minEv": 1.0,
+            "minProbability": 0.03,
+            "maxOdds": 40,
+            "maxPoints": 3,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 87,
+            "bets": 94,
+            "hits": 3,
+            "stake": 104400,
+            "payout": 108720,
+            "profit": 4320,
+            "roi": 104.13793103448276,
+            "largestHitShare": 38.962472406181014,
+            "roiWithoutLargestHit": 63.5632183908046,
+            "maxDrawdown": 42000,
+            "payoutMinus5PercentRoi": 98.93103448275862
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 19,
+              "bets": 19,
+              "hits": 0,
+              "stake": 22800,
+              "payout": 0,
+              "profit": -22800,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 22800,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "6": {
+              "purchaseRaces": 22,
+              "bets": 23,
+              "hits": 1,
+              "stake": 26400,
+              "payout": 42360,
+              "profit": 15960,
+              "roi": 160.45454545454547,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 19200,
+              "payoutMinus5PercentRoi": 152.4318181818182
+            },
+            "7": {
+              "purchaseRaces": 16,
+              "bets": 19,
+              "hits": 1,
+              "stake": 19200,
+              "payout": 33480,
+              "profit": 14280,
+              "roi": 174.375,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 15600,
+              "payoutMinus5PercentRoi": 165.65625
+            },
+            "8": {
+              "purchaseRaces": 17,
+              "bets": 18,
+              "hits": 1,
+              "stake": 20400,
+              "payout": 32880,
+              "profit": 12480,
+              "roi": 161.1764705882353,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 15600,
+              "payoutMinus5PercentRoi": 153.11764705882354
+            },
+            "9": {
+              "purchaseRaces": 13,
+              "bets": 15,
+              "hits": 0,
+              "stake": 15600,
+              "payout": 0,
+              "profit": -15600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 15600,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "screenPass": false
+        }
+      },
+      "minRoi": 104.13793103448276,
+      "pooledRoi": 106.93717277486911
+    },
+    {
+      "configHash": "1e8a034856e296ad33a5c011cd8ddbbc66d09d067cd2be2d05039691aa42eb03",
+      "config": {
+        "family": "blend",
+        "parameterIndex": 0,
+        "parameter": 0.15,
+        "minEv": 1.0,
+        "minProbability": 0.03,
+        "maxOdds": 40,
+        "maxPoints": 4,
+        "budget": 1200
+      },
+      "years": {
+        "2023": {
+          "config": {
+            "family": "blend",
+            "parameterIndex": 0,
+            "parameter": 0.15,
+            "minEv": 1.0,
+            "minProbability": 0.03,
+            "maxOdds": 40,
+            "maxPoints": 4,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 104,
+            "bets": 115,
+            "hits": 6,
+            "stake": 124800,
+            "payout": 136380,
+            "profit": 11580,
+            "roi": 109.27884615384616,
+            "largestHitShare": 27.18873735151782,
+            "roiWithoutLargestHit": 79.5673076923077,
+            "maxDrawdown": 96000,
+            "payoutMinus5PercentRoi": 103.81490384615384
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 34,
+              "bets": 37,
+              "hits": 2,
+              "stake": 40800,
+              "payout": 23700,
+              "profit": -17100,
+              "roi": 58.088235294117645,
+              "largestHitShare": 76.70886075949367,
+              "roiWithoutLargestHit": 13.529411764705882,
+              "maxDrawdown": 30000,
+              "payoutMinus5PercentRoi": 55.18382352941177
+            },
+            "6": {
+              "purchaseRaces": 20,
+              "bets": 24,
+              "hits": 0,
+              "stake": 24000,
+              "payout": 0,
+              "profit": -24000,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 24000,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "7": {
+              "purchaseRaces": 23,
+              "bets": 27,
+              "hits": 0,
+              "stake": 27600,
+              "payout": 0,
+              "profit": -27600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 27600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "8": {
+              "purchaseRaces": 23,
+              "bets": 23,
+              "hits": 3,
+              "stake": 27600,
+              "payout": 75600,
+              "profit": 48000,
+              "roi": 273.9130434782609,
+              "largestHitShare": 43.80952380952381,
+              "roiWithoutLargestHit": 153.91304347826087,
+              "maxDrawdown": 14400,
+              "payoutMinus5PercentRoi": 260.2173913043478
+            },
+            "9": {
+              "purchaseRaces": 4,
+              "bets": 4,
+              "hits": 1,
+              "stake": 4800,
+              "payout": 37080,
+              "profit": 32280,
+              "roi": 772.5,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 3600,
+              "payoutMinus5PercentRoi": 733.875
+            }
+          },
+          "screenPass": false
+        },
+        "2024": {
+          "config": {
+            "family": "blend",
+            "parameterIndex": 0,
+            "parameter": 0.15,
+            "minEv": 1.0,
+            "minProbability": 0.03,
+            "maxOdds": 40,
+            "maxPoints": 4,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 87,
+            "bets": 94,
+            "hits": 3,
+            "stake": 104400,
+            "payout": 108720,
+            "profit": 4320,
+            "roi": 104.13793103448276,
+            "largestHitShare": 38.962472406181014,
+            "roiWithoutLargestHit": 63.5632183908046,
+            "maxDrawdown": 42000,
+            "payoutMinus5PercentRoi": 98.93103448275862
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 19,
+              "bets": 19,
+              "hits": 0,
+              "stake": 22800,
+              "payout": 0,
+              "profit": -22800,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 22800,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "6": {
+              "purchaseRaces": 22,
+              "bets": 23,
+              "hits": 1,
+              "stake": 26400,
+              "payout": 42360,
+              "profit": 15960,
+              "roi": 160.45454545454547,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 19200,
+              "payoutMinus5PercentRoi": 152.4318181818182
+            },
+            "7": {
+              "purchaseRaces": 16,
+              "bets": 19,
+              "hits": 1,
+              "stake": 19200,
+              "payout": 33480,
+              "profit": 14280,
+              "roi": 174.375,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 15600,
+              "payoutMinus5PercentRoi": 165.65625
+            },
+            "8": {
+              "purchaseRaces": 17,
+              "bets": 18,
+              "hits": 1,
+              "stake": 20400,
+              "payout": 32880,
+              "profit": 12480,
+              "roi": 161.1764705882353,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 15600,
+              "payoutMinus5PercentRoi": 153.11764705882354
+            },
+            "9": {
+              "purchaseRaces": 13,
+              "bets": 15,
+              "hits": 0,
+              "stake": 15600,
+              "payout": 0,
+              "profit": -15600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 15600,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "screenPass": false
+        }
+      },
+      "minRoi": 104.13793103448276,
+      "pooledRoi": 106.93717277486911
+    },
+    {
+      "configHash": "c33f3528b0fdee7eeb7ba7ee3ef74d283d52e301a681abdb7ac98ef135f51f0b",
+      "config": {
+        "family": "blend",
+        "parameterIndex": 0,
+        "parameter": 0.15,
+        "minEv": 1.1,
+        "minProbability": 0.01,
+        "maxOdds": 40,
+        "maxPoints": 3,
+        "budget": 1200
+      },
+      "years": {
+        "2023": {
+          "config": {
+            "family": "blend",
+            "parameterIndex": 0,
+            "parameter": 0.15,
+            "minEv": 1.1,
+            "minProbability": 0.01,
+            "maxOdds": 40,
+            "maxPoints": 3,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 32,
+            "bets": 34,
+            "hits": 1,
+            "stake": 38400,
+            "payout": 36360,
+            "profit": -2040,
+            "roi": 94.6875,
+            "largestHitShare": 100.0,
+            "roiWithoutLargestHit": 0.0,
+            "maxDrawdown": 32400,
+            "payoutMinus5PercentRoi": 89.953125
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 13,
+              "bets": 13,
+              "hits": 1,
+              "stake": 15600,
+              "payout": 36360,
+              "profit": 20760,
+              "roi": 233.07692307692307,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 9600,
+              "payoutMinus5PercentRoi": 221.42307692307693
+            },
+            "6": {
+              "purchaseRaces": 8,
+              "bets": 9,
+              "hits": 0,
+              "stake": 9600,
+              "payout": 0,
+              "profit": -9600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 9600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "7": {
+              "purchaseRaces": 8,
+              "bets": 9,
+              "hits": 0,
+              "stake": 9600,
+              "payout": 0,
+              "profit": -9600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 9600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "8": {
+              "purchaseRaces": 3,
+              "bets": 3,
+              "hits": 0,
+              "stake": 3600,
+              "payout": 0,
+              "profit": -3600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 3600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "9": {
+              "purchaseRaces": 0,
+              "bets": 0,
+              "hits": 0,
+              "stake": 0,
+              "payout": 0,
+              "profit": 0,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 0,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "screenPass": false
+        },
+        "2024": {
+          "config": {
+            "family": "blend",
+            "parameterIndex": 0,
+            "parameter": 0.15,
+            "minEv": 1.1,
+            "minProbability": 0.01,
+            "maxOdds": 40,
+            "maxPoints": 3,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 15,
+            "bets": 17,
+            "hits": 1,
+            "stake": 18000,
+            "payout": 42360,
+            "profit": 24360,
+            "roi": 235.33333333333334,
+            "largestHitShare": 100.0,
+            "roiWithoutLargestHit": 0.0,
+            "maxDrawdown": 9600,
+            "payoutMinus5PercentRoi": 223.56666666666666
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 3,
+              "bets": 3,
+              "hits": 0,
+              "stake": 3600,
+              "payout": 0,
+              "profit": -3600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 3600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "6": {
+              "purchaseRaces": 7,
+              "bets": 8,
+              "hits": 1,
+              "stake": 8400,
+              "payout": 42360,
+              "profit": 33960,
+              "roi": 504.2857142857143,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 6000,
+              "payoutMinus5PercentRoi": 479.07142857142856
+            },
+            "7": {
+              "purchaseRaces": 2,
+              "bets": 2,
+              "hits": 0,
+              "stake": 2400,
+              "payout": 0,
+              "profit": -2400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 2400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "8": {
+              "purchaseRaces": 2,
+              "bets": 3,
+              "hits": 0,
+              "stake": 2400,
+              "payout": 0,
+              "profit": -2400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 2400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "9": {
+              "purchaseRaces": 1,
+              "bets": 1,
+              "hits": 0,
+              "stake": 1200,
+              "payout": 0,
+              "profit": -1200,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 1200,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "screenPass": false
+        }
+      },
+      "minRoi": 94.6875,
+      "pooledRoi": 139.5744680851064
+    },
+    {
+      "configHash": "7310a933073c00083d5743c67ac736c133d4ce0eece9f3341630364dbc769256",
+      "config": {
+        "family": "blend",
+        "parameterIndex": 0,
+        "parameter": 0.15,
+        "minEv": 1.1,
+        "minProbability": 0.01,
+        "maxOdds": 40,
+        "maxPoints": 4,
+        "budget": 1200
+      },
+      "years": {
+        "2023": {
+          "config": {
+            "family": "blend",
+            "parameterIndex": 0,
+            "parameter": 0.15,
+            "minEv": 1.1,
+            "minProbability": 0.01,
+            "maxOdds": 40,
+            "maxPoints": 4,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 32,
+            "bets": 34,
+            "hits": 1,
+            "stake": 38400,
+            "payout": 36360,
+            "profit": -2040,
+            "roi": 94.6875,
+            "largestHitShare": 100.0,
+            "roiWithoutLargestHit": 0.0,
+            "maxDrawdown": 32400,
+            "payoutMinus5PercentRoi": 89.953125
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 13,
+              "bets": 13,
+              "hits": 1,
+              "stake": 15600,
+              "payout": 36360,
+              "profit": 20760,
+              "roi": 233.07692307692307,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 9600,
+              "payoutMinus5PercentRoi": 221.42307692307693
+            },
+            "6": {
+              "purchaseRaces": 8,
+              "bets": 9,
+              "hits": 0,
+              "stake": 9600,
+              "payout": 0,
+              "profit": -9600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 9600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "7": {
+              "purchaseRaces": 8,
+              "bets": 9,
+              "hits": 0,
+              "stake": 9600,
+              "payout": 0,
+              "profit": -9600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 9600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "8": {
+              "purchaseRaces": 3,
+              "bets": 3,
+              "hits": 0,
+              "stake": 3600,
+              "payout": 0,
+              "profit": -3600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 3600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "9": {
+              "purchaseRaces": 0,
+              "bets": 0,
+              "hits": 0,
+              "stake": 0,
+              "payout": 0,
+              "profit": 0,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 0,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "screenPass": false
+        },
+        "2024": {
+          "config": {
+            "family": "blend",
+            "parameterIndex": 0,
+            "parameter": 0.15,
+            "minEv": 1.1,
+            "minProbability": 0.01,
+            "maxOdds": 40,
+            "maxPoints": 4,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 15,
+            "bets": 17,
+            "hits": 1,
+            "stake": 18000,
+            "payout": 42360,
+            "profit": 24360,
+            "roi": 235.33333333333334,
+            "largestHitShare": 100.0,
+            "roiWithoutLargestHit": 0.0,
+            "maxDrawdown": 9600,
+            "payoutMinus5PercentRoi": 223.56666666666666
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 3,
+              "bets": 3,
+              "hits": 0,
+              "stake": 3600,
+              "payout": 0,
+              "profit": -3600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 3600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "6": {
+              "purchaseRaces": 7,
+              "bets": 8,
+              "hits": 1,
+              "stake": 8400,
+              "payout": 42360,
+              "profit": 33960,
+              "roi": 504.2857142857143,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 6000,
+              "payoutMinus5PercentRoi": 479.07142857142856
+            },
+            "7": {
+              "purchaseRaces": 2,
+              "bets": 2,
+              "hits": 0,
+              "stake": 2400,
+              "payout": 0,
+              "profit": -2400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 2400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "8": {
+              "purchaseRaces": 2,
+              "bets": 3,
+              "hits": 0,
+              "stake": 2400,
+              "payout": 0,
+              "profit": -2400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 2400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "9": {
+              "purchaseRaces": 1,
+              "bets": 1,
+              "hits": 0,
+              "stake": 1200,
+              "payout": 0,
+              "profit": -1200,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 1200,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "screenPass": false
+        }
+      },
+      "minRoi": 94.6875,
+      "pooledRoi": 139.5744680851064
+    },
+    {
+      "configHash": "d4386e8960894320f4ab40eaba958c6bb5af397e477648aa669759d3b3473f09",
+      "config": {
+        "family": "power",
+        "parameterIndex": 1,
+        "parameter": 1.25,
+        "minEv": 1.0,
+        "minProbability": 0.01,
+        "maxOdds": 20,
+        "maxPoints": 4,
+        "budget": 1200
+      },
+      "years": {
+        "2023": {
+          "config": {
+            "family": "power",
+            "parameterIndex": 1,
+            "parameter": 1.25,
+            "minEv": 1.0,
+            "minProbability": 0.01,
+            "maxOdds": 20,
+            "maxPoints": 4,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 16942,
+            "bets": 22824,
+            "hits": 2276,
+            "stake": 20330400,
+            "payout": 15360380,
+            "profit": -4970020,
+            "roi": 75.55375201668437,
+            "largestHitShare": 0.14218398242751806,
+            "roiWithoutLargestHit": 75.44632668319365,
+            "maxDrawdown": 4970020,
+            "payoutMinus5PercentRoi": 71.77606441585016
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 3526,
+              "bets": 4681,
+              "hits": 503,
+              "stake": 4231200,
+              "payout": 3382200,
+              "profit": -849000,
+              "roi": 79.93477027793534,
+              "largestHitShare": 0.6457335462125244,
+              "roiWithoutLargestHit": 79.4186046511628,
+              "maxDrawdown": 850860,
+              "payoutMinus5PercentRoi": 75.93803176403857
+            },
+            "6": {
+              "purchaseRaces": 3352,
+              "bets": 4457,
+              "hits": 426,
+              "stake": 4022400,
+              "payout": 2773580,
+              "profit": -1248820,
+              "roi": 68.95336117740652,
+              "largestHitShare": 0.7831034258972158,
+              "roiWithoutLargestHit": 68.41338504375497,
+              "maxDrawdown": 1274640,
+              "payoutMinus5PercentRoi": 65.5056931185362
+            },
+            "7": {
+              "purchaseRaces": 3420,
+              "bets": 4574,
+              "hits": 452,
+              "stake": 4104000,
+              "payout": 3228160,
+              "profit": -875840,
+              "roi": 78.6588693957115,
+              "largestHitShare": 0.6282216494845361,
+              "roiWithoutLargestHit": 78.16471734892788,
+              "maxDrawdown": 947780,
+              "payoutMinus5PercentRoi": 74.72592592592592
+            },
+            "8": {
+              "purchaseRaces": 3533,
+              "bets": 4835,
+              "hits": 489,
+              "stake": 4239600,
+              "payout": 3273720,
+              "profit": -965880,
+              "roi": 77.21766204358902,
+              "largestHitShare": 0.586488765074594,
+              "roiWithoutLargestHit": 76.7647891310501,
+              "maxDrawdown": 1006860,
+              "payoutMinus5PercentRoi": 73.35677894140957
+            },
+            "9": {
+              "purchaseRaces": 3111,
+              "bets": 4277,
+              "hits": 406,
+              "stake": 3733200,
+              "payout": 2702720,
+              "profit": -1030480,
+              "roi": 72.39687131683274,
+              "largestHitShare": 0.6926355671323704,
+              "roiWithoutLargestHit": 71.89542483660131,
+              "maxDrawdown": 1051780,
+              "payoutMinus5PercentRoi": 68.77702775099111
+            }
+          },
+          "screenPass": false
+        },
+        "2024": {
+          "config": {
+            "family": "power",
+            "parameterIndex": 1,
+            "parameter": 1.25,
+            "minEv": 1.0,
+            "minProbability": 0.01,
+            "maxOdds": 20,
+            "maxPoints": 4,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 16903,
+            "bets": 22802,
+            "hits": 2310,
+            "stake": 20283600,
+            "payout": 15918360,
+            "profit": -4365240,
+            "roi": 78.47896823049163,
+            "largestHitShare": 0.13795390982488145,
+            "roiWithoutLargestHit": 78.37070342542744,
+            "maxDrawdown": 4381080,
+            "payoutMinus5PercentRoi": 74.55501981896705
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 3406,
+              "bets": 4574,
+              "hits": 511,
+              "stake": 4087200,
+              "payout": 3428500,
+              "profit": -658700,
+              "roi": 83.88383245253475,
+              "largestHitShare": 0.563511739827913,
+              "roiWithoutLargestHit": 83.41113720884714,
+              "maxDrawdown": 677420,
+              "payoutMinus5PercentRoi": 79.689640829908
+            },
+            "6": {
+              "purchaseRaces": 3337,
+              "bets": 4492,
+              "hits": 454,
+              "stake": 4004400,
+              "payout": 2991620,
+              "profit": -1012780,
+              "roi": 74.70832084706822,
+              "largestHitShare": 0.6257479225302679,
+              "roiWithoutLargestHit": 74.24083508141045,
+              "maxDrawdown": 1030960,
+              "payoutMinus5PercentRoi": 70.97290480471482
+            },
+            "7": {
+              "purchaseRaces": 3461,
+              "bets": 4663,
+              "hits": 441,
+              "stake": 4153200,
+              "payout": 3075340,
+              "profit": -1077860,
+              "roi": 74.04748146007897,
+              "largestHitShare": 0.7140673876709567,
+              "roiWithoutLargestHit": 73.51873254358085,
+              "maxDrawdown": 1082300,
+              "payoutMinus5PercentRoi": 70.34510738707503
+            },
+            "8": {
+              "purchaseRaces": 3512,
+              "bets": 4753,
+              "hits": 471,
+              "stake": 4214400,
+              "payout": 3300060,
+              "profit": -914340,
+              "roi": 78.30438496583143,
+              "largestHitShare": 0.6254431737604771,
+              "roiWithoutLargestHit": 77.81463553530752,
+              "maxDrawdown": 956100,
+              "payoutMinus5PercentRoi": 74.38916571753987
+            },
+            "9": {
+              "purchaseRaces": 3187,
+              "bets": 4320,
+              "hits": 433,
+              "stake": 3824400,
+              "payout": 3122840,
+              "profit": -701560,
+              "roi": 81.65568455182512,
+              "largestHitShare": 0.6686221516312075,
+              "roiWithoutLargestHit": 81.10971655684551,
+              "maxDrawdown": 714400,
+              "payoutMinus5PercentRoi": 77.57290032423387
+            }
+          },
+          "screenPass": false
+        }
+      },
+      "minRoi": 75.55375201668437,
+      "pooledRoi": 77.01467474269957
+    },
+    {
+      "configHash": "8ec521f7da5bbe5219f6c5d6ffcc9f0f213fa55b05edb118c6a67654cce92e8b",
+      "config": {
+        "family": "power",
+        "parameterIndex": 1,
+        "parameter": 1.25,
+        "minEv": 1.0,
+        "minProbability": 0.03,
+        "maxOdds": 20,
+        "maxPoints": 4,
+        "budget": 1200
+      },
+      "years": {
+        "2023": {
+          "config": {
+            "family": "power",
+            "parameterIndex": 1,
+            "parameter": 1.25,
+            "minEv": 1.0,
+            "minProbability": 0.03,
+            "maxOdds": 20,
+            "maxPoints": 4,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 16942,
+            "bets": 22824,
+            "hits": 2276,
+            "stake": 20330400,
+            "payout": 15360380,
+            "profit": -4970020,
+            "roi": 75.55375201668437,
+            "largestHitShare": 0.14218398242751806,
+            "roiWithoutLargestHit": 75.44632668319365,
+            "maxDrawdown": 4970020,
+            "payoutMinus5PercentRoi": 71.77606441585016
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 3526,
+              "bets": 4681,
+              "hits": 503,
+              "stake": 4231200,
+              "payout": 3382200,
+              "profit": -849000,
+              "roi": 79.93477027793534,
+              "largestHitShare": 0.6457335462125244,
+              "roiWithoutLargestHit": 79.4186046511628,
+              "maxDrawdown": 850860,
+              "payoutMinus5PercentRoi": 75.93803176403857
+            },
+            "6": {
+              "purchaseRaces": 3352,
+              "bets": 4457,
+              "hits": 426,
+              "stake": 4022400,
+              "payout": 2773580,
+              "profit": -1248820,
+              "roi": 68.95336117740652,
+              "largestHitShare": 0.7831034258972158,
+              "roiWithoutLargestHit": 68.41338504375497,
+              "maxDrawdown": 1274640,
+              "payoutMinus5PercentRoi": 65.5056931185362
+            },
+            "7": {
+              "purchaseRaces": 3420,
+              "bets": 4574,
+              "hits": 452,
+              "stake": 4104000,
+              "payout": 3228160,
+              "profit": -875840,
+              "roi": 78.6588693957115,
+              "largestHitShare": 0.6282216494845361,
+              "roiWithoutLargestHit": 78.16471734892788,
+              "maxDrawdown": 947780,
+              "payoutMinus5PercentRoi": 74.72592592592592
+            },
+            "8": {
+              "purchaseRaces": 3533,
+              "bets": 4835,
+              "hits": 489,
+              "stake": 4239600,
+              "payout": 3273720,
+              "profit": -965880,
+              "roi": 77.21766204358902,
+              "largestHitShare": 0.586488765074594,
+              "roiWithoutLargestHit": 76.7647891310501,
+              "maxDrawdown": 1006860,
+              "payoutMinus5PercentRoi": 73.35677894140957
+            },
+            "9": {
+              "purchaseRaces": 3111,
+              "bets": 4277,
+              "hits": 406,
+              "stake": 3733200,
+              "payout": 2702720,
+              "profit": -1030480,
+              "roi": 72.39687131683274,
+              "largestHitShare": 0.6926355671323704,
+              "roiWithoutLargestHit": 71.89542483660131,
+              "maxDrawdown": 1051780,
+              "payoutMinus5PercentRoi": 68.77702775099111
+            }
+          },
+          "screenPass": false
+        },
+        "2024": {
+          "config": {
+            "family": "power",
+            "parameterIndex": 1,
+            "parameter": 1.25,
+            "minEv": 1.0,
+            "minProbability": 0.03,
+            "maxOdds": 20,
+            "maxPoints": 4,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 16903,
+            "bets": 22802,
+            "hits": 2310,
+            "stake": 20283600,
+            "payout": 15918360,
+            "profit": -4365240,
+            "roi": 78.47896823049163,
+            "largestHitShare": 0.13795390982488145,
+            "roiWithoutLargestHit": 78.37070342542744,
+            "maxDrawdown": 4381080,
+            "payoutMinus5PercentRoi": 74.55501981896705
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 3406,
+              "bets": 4574,
+              "hits": 511,
+              "stake": 4087200,
+              "payout": 3428500,
+              "profit": -658700,
+              "roi": 83.88383245253475,
+              "largestHitShare": 0.563511739827913,
+              "roiWithoutLargestHit": 83.41113720884714,
+              "maxDrawdown": 677420,
+              "payoutMinus5PercentRoi": 79.689640829908
+            },
+            "6": {
+              "purchaseRaces": 3337,
+              "bets": 4492,
+              "hits": 454,
+              "stake": 4004400,
+              "payout": 2991620,
+              "profit": -1012780,
+              "roi": 74.70832084706822,
+              "largestHitShare": 0.6257479225302679,
+              "roiWithoutLargestHit": 74.24083508141045,
+              "maxDrawdown": 1030960,
+              "payoutMinus5PercentRoi": 70.97290480471482
+            },
+            "7": {
+              "purchaseRaces": 3461,
+              "bets": 4663,
+              "hits": 441,
+              "stake": 4153200,
+              "payout": 3075340,
+              "profit": -1077860,
+              "roi": 74.04748146007897,
+              "largestHitShare": 0.7140673876709567,
+              "roiWithoutLargestHit": 73.51873254358085,
+              "maxDrawdown": 1082300,
+              "payoutMinus5PercentRoi": 70.34510738707503
+            },
+            "8": {
+              "purchaseRaces": 3512,
+              "bets": 4753,
+              "hits": 471,
+              "stake": 4214400,
+              "payout": 3300060,
+              "profit": -914340,
+              "roi": 78.30438496583143,
+              "largestHitShare": 0.6254431737604771,
+              "roiWithoutLargestHit": 77.81463553530752,
+              "maxDrawdown": 956100,
+              "payoutMinus5PercentRoi": 74.38916571753987
+            },
+            "9": {
+              "purchaseRaces": 3187,
+              "bets": 4320,
+              "hits": 433,
+              "stake": 3824400,
+              "payout": 3122840,
+              "profit": -701560,
+              "roi": 81.65568455182512,
+              "largestHitShare": 0.6686221516312075,
+              "roiWithoutLargestHit": 81.10971655684551,
+              "maxDrawdown": 714400,
+              "payoutMinus5PercentRoi": 77.57290032423387
+            }
+          },
+          "screenPass": false
+        }
+      },
+      "minRoi": 75.55375201668437,
+      "pooledRoi": 77.01467474269957
+    },
+    {
+      "configHash": "6d1794a4e923b3359e2d65432d1eba76c710fde9f9da5ad54da6e260f05c1cad",
+      "config": {
+        "family": "power",
+        "parameterIndex": 1,
+        "parameter": 1.25,
+        "minEv": 1.0,
+        "minProbability": 0.01,
+        "maxOdds": 20,
+        "maxPoints": 3,
+        "budget": 1200
+      },
+      "years": {
+        "2023": {
+          "config": {
+            "family": "power",
+            "parameterIndex": 1,
+            "parameter": 1.25,
+            "minEv": 1.0,
+            "minProbability": 0.01,
+            "maxOdds": 20,
+            "maxPoints": 3,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 16942,
+            "bets": 22820,
+            "hits": 2275,
+            "stake": 20330400,
+            "payout": 15356240,
+            "profit": -4974160,
+            "roi": 75.53338842324794,
+            "largestHitShare": 0.14222231483748626,
+            "roiWithoutLargestHit": 75.42596308975722,
+            "maxDrawdown": 4974160,
+            "payoutMinus5PercentRoi": 71.75671900208555
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 3526,
+              "bets": 4681,
+              "hits": 503,
+              "stake": 4231200,
+              "payout": 3382200,
+              "profit": -849000,
+              "roi": 79.93477027793534,
+              "largestHitShare": 0.6457335462125244,
+              "roiWithoutLargestHit": 79.4186046511628,
+              "maxDrawdown": 850860,
+              "payoutMinus5PercentRoi": 75.93803176403857
+            },
+            "6": {
+              "purchaseRaces": 3352,
+              "bets": 4457,
+              "hits": 426,
+              "stake": 4022400,
+              "payout": 2773580,
+              "profit": -1248820,
+              "roi": 68.95336117740652,
+              "largestHitShare": 0.7831034258972158,
+              "roiWithoutLargestHit": 68.41338504375497,
+              "maxDrawdown": 1274640,
+              "payoutMinus5PercentRoi": 65.5056931185362
+            },
+            "7": {
+              "purchaseRaces": 3420,
+              "bets": 4574,
+              "hits": 452,
+              "stake": 4104000,
+              "payout": 3228160,
+              "profit": -875840,
+              "roi": 78.6588693957115,
+              "largestHitShare": 0.6282216494845361,
+              "roiWithoutLargestHit": 78.16471734892788,
+              "maxDrawdown": 947780,
+              "payoutMinus5PercentRoi": 74.72592592592592
+            },
+            "8": {
+              "purchaseRaces": 3533,
+              "bets": 4832,
+              "hits": 488,
+              "stake": 4239600,
+              "payout": 3269580,
+              "profit": -970020,
+              "roi": 77.12001132182282,
+              "largestHitShare": 0.5872313875176628,
+              "roiWithoutLargestHit": 76.6671384092839,
+              "maxDrawdown": 1011000,
+              "payoutMinus5PercentRoi": 73.26401075573168
+            },
+            "9": {
+              "purchaseRaces": 3111,
+              "bets": 4276,
+              "hits": 406,
+              "stake": 3733200,
+              "payout": 2702720,
+              "profit": -1030480,
+              "roi": 72.39687131683274,
+              "largestHitShare": 0.6926355671323704,
+              "roiWithoutLargestHit": 71.89542483660131,
+              "maxDrawdown": 1051780,
+              "payoutMinus5PercentRoi": 68.77702775099111
+            }
+          },
+          "screenPass": false
+        },
+        "2024": {
+          "config": {
+            "family": "power",
+            "parameterIndex": 1,
+            "parameter": 1.25,
+            "minEv": 1.0,
+            "minProbability": 0.01,
+            "maxOdds": 20,
+            "maxPoints": 3,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 16903,
+            "bets": 22795,
+            "hits": 2310,
+            "stake": 20283600,
+            "payout": 15919460,
+            "profit": -4364140,
+            "roi": 78.48439133092745,
+            "largestHitShare": 0.13794437751029243,
+            "roiWithoutLargestHit": 78.37612652586326,
+            "maxDrawdown": 4379980,
+            "payoutMinus5PercentRoi": 74.56017176438108
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 3406,
+              "bets": 4574,
+              "hits": 511,
+              "stake": 4087200,
+              "payout": 3428500,
+              "profit": -658700,
+              "roi": 83.88383245253475,
+              "largestHitShare": 0.563511739827913,
+              "roiWithoutLargestHit": 83.41113720884714,
+              "maxDrawdown": 677420,
+              "payoutMinus5PercentRoi": 79.689640829908
+            },
+            "6": {
+              "purchaseRaces": 3337,
+              "bets": 4491,
+              "hits": 454,
+              "stake": 4004400,
+              "payout": 2991620,
+              "profit": -1012780,
+              "roi": 74.70832084706822,
+              "largestHitShare": 0.6257479225302679,
+              "roiWithoutLargestHit": 74.24083508141045,
+              "maxDrawdown": 1030960,
+              "payoutMinus5PercentRoi": 70.97290480471482
+            },
+            "7": {
+              "purchaseRaces": 3461,
+              "bets": 4662,
+              "hits": 441,
+              "stake": 4153200,
+              "payout": 3075340,
+              "profit": -1077860,
+              "roi": 74.04748146007897,
+              "largestHitShare": 0.7140673876709567,
+              "roiWithoutLargestHit": 73.51873254358085,
+              "maxDrawdown": 1082300,
+              "payoutMinus5PercentRoi": 70.34510738707503
+            },
+            "8": {
+              "purchaseRaces": 3512,
+              "bets": 4751,
+              "hits": 471,
+              "stake": 4214400,
+              "payout": 3300060,
+              "profit": -914340,
+              "roi": 78.30438496583143,
+              "largestHitShare": 0.6254431737604771,
+              "roiWithoutLargestHit": 77.81463553530752,
+              "maxDrawdown": 956100,
+              "payoutMinus5PercentRoi": 74.38916571753987
+            },
+            "9": {
+              "purchaseRaces": 3187,
+              "bets": 4317,
+              "hits": 433,
+              "stake": 3824400,
+              "payout": 3123940,
+              "profit": -700460,
+              "roi": 81.68444723355297,
+              "largestHitShare": 0.6683867167743298,
+              "roiWithoutLargestHit": 81.13847923857337,
+              "maxDrawdown": 713300,
+              "payoutMinus5PercentRoi": 77.60022487187533
+            }
+          },
+          "screenPass": false
+        }
+      },
+      "minRoi": 75.53338842324794,
+      "pooledRoi": 77.00718963904073
+    },
+    {
+      "configHash": "121e71e5121dd35a1b806f544588de39d784f050ea00092f2f6842af8f5fcf22",
+      "config": {
+        "family": "power",
+        "parameterIndex": 1,
+        "parameter": 1.25,
+        "minEv": 1.0,
+        "minProbability": 0.03,
+        "maxOdds": 20,
+        "maxPoints": 3,
+        "budget": 1200
+      },
+      "years": {
+        "2023": {
+          "config": {
+            "family": "power",
+            "parameterIndex": 1,
+            "parameter": 1.25,
+            "minEv": 1.0,
+            "minProbability": 0.03,
+            "maxOdds": 20,
+            "maxPoints": 3,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 16942,
+            "bets": 22820,
+            "hits": 2275,
+            "stake": 20330400,
+            "payout": 15356240,
+            "profit": -4974160,
+            "roi": 75.53338842324794,
+            "largestHitShare": 0.14222231483748626,
+            "roiWithoutLargestHit": 75.42596308975722,
+            "maxDrawdown": 4974160,
+            "payoutMinus5PercentRoi": 71.75671900208555
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 3526,
+              "bets": 4681,
+              "hits": 503,
+              "stake": 4231200,
+              "payout": 3382200,
+              "profit": -849000,
+              "roi": 79.93477027793534,
+              "largestHitShare": 0.6457335462125244,
+              "roiWithoutLargestHit": 79.4186046511628,
+              "maxDrawdown": 850860,
+              "payoutMinus5PercentRoi": 75.93803176403857
+            },
+            "6": {
+              "purchaseRaces": 3352,
+              "bets": 4457,
+              "hits": 426,
+              "stake": 4022400,
+              "payout": 2773580,
+              "profit": -1248820,
+              "roi": 68.95336117740652,
+              "largestHitShare": 0.7831034258972158,
+              "roiWithoutLargestHit": 68.41338504375497,
+              "maxDrawdown": 1274640,
+              "payoutMinus5PercentRoi": 65.5056931185362
+            },
+            "7": {
+              "purchaseRaces": 3420,
+              "bets": 4574,
+              "hits": 452,
+              "stake": 4104000,
+              "payout": 3228160,
+              "profit": -875840,
+              "roi": 78.6588693957115,
+              "largestHitShare": 0.6282216494845361,
+              "roiWithoutLargestHit": 78.16471734892788,
+              "maxDrawdown": 947780,
+              "payoutMinus5PercentRoi": 74.72592592592592
+            },
+            "8": {
+              "purchaseRaces": 3533,
+              "bets": 4832,
+              "hits": 488,
+              "stake": 4239600,
+              "payout": 3269580,
+              "profit": -970020,
+              "roi": 77.12001132182282,
+              "largestHitShare": 0.5872313875176628,
+              "roiWithoutLargestHit": 76.6671384092839,
+              "maxDrawdown": 1011000,
+              "payoutMinus5PercentRoi": 73.26401075573168
+            },
+            "9": {
+              "purchaseRaces": 3111,
+              "bets": 4276,
+              "hits": 406,
+              "stake": 3733200,
+              "payout": 2702720,
+              "profit": -1030480,
+              "roi": 72.39687131683274,
+              "largestHitShare": 0.6926355671323704,
+              "roiWithoutLargestHit": 71.89542483660131,
+              "maxDrawdown": 1051780,
+              "payoutMinus5PercentRoi": 68.77702775099111
+            }
+          },
+          "screenPass": false
+        },
+        "2024": {
+          "config": {
+            "family": "power",
+            "parameterIndex": 1,
+            "parameter": 1.25,
+            "minEv": 1.0,
+            "minProbability": 0.03,
+            "maxOdds": 20,
+            "maxPoints": 3,
+            "budget": 1200
+          },
+          "total": {
+            "purchaseRaces": 16903,
+            "bets": 22795,
+            "hits": 2310,
+            "stake": 20283600,
+            "payout": 15919460,
+            "profit": -4364140,
+            "roi": 78.48439133092745,
+            "largestHitShare": 0.13794437751029243,
+            "roiWithoutLargestHit": 78.37612652586326,
+            "maxDrawdown": 4379980,
+            "payoutMinus5PercentRoi": 74.56017176438108
+          },
+          "months": {
+            "5": {
+              "purchaseRaces": 3406,
+              "bets": 4574,
+              "hits": 511,
+              "stake": 4087200,
+              "payout": 3428500,
+              "profit": -658700,
+              "roi": 83.88383245253475,
+              "largestHitShare": 0.563511739827913,
+              "roiWithoutLargestHit": 83.41113720884714,
+              "maxDrawdown": 677420,
+              "payoutMinus5PercentRoi": 79.689640829908
+            },
+            "6": {
+              "purchaseRaces": 3337,
+              "bets": 4491,
+              "hits": 454,
+              "stake": 4004400,
+              "payout": 2991620,
+              "profit": -1012780,
+              "roi": 74.70832084706822,
+              "largestHitShare": 0.6257479225302679,
+              "roiWithoutLargestHit": 74.24083508141045,
+              "maxDrawdown": 1030960,
+              "payoutMinus5PercentRoi": 70.97290480471482
+            },
+            "7": {
+              "purchaseRaces": 3461,
+              "bets": 4662,
+              "hits": 441,
+              "stake": 4153200,
+              "payout": 3075340,
+              "profit": -1077860,
+              "roi": 74.04748146007897,
+              "largestHitShare": 0.7140673876709567,
+              "roiWithoutLargestHit": 73.51873254358085,
+              "maxDrawdown": 1082300,
+              "payoutMinus5PercentRoi": 70.34510738707503
+            },
+            "8": {
+              "purchaseRaces": 3512,
+              "bets": 4751,
+              "hits": 471,
+              "stake": 4214400,
+              "payout": 3300060,
+              "profit": -914340,
+              "roi": 78.30438496583143,
+              "largestHitShare": 0.6254431737604771,
+              "roiWithoutLargestHit": 77.81463553530752,
+              "maxDrawdown": 956100,
+              "payoutMinus5PercentRoi": 74.38916571753987
+            },
+            "9": {
+              "purchaseRaces": 3187,
+              "bets": 4317,
+              "hits": 433,
+              "stake": 3824400,
+              "payout": 3123940,
+              "profit": -700460,
+              "roi": 81.68444723355297,
+              "largestHitShare": 0.6683867167743298,
+              "roiWithoutLargestHit": 81.13847923857337,
+              "maxDrawdown": 713300,
+              "payoutMinus5PercentRoi": 77.60022487187533
+            }
+          },
+          "screenPass": false
+        }
+      },
+      "minRoi": 75.53338842324794,
+      "pooledRoi": 77.00718963904073
+    }
+  ],
+  "holdoutPolicy": {
+    "reserved": "2025-10-01..2025-12-31",
+    "opened": false
+  },
+  "annualGate": {
+    "roi": 105,
+    "minimumPurchaseRaces": 360,
+    "completeMonths": 12,
+    "status": "NOT_EVALUATED"
+  },
+  "notes": [
+    "May-September is not annual performance.",
+    "2023/2024 are development years; 2025 pre-Q4 has been seen in older research.",
+    "Archived odds timing is not proven to match live 5-minute-before-close odds.",
+    "No monthly profit gate. No production file is modified."
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "researchOnly": true,
+  "status": "no-candidate",
+  "selectedConfig": null,
+  "selectionReportSha256": "95ea0c8fbe981ad5fa2ac57b7fa1ff405c3375cefe96d80b7c220056701a81f6",
+  "modelSha256": "3ee2d6662142f399766a7b1e79c7ca5d910e7137f750c6bfa392a580b3df7a52",
+  "sourceRun": "35868298662",
+  "holdoutOpened": false,
+  "annualQualified": false,
+  "manifestHash": "038e7c6d04a777556d536631209938393ef64e3536295bb5f1ef11ad05fb599d"
+}

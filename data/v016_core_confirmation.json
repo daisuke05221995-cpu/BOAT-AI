@@ -1,0 +1,11 @@
+{
+  "stage": "core-frozen-2025-screen",
+  "candidateManifestHash": "038e7c6d04a777556d536631209938393ef64e3536295bb5f1ef11ad05fb599d",
+  "holdoutPolicy": {
+    "reserved": "2025-10-01..2025-12-31",
+    "opened": false
+  },
+  "releaseQualified": false,
+  "status": "NO_CANDIDATE",
+  "evaluation": null
+}
