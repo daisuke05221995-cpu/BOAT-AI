@@ -4,7 +4,7 @@
 
 Repository: `daisuke05221995-cpu/BOAT-AI`
 Branch: `main`
-安定公開版: `v0.15.2`
+安定公開版: `v0.15.3`
 
 ## Work上限・停止時の最重要ルール
 
@@ -15,78 +15,65 @@ Workの使用上限、タイムアウト、コンテキスト不足などで継�
 復帰案内:
 > Workの上限に近づいたためGitHubへ状態を保存しました。通常チャットに戻って「BOAT AIの続き。GitHubのPROJECT_STATUS.md、NEXT_WEEK_HANDOFF.md、WORK_HANDOFF.mdを確認して、進行中Runも確認して続けて」と送ってください。
 
-## v0.15.2 公開完了
+## v0.15.3 公開完了
 
-- versionCode: 20
-- versionName: 0.15.2
-- Release commit: `da699f7e622623dc1d691e1d0fd74db0e0e29f77`
-- Release Run: `35859556778`
-- Release: `https://github.com/daisuke05221995-cpu/BOAT-AI/releases/tag/v0.15.2`
-- APK: `BOAT-AI-v0.15.2.apk`
-- APK SHA-256: `e6580542ce1710fc4da3879af1023b944c50d3a340e9edffe83c59268b492835`
+- versionCode: 21
+- versionName: 0.15.3
+- Release commit: `446b7e3005a18b592d88d2726cc9abb3dd3c8d95`
+- Release Run: `35863168523` SUCCESS
+- Release: `https://github.com/daisuke05221995-cpu/BOAT-AI/releases/tag/v0.15.3`
+- APK: `BOAT-AI-v0.15.3.apk`
+- APK SHA-256: `ea8992abdf28b45a919e99940381165c10845e4b28d5051a83ecc6ab4c3771bf`
 
 Release WorkflowでUnit test / lint / signed APK / signature verify / GitHub Release公開まで成功。
+Debug検証 Run `35862849909` もSUCCESS。
 
-## v0.15.2 主修正
+## v0.15.3 重要修正
 
-- レース詳細の「AI購入判断」直下へ確定結果カードを復元
-  - 3連単結果
-  - 払戻
-  - 締切前保存した事前予想
-  - 的中/ハズレ
-  - 想定払戻
-- 損益の当日カードは「全予想（購入推奨＋見送り）」を先頭表示
-- 購入推奨だけの成績も別枠で継続表示
-- `締切前保存 Xレース / 当日結果 Yレース` を表示して取りこぼしを可視化
-- 結果後に未保存レースを後付け予想しない方針は維持
+ユーザー実機で結果タブの「事前予想」が多数 `記録なし` だった原因は、v0.15.2の5分前保存が購入推奨アラートONに依存していたこと。
 
-## 全レース自動履歴
+v0.15.3で予想履歴保存とユーザー通知を分離した。
 
-v0.15.1の5分前購入推奨アラートを拡張し、v0.15.2からは各レースの締切約5分前バックグラウンド評価でBUY/SKIPの両方を予想履歴へ保存する。
+- `PredictionTrackingScheduler.kt` 追加
+- 全レース事前予想トラッカーは通知ON/OFFと無関係に常時予約
+- 毎朝6:25 JST、アプリ起動時、端末再起動/アプリ更新後に追跡復旧
+- 締切前に同じPredictionEngine / BetStrategy / LearningStoreで予想
+- BUY/SKIP両方の買い目をPredictionHistoryへ保存
+- 結果約20分後に自動settle
+- 自動記録サービスの通知は無音・無振動・低優先度
+- BUYユーザー通知だけは従来どおり「購入推奨アラート」ON/OFFに従う
+- 既存アラート側が先に `legacy-final-v1` / `value-v1` を保存していれば追跡側は重複評価を避ける
 
-流れ:
-1. 毎朝6:30 JSTに当日全国レースを登録
-2. 各レース締切約5分前に最新データと公式オッズで最終評価
-3. BUY/SKIPどちらも `PredictionHistoryStore.upsertEvaluatedRace()` で保存
-4. BUYだけユーザーへ購入推奨通知
-5. 締切約20分後に結果取得・予想履歴settle
-6. 後続レース5分前評価時にも、それ以前の確定結果をsettle
+過去の未保存レースを結果後に後付け生成しない。2026-09-23の桐生等の `記録なし` は履歴の正確性のため残す。
 
-これにより今後の日別成績は、アプリで各レースを手動表示しなくても締切前保存できた全国レース全体を集計できる。
-通知/アラートが無効・OSが処理を止めた等で保存できなかった場合は、画面の保存数/結果数で欠損を確認できる。
+## v0.15.2から継続する表示
 
-## v0.15.1から継続する購入推奨アラート
-
-- 全国全レース対象
-- 締切約5分前に再評価
-- BOAT AI本体と同じ `PredictionEngine` / `LearningStore` / `PerformanceMemoryStore`
-- 同じ `BetStrategy.oddsRecommended()` を画面と通知で共有
-- AI条件＋最新公式3連単オッズ条件を通過したBUYだけ通知
-- 通知に買い目、オッズ、推奨金額、判定理由
-- 公式オッズページへの導線
-- 自動投票はしない
-- Android 12+は正確な5分前実行のため「アラームとリマインダー」許可推奨
-- Android 13+は通知権限が必要
+- レース詳細AI購入判断直下の結果カード
+- 結果 / 払戻 / 事前予想 / 的中・ハズレ / 想定払戻
+- 損益の日別カードで全予想（BUY+SKIP）を先頭表示
+- 購入推奨だけの仮想成績も別表示
+- `締切前保存 X / 当日結果 Y` で保存漏れ可視化
 
 ## 本番予想ロジック
 
 研究用Value Strategy / race-softmaxは本番へ入れていない。
-`app/src/main/assets/value_strategy_model.json` は存在せず、現行安定ロジックを使用。
+`app/src/main/assets/value_strategy_model.json` は存在せず現行安定ロジックを使用。
 
-主な不採用研究結果:
-- v12: 2026 ROI117.3%だが、2023 72.0% / 2024 45.5% / 2025 56.3%
-- rich race-softmax Run `35839229134`: 2024 ROI90.1%、2025固定ROI59.2%
+不採用研究:
+- v12: 2026 ROI117.3%だが2023 72.0% / 2024 45.5% / 2025 56.3%
+- rich race-softmax Run `35839229134`: 2024 ROI90.1%、2025固定59.2%
 
 2025-10-01〜2025-12-31 Q4最終holdoutは未開封。
 
 ## 次の具体的1手
 
-1. 実機をv0.15.2へ更新
-2. 戸田等の終了済みレース詳細で「AI購入判断」直下に結果カードが戻っているか確認
-3. 損益の今日カードで「全予想」が先頭、「締切前保存 X / 当日結果 Y」が表示されるか確認
-4. 購入推奨アラートをONにして翌開催日に全レース履歴が自動保存されるか確認
-5. 実機不具合があればv0.15.xで修正
-6. 予想精度改善はv0.16以降
+1. 実機をv0.15.3へ更新
+2. 翌開催日の結果タブで事前予想が各レースに残るか確認
+3. 購入推奨アラートOFFでも予想履歴が保存されるか確認
+4. 損益の `締切前保存 X / 当日結果 Y` を確認
+5. BUY通知が必要ならアラートONで確認
+6. 不具合はv0.15.xで修正
+7. 予想精度改善はv0.16以降
 
 ## 再開文
 
