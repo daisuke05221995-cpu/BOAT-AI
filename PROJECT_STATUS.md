@@ -24,13 +24,14 @@ v0.15.10ではユーザーデータを削除せず、`CrashRecoveryStore` がunc
 
 独立 `SettingsScreen.kt` は復旧安全版へ再追加済み。commit `128df8339ff0a1aebb2124a3767ec7e58698449e`、Build/Unit test/lint Run `35899813231` SUCCESS。
 
-右上設定ボタンから専用SettingsScreenへ接続し、損益画面内の旧設定折りたたみを外す変更を commit `6b921df387b6e4160dcb0df261c00034c9eae84f` で適用済み。現在この状態のBuild/Unit test/lintを検証中。復旧モードとクラッシュ記録は維持している。
+右上設定ボタンから専用SettingsScreenへ接続し、損益画面内の旧設定折りたたみを外す変更を commit `6b921df387b6e4160dcb0df261c00034c9eae84f` で適用。Build Run `35931513963` は Unit test / lint / Debug APK まで SUCCESS。
+
+Android戻るキーの画面階層制御を commit `35bf1b9057e3f8dfe3ff6848e0e39e0dfef2d46d` で追加済み。設定→元画面、レース詳細→場一覧、場一覧→予想ホーム、購入/結果/損益→予想ホーム、予想ホームでは終了しない。現在この状態をBuild/Unit test/lintで検証する。復旧モードとクラッシュ記録は維持。
 
 以降の順番:
-1. 右上設定ボタン/SettingsScreen接続を検証
-2. Android戻るキーの画面階層制御
-3. 完全無音・無振動通知
-4. バックグラウンドReceiver/Serviceは最後に、例外隔離を追加して段階復帰
+1. 戻るキー制御を検証
+2. 完全無音・無振動通知
+3. バックグラウンドReceiver/Serviceは最後に、例外隔離を追加して段階復帰
 
 署名ReleaseはAndroid検証成功時のみ。アンインストール・アプリデータ消去は禁止。
 
@@ -50,7 +51,7 @@ v0.15.10ではユーザーデータを削除せず、`CrashRecoveryStore` がunc
 
 買い方はr2から固定（1200円、最大3点、minEV1.10、minP0.01、最大40倍）。ROIを見て閾値を後付け調整しない。年次ゲートもROI105%以上・360購入以上・30的中以上・最大1的中依存25%以下・最大1的中除外ROI100%以上を維持。
 
-r3 chronology guard workflow Run `35926042062` SUCCESS。未来混入防止/holdout封印/欠損四半期fail-closedの基盤を確認済み。次はwalk-forward本計算実装。
+r3 chronology guard workflow Run `35926042062` SUCCESS。walk-forward本計算 workflow Run `35931987036` を開始済み。2024 Q2-Q4を residual-small / place-small の6並列で評価し、静的r2・市場とのlogloss比較も行う。Q1はpre-2024 feature sidecar不足のため BLOCKED とし、0購入扱いしない。2025 Q4は未開封。
 
 ## 再開時に必ず確認
 
