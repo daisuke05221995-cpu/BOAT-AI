@@ -9,9 +9,18 @@
 - 安定公開版: `v0.14.1`
 - `PROJECT_STATUS.md`
 - `NEXT_WEEK_HANDOFF.md`
+- `WORK_HANDOFF.md` ← Work/通常チャット間の中断復帰ルールと最新作業地点
 - `data/strategy_search_2026.json`
 - `data/multiyear_validation.json`（独立検証完了後に生成）
-- 独立検証Run: **35809928215**
+
+## Work利用時の中断ルール
+
+Workで作業を続ける場合、上限・タイムアウト・コンテキスト不足・ツール制限などで完成まで継続できなくなりそうなら、黙って終了しない。
+必ず `WORK_HANDOFF.md` のルールに従い、GitHubへ途中状態を保存し、Run ID・現在位置・次の具体的な1手を記録したうえで、ユーザーへ通常チャットへ戻るよう案内する。
+
+通常チャットへ戻す際の文:
+
+`BOAT AIの続き。GitHubのPROJECT_STATUS.md、NEXT_WEEK_HANDOFF.md、WORK_HANDOFF.mdを確認して、進行中Runも確認して続けて。`
 
 ## 2026 v12 開発結果
 
@@ -47,10 +56,9 @@ v11で7月ROIが27.9%まで崩れたため、月次設定の急変を防ぐv12�
 対象: **2023 / 2024 / 2025**。
 2022は使用中のv3過去オッズアーカイブが同形式で取得できないため、オッズ付き独立検証から除外。
 
-最初は公開JSONで前年学習スナップショットを作ろうとしたが、2021〜2022が404だったため中止。
-現在は、既に5年学習で実績がある**BOAT RACE公式Kファイル**から漏洩のない前年末スナップショットを生成する方式へ変更済み。
+現在は、既に5年学習で実績がある**BOAT RACE公式B/Kファイル**から漏洩のない前年末スナップショットと対象年の予測用特徴を再構成する方式へ変更済み。
 
-現行Run: **35809928215**
+最新のRun IDと作業状態は `WORK_HANDOFF.md` を優先して確認すること。
 
 Workflow構成:
 1. Kファイル学習パーツを4ジョブ並列生成
@@ -61,18 +69,20 @@ Workflow構成:
 2. 2023検証は2022-12-31までの学習パーツだけを合成
 3. 2024検証は2023-12-31までだけを合成
 4. 2025検証は2024-12-31までだけを合成
-5. 各対象年1〜9月をwalk-forward処理
-6. 月次モデルは対象月より前の結果だけで学習
-7. 5〜9月の設定はその月より前の月だけで決定
-8. v12ガード閾値は固定。2023〜2025の結果に合わせて変更しない
-9. 3年結果を `data/multiyear_validation.json` へ自動集約・commit
+5. 対象年の事前情報はBファイルから全国/当地勝率・モーター/ボート率を取得
+6. Kファイルの展示タイムと結果を利用し、実進入・実ST・結果時風波は同レース予測へ入れない
+7. 平均STは前年末まで＋対象年の過去確定レースのみから更新
+8. 各対象年1〜9月をwalk-forward処理
+9. 月次モデルは対象月より前の結果だけで学習
+10. 5〜9月の設定はその月より前の月だけで決定
+11. v12ガード閾値は固定。2023〜2025の結果に合わせて変更しない
+12. 3年結果を `data/multiyear_validation.json` へ自動集約・commit
 
 関連:
+- `scripts/build_kfile_validation_records.py`
 - `scripts/validate_multiyear_strategy.py`
 - `scripts/merge_validation_learning.py`
 - `.github/workflows/multiyear-validation.yml`
-
-このメモ更新時点で2021学習パートはSUCCESS。2022/2023/2024は生成中。
 
 ## 独立検証の厳格条件
 
@@ -101,19 +111,14 @@ Android用モデル生成には必ず `--validation data/multiyear_validation.js
 
 したがって、独立検証が不合格ならAndroid用モデルは生成できない。
 
-## Android側の現状と重要な未接続箇所
+## Android側の現状
 
-`ValueStrategyModel.kt` 自体は実装済みで、120通り確率・市場確率とのblend・EV判定・1〜10点・資金配分に対応。
-ただしasset `value_strategy_model.json` はまだ未生成で、本番フローも未接続。
+`ValueStrategyModel.kt` は実装済みで、120通り確率・市場確率とのblend・EV判定・1〜10点・資金配分に対応。
+asset `value_strategy_model.json` はまだ未生成なので、安定版ではValue Strategyは有効化されない。
 
-現行 `BoatViewModel` / `PredictionHistoryStore` / `BetStore` は旧 `PredictionEngine` を直接使用している。
-具体的に:
-- 選択レースのオッズ取得は旧買い目数点のみ
-- 一括購入推奨判定は旧 `PredictionEngine.isRecommended`
-- 一括購入買い目は `BetStore.addRacePicks()` 内で旧予想を再計算
-- 予想履歴も旧予想/旧BUY-SKIPを保存
+Android統合は進行中。最新の実装状況・Build Runは `WORK_HANDOFF.md` を優先して確認すること。
 
-よってRelease前に必ず統一する:
+Release前に必ず満たす:
 1. 公式3連単オッズを120通り取得
 2. `ValueStrategyModel` でBUY/SKIPと買い目を確定
 3. 予想一覧・個別・一括選択・一括購入・個別購入・予想履歴を同じ確定結果へ統一
@@ -141,4 +146,4 @@ Android用モデル生成には必ず `--validation data/multiyear_validation.js
 
 ## 再開指示
 
-`GitHubの daisuke05221995-cpu/BOAT-AI、PROJECT_STATUS.md、NEXT_WEEK_HANDOFF.md、独立複数年検証Run 35809928215 を確認して、妥協せず続きから進めて。`
+`GitHubの daisuke05221995-cpu/BOAT-AI、PROJECT_STATUS.md、NEXT_WEEK_HANDOFF.md、WORK_HANDOFF.md を確認して、進行中Runも確認して、妥協せず続きから進めて。`
