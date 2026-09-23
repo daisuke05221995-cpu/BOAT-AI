@@ -42,13 +42,22 @@ class PredictionHistoryStore(context: Context) {
             val confidence = PredictionEngine.confidence(race)
             val rawConfidence = PredictionEngine.rawConfidence(race)
             val decision = PredictionEngine.recommendation(race)
+            // Validated value-strategy picks already carry their intended budget.
+            // PredictionRecord currently stores one stake per pick, so use the strategy
+            // stake only when every selected pick has the same positive amount. Legacy
+            // 4-point rank allocation keeps the historical 300 yen/pick simulation.
+            val strategyStakePerPick = picks.map { it.recommendedStake }
+                .filter { it >= 100 && it % 100 == 0 }
+                .distinct()
+                .singleOrNull()
+            val simulationStake = strategyStakePerPick ?: stakePerPick
             current += PredictionRecord(
                 id = race.id,
                 date = race.date,
                 stadiumNumber = race.stadiumNumber,
                 raceNumber = race.raceNumber,
                 combinations = picks.map { it.combination },
-                stakePerPick = stakePerPick,
+                stakePerPick = simulationStake,
                 resultCombination = null,
                 trifectaPayout = 0,
                 settled = false,
