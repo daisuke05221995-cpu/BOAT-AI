@@ -16,43 +16,42 @@
 
 ユーザー実機でv0.15.10の「BOAT AI 復旧モード」が正常に開くことを確認。復旧画面から通常モードを起動後、直前まで再現していたクラッシュは現時点で再発していない。
 
-v0.15.10ではユーザーデータを削除せず、`CrashRecoveryStore` がuncaught exceptionを端末内に保存する。クラッシュ時は次回起動を復旧画面へ戻す。Launcherは`RecoveryActivity`、`MainActivity`は通常モード専用。
-
-原因切り分けのためバックグラウンドService/ReceiverはManifestで一時無効化中。したがって「クラッシュが消えた」だけで根本原因が確定したとは扱わない。自動予想追跡・Alarm/通知を一度に復帰させない。
+`CrashRecoveryStore` / `RecoveryActivity` は維持し、ユーザーデータを削除しない。バックグラウンドService/Receiverは原因切り分けのためManifestで一時無効化中。アンインストール・アプリストレージ消去は禁止。
 
 ## Android進行中
 
-独立 `SettingsScreen.kt` は復旧安全版へ再追加済み。commit `128df8339ff0a1aebb2124a3767ec7e58698449e`、Build/Unit test/lint Run `35899813231` SUCCESS。
+- 独立SettingsScreen追加: commit `128df8339ff0a1aebb2124a3767ec7e58698449e`, Run `35899813231` SUCCESS。
+- 右上⚙→専用SettingsScreen、損益内設定を分離: commit `6b921df387b6e4160dcb0df261c00034c9eae84f`, Run `35931513963` SUCCESS（Unit/lint/Debug APK）。
+- Android戻るキー階層制御: commit `35bf1b9057e3f8dfe3ff6848e0e39e0dfef2d46d`, Run `35932095259` SUCCESS（Unit/lint/Debug APK）。設定→元画面、レース詳細→場一覧、場一覧→予想ホーム、購入/結果/損益→予想ホーム、予想ホームでは終了しない。
+- 完全無音・無振動通知: commit `d4f4ae7d791a8fe7f00116780ac2e742184a2db9` で全通知チャンネルを新しい visual-only IDへ変更。generic通知にも `.setSilent(true)`、全channelで `setSound(null,null)` / `enableVibration(false)`。現在Build/Unit/lint検証待ち。
 
-右上設定ボタンから専用SettingsScreenへ接続し、損益画面内の旧設定折りたたみを外す変更を commit `6b921df387b6e4160dcb0df261c00034c9eae84f` で適用。Build Run `35931513963` は Unit test / lint / Debug APK まで SUCCESS。
-
-Android戻るキーの画面階層制御を commit `35bf1b9057e3f8dfe3ff6848e0e39e0dfef2d46d` で追加済み。設定→元画面、レース詳細→場一覧、場一覧→予想ホーム、購入/結果/損益→予想ホーム、予想ホームでは終了しない。現在この状態をBuild/Unit test/lintで検証する。復旧モードとクラッシュ記録は維持。
-
-以降の順番:
-1. 戻るキー制御を検証
-2. 完全無音・無振動通知
-3. バックグラウンドReceiver/Serviceは最後に、例外隔離を追加して段階復帰
-
-署名ReleaseはAndroid検証成功時のみ。アンインストール・アプリデータ消去は禁止。
+次:
+1. 通知変更のBuild/Unit/lint成功確認。
+2. background Receiver/Serviceへ例外隔離を追加。
+3. Android 15 boot時の直接dataSync FGS起動を避け、Alarm再予約中心へ変更。
+4. background componentsを段階的に再有効化し、その都度Build検証。
+5. すべて成功後のみ次版署名Release。
 
 ## 本番予想ロジック
 
 研究用v0.16は本番未統合。現行安定ロジックを継続。
 
 - CORE r1旧144条件: 2024通年で合格0。十分な件数の最高ROI 94.081871%。再探索しない。
-- CORE r2: 6モデル全不採用。fundamental-small/mediumは2024 ROI 79.93/80.12%。residual-smallはROI139.79%だが47購入・3的中、最大1的中除外ROI82.55%で不採用。placeは購入0。
-- r2校正監査Run `35876699180`: SUCCESS。residual/placeは市場loglossを僅かに改善したが、固定買い方で収益再現性を満たさない。
+- CORE r2: 6モデル全不採用。fundamental-small/mediumは2024 ROI 79.93/80.12%。residual-smallは139.79%だが47購入・3的中、最大1的中除外ROI82.55%。placeは購入0。
 
-**2025-10-01〜2025-12-31 final holdoutは未開封のまま維持する。**
+**2025-10-01〜2025-12-31 final holdoutは未開封。**
 
-## CORE r3
+## CORE r3 walk-forward
 
-`data/v016_r3_protocol.json` を事前登録。旧閾値gridの繰り返しではなく、r2で市場logloss改善が確認できた residual-small / place-small を対象に、各評価四半期より前のデータだけで再学習するwalk-forward仮説を検証する。
+r3 chronology guard Run `35926042062`: SUCCESS。
+walk-forward本計算 Run `35931987036`: SUCCESS。買い方はr2固定（1200円、最大3点、minEV1.10、minP0.01、最大40倍）で後付け調整なし。
 
-買い方はr2から固定（1200円、最大3点、minEV1.10、minP0.01、最大40倍）。ROIを見て閾値を後付け調整しない。年次ゲートもROI105%以上・360購入以上・30的中以上・最大1的中依存25%以下・最大1的中除外ROI100%以上を維持。
+2024 Q2-Q4部分結果:
+- residual-small: ROI 91.62%、541購入、27的中、最大1的中除外ROI 91.62%。WF logloss 3.750245、static r2 3.749849、market 3.757604。市場には勝つがstatic r2より悪化し、校正gate FAIL。
+- place-small: ROI 331.67%だが15購入・2的中 בלבד。WF logloss 3.754098、static r2 3.754326、market 3.757604で校正gate PASS。ただし購入件数不足が極端で収益モデルとしては未合格。
 
-r3 chronology guard workflow Run `35926042062` SUCCESS。walk-forward本計算 workflow Run `35931987036` を開始済み。2024 Q2-Q4を residual-small / place-small の6並列で評価し、静的r2・市場とのlogloss比較も行う。Q1はpre-2024 feature sidecar不足のため BLOCKED とし、0購入扱いしない。2025 Q4は未開封。
+Q1はpre-2024 sidecar不足のためBLOCKED。0購入扱いせずannualPass=false。r3事前登録ルール上はplace-smallの校正改善が残ったため、次は不足sidecarを作れるか検証してQ1を埋める。最終Q4 2025は開けない。
 
-## 再開時に必ず確認
+## 再開時
 
-`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、最新main commit、進行中Actions。Androidと研究ファイルを同時に競合編集しない。
+`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、最新main commit、進行中Actionsを確認。Androidと研究ファイルを競合編集しない。
