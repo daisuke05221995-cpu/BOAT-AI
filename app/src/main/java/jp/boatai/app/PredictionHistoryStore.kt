@@ -105,6 +105,63 @@ class PredictionHistoryStore(context: Context) {
         return current.sortedByDescending { it.createdAt }
     }
 
+    /**
+     * 締切直前のバックグラウンド評価結果を、そのレースの最終事前予想として保存する。
+     * 画面を先に開いて暫定レコードが存在していても、未確定なら5分前のBUY/SKIP・
+     * 公式オッズ反映後の買い目へ置き換える。結果確定後のレコードは上書きしない。
+     */
+    fun upsertEvaluatedRace(
+        race: RaceData,
+        picks: List<PredictionPick>,
+        decision: RecommendationDecision,
+        strategyId: String? = null,
+        stakePerPick: Int = DEFAULT_SIMULATION_STAKE
+    ): List<PredictionRecord> {
+        if (!race.isPurchasable() || !PredictionEngine.isDecisionReady(race) || picks.isEmpty()) return load()
+
+        val current = load().toMutableList()
+        val index = current.indexOfFirst { it.id == race.id }
+        val previous = current.getOrNull(index)
+        if (previous?.settled == true) return current.sortedByDescending { it.createdAt }
+
+        val rawConfidence = PredictionEngine.rawConfidence(race)
+        val validStakes = if (
+            decision.recommended &&
+            picks.all { it.recommendedStake >= 100 && it.recommendedStake % 100 == 0 }
+        ) {
+            picks.map { it.recommendedStake }
+        } else {
+            emptyList()
+        }
+
+        val record = PredictionRecord(
+            id = race.id,
+            date = race.date,
+            stadiumNumber = race.stadiumNumber,
+            raceNumber = race.raceNumber,
+            combinations = picks.map { it.combination },
+            stakePerPick = stakePerPick,
+            resultCombination = null,
+            trifectaPayout = 0,
+            settled = false,
+            createdAt = previous?.createdAt ?: System.currentTimeMillis(),
+            confidence = PredictionEngine.confidence(race),
+            rank = PredictionPerformanceProfile.rankFor(rawConfidence),
+            firstLane = picks.firstOrNull()?.combination?.substringBefore("-")?.toIntOrNull(),
+            evaluationEligible = true,
+            autoSkipped = !decision.recommended,
+            autoSkipReason = decision.reason.takeIf { !decision.recommended },
+            recommended = decision.recommended,
+            recommendationReason = decision.reason,
+            stakes = validStakes,
+            strategyId = strategyId
+        )
+
+        if (index >= 0) current[index] = record else current += record
+        save(current)
+        return current.sortedByDescending { it.createdAt }
+    }
+
     fun settle(races: List<RaceData>): List<PredictionRecord> {
         if (races.isEmpty()) return load()
         val resultMap = races.filter { it.hasResult }.associateBy { it.id }
