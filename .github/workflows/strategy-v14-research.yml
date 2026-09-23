@@ -1,0 +1,86 @@
+name: BOAT AI v14 empirical calibration research
+
+# Kept manual-only until cache run 35824767175 is confirmed successful.
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: boat-ai-v14-research
+  cancel-in-progress: true
+
+jobs:
+  research:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install NumPy
+        run: pip install 'numpy>=2.0,<3.0'
+
+      - name: Download verified signal caches
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35824767175
+          pattern: market-signal-cache-*
+          path: caches
+          merge-multiple: true
+
+      - name: Run v14 research
+        run: |
+          mkdir -p data
+          python -u scripts/search_multiyear_strategy_v14.py \
+            --cache-dir caches \
+            --output data/strategy_v14_multiyear.json
+
+      - name: Validate research result
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/strategy_v14_multiyear.json', encoding='utf-8'))
+          assert data['schemaVersion'] == 14
+          assert data['researchOnly'] is True
+          assert data['releaseQualified'] is False
+          assert [row['year'] for row in data['yearResults']] == [2023, 2024, 2025]
+          assert data['yearResults'][0]['role'] == 'design'
+          assert data['yearResults'][1]['role'] == 'frozen-config evaluation'
+          assert data['yearResults'][2]['role'] == 'frozen-config evaluation'
+          print(json.dumps({
+              'selectedTicketConfig': data['selectedTicketConfig'],
+              'validation2024to2025': data['validation2024to2025'],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload v14 result
+        uses: actions/upload-artifact@v4
+        with:
+          name: v14-research-result
+          path: data/strategy_v14_multiyear.json
+          retention-days: 30
+
+      - name: Commit v14 result
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/strategy_v14_multiyear.json
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'Update v14 empirical calibration research'
+          git push origin HEAD:main
