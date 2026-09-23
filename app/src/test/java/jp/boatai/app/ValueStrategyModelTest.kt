@@ -5,6 +5,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.sin
 
 class ValueStrategyModelTest {
     @Test
@@ -53,11 +54,59 @@ class ValueStrategyModelTest {
         assertTrue(selection.picks.isEmpty())
     }
 
-    private fun model(maxPoints: Int, thirdFeatures: Int = 65): ValueStrategyModel {
-        fun section(features: Int) = JSONObject()
+    @Test
+    fun pythonReferenceAndAndroidAgreeOnFeatureModelAndProbabilityAllocation() {
+        val model = model(maxPoints = 4, allocationMode = "probability", weighted = true)
+        val race = race().copy(
+            racers = race().racers.map { racer ->
+                val lane = racer.lane
+                racer.copy(
+                    nationalWinRate = 4.6 + 0.32 * lane,
+                    localWinRate = 5.8 - 0.13 * lane,
+                    motorTop2 = 28.0 + 3.4 * lane,
+                    boatTop2 = 33.0 + 2.1 * lane,
+                    averageStart = 0.12 + 0.013 * lane,
+                    preview = PreviewRacer(
+                        course = if (lane == 2) 3 else if (lane == 3) 2 else lane,
+                        startTiming = 0.1 + 0.012 * lane,
+                        weight = null, weightAdjustment = null,
+                        exhibitionTime = 6.7 + 0.035 * lane, tilt = null
+                    )
+                )
+            },
+            preview = PreviewData(
+                windSpeed = 4, windDirection = null, waveHeight = 3, weather = null,
+                airTemperature = null, waterTemperature = null
+            )
+        )
+        val odds = model.allCombinations().associateWith { combination ->
+            val (first, second, third) = combination.split("-").map(String::toInt)
+            (68 + ((first * 17 + second * 11 + third * 7) % 81)).toDouble()
+        }
+
+        val actual = model.select(race, LearningProfile(), odds)
+        // Recompute the expected values with scripts/value_strategy_parity_fixture.py.
+        assertEquals(RaceRecommendation.BUY, actual.recommendation)
+        assertEquals(listOf("6-4-1", "6-1-5", "6-5-1", "6-5-4"), actual.picks.map { it.combination })
+        assertEquals(listOf(300, 200, 400, 300), actual.picks.map { it.recommendedStake })
+        listOf(2.036882015331196, 1.9540563643325664, 1.868608339528893, 1.8343676391415265)
+            .zip(actual.picks).forEach { (expected, pick) ->
+                assertEquals(expected, pick.score, 1e-7)
+            }
+    }
+
+    private fun model(
+        maxPoints: Int,
+        thirdFeatures: Int = 65,
+        allocationMode: String = "equal",
+        weighted: Boolean = false
+    ): ValueStrategyModel {
+        fun section(features: Int, phase: Double) = JSONObject()
             .put("mean", JSONArray(List(features) { 0.0 }))
             .put("std", JSONArray(List(features) { 1.0 }))
-            .put("weights", JSONArray(List(features) { 0.0 }))
+            .put("weights", JSONArray(List(features) { index ->
+                if (weighted) sin((index + 1) * 0.61 + phase) * 0.28 else 0.0
+            }))
         val root = JSONObject()
             .put("trainedThrough", "2026-09-22")
             .put("strategy", JSONObject()
@@ -66,11 +115,11 @@ class ValueStrategyModelTest {
                 .put("minProbability", 0.005)
                 .put("maxOdds", 150.0)
                 .put("maxPoints", maxPoints)
-                .put("allocationMode", "equal")
+                .put("allocationMode", allocationMode)
                 .put("budget", 1_200))
-            .put("first", section(32))
-            .put("second", section(50))
-            .put("third", section(thirdFeatures))
+            .put("first", section(32, 0.3))
+            .put("second", section(50, 0.7))
+            .put("third", section(thirdFeatures, 1.1))
         return ValueStrategyModel.fromJson(root.toString())
     }
 
