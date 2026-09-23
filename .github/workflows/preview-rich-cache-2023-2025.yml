@@ -1,0 +1,101 @@
+name: BOAT AI preview rich signal caches 2023-2025
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build_preview_rich_signal_cache.py'
+      - '.github/workflows/preview-rich-cache-2023-2025.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: boat-ai-preview-rich-cache-2023-2025
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: rich cache (${{ matrix.year }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024, 2025]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y p7zip-full
+          pip install 'numpy>=2.0,<3.0' 'boatrace-lzh==0.1.0'
+      - name: Download verified learning parts
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35814229078
+          pattern: learning-part-*
+          path: learning-parts
+          merge-multiple: true
+      - name: Build leakage-safe pre-year snapshot
+        env:
+          TARGET_YEAR: ${{ matrix.year }}
+        run: |
+          PREVIOUS_YEAR=$((TARGET_YEAR - 1))
+          mkdir -p selected-learning-parts
+          python - <<'PY'
+          import json, os, shutil
+          from pathlib import Path
+          target=int(os.environ['TARGET_YEAR'])
+          for path in sorted(Path('learning-parts').glob('historical_learning_*.json')):
+              data=json.loads(path.read_text(encoding='utf-8'))
+              if int(str(data['trainedThrough'])[:4]) <= target-1:
+                  shutil.copy2(path, Path('selected-learning-parts')/path.name)
+          PY
+          python -u scripts/merge_validation_learning.py \
+            --input-dir selected-learning-parts \
+            --start 2021-09-22 \
+            --end "${PREVIOUS_YEAR}-12-31" \
+            --output "learning_${TARGET_YEAR}.json"
+      - name: Build preview rich cache
+        env:
+          TARGET_YEAR: ${{ matrix.year }}
+        run: |
+          mkdir -p rich-cache rich-metadata
+          python -u scripts/build_preview_rich_signal_cache.py \
+            --year "$TARGET_YEAR" \
+            --learning "learning_${TARGET_YEAR}.json" \
+            --workers 16 \
+            --output "rich-cache/signal_cache_${TARGET_YEAR}.npz" \
+            --metadata "rich-metadata/preview_rich_cache_${TARGET_YEAR}.json"
+      - name: Validate rich cache
+        env:
+          TARGET_YEAR: ${{ matrix.year }}
+        run: |
+          python - <<'PY'
+          import json, os, numpy as np
+          y=int(os.environ['TARGET_YEAR'])
+          m=json.load(open(f'rich-metadata/preview_rich_cache_{y}.json',encoding='utf-8'))
+          assert m['previewSource']['raceCoverage']>=95.0,m['previewSource']
+          assert m['previewSource']['racerCoverage']>=95.0,m['previewSource']
+          z=np.load(f'rich-cache/signal_cache_{y}.npz')
+          assert z['racer_features'].shape[1:]==(6,32),z['racer_features'].shape
+          assert len(z['month'])==m['cachedRaces']
+          print({'year':y,'races':len(z['month']),'features':z['racer_features'].shape})
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preview-rich-signal-cache-${{ matrix.year }}
+          path: |
+            rich-cache/signal_cache_${{ matrix.year }}.npz
+            rich-metadata/preview_rich_cache_${{ matrix.year }}.json
+          retention-days: 30
