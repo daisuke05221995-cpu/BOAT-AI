@@ -1,0 +1,31 @@
+{
+  "experiment": "v016-core-r1-annual2024-extension",
+  "researchOnly": true,
+  "releaseQualified": false,
+  "frozenGrid": "same 144 configurations as v016-core-r1; no threshold retuning",
+  "evaluation": "2024-01-01..2024-12-31",
+  "reused": "2024 February-September cache copied unchanged",
+  "added": [
+    1,
+    10,
+    11,
+    12
+  ],
+  "januaryModelTraining": "2023 May-September existing cached pre-race features and outcomes only",
+  "otherModels": "current-year records through previous month; same conditional model implementation as original cache",
+  "calibration": "fixed r1 multipliers trained 2023 February-April",
+  "controls": [
+    "R1 May-September decisions and accounting must match exactly for each config",
+    "2025 annual loads rejected before outcome arrays",
+    "No Q4 2025 downloads",
+    "Official B/K feature rules preserved in research-only copy",
+    "Annual ROI 105%, min360 purchases, largest payout share <=25%, ROI removing largest >=100%; monthly losses allowed"
+  ],
+  "purpose": "Measure full-year 2024 before rejecting on annual grounds; earlier 5-month failure alone was not a full-year verdict",
+  "limits": [
+    "2024 is development, not a pristine test",
+    "Closing-odds timing limitation remains",
+    "Eligible settled six-boat races denominator; cancellations/refunds require separate audit",
+    "No automatic production promotion or LONGSHOT start"
+  ]
+}
