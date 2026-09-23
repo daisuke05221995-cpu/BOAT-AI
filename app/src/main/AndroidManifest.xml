@@ -44,7 +44,7 @@
             android:exported="false" />
 
         <receiver
-            android:name=".BoatAlertBootReceiver"
+            android:name=".BoatAlertBootRecoveryReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter>
