@@ -1,0 +1,36 @@
+name: Apply recovery-safe back navigation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply_back_safe.py'
+      - '.github/workflows/apply-back-safe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Apply patch
+        run: python scripts/apply_back_safe.py
+      - name: Commit app change and remove temporary patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/jp/boatai/app/MainActivity.kt
+          git rm scripts/apply_back_safe.py .github/workflows/apply-back-safe.yml
+          git commit -m 'Add recovery-safe Android back navigation'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main || exit 1
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1
