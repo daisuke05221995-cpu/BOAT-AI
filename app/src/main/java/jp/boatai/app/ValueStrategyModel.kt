@@ -206,10 +206,12 @@ internal class ValueStrategyModel private constructor(
         for (firstIndex in 0 until 6) {
             val secondRows = secondRows(base, firstIndex)
             val secondProbabilities = probabilities(secondRows, second, setOf(firstIndex))
+            if (secondProbabilities.size != 6) return emptyMap()
             for (secondIndex in 0 until 6) {
                 if (secondIndex == firstIndex) continue
                 val thirdRows = thirdRows(base, firstIndex, secondIndex)
                 val thirdProbabilities = probabilities(thirdRows, third, setOf(firstIndex, secondIndex))
+                if (thirdProbabilities.size != 6) return emptyMap()
                 for (thirdIndex in 0 until 6) {
                     if (thirdIndex == firstIndex || thirdIndex == secondIndex) continue
                     result["${firstIndex + 1}-${secondIndex + 1}-${thirdIndex + 1}"] =
