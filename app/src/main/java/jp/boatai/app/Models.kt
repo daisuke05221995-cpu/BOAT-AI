@@ -164,14 +164,20 @@ data class PredictionRecord(
     val autoSkipped: Boolean = false,
     val autoSkipReason: String? = null,
     val recommended: Boolean = false,
-    val recommendationReason: String? = null
+    val recommendationReason: String? = null,
+    val stakes: List<Int> = emptyList()
 ) {
     val venueName: String get() = Venues.name(stadiumNumber)
     val recommendation: RaceRecommendation get() = if (recommended) RaceRecommendation.BUY else RaceRecommendation.SKIP
-    val simulatedStake: Int get() = stakePerPick * combinations.size
+    val simulatedStake: Int get() = if (stakes.size == combinations.size) stakes.sum() else stakePerPick * combinations.size
     val hit: Boolean get() = settled && !resultCombination.isNullOrBlank() && resultCombination in combinations
     val simulatedPayout: Int
-        get() = if (hit && stakePerPick >= 100) trifectaPayout * (stakePerPick / 100) else 0
+        get() {
+            if (!hit) return 0
+            val index = combinations.indexOf(resultCombination)
+            val stake = if (stakes.size == combinations.size) stakes[index] else stakePerPick
+            return if (stake >= 100) trifectaPayout * (stake / 100) else 0
+        }
     val simulatedProfit: Int get() = simulatedPayout - simulatedStake
 
     fun toJson(): JSONObject = JSONObject().apply {
@@ -181,6 +187,7 @@ data class PredictionRecord(
         put("raceNumber", raceNumber)
         put("combinations", JSONArray().apply { combinations.forEach { put(it) } })
         put("stakePerPick", stakePerPick)
+        if (stakes.isNotEmpty()) put("stakes", JSONArray().apply { stakes.forEach { put(it) } })
         put("resultCombination", resultCombination)
         put("trifectaPayout", trifectaPayout)
         put("settled", settled)
@@ -207,6 +214,10 @@ data class PredictionRecord(
             }
             val confidence = obj.optInt("confidence", 0)
             val autoSkipped = obj.optBoolean("autoSkipped", false)
+            val stakes = obj.optJSONArray("stakes")?.let { array ->
+                List(array.length()) { index -> array.optInt(index) }
+                    .takeIf { it.size == combinations.size && it.all { stake -> stake >= 100 && stake % 100 == 0 } }
+            }.orEmpty()
             return PredictionRecord(
                 id = obj.optString("id"),
                 date = obj.optString("date"),
@@ -225,7 +236,8 @@ data class PredictionRecord(
                 autoSkipped = autoSkipped,
                 autoSkipReason = obj.optString("autoSkipReason").takeIf { it.isNotBlank() },
                 recommended = if (obj.has("recommended")) obj.optBoolean("recommended") else !autoSkipped && confidence >= 70,
-                recommendationReason = obj.optString("recommendationReason").takeIf { it.isNotBlank() }
+                recommendationReason = obj.optString("recommendationReason").takeIf { it.isNotBlank() },
+                stakes = stakes
             )
         }
     }
