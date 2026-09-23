@@ -33,19 +33,14 @@ from pathlib import Path
 from typing import Any
 
 from boatrace_lzh import LzhDownloader, PerformanceParser, ScheduleParser
+from boatrace_lzh.constants import VENUE_CODES
 
 import search_2026_strategy as v6
 from build_2026_backtest import LearningProfile, normalize_combo
 
-_METRIC_RE = re.compile(
-    r"^\s*([1-6])\s+(\d{4}).*?([AB][12])\s+"
-    r"([0-9]+(?:\.[0-9]+)?)\s+"  # national win rate
-    r"([0-9]+(?:\.[0-9]+)?)\s+"  # national top2
-    r"([0-9]+(?:\.[0-9]+)?)\s+"  # local win rate
-    r"([0-9]+(?:\.[0-9]+)?)\s+"  # local top2
-    r"(\d+)\s+([0-9]+(?:\.[0-9]+)?)\s+"  # motor no/top2
-    r"(\d+)\s+([0-9]+(?:\.[0-9]+)?)"  # boat no/top2
-)
+_ENTRY_HEAD_RE = re.compile(r"^\s*([1-6])\s+(\d{4})(.*)$")
+_CLASS_RE = re.compile(r"([AB][12])")
+_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 _RACE_RE = re.compile(r"^\s*(\d{1,2})R(?:\s|$)")
 
 
@@ -58,50 +53,95 @@ def _as_float(value: Any) -> float | None:
         return None
 
 
+def _venue_from_line(line: str) -> int | None:
+    """Return venue code when a BOAT RACE venue header is present.
+
+    Official B archives may contain multiple venue blocks in one text file. The
+    upstream ScheduleParser assigns one header venue to a whole file, so validation
+    must track venue headers line-by-line instead of assuming one file == one venue.
+    """
+    compact = re.sub(r"\s+", "", line)
+    if "ボートレース" not in compact:
+        return None
+    # Prefer longer names so short names such as 津 cannot win a substring match.
+    for venue_name, venue_code in sorted(VENUE_CODES.items(), key=lambda item: len(item[0]), reverse=True):
+        if f"ボートレース{venue_name}" in compact:
+            try:
+                value = int(venue_code)
+            except (TypeError, ValueError):
+                continue
+            if 1 <= value <= 24:
+                return value
+    return None
+
+
+def _metric_from_line(line: str) -> dict[str, Any] | None:
+    """Parse one B-file entry line without relying on historical column spacing."""
+    match = _ENTRY_HEAD_RE.match(line)
+    if not match:
+        return None
+    lane = int(match.group(1))
+    registration = int(match.group(2))
+    remainder = match.group(3)
+    class_match = _CLASS_RE.search(remainder)
+    if class_match is None:
+        return None
+    rank = class_match.group(1)
+    # Everything after A1/A2/B1/B2 starts with the eight model metrics we need:
+    # national win/top2, local win/top2, motor no/top2, boat no/top2. Later numbers
+    # are current-meet result history and are deliberately ignored.
+    values = _NUMBER_RE.findall(remainder[class_match.end() :])
+    if len(values) < 8:
+        return None
+    try:
+        return {
+            "lane": lane,
+            "registration": registration,
+            "rank": rank,
+            "national_win": float(values[0]),
+            "national_top2": float(values[1]),
+            "local_win": float(values[2]),
+            "local_top2": float(values[3]),
+            "motor_number": int(float(values[4])),
+            "motor_top2": float(values[5]),
+            "boat_number": int(float(values[6])),
+            "boat_top2": float(values[7]),
+        }
+    except (TypeError, ValueError):
+        return None
+
+
 def parse_program_metrics(files: dict[str, str], parser: ScheduleParser | None = None) -> dict[tuple[int, int, int], dict[str, Any]]:
-    """Extract pre-race numerical features that boatrace-lzh currently does not expose."""
-    schedule_parser = parser or ScheduleParser()
+    """Extract pre-race numerical features from official B files.
+
+    `parser` is retained for call-site compatibility, but venue assignment is done
+    directly from raw headers because a historical B file can contain multiple venues.
+    """
+    del parser
     output: dict[tuple[int, int, int], dict[str, Any]] = {}
-    for filename, content in files.items():
+    for _filename, content in files.items():
         if not content or len(content) < 50:
             continue
-        try:
-            parsed = schedule_parser.parse({filename: content})
-        except Exception:
-            continue
-        venue_codes = {str(entry.venue_code) for entry in parsed.entries if entry.venue_code}
-        if len(venue_codes) != 1:
-            continue
-        try:
-            venue = int(next(iter(venue_codes)))
-        except (StopIteration, ValueError):
-            continue
-
+        current_venue: int | None = None
         current_race: int | None = None
         for raw_line in content.splitlines():
             line = unicodedata.normalize("NFKC", raw_line)
+            venue = _venue_from_line(line)
+            if venue is not None:
+                current_venue = venue
+                current_race = None
+                continue
             race_match = _RACE_RE.match(line)
             if race_match:
                 current_race = int(race_match.group(1))
                 continue
-            if current_race is None:
+            if current_venue is None or current_race is None:
                 continue
-            match = _METRIC_RE.match(line)
-            if not match:
+            metric = _metric_from_line(line)
+            if metric is None:
                 continue
-            lane = int(match.group(1))
-            output[(venue, current_race, lane)] = {
-                "registration": int(match.group(2)),
-                "rank": match.group(3),
-                "national_win": float(match.group(4)),
-                "national_top2": float(match.group(5)),
-                "local_win": float(match.group(6)),
-                "local_top2": float(match.group(7)),
-                "motor_number": int(match.group(8)),
-                "motor_top2": float(match.group(9)),
-                "boat_number": int(match.group(10)),
-                "boat_top2": float(match.group(11)),
-            }
+            lane = int(metric.pop("lane"))
+            output[(current_venue, current_race, lane)] = metric
     return output
 
 
@@ -284,6 +324,8 @@ def build_records_from_kfiles(
                         }
                         features.append(v6.feature_row(racer, venue, 0, 0, learning))
                         stats["recordRacers"] += 1
+                        if metric:
+                            stats["programMetricRacers"] += 0  # counted once when parsed; kept for clarity
                         if avg_start is not None:
                             stats["averageStartAvailable"] += 1
                         if exhibition is not None:
