@@ -546,6 +546,8 @@ private fun ProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
     val dayRecommended = dayAll.filter { it.recommended }
     val dayAllSummary = ProfitAnalytics.summarize(dayAll)
     val dayRecommendedSummary = ProfitAnalytics.summarize(dayRecommended)
+    val dayCapturedCount = ui.predictionHistory.count { it.date == dateText && it.evaluationEligible }
+    val dayResultCount = ui.races.count { it.date.take(10) == dateText && it.hasResult }
 
     val weekStart = ui.date.minusDays(6)
     val weekStartText = weekStart.toString()
@@ -592,11 +594,11 @@ private fun ProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
 
         item {
             PredictionPeriodSummaryCard(
-                title = "${ui.date} の予想成績（今日）",
+                title = "${ui.date} の全予想成績（今日）",
                 recommended = dayRecommendedSummary,
                 allPredictions = dayAllSummary,
                 actualRecords = dayRecords,
-                note = "この日に締切前保存できた事前予想だけを集計"
+                note = "締切前保存 $dayCapturedCount レース / 当日結果 $dayResultCount レース。未保存分は結果後に後付けせず、今後は5分前自動評価で全レース保存します。"
             )
         }
 
@@ -616,7 +618,7 @@ private fun ProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
                 recommended = monthRecommendedSummary,
                 allPredictions = monthAllSummary,
                 actualRecords = monthRecords,
-                note = "この月に購入推奨だけを買い続けた場合の累計。結果後の後付け予想は除外"
+                note = "この月に締切前保存できた全予想と購入推奨の累計。結果後の後付け予想は除外"
             )
         }
 
@@ -656,12 +658,13 @@ private fun PredictionPeriodSummaryCard(
         Column(Modifier.padding(14.dp)) {
             Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(6.dp))
+            Text("全予想（購入推奨＋見送り）", fontWeight = FontWeight.SemiBold)
+            SummaryCompact(allPredictions)
+            Text("期間損益 ${signedMoney(allPredictions.profit)}　回収率 ${formatPercent(allPredictions.roi)}", fontWeight = FontWeight.Bold)
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Text("購入推奨のみを買い続けた場合", fontWeight = FontWeight.SemiBold)
             SummaryCompact(recommended)
             Text("期間損益 ${signedMoney(recommended.profit)}　回収率 ${formatPercent(recommended.roi)}", fontWeight = FontWeight.Bold)
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Text("全予想（比較用）", fontWeight = FontWeight.SemiBold)
-            SummaryCompact(allPredictions)
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Text("実際の購入記録（確定分）", fontWeight = FontWeight.SemiBold)
             Text("購入 ${money(actualStake)} / 払戻 ${money(actualPayout)}")
@@ -743,7 +746,13 @@ private fun AppUpdateCard(update: AppUpdateState, vm: BoatViewModel) {
 @Composable
 private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
     val race = ui.selectedRace ?: return
-    val decision = PredictionEngine.recommendation(race)
+    val savedPrediction = ui.predictionHistory.firstOrNull { it.id == race.id }
+    val decision = savedPrediction?.let {
+        RecommendationDecision(
+            it.recommendation,
+            it.recommendationReason ?: if (it.recommended) "締切前保存時の購入推奨" else "締切前保存時の見送り"
+        )
+    } ?: PredictionEngine.recommendation(race)
     val uriHandler = LocalUriHandler.current
     val day = race.date.replace("-", "")
     val jcd = Venues.code(race.stadiumNumber)
@@ -780,6 +789,29 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
                         color = if (decision.recommended) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                     )
                     Text(decision.reason, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
+        if (race.hasResult) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("レース結果", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "3連単 ${race.result?.trifectaCombination ?: "-"}　払戻 ${race.result?.trifectaPayout?.let(::money) ?: "-"}",
+                            fontWeight = FontWeight.Bold
+                        )
+                        savedPrediction?.let { prediction ->
+                            Spacer(Modifier.height(4.dp))
+                            Text("事前予想 ${prediction.combinations.joinToString(" / ").ifBlank { "買い目なし" }}")
+                            Text(
+                                if (prediction.hit) "予想的中　想定払戻 ${money(prediction.simulatedPayout)}" else "予想ハズレ",
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (prediction.hit) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                            )
+                        } ?: Text("このレースは締切前の予想履歴が保存されていません", style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
         }
