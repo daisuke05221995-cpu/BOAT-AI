@@ -1,0 +1,49 @@
+{
+  "experiment": "v016-core-r1",
+  "researchOnly": true,
+  "releaseQualified": false,
+  "cacheRun": "35833959070",
+  "fit": "calibration multipliers: 2023-02..04 only",
+  "selection": "2023-05..09 and 2024-05..09; no 2025 selection",
+  "confirmation": "one frozen candidate only on 2025-05..09",
+  "families": {
+    "power": [1.10, 1.25],
+    "blend": [0.15, 0.35],
+    "calibrationPriorExpectedWins": [20, 100]
+  },
+  "ticketGrid": {
+    "minEv": [1.0, 1.05, 1.10],
+    "minProbability": [0.01, 0.03],
+    "maxOdds": [20, 40],
+    "maxPoints": [3, 4],
+    "budgetYen": 1200,
+    "allocation": "equal integer 100-yen units; deterministic EV tie-break"
+  },
+  "candidateCount": 144,
+  "screenGatePerPeriod": {
+    "minRoi": 105,
+    "minPurchaseRaces": 150,
+    "maxLargestHitShare": 25,
+    "minRoiWithoutLargestHit": 100,
+    "monthlyProfitRequired": false
+  },
+  "annualGatePerYear": {
+    "minRoi": 105,
+    "minPurchaseRaces": 360,
+    "requiredMonths": 12,
+    "monthlyProfitRequired": false,
+    "status": "not evaluated; incomplete periods never qualify"
+  },
+  "selectionOrder": ["maximum minimum 2023/2024 ROI", "pooled ROI", "deterministic config hash"],
+  "holdout": {"period": "2025-10-01..2025-12-31", "opened": false, "automaticOpening": false},
+  "longshot": "blocked until a qualified CORE baseline is fixed",
+  "stopRule": "No post-result threshold retuning in r1. If none pass, retain no-candidate, archive all failures and audit data/annual coverage before a separately registered experiment.",
+  "limitations": [
+    "2023/2024 are development; pre-Q4 2025 was seen by prior families and is not a pristine test.",
+    "Existing caches are February-September, not twelve months. Preview archive starts May 2023.",
+    "Market archives do not preserve verified five-minute-before-close odds timestamps; live deployability remains unproven.",
+    "Original cache builder required settled valid actual combination; cancelled/refunded/missing races require a separate denominator audit.",
+    "Drawdown uses calendar day then venue/race number, not actual intra-day timestamps.",
+    "Annual purchase minimum is an explicit research choice; no annual return extrapolation is allowed."
+  ]
+}

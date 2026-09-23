@@ -1,0 +1,189 @@
+name: v016 CORE BUY bounded research
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/v016_core_research.py
+      - scripts/v016_core_test.py
+      - .github/workflows/v016-core-research.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v016-core-research
+  cancel-in-progress: false
+
+env:
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '1'
+
+jobs:
+  fit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - run: python scripts/v016_core_test.py
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 35833959070
+          name: preview-rich-signal-cache-2023
+          path: cache
+      - run: |
+          python scripts/v016_core_research.py fit \
+            --cache cache/rich-cache/signal_cache_2023.npz \
+            --output data/v016_core_calibration.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-core-calibration
+          path: data/v016_core_calibration.json
+          retention-days: 90
+
+  prepare:
+    needs: fit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024, 2025]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 35833959070
+          name: preview-rich-signal-cache-${{ matrix.year }}
+          path: cache
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-core-calibration
+          path: model
+      - run: |
+          python scripts/v016_core_research.py prepare --year ${{ matrix.year }} \
+            --cache cache/rich-cache/signal_cache_${{ matrix.year }}.npz \
+            --model model/v016_core_calibration.json \
+            --output prepared/prepared_${{ matrix.year }}.npz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-core-prepared-${{ matrix.year }}
+          path: prepared/
+          retention-days: 90
+
+  screen:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024]
+        family: [power, blend, calibration]
+        cap: [20, 40]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-core-prepared-${{ matrix.year }}
+          path: prepared
+      - run: |
+          python scripts/v016_core_research.py screen --year ${{ matrix.year }} \
+            --family ${{ matrix.family }} --cap ${{ matrix.cap }} \
+            --cache prepared/prepared_${{ matrix.year }}.npz \
+            --output results/screen-${{ matrix.year }}-${{ matrix.family }}-${{ matrix.cap }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-core-screen-${{ matrix.year }}-${{ matrix.family }}-${{ matrix.cap }}
+          path: results/
+          retention-days: 90
+
+  select:
+    needs: screen
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v016-core-screen-*
+          merge-multiple: true
+          path: results
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-core-calibration
+          path: model
+      - run: |
+          python scripts/v016_core_research.py select --input results \
+            --model model/v016_core_calibration.json --run '${{ github.run_id }}' \
+            --output data/v016_core_screen.json --manifest data/v016_core_candidate.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-core-selection
+          path: data/v016_core_*.json
+          retention-days: 90
+
+  confirm:
+    needs: select
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-core-selection
+          path: data
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-core-calibration
+          path: data
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-core-prepared-2025
+          path: prepared
+      - run: |
+          python scripts/v016_core_research.py confirm \
+            --cache prepared/prepared_2025.npz --manifest data/v016_core_candidate.json \
+            --output data/v016_core_confirmation.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-core-final-reports
+          path: data/v016_core_*.json
+          retention-days: 90
+      - name: Commit research reports only, preserving concurrent app work
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/v016_core_calibration.json data/v016_core_candidate.json data/v016_core_screen.json data/v016_core_confirmation.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'Record v016 CORE research results (no production promotion)'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main || exit 1
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1

@@ -120,3 +120,13 @@ v0.15.3で予想履歴保存とユーザー通知を分離した。
 ## 再開文
 
 `BOAT AIの続き。GitHubのPROJECT_STATUS.md、NEXT_WEEK_HANDOFF.md、WORK_HANDOFF.mdを確認して、進行中Runも確認して続けて。`
+
+## Work研究: v016 CORE r1（2026-09-23）
+
+- Work分担厳守: Android/本番/Release/PROJECT_STATUS.mdは未変更。並行更新を検知したため最新mainへ研究ファイルのみ再適用。
+- 現在位置: scripts/v016_core_research.py / v016_core_test.py / .github/workflows/v016-core-research.yml / data/v016_core_protocol.json を実装。日付/Q4拒否・会計・改変・欠落matrixの6テスト成功。
+- 初回確認: b9687da、最新Run 35866413097 SUCCESS、進行中/queuedなし。公開版は通常チャット管理。
+- cache Run 35833959070再利用、3年並列準備→2年×3モデル×2パラメータ群のscreen。144候補を2023/2024で選び、1候補固定後だけ2025へ適用。
+- 年間ゲート: 12か月ROI>=105%、年360購入以上。月次赤字許容。5〜9月screenは年間成績ではない。
+- Run ID: このpushで起動後に追記。まだ研究結果/採用候補なし。Q4未開封/自動開封機能なし。LONGSHOTは適格CORE固定まで保留。
+- 次: Actions結果・固定候補2025確認→通過時のみ欠損月の年間検証、オッズ時刻監査。失敗時は後付け閾値緩和せず不採用を保存。
