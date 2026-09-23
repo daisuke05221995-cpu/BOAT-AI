@@ -207,6 +207,7 @@ def run(args):
     stake = np.where(counts > 0, policy["budget"], 0)
     payout = wins * eval_c["amount"]
     total = summarize(stake, payout, counts)
+    total['largestHitPayout'] = int(payout.max(initial=0))
     months = {
         str(m): summarize(stake[eval_c["month"] == m], payout[eval_c["month"] == m], counts[eval_c["month"] == m])
         for m in sorted(expected_months)
