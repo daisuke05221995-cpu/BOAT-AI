@@ -1,0 +1,102 @@
+name: Promote validated value strategy model
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'data/multiyear_validation.json'
+      - 'data/strategy_search_2026.json'
+      - 'scripts/export_value_strategy_model.py'
+      - '.github/workflows/promote-value-model.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: promote-validated-value-model
+  cancel-in-progress: true
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check release candidate
+        id: gate
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          path=Path('data/multiyear_validation.json')
+          if not path.exists():
+              print('eligible=false')
+              print('reason=validation file is not available')
+          else:
+              data=json.loads(path.read_text(encoding='utf-8'))
+              eligible=(
+                  data.get('releaseCandidate') is True
+                  and data.get('independentValidationPassed') is True
+                  and data.get('validationYears') == [2023, 2024, 2025]
+                  and int(data.get('yearsMeetingStrictCriteria',0)) == 3
+              )
+              print(f'eligible={str(eligible).lower()}')
+              print('reason=' + ('strict independent validation passed' if eligible else 'strict independent validation did not pass'))
+          PY
+
+      - name: Report skipped promotion
+        if: steps.gate.outputs.eligible != 'true'
+        run: echo "Model promotion skipped - ${{ steps.gate.outputs.reason }}"
+
+      - name: Setup Python
+        if: steps.gate.outputs.eligible == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install model dependency
+        if: steps.gate.outputs.eligible == 'true'
+        run: pip install 'numpy>=2.0,<3.0'
+
+      - name: Export independently validated model
+        if: steps.gate.outputs.eligible == 'true'
+        run: |
+          python -u scripts/export_value_strategy_model.py \
+            --learning data/historical_learning_pre2026.json \
+            --strategy data/strategy_search_2026.json \
+            --validation data/multiyear_validation.json \
+            --workers 16 \
+            --output app/src/main/assets/value_strategy_model.json
+
+      - name: Verify exported asset
+        if: steps.gate.outputs.eligible == 'true'
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('app/src/main/assets/value_strategy_model.json', encoding='utf-8'))
+          assert int(data.get('schemaVersion',0)) >= 2
+          assert data['validation']['independentValidationPassed'] is True
+          assert data['validation']['years'] == [2023, 2024, 2025]
+          assert 1 <= int(data['strategy']['maxPoints']) <= 10
+          assert int(data['strategy']['budget']) == 1200
+          print('validated model asset ready:', data['trainedThrough'], data['strategy'])
+          PY
+
+      - name: Commit validated model asset
+        if: steps.gate.outputs.eligible == 'true'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/assets/value_strategy_model.json
+          if git diff --cached --quiet; then
+            echo 'Validated model asset is unchanged.'
+          else
+            git commit -m 'Promote independently validated value strategy model'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
