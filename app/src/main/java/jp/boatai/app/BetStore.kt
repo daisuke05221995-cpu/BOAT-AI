@@ -41,6 +41,47 @@ class BetStore(context: Context) {
         fallbackStakePerPick: Int = 300
     ): List<BetRecord> = addEntries(entries, fallbackStakePerPick)
 
+    /**
+     * Records only tickets the user confirms were actually submitted on the official site.
+     * The exact amounts captured before opening the browser are used, so a late return to
+     * BOAT AI never recomputes stakes or predictions after the deadline.
+     */
+    fun addConfirmedPurchases(races: List<PendingPurchaseRace>): List<BetRecord> {
+        if (races.isEmpty()) return load()
+        val current = load().toMutableList()
+        var changed = false
+        var sequence = 0L
+        val now = System.currentTimeMillis()
+
+        races.forEach { race ->
+            race.tickets.forEach { ticket ->
+                if (ticket.amount < 100 || ticket.amount % 100 != 0) return@forEach
+                val duplicate = current.any {
+                    it.date == race.date &&
+                        it.stadiumNumber == race.stadiumNumber &&
+                        it.raceNumber == race.raceNumber &&
+                        it.combination == ticket.combination
+                }
+                if (!duplicate) {
+                    current += BetRecord(
+                        id = UUID.randomUUID().toString(),
+                        date = race.date,
+                        stadiumNumber = race.stadiumNumber,
+                        raceNumber = race.raceNumber,
+                        combination = ticket.combination,
+                        stake = ticket.amount,
+                        payout = 0,
+                        settled = false,
+                        createdAt = now + sequence++
+                    )
+                    changed = true
+                }
+            }
+        }
+        if (changed) save(current)
+        return current.sortedByDescending { it.createdAt }
+    }
+
     private fun addEntries(
         entries: List<Pair<RaceData, List<PredictionPick>>>,
         stakePerPick: Int
