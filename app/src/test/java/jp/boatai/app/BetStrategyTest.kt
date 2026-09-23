@@ -1,6 +1,7 @@
 package jp.boatai.app
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -44,6 +45,32 @@ class BetStrategyTest {
     fun clampsBudgetToUserLimit() {
         val result = BetStrategy.allocate(testRace(), listOf(PredictionPick("1-2-3", 10.0)), 9_999)
         assertEquals(3_000, result.single().recommendedStake)
+    }
+
+    @Test
+    fun alertBuyGateMatchesDisplayedOddsDecision() {
+        val picks = listOf(
+            PredictionPick("1-2-3", 10.0, odds = 4.0, recommendedStake = 500),
+            PredictionPick("1-3-2", 9.0, odds = 4.0, recommendedStake = 400),
+            PredictionPick("1-2-4", 8.0, odds = 8.0, recommendedStake = 200),
+            PredictionPick("1-4-2", 7.0, odds = 15.0, recommendedStake = 100)
+        )
+
+        assertTrue(BetStrategy.oddsRecommended(picks))
+        assertTrue(BetStrategy.oddsDecision(picks).startsWith("購入推奨"))
+    }
+
+    @Test
+    fun alertSkipGateMatchesDisplayedOddsDecision() {
+        val picks = listOf(
+            PredictionPick("1-2-3", 10.0, odds = 1.5, recommendedStake = 500),
+            PredictionPick("1-3-2", 9.0, odds = 1.5, recommendedStake = 400),
+            PredictionPick("1-2-4", 8.0, odds = 1.5, recommendedStake = 200),
+            PredictionPick("1-4-2", 7.0, odds = 1.5, recommendedStake = 100)
+        )
+
+        assertFalse(BetStrategy.oddsRecommended(picks))
+        assertTrue(BetStrategy.oddsDecision(picks).startsWith("見送り"))
     }
 
     private fun testRace() = RaceData(
