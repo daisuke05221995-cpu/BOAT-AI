@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - 'scripts/validate_multiyear_strategy.py'
+      - 'scripts/build_kfile_validation_records.py'
       - 'scripts/backfill_historical.py'
       - 'scripts/merge_validation_learning.py'
       - 'scripts/search_2026_strategy.py'
@@ -25,7 +26,7 @@ concurrency:
 jobs:
   learning-parts:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 55
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -73,6 +74,20 @@ jobs:
             --allow-partial \
             --output "historical_learning_${PART_LABEL}.json"
 
+      - name: Validate racer start seed
+        env:
+          PART_LABEL: ${{ matrix.label }}
+        run: |
+          python - <<'PY'
+          import json, os
+          path=f"historical_learning_{os.environ['PART_LABEL']}.json"
+          data=json.load(open(path, encoding='utf-8'))
+          counts=data.get('racerStartTimingCount',{})
+          assert counts, 'racer start seed missing'
+          assert sum(int(v) for v in counts.values()) > 1000, 'racer start seed too small'
+          print('racer-start samples:', sum(int(v) for v in counts.values()))
+          PY
+
       - name: Upload learning part
         uses: actions/upload-artifact@v4
         with:
@@ -83,7 +98,7 @@ jobs:
   validate:
     needs: learning-parts
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       max-parallel: 3
@@ -99,8 +114,11 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install model dependency
-        run: pip install 'numpy>=2.0,<3.0'
+      - name: Install validation dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y p7zip-full
+          pip install 'numpy>=2.0,<3.0' 'boatrace-lzh==0.1.0'
 
       - name: Download official learning parts
         uses: actions/download-artifact@v4
@@ -138,17 +156,17 @@ jobs:
             --end "${PREVIOUS_YEAR}-12-31" \
             --output "learning_${TARGET_YEAR}.json"
 
-      - name: Validate guarded strategy independently
+      - name: Validate guarded strategy independently from official B/K archives
         env:
           TARGET_YEAR: ${{ matrix.year }}
         run: |
           python -u scripts/validate_multiyear_strategy.py \
             --year "$TARGET_YEAR" \
             --learning "learning_${TARGET_YEAR}.json" \
-            --workers 16 \
+            --workers 12 \
             --output "validation_${TARGET_YEAR}.json"
 
-      - name: Validate output schema
+      - name: Validate output schema and leakage policy
         env:
           TARGET_YEAR: ${{ matrix.year }}
         run: |
@@ -156,16 +174,23 @@ jobs:
           import json, os
           year=int(os.environ['TARGET_YEAR'])
           data=json.load(open(f'validation_{year}.json', encoding='utf-8'))
+          assert data['schemaVersion'] >= 2
           assert data['targetYear'] == year
           assert data['learningTrainedThrough'] == f'{year-1}-12-31'
           assert len(data['operationMonths']) == 5
           assert data['periods']['operation'] == [f'{year}-05-01', f'{year}-09-30']
+          source=data['recordSource']
+          assert source['programMetricCoverage'] >= 90.0
+          assert source['exhibitionCoverage'] >= 90.0
+          assert source['averageStartCoverage'] >= 70.0
+          assert 'actual entrance/ST' in data['featureLeakagePolicy']
           print(json.dumps({
             'year': year,
             'operation': data['operation'],
             'positiveMonths': data['positiveOperationMonths'],
             'worstMonthRoi': data['worstOperationMonthRoi'],
             'historicalCriteriaMet': data['historicalCriteriaMet'],
+            'recordSource': source,
           }, ensure_ascii=False, indent=2))
           PY
 
@@ -228,7 +253,7 @@ jobs:
           release_candidate=bool(all_years_met and development_2026_met)
 
           payload={
-              'schemaVersion':1,
+              'schemaVersion':2,
               'generatedAt':datetime.now(timezone.utc).isoformat(),
               'validationYears':expected,
               'yearResults':years,
@@ -242,6 +267,7 @@ jobs:
               'notes':[
                   '2023-2025 are independent of the repeated 2026 strategy-development outcomes.',
                   'Each year uses official K-file learning history ending on Dec 31 of the previous year.',
+                  'Target-year model records are reconstructed from official B/K archives with same-race actual entrance/ST/result-time weather excluded.',
                   'The v12 guard policy is frozen during this independent validation.',
                   'A releaseCandidate=true result permits release engineering checks; it is not a guarantee of future profitability.',
               ],
