@@ -54,8 +54,8 @@ fun HistoricalBacktestCard() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("2026年 AI値戦略検証", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text("実購入と無関係に、過去レース＋過去3連単オッズで購入価値を検証", style = MaterialTheme.typography.bodySmall)
+                    Text("2026年 現行予想ロジック バックテスト", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("実購入と無関係に、過去レースで購入推奨・見送り・仮想収支を確認", style = MaterialTheme.typography.bodySmall)
                 }
                 OutlinedButton(onClick = { refreshKey++ }, enabled = !loading) { Text("更新") }
             }
@@ -64,7 +64,7 @@ fun HistoricalBacktestCard() {
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(modifier = Modifier.height(22.dp), strokeWidth = 2.dp)
-                    Text("　戦略検証データを取得中…")
+                    Text("　バックテストデータを取得中…")
                 }
                 return@Column
             }
@@ -72,7 +72,7 @@ fun HistoricalBacktestCard() {
             val data = loadResult.data
             if (data == null) {
                 Spacer(Modifier.height(8.dp))
-                Text(loadResult.error ?: "戦略検証データを取得できません", color = MaterialTheme.colorScheme.error)
+                Text(loadResult.error ?: "バックテストデータを取得できません", color = MaterialTheme.colorScheme.error)
                 return@Column
             }
 
@@ -87,9 +87,9 @@ fun HistoricalBacktestCard() {
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 if (selectedMonth == null) {
-                    Button(onClick = { selectedMonth = null }) { Text("検証合計") }
+                    Button(onClick = { selectedMonth = null }) { Text("2026年") }
                 } else {
-                    OutlinedButton(onClick = { selectedMonth = null }) { Text("検証合計") }
+                    OutlinedButton(onClick = { selectedMonth = null }) { Text("2026年") }
                 }
                 data.months.forEach { period ->
                     val month = period.month ?: return@forEach
@@ -103,7 +103,7 @@ fun HistoricalBacktestCard() {
 
             val period = selectedMonth?.let { month -> data.months.firstOrNull { it.month == month } }
                 ?: data.yearSummary
-            val title = period.month?.let { "${period.year}年${it}月" } ?: "${period.year}年 5〜9月運用検証合計"
+            val title = period.month?.let { "${period.year}年${it}月" } ?: "${period.year}年 参考合計"
 
             Spacer(Modifier.height(10.dp))
             Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
@@ -112,28 +112,10 @@ fun HistoricalBacktestCard() {
                 Text("データ ${data.dataThrough} まで", style = MaterialTheme.typography.bodySmall)
             }
 
-            if (!period.statsAvailable) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    if ((period.month ?: 0) <= 4) {
-                        "この月はモデル学習・設定校正に使用したため、独立した運用成績としては表示しません。"
-                    } else {
-                        "この月の運用検証データはまだありません。"
-                    },
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "成績を後付けで良く見せないため、設定選定に使った期間と運用評価期間を分けています。",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                return@Column
-            }
-
             Spacer(Modifier.height(8.dp))
             Text("購入推奨 ${period.purchaseRaces}レース / 見送り ${period.skippedRaces}レース", fontWeight = FontWeight.SemiBold)
-            Text("オッズ判定対象 ${period.evaluatedRaces}レース / オッズ欠損 ${period.unavailableRaces}レース")
-            Text("購入率 ${pct(period.purchaseRate)}")
+            Text("判定対象 ${period.evaluatedRaces}レース / データ欠損 ${period.unavailableRaces}レース")
+            Text("購入推奨率 ${pct(period.purchaseRate)}")
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Text("購入推奨だけ1レース${yen(data.simulationBudget)}で買った場合", fontWeight = FontWeight.SemiBold)
@@ -144,23 +126,16 @@ fun HistoricalBacktestCard() {
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Text(
                 if (data.oddsFinalGateIncluded) {
-                    "過去3連単オッズを使った期待値判定を含むv12ウォークフォワード検証です。"
+                    "締切時オッズ判定を含むウォークフォワード検証です。"
                 } else {
-                    "オッズ最終判定を含まない参考検証です。"
+                    "過去の締切時3連単オッズを取得できないため、実機のオッズ最終判定は含まない参考値です。"
                 },
                 style = MaterialTheme.typography.bodySmall
             )
             Text(
-                "5〜9月は各月の開始前までの情報だけで設定を決めて評価しています。1〜4月は学習・校正期間のため運用ROIには含めません。",
+                "各日の結果は同日の予想には使わず、翌日以降の学習にだけ反映しています。未来情報は使っていません。",
                 style = MaterialTheme.typography.bodySmall
             )
-            if (data.releaseDeferredForIndependentValidation) {
-                Text(
-                    "2026年の数値だけでは公開判定にせず、2023〜2025年の独立検証を別途要求しています。",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
         }
     }
 }
