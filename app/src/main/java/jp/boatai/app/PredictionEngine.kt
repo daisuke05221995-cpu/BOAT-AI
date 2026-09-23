@@ -41,6 +41,31 @@ object PredictionEngine {
         valueSelections.clear()
     }
 
+    /** Restore only decisions recorded by this strategy; legacy records must not masquerade as value decisions. */
+    internal fun restoreValueSelections(records: List<PredictionRecord>) {
+        if (valueStrategyModel == null) return
+        records.filter { it.strategyId == "value-v1" && it.evaluationEligible }.forEach { record ->
+            val picks = if (record.recommended) {
+                record.combinations.mapIndexed { index, combination ->
+                    PredictionPick(
+                        combination = combination,
+                        score = 0.0,
+                        recommendedStake = record.stakes.getOrNull(index) ?: record.stakePerPick,
+                        reason = "事前に確定した買い目"
+                    )
+                }
+            } else emptyList()
+            valueSelections.putIfAbsent(
+                record.id,
+                ValueSelection(
+                    picks = picks,
+                    recommendation = record.recommendation,
+                    reason = record.recommendationReason ?: "事前に確定したAI判定"
+                )
+            )
+        }
+    }
+
     internal fun cachedValueSelection(race: RaceData): ValueSelection? = valueSelections[race.id]
 
     internal fun applyValueOdds(
@@ -49,9 +74,12 @@ object PredictionEngine {
         learningOverride: LearningProfile? = null
     ): ValueSelection? {
         val model = valueStrategyModel ?: return null
-        val selection = model.select(race, learningOverride ?: learningProfile, odds)
-        valueSelections[race.id] = selection
-        return selection
+        if (odds.count { it.value > 0.0 } < 100) {
+            return model.select(race, learningOverride ?: learningProfile, odds)
+        }
+        return valueSelections.computeIfAbsent(race.id) {
+            model.select(race, learningOverride ?: learningProfile, odds)
+        }
     }
 
     /** 内部判定用の0〜100スコア。画面には直接出さず、購入推奨/見送りへ丸める。 */
