@@ -53,7 +53,7 @@
   },
   "nextSteps": [
     "Keep r1 thresholds fixed and preserve all 144 failures; do not open Q4 to search for a rescue.",
-    "Build and verify full 2024 coverage separately; it is available in the mirror, but one full year alone cannot establish multi-year reproducibility.",
+    "Full 2024 cache and evaluation completed in Run 35870380669; reuse v016-annual-cache-2024, do not recompute. No candidate passed the annual gate.",
     "Obtain a documented earlier training source and missing 2023 dates; any replacement must be separately versioned and audited before a new pre-registered protocol.",
     "Validate recent predictions with timestamped 2026 od3 snapshots, enforcing capture<close and excluding hindsight-derived fields; do not present this as an annual test.",
     "Keep CORE and LONGSHOT blocked from production until annual and timing gates pass; final integration belongs to normal chat."
@@ -61,5 +61,16 @@
   "holdoutPolicy": {
     "period": "2025-10-01..2025-12-31",
     "opened": false
+  },
+  "annual2024Followup": {
+    "run": "35870380669",
+    "status": "SUCCESS",
+    "result": "NO_ANNUAL_2024_CANDIDATE",
+    "cacheRaces": 52179,
+    "eligibleSettledRaces": 53225,
+    "qualifiedCount": 0,
+    "bestRoiWithAdequateVolume": 94.08187134502924,
+    "artifactId": 10755851267,
+    "holdoutOpened": false
   }
 }

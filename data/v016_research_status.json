@@ -1,0 +1,226 @@
+{
+  "updatedAt": "2026-09-23",
+  "phase": "CORE_R1_AND_ANNUAL2024_FINISHED_REJECTED",
+  "goalCompleted": false,
+  "researchOnly": true,
+  "productionModified": false,
+  "coreQualified": false,
+  "longshotStarted": false,
+  "holdoutOpened": false,
+  "holdout": "2025-10-01..2025-12-31",
+  "runs": {
+    "coreR1": {
+      "id": 35868298662,
+      "status": "success"
+    },
+    "audit": {
+      "id": 35869447339,
+      "status": "success"
+    },
+    "annual2024": {
+      "id": 35870380669,
+      "status": "success"
+    }
+  },
+  "annual2024": {
+    "candidateCount": 144,
+    "adequateVolumeCount": 48,
+    "qualifiedCount": 0,
+    "bestAdequateVolume": {
+      "config": {
+        "family": "blend",
+        "parameterIndex": 1,
+        "parameter": 0.35,
+        "minEv": 1,
+        "minProbability": 0.01,
+        "maxOdds": 20,
+        "maxPoints": 3,
+        "budget": 1200
+      },
+      "annual2024": {
+        "purchaseRaces": 1710,
+        "bets": 1867,
+        "hits": 113,
+        "stake": 2052000,
+        "payout": 1930560,
+        "profit": -121440,
+        "roi": 94.08187134502924,
+        "largestHitShare": 1.2431626056688214,
+        "roiWithoutLargestHit": 92.91228070175438,
+        "maxDrawdown": 290400,
+        "payoutMinus5PercentRoi": 89.37777777777778
+      },
+      "months": {
+        "1": {
+          "purchaseRaces": 136,
+          "bets": 145,
+          "hits": 15,
+          "stake": 163200,
+          "payout": 272640,
+          "profit": 109440,
+          "roi": 167.05882352941177,
+          "largestHitShare": 8.58274647887324,
+          "roiWithoutLargestHit": 152.72058823529412,
+          "maxDrawdown": 40800,
+          "payoutMinus5PercentRoi": 158.7058823529412
+        },
+        "2": {
+          "purchaseRaces": 121,
+          "bets": 137,
+          "hits": 5,
+          "stake": 145200,
+          "payout": 91800,
+          "profit": -53400,
+          "roi": 63.22314049586777,
+          "largestHitShare": 25.359477124183005,
+          "roiWithoutLargestHit": 47.1900826446281,
+          "maxDrawdown": 61200,
+          "payoutMinus5PercentRoi": 60.06198347107438
+        },
+        "3": {
+          "purchaseRaces": 135,
+          "bets": 149,
+          "hits": 9,
+          "stake": 162000,
+          "payout": 173040,
+          "profit": 11040,
+          "roi": 106.81481481481481,
+          "largestHitShare": 13.661581137309293,
+          "roiWithoutLargestHit": 92.22222222222223,
+          "maxDrawdown": 40680,
+          "payoutMinus5PercentRoi": 101.47407407407407
+        },
+        "4": {
+          "purchaseRaces": 148,
+          "bets": 162,
+          "hits": 7,
+          "stake": 177600,
+          "payout": 126000,
+          "profit": -51600,
+          "roi": 70.94594594594595,
+          "largestHitShare": 18.38095238095238,
+          "roiWithoutLargestHit": 57.9054054054054,
+          "maxDrawdown": 84000,
+          "payoutMinus5PercentRoi": 67.39864864864865
+        },
+        "5": {
+          "purchaseRaces": 168,
+          "bets": 185,
+          "hits": 10,
+          "stake": 201600,
+          "payout": 134820,
+          "profit": -66780,
+          "roi": 66.875,
+          "largestHitShare": 14.419225634178906,
+          "roiWithoutLargestHit": 57.232142857142854,
+          "maxDrawdown": 83220,
+          "payoutMinus5PercentRoi": 63.53125
+        },
+        "6": {
+          "purchaseRaces": 168,
+          "bets": 184,
+          "hits": 8,
+          "stake": 201600,
+          "payout": 114180,
+          "profit": -87420,
+          "roi": 56.63690476190476,
+          "largestHitShare": 16.605359957961113,
+          "roiWithoutLargestHit": 47.232142857142854,
+          "maxDrawdown": 87420,
+          "payoutMinus5PercentRoi": 53.805059523809526
+        },
+        "7": {
+          "purchaseRaces": 182,
+          "bets": 195,
+          "hits": 13,
+          "stake": 218400,
+          "payout": 228480,
+          "profit": 10080,
+          "roi": 104.61538461538461,
+          "largestHitShare": 10.294117647058824,
+          "roiWithoutLargestHit": 93.84615384615384,
+          "maxDrawdown": 42600,
+          "payoutMinus5PercentRoi": 99.38461538461539
+        },
+        "8": {
+          "purchaseRaces": 178,
+          "bets": 193,
+          "hits": 13,
+          "stake": 213600,
+          "payout": 213840,
+          "profit": 240,
+          "roi": 100.11235955056179,
+          "largestHitShare": 10.662177328843995,
+          "roiWithoutLargestHit": 89.43820224719101,
+          "maxDrawdown": 66960,
+          "payoutMinus5PercentRoi": 95.1067415730337
+        },
+        "9": {
+          "purchaseRaces": 102,
+          "bets": 109,
+          "hits": 6,
+          "stake": 122400,
+          "payout": 125640,
+          "profit": 3240,
+          "roi": 102.6470588235294,
+          "largestHitShare": 19.10219675262655,
+          "roiWithoutLargestHit": 83.03921568627452,
+          "maxDrawdown": 56400,
+          "payoutMinus5PercentRoi": 97.51470588235294
+        },
+        "10": {
+          "purchaseRaces": 134,
+          "bets": 147,
+          "hits": 9,
+          "stake": 160800,
+          "payout": 145920,
+          "profit": -14880,
+          "roi": 90.74626865671642,
+          "largestHitShare": 16.36513157894737,
+          "roiWithoutLargestHit": 75.8955223880597,
+          "maxDrawdown": 64980,
+          "payoutMinus5PercentRoi": 86.2089552238806
+        },
+        "11": {
+          "purchaseRaces": 103,
+          "bets": 114,
+          "hits": 6,
+          "stake": 123600,
+          "payout": 99960,
+          "profit": -23640,
+          "roi": 80.87378640776699,
+          "largestHitShare": 21.728691476590637,
+          "roiWithoutLargestHit": 63.300970873786405,
+          "maxDrawdown": 67320,
+          "payoutMinus5PercentRoi": 76.83009708737865
+        },
+        "12": {
+          "purchaseRaces": 135,
+          "bets": 147,
+          "hits": 12,
+          "stake": 162000,
+          "payout": 204240,
+          "profit": 42240,
+          "roi": 126.07407407407408,
+          "largestHitShare": 11.280846063454758,
+          "roiWithoutLargestHit": 111.85185185185185,
+          "maxDrawdown": 73860,
+          "payoutMinus5PercentRoi": 119.77037037037037
+        }
+      },
+      "historicalNumericGatePassed": false,
+      "releaseQualified": false
+    }
+  },
+  "reuse": {
+    "run": 35870380669,
+    "artifactName": "v016-annual-cache-2024",
+    "artifactId": 10755851267,
+    "expires": "2026-12-22"
+  },
+  "next": "New pre-registered CORE hypothesis; reuse annual cache; no retuning to rescue rejected r1; no Q4 or LONGSHOT before qualified CORE.",
+  "limitations": [
+    "2024 is development; multiyear release gate not passed",
+    "Historical odds timing and eligible-settled-race denominator remain unverified for live deployment"
+  ]
+}
