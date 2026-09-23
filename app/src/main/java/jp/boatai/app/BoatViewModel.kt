@@ -57,6 +57,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val notificationScheduler = NotificationScheduler(application)
     private val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))
     private var oddsRefreshJob: Job? = null
+    private var valueRefreshJob: Job? = null
     private val initialPredictionHistory = predictionStore.load()
     private val initialPerformance = PredictionPerformanceProfile.from(initialPredictionHistory)
 
@@ -75,6 +76,10 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         PredictionEngine.installLearningProfile(initialLearning)
         PredictionEngine.installPersistentPerformanceProfile(performanceMemoryStore.load())
         PredictionEngine.installPerformanceProfile(initialPerformance)
+        // v0.14.x has no promoted asset, so load() safely returns null and the legacy
+        // engine remains unchanged. v0.15+ activates only after the validated exporter
+        // has generated value_strategy_model.json.
+        PredictionEngine.installValueStrategyModel(ValueStrategyModel.load(application))
         _ui.update { it.copy(learnedRaceCount = initialLearning.totalRaceCount) }
         viewModelScope.launch {
             appUpdateManager.state.collectLatest { updateState ->
@@ -96,6 +101,12 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadDate(date: LocalDate) {
         if (date.isAfter(today)) return
+        val changingDate = date != _ui.value.date
+        if (changingDate) {
+            valueRefreshJob?.cancel()
+            oddsRefreshJob?.cancel()
+            PredictionEngine.clearValueSelections()
+        }
         viewModelScope.launch {
             _ui.update {
                 it.copy(
@@ -116,11 +127,12 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     val beforeLearned = _ui.value.learnedRaceCount
                     val records = betStore.settle(races)
 
-                    // 未来情報を混ぜないよう、結果反映より前に事前予想と購入推奨/見送りを固定保存する。
-                    predictionStore.captureOpenRaces(races)
-                    val predictionHistory = predictionStore.settle(races)
-                    val performance = PredictionPerformanceProfile.from(predictionHistory)
-                    PredictionEngine.installPerformanceProfile(performance)
+                    // Existing resolved value decisions or the legacy engine may be
+                    // persisted before result learning. Fresh value decisions are captured
+                    // immediately after the official 120-way odds evaluation below.
+                    val preOddsHistory = predictionStore.captureOpenRaces(races)
+                    val preOddsPerformance = PredictionPerformanceProfile.from(preOddsHistory)
+                    PredictionEngine.installPerformanceProfile(preOddsPerformance)
 
                     val learning = learningStore.observe(races)
                     PredictionEngine.installLearningProfile(learning)
@@ -136,8 +148,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                         it.copy(
                             races = races,
                             records = records,
-                            predictionHistory = predictionHistory,
-                            performance = performance,
+                            predictionHistory = preOddsHistory,
+                            performance = preOddsPerformance,
                             diagnostics = loadResult.diagnostics,
                             loading = false,
                             error = if (races.isEmpty()) "この日のレースデータがありません" else null,
@@ -145,6 +157,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             learnedRaceCount = learning.totalRaceCount
                         )
                     }
+                    refreshValueSelections(races, force = !changingDate)
                 }
                 .onFailure { error ->
                     _ui.update {
@@ -169,7 +182,16 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     fun refresh() = loadDate(_ui.value.date)
 
     fun selectRace(race: RaceData) {
-        val initial = BetStrategy.allocate(race, PredictionEngine.predict(race), _ui.value.raceBudget)
+        val initial = if (PredictionEngine.hasValueStrategyModel()) {
+            val selection = PredictionEngine.cachedValueSelection(race)
+            if (selection?.recommendation == RaceRecommendation.BUY) {
+                BetStrategy.allocate(race, selection.picks, _ui.value.raceBudget)
+            } else {
+                emptyList()
+            }
+        } else {
+            BetStrategy.allocate(race, PredictionEngine.predict(race), _ui.value.raceBudget)
+        }
         _ui.update {
             it.copy(
                 selectedRace = race,
@@ -190,7 +212,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             oddsRefreshJob = viewModelScope.launch {
                 while (_ui.value.selectedRace?.id == race.id && race.isPurchasable()) {
                     delay(60_000)
-                    loadOdds(race, initial, showLoading = false)
+                    loadOdds(race, _ui.value.predictions, showLoading = false)
                 }
             }
         }
@@ -199,21 +221,65 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadOdds(race: RaceData, initial: List<PredictionPick>, showLoading: Boolean = true) {
         if (showLoading) _ui.update { it.copy(oddsLoading = true, oddsError = null) }
         viewModelScope.launch {
+            val requested = if (PredictionEngine.hasValueStrategyModel()) {
+                PredictionEngine.valueOddsCombinations()
+            } else {
+                initial.map { it.combination }
+            }
+            if (requested.isEmpty()) {
+                _ui.update { it.copy(oddsLoading = false, oddsError = "オッズ取得対象がありません") }
+                return@launch
+            }
             runCatching {
-                repository.loadOfficialTrifectaOddsDetailed(race, initial.map { it.combination })
+                repository.loadOfficialTrifectaOddsDetailed(race, requested)
             }
                 .onSuccess { result ->
+                    val strategyPredictions = PredictionEngine.withOdds(
+                        race,
+                        initial,
+                        result.odds,
+                        _ui.value.raceBudget
+                    )
+                    val decision = PredictionEngine.recommendation(race)
+                    // Detail screen keeps an explicit manual-override candidate list for a
+                    // user who deliberately buys a SKIP race. Those candidates are never
+                    // used for AI virtual P/L or recommendation-only bulk purchase.
+                    val displayedPredictions = if (
+                        PredictionEngine.hasValueStrategyModel() &&
+                        decision.recommendation == RaceRecommendation.SKIP
+                    ) {
+                        PredictionEngine.manualOverridePicks(race, _ui.value.raceBudget)
+                            .map { pick ->
+                                pick.copy(
+                                    odds = result.odds[pick.combination],
+                                    reason = "手動購入用候補（AI最終判断は見送り）"
+                                )
+                            }
+                    } else {
+                        strategyPredictions
+                    }
+
+                    val history = predictionStore.captureOpenRaces(listOf(race))
+                    val performance = PredictionPerformanceProfile.from(history)
+                    PredictionEngine.installPerformanceProfile(performance)
+
                     _ui.update { state ->
-                        val nextPredictions = PredictionEngine.withOdds(race, initial, result.odds, state.raceBudget)
                         state.copy(
-                            predictions = nextPredictions,
+                            predictions = displayedPredictions,
+                            predictionHistory = history,
+                            performance = performance,
                             oddsLoading = false,
                             oddsUpdatedAt = result.fetchedAt,
                             oddsSource = result.source,
                             oddsDiagnostics = result.diagnostics,
-                            oddsDecision = BetStrategy.oddsDecision(nextPredictions),
-                            oddsChange = BetStrategy.oddsChange(state.predictions, nextPredictions),
-                            oddsError = null
+                            oddsDecision = if (PredictionEngine.hasValueStrategyModel()) {
+                                decision.reason
+                            } else {
+                                BetStrategy.oddsDecision(displayedPredictions)
+                            },
+                            oddsChange = BetStrategy.oddsChange(state.predictions, displayedPredictions),
+                            oddsError = null,
+                            lastUpdatedAt = System.currentTimeMillis()
                         )
                     }
                 }
@@ -235,9 +301,65 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Resolve every currently purchasable race whose exhibition data is ready. This is
+     * intentionally sequential to avoid hammering the official site, while still making
+     * list/bulk BUY-SKIP decisions available without opening each detail screen.
+     */
+    private fun refreshValueSelections(races: List<RaceData>, force: Boolean = false) {
+        if (!PredictionEngine.hasValueStrategyModel()) return
+        val combinations = PredictionEngine.valueOddsCombinations()
+        if (combinations.size != 120) return
+        val candidates = races.filter {
+            it.isPurchasable() && PredictionEngine.isDecisionReady(it)
+        }
+        if (candidates.isEmpty()) return
+
+        valueRefreshJob?.cancel()
+        valueRefreshJob = viewModelScope.launch {
+            for (race in candidates) {
+                if (!race.isPurchasable()) continue
+                if (!force && PredictionEngine.cachedValueSelection(race) != null) continue
+                runCatching {
+                    repository.loadOfficialTrifectaOddsDetailed(race, combinations)
+                }.onSuccess { result ->
+                    PredictionEngine.applyValueOdds(race, result.odds)
+                    val history = predictionStore.captureOpenRaces(listOf(race))
+                    val performance = PredictionPerformanceProfile.from(history)
+                    PredictionEngine.installPerformanceProfile(performance)
+                    _ui.update { state ->
+                        if (state.selectedRace?.id == race.id) {
+                            val selection = PredictionEngine.cachedValueSelection(race)
+                            val picks = if (selection?.recommendation == RaceRecommendation.BUY) {
+                                BetStrategy.allocate(race, selection.picks, state.raceBudget)
+                            } else {
+                                state.predictions
+                            }
+                            state.copy(
+                                predictions = picks,
+                                predictionHistory = history,
+                                performance = performance,
+                                oddsUpdatedAt = result.fetchedAt,
+                                oddsSource = result.source,
+                                lastUpdatedAt = System.currentTimeMillis()
+                            )
+                        } else {
+                            state.copy(
+                                predictionHistory = history,
+                                performance = performance,
+                                lastUpdatedAt = System.currentTimeMillis()
+                            )
+                        }
+                    }
+                }
+                delay(250)
+            }
+        }
+    }
+
     fun retryOdds() {
         val race = _ui.value.selectedRace ?: return
-        loadOdds(race, PredictionEngine.predict(race))
+        loadOdds(race, _ui.value.predictions)
     }
 
     fun selectVenue(stadiumNumber: Int) {
@@ -279,7 +401,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         _ui.update {
             it.copy(
                 selectedForBulk = ids,
-                actionMessage = "全${ids.size}レースを選択（購入推奨 $recommended / 見送り ${ids.size - recommended}）"
+                actionMessage = "判定済み全${ids.size}レースを選択（購入推奨 $recommended / 見送り ${ids.size - recommended}）"
             )
         }
     }
@@ -293,7 +415,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         _ui.update { it.copy(selectedForBulk = ids, actionMessage = "購入推奨から${ids.size}レースを選択") }
     }
 
-    // 旧UI互換。70以上は購入推奨と同義、80以上指定でも表示上は二択運用を維持する。
+    // 旧UI互換。値モデル稼働時も購入推奨だけを対象にする。
     fun selectConfidenceAtLeast(minimum: Int) {
         val candidates = purchasableCandidates()
         val ids = candidates.filter { PredictionEngine.isRecommended(it) && PredictionEngine.confidence(it) >= minimum }
@@ -324,7 +446,11 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             state.copy(
                 raceBudget = budget,
                 predictions = predictions,
-                oddsDecision = if (race != null) BetStrategy.oddsDecision(predictions) else state.oddsDecision
+                oddsDecision = if (race != null && !PredictionEngine.hasValueStrategyModel()) {
+                    BetStrategy.oddsDecision(predictions)
+                } else {
+                    state.oddsDecision
+                }
             )
         }
     }
@@ -332,6 +458,10 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleBulkRace(raceId: String) {
         val race = _ui.value.races.firstOrNull { it.id == raceId } ?: return
         if (!race.isPurchasable()) return
+        if (PredictionEngine.hasValueStrategyModel() && PredictionEngine.cachedValueSelection(race) == null) {
+            _ui.update { it.copy(actionMessage = "${race.venueName} ${race.raceNumber}Rは公式オッズ判定中です") }
+            return
+        }
         _ui.update { state ->
             val next = state.selectedForBulk.toMutableSet()
             if (!next.add(raceId)) next.remove(raceId)
@@ -358,13 +488,29 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         _ui.update {
             it.copy(
                 selectedForBulk = ids,
-                actionMessage = "全${ids.size}レースを選択（購入推奨 $recommended / 見送り ${ids.size - recommended}）"
+                actionMessage = "判定済み全${ids.size}レースを選択（購入推奨 $recommended / 見送り ${ids.size - recommended}）"
             )
         }
     }
 
     fun clearBulkSelection() {
         _ui.update { it.copy(selectedForBulk = emptySet(), actionMessage = null) }
+    }
+
+    /** Purchase preview used by both UI totals and final record creation. */
+    fun purchasePicksFor(race: RaceData): List<PredictionPick> {
+        if (!race.isPurchasable()) return emptyList()
+        val budget = _ui.value.raceBudget
+        if (!PredictionEngine.hasValueStrategyModel()) {
+            return BetStrategy.allocate(race, PredictionEngine.predict(race), budget)
+        }
+        val selection = PredictionEngine.cachedValueSelection(race) ?: return emptyList()
+        return if (selection.recommendation == RaceRecommendation.BUY) {
+            BetStrategy.allocate(race, selection.picks, budget)
+        } else {
+            // Only reached from explicit user selection of a SKIP race.
+            PredictionEngine.manualOverridePicks(race, budget)
+        }
     }
 
     fun recordSelectedRaces() {
@@ -375,31 +521,45 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        val entries = races.mapNotNull { race ->
+            val picks = purchasePicksFor(race)
+            if (picks.isEmpty()) null else race to picks
+        }
+        if (entries.isEmpty()) {
+            _ui.update { it.copy(actionMessage = "公式オッズ判定済みの買い目がありません") }
+            return
+        }
+
         val before = state.records.size
-        val records = betStore.addRacePicks(races, state.raceBudget)
+        val records = betStore.addResolvedRacePicks(entries, state.stakePerPick)
         val addedTickets = (records.size - before).coerceAtLeast(0)
         val recommended = races.count(PredictionEngine::isRecommended)
         _ui.update {
             it.copy(
                 records = records,
                 selectedForBulk = emptySet(),
-                actionMessage = "${races.size}レース / ${addedTickets}点を購入記録に追加（推奨 $recommended / 見送り ${races.size - recommended}）"
+                actionMessage = "${entries.size}レース / ${addedTickets}点を購入記録に追加（推奨 $recommended / 手動見送り ${entries.size - recommended}）"
             )
         }
     }
 
     fun recordRace(race: RaceData) {
         if (!race.isPurchasable()) return
-        val picks = BetStrategy.allocate(race, PredictionEngine.predict(race), _ui.value.raceBudget)
-        if (picks.isEmpty()) return
+        val picks = purchasePicksFor(race)
+        if (picks.isEmpty()) {
+            _ui.update { it.copy(actionMessage = "公式オッズの最終判定を待ってください") }
+            return
+        }
         val before = _ui.value.records.size
         val records = betStore.addPicks(race, picks, _ui.value.stakePerPick)
         val addedTickets = (records.size - before).coerceAtLeast(0)
+        val manual = PredictionEngine.hasValueStrategyModel() && !PredictionEngine.isRecommended(race)
         _ui.update {
             it.copy(
                 records = records,
                 actionMessage = if (addedTickets > 0) {
-                    "${race.venueName} ${race.raceNumber}Rを${addedTickets}点、購入記録に追加しました"
+                    "${race.venueName} ${race.raceNumber}Rを${addedTickets}点、購入記録に追加しました" +
+                        if (manual) "（AI見送りを手動購入）" else ""
                 } else {
                     "${race.venueName} ${race.raceNumber}Rはすでに購入記録済みです"
                 }
@@ -414,11 +574,13 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         val before = state.records.size
         val records = betStore.addPicks(race, state.predictions, state.stakePerPick)
         val addedTickets = (records.size - before).coerceAtLeast(0)
+        val manual = PredictionEngine.hasValueStrategyModel() && !PredictionEngine.isRecommended(race)
         _ui.update {
             it.copy(
                 records = records,
                 actionMessage = if (addedTickets > 0) {
-                    "${race.venueName} ${race.raceNumber}Rを${addedTickets}点、購入記録に追加しました"
+                    "${race.venueName} ${race.raceNumber}Rを${addedTickets}点、購入記録に追加しました" +
+                        if (manual) "（AI見送りを手動購入）" else ""
                 } else {
                     "このレースはすでに購入記録済みです"
                 }
@@ -492,7 +654,12 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun purchasableCandidates(stadiumNumber: Int? = null): List<RaceData> =
         _ui.value.races.filter { race ->
-            (stadiumNumber == null || race.stadiumNumber == stadiumNumber) &&
-                race.isPurchasable() && PredictionEngine.predict(race).isNotEmpty()
+            if (stadiumNumber != null && race.stadiumNumber != stadiumNumber) return@filter false
+            if (!race.isPurchasable()) return@filter false
+            if (PredictionEngine.hasValueStrategyModel()) {
+                PredictionEngine.isDecisionReady(race) && PredictionEngine.cachedValueSelection(race) != null
+            } else {
+                PredictionEngine.predict(race).isNotEmpty()
+            }
         }
 }
