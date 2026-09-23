@@ -44,7 +44,16 @@ class ValueStrategyModelTest {
         assertEquals(listOf(600, 600), selection.picks.map { it.recommendedStake })
     }
 
-    private fun model(maxPoints: Int): ValueStrategyModel {
+    @Test
+    fun invalidModelFeatureDimensionsSkipSafely() {
+        val model = model(maxPoints = 2, thirdFeatures = 64)
+        val selection = model.select(race(), LearningProfile(), model.allCombinations().associateWith { 150.0 })
+
+        assertEquals(RaceRecommendation.SKIP, selection.recommendation)
+        assertTrue(selection.picks.isEmpty())
+    }
+
+    private fun model(maxPoints: Int, thirdFeatures: Int = 65): ValueStrategyModel {
         fun section(features: Int) = JSONObject()
             .put("mean", JSONArray(List(features) { 0.0 }))
             .put("std", JSONArray(List(features) { 1.0 }))
@@ -61,7 +70,7 @@ class ValueStrategyModelTest {
                 .put("budget", 1_200))
             .put("first", section(32))
             .put("second", section(50))
-            .put("third", section(65))
+            .put("third", section(thirdFeatures))
         return ValueStrategyModel.fromJson(root.toString())
     }
 
