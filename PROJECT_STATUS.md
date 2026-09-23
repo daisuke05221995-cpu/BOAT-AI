@@ -6,31 +6,32 @@
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
 - Branch: `main`
-- 復旧公開版: `v0.15.10`
-- versionCode: 28 / versionName: 0.15.10
+- 公開中復旧版: `v0.15.10` / versionCode 28
 - Release commit: `a6062755ac65a2b4048c6ad3a122ccf30524ddb0`
 - Signed Release Run `35884992894`: SUCCESS
-- Release: `https://github.com/daisuke05221995-cpu/BOAT-AI/releases/tag/v0.15.10`
+- 復旧モード / `CrashRecoveryStore` は今後の版でも維持する。
+- ユーザーデータ削除・アンインストールは禁止。
 
-## 実機復旧状況
+## Android段階復帰
 
-ユーザー実機でv0.15.10の「BOAT AI 復旧モード」が正常に開くことを確認。復旧画面から通常モードを起動後、直前まで再現していたクラッシュは現時点で再発していない。
+完了済み:
+- 独立SettingsScreen: Run `35899813231` SUCCESS。
+- 右上⚙→専用設定画面、損益内設定を分離: Run `35931513963` SUCCESS。
+- Android戻るキー階層制御: Run `35932095259` SUCCESS。予想ホームでは戻るキーで終了しない。
+- 全通知visual-only化: Run `35932491385` SUCCESS。新しいchannel ID、sound=null、vibration=false、通知Builder silent。
+- Background hardening: commit `285e9303f5e3a0909ef9fb7c60d8726fe135259f`。Receiver/FGS/Alarmの例外を非致命ログへ隔離。BOOT_COMPLETEDからdataSync FGSを直接起動しない。Run `35932850869` はUnit/lint/Debug APKまで成功確認済み。
 
-`CrashRecoveryStore` / `RecoveryActivity` は維持し、ユーザーデータを削除しない。バックグラウンドService/Receiverは原因切り分けのためManifestで一時無効化中。アンインストール・アプリストレージ消去は禁止。
-
-## Android進行中
-
-- 独立SettingsScreen追加: commit `128df8339ff0a1aebb2124a3767ec7e58698449e`, Run `35899813231` SUCCESS。
-- 右上⚙→専用SettingsScreen、損益内設定を分離: commit `6b921df387b6e4160dcb0df261c00034c9eae84f`, Run `35931513963` SUCCESS（Unit/lint/Debug APK）。
-- Android戻るキー階層制御: commit `35bf1b9057e3f8dfe3ff6848e0e39e0dfef2d46d`, Run `35932095259` SUCCESS（Unit/lint/Debug APK）。設定→元画面、レース詳細→場一覧、場一覧→予想ホーム、購入/結果/損益→予想ホーム、予想ホームでは終了しない。
-- 完全無音・無振動通知: commit `d4f4ae7d791a8fe7f00116780ac2e742184a2db9` で全通知チャンネルを新しい visual-only IDへ変更。generic通知にも `.setSilent(true)`、全channelで `setSound(null,null)` / `enableVibration(false)`。現在Build/Unit/lint検証待ち。
+段階再有効化:
+- purchase alert側 `AlertEvaluationService` / `BoatNotificationReceiver` / `ExactAlarmPermissionReceiver` / `BoatAlertBootRecoveryReceiver` を commit `8cc93456935b69beff81b544f247102bb669d119` で再有効化。
+- PredictionTracking側はまだManifest disabledのまま。
+- 現在 purchase alert再有効化後のBuild/Unit/lint/Debug APK検証を行う。
 
 次:
-1. 通知変更のBuild/Unit/lint成功確認。
-2. background Receiver/Serviceへ例外隔離を追加。
-3. Android 15 boot時の直接dataSync FGS起動を避け、Alarm再予約中心へ変更。
-4. background componentsを段階的に再有効化し、その都度Build検証。
-5. すべて成功後のみ次版署名Release。
+1. purchase alert再有効化後のBuild成功確認。
+2. PredictionTracking Service/Receiverをhardening済みコードで再有効化。
+3. MainActivity通常モード起動時にtracking Alarmを安全に再予約。
+4. 再度Build成功確認。
+5. version bumpしてsigned Release。実機ではRecoveryActivityを経由するため、再クラッシュ時はログを残してsafe modeへ戻る。
 
 ## 本番予想ロジック
 
@@ -43,15 +44,15 @@
 
 ## CORE r3 walk-forward
 
-r3 chronology guard Run `35926042062`: SUCCESS。
-walk-forward本計算 Run `35931987036`: SUCCESS。買い方はr2固定（1200円、最大3点、minEV1.10、minP0.01、最大40倍）で後付け調整なし。
+Guard Run `35926042062`: SUCCESS。
+本計算 Run `35931987036`: SUCCESS。買い方はr2固定（1200円、最大3点、minEV1.10、minP0.01、最大40倍）、後付け調整なし。
 
-2024 Q2-Q4部分結果:
-- residual-small: ROI 91.62%、541購入、27的中、最大1的中除外ROI 91.62%。WF logloss 3.750245、static r2 3.749849、market 3.757604。市場には勝つがstatic r2より悪化し、校正gate FAIL。
-- place-small: ROI 331.67%だが15購入・2的中 בלבד。WF logloss 3.754098、static r2 3.754326、market 3.757604で校正gate PASS。ただし購入件数不足が極端で収益モデルとしては未合格。
+2024 Q2-Q4:
+- residual-small: ROI 91.62%、541購入、27的中。WF logloss 3.750245 vs static r2 3.749849 → calibration FAIL。
+- place-small: ROI 331.67%だが15購入・2的中。WF logloss 3.754098 vs static 3.754326 / market 3.757604 → calibration PASS。ただし件数不足で収益モデル未合格。
 
-Q1はpre-2024 sidecar不足のためBLOCKED。0購入扱いせずannualPass=false。r3事前登録ルール上はplace-smallの校正改善が残ったため、次は不足sidecarを作れるか検証してQ1を埋める。最終Q4 2025は開けない。
+Q1はpre-2024 sidecar不足でBLOCKED。0購入扱いしない。事前登録ルールに従い、place-smallのQ1用2023 Q4 sidecarを作成可能か検証し、年次判定へ進む。最終2025 Q4は開けない。
 
 ## 再開時
 
-`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、最新main commit、進行中Actionsを確認。Androidと研究ファイルを競合編集しない。
+`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、最新main、進行中Actionsを確認する。
