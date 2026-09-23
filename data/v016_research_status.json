@@ -1,6 +1,6 @@
 {
   "updatedAt": "2026-09-23",
-  "phase": "CORE_R2_REJECTED_CALIBRATION_AUDIT_PENDING",
+  "phase": "CORE_R2_AND_CALIBRATION_AUDIT_FINISHED_REJECTED",
   "goalCompleted": false,
   "researchOnly": true,
   "productionModified": false,
@@ -23,6 +23,10 @@
     },
     "coreR2": {
       "id": 35875673825,
+      "status": "success"
+    },
+    "coreR2Audit": {
+      "id": 35876699180,
       "status": "success"
     }
   },
@@ -228,7 +232,7 @@
       "expires": "2026-12-22"
     }
   },
-  "next": "Finish saved-prediction calibration audit, then record why improved probability loss did not create sufficient profitable CORE volume. No threshold retuning.",
+  "next": "Preregister r3 temporal-update hypothesis; first implement quarterly 2024 train/validation/evaluation manifests and strict train-before-evaluation checks using existing sidecars. Do not retune r1/r2 thresholds or open 2025 Q4.",
   "limitations": [
     "2024 is development; multiyear release gate not passed",
     "Historical odds timing and eligible-settled-race denominator remain unverified for live deployment"
@@ -355,6 +359,8 @@
           "largestHitShare > 25"
         ]
       }
-    ]
+    ],
+    "auditFile": "data/v016_r2_audit.json",
+    "reportFile": "data/v016_r2_report.md"
   }
 }
