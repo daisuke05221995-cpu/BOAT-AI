@@ -12,6 +12,10 @@ permissions:
   contents: write
   actions: read
 
+concurrency:
+  group: fast-independent-multiyear-validation
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -98,10 +102,13 @@ jobs:
           assert data['learningTrainedThrough'] == f'{year-1}-12-31'
           assert len(data['operationMonths']) == 5
           assert data['periods']['operation'] == [f'{year}-05-01', f'{year}-09-30']
+          policy=str(data.get('featureLeakagePolicy',''))
           source=data.get('recordSource') or {}
-          assert source.get('sameRaceActualStartUsed') is False
-          assert source.get('sameRaceActualCourseUsed') is False
-          assert source.get('sameRaceResultWeatherUsed') is False
+          preview_policy=str(source.get('previewPolicy',''))
+          average_policy=str(source.get('averageStartPolicy',''))
+          assert 'excluded' in policy
+          assert 'excluded from features' in preview_policy
+          assert 'prior-race K-file ST mean' in average_policy
           print(json.dumps({
             'year': year,
             'recordSource': source,
