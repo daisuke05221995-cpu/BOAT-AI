@@ -2,6 +2,7 @@ package jp.boatai.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -87,6 +88,16 @@ private fun BoatAiApp(vm: BoatViewModel) {
     val selected = ui.selectedRace
     val selectedVenue = ui.selectedVenue
     var settingsOpen by remember { mutableStateOf(false) }
+
+    BackHandler {
+        when {
+            settingsOpen -> settingsOpen = false
+            selected != null -> vm.closeRace()
+            selectedVenue != null -> vm.closeVenue()
+            ui.tab != 0 -> vm.setTab(0)
+            else -> Unit
+        }
+    }
 
     Scaffold(
         topBar = {
