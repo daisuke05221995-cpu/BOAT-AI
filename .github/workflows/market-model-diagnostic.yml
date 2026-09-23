@@ -1,0 +1,89 @@
+name: BOAT AI market-model diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/analyze_market_model_agreement.py'
+      - '.github/workflows/market-model-diagnostic.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: boat-ai-market-model-diagnostic
+  cancel-in-progress: true
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install NumPy
+        run: pip install 'numpy>=2.0,<3.0'
+
+      - name: Download verified signal caches
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35824767175
+          pattern: market-signal-cache-*
+          path: caches
+          merge-multiple: true
+
+      - name: Analyze market and model agreement
+        run: |
+          mkdir -p data
+          python -u scripts/analyze_market_model_agreement.py \
+            --cache-dir caches \
+            --output data/market_model_diagnostic.json
+
+      - name: Validate diagnostic
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/market_model_diagnostic.json', encoding='utf-8'))
+          assert data['schemaVersion'] == 1
+          assert data['holdoutExcluded'] == '2025-10-01..2025-12-31'
+          assert set(data['yearly']) == {'2023','2024','2025'}
+          assert data['researchOnly'] is True
+          print(json.dumps({
+              '2023': data['yearly']['2023']['top1Agreement'],
+              '2024': data['yearly']['2024']['top1Agreement'],
+              '2025': data['yearly']['2025']['top1Agreement'],
+              'combined': data['combined']['top1Agreement'],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: market-model-diagnostic
+          path: data/market_model_diagnostic.json
+          retention-days: 30
+
+      - name: Commit diagnostic
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/market_model_diagnostic.json
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'Update market-model agreement diagnostic'
+          git pull --rebase origin main
+          git push origin HEAD:main
