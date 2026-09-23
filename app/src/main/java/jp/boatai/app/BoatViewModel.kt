@@ -80,6 +80,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         // engine remains unchanged. v0.15+ activates only after the validated exporter
         // has generated value_strategy_model.json.
         PredictionEngine.installValueStrategyModel(ValueStrategyModel.load(application))
+        PredictionEngine.restoreValueSelections(initialPredictionHistory)
         _ui.update { it.copy(learnedRaceCount = initialLearning.totalRaceCount) }
         viewModelScope.launch {
             appUpdateManager.state.collectLatest { updateState ->
@@ -131,6 +132,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     // persisted before result learning. Fresh value decisions are captured
                     // immediately after the official 120-way odds evaluation below.
                     val preOddsHistory = predictionStore.captureOpenRaces(races)
+                    PredictionEngine.restoreValueSelections(preOddsHistory)
                     val preOddsPerformance = PredictionPerformanceProfile.from(preOddsHistory)
                     PredictionEngine.installPerformanceProfile(preOddsPerformance)
 
@@ -157,7 +159,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             learnedRaceCount = learning.totalRaceCount
                         )
                     }
-                    refreshValueSelections(races, force = !changingDate)
+                    refreshValueSelections(races)
                 }
                 .onFailure { error ->
                     _ui.update {
@@ -306,7 +308,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
      * intentionally sequential to avoid hammering the official site, while still making
      * list/bulk BUY-SKIP decisions available without opening each detail screen.
      */
-    private fun refreshValueSelections(races: List<RaceData>, force: Boolean = false) {
+    private fun refreshValueSelections(races: List<RaceData>) {
         if (!PredictionEngine.hasValueStrategyModel()) return
         val combinations = PredictionEngine.valueOddsCombinations()
         if (combinations.size != 120) return
@@ -319,7 +321,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         valueRefreshJob = viewModelScope.launch {
             for (race in candidates) {
                 if (!race.isPurchasable()) continue
-                if (!force && PredictionEngine.cachedValueSelection(race) != null) continue
+                if (PredictionEngine.cachedValueSelection(race) != null) continue
                 runCatching {
                     repository.loadOfficialTrifectaOddsDetailed(race, combinations)
                 }.onSuccess { result ->
