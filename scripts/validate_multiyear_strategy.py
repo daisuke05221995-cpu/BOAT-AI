@@ -3,9 +3,10 @@
 
 Each target year is evaluated independently:
 - the supplied learning snapshot must end on Dec 31 of the previous year;
-- target-year race features are built walk-forward from Jan 1;
+- target-year model features are reconstructed from official BOAT RACE B/K files;
+- target-race actual course/ST/result-time weather are excluded from its own features;
 - each monthly conditional model is trained only through the previous month;
-- archived odds for the target year are used as pre-race market information;
+- archived trifecta odds for the target year are used as pre-race market information;
 - May-Sep configurations are selected only from prior months using the same v12 guard.
 
 This script does not tune the v12 guard thresholds and never uses 2026 outcomes to
@@ -21,7 +22,7 @@ from typing import Any
 
 import search_2026_strategy_v9 as v9
 import search_2026_strategy_v11 as v11
-from build_2026_backtest import LearningProfile
+from build_kfile_validation_records import build_records_from_kfiles
 
 CALIBRATION_MONTHS = (2, 3, 4)
 OPERATION_MONTHS = (5, 6, 7, 8, 9)
@@ -56,7 +57,6 @@ def score_for(
 
 def guarded_choose(
     *,
-    year: int,
     target_label: str,
     configs: list[dict[str, Any]],
     monthly_cache: dict[int, dict[int, dict[str, Any]]],
@@ -152,7 +152,7 @@ def main() -> None:
     parser.add_argument("--year", type=int, required=True)
     parser.add_argument("--learning", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--workers", type=int, default=16)
+    parser.add_argument("--workers", type=int, default=12)
     args = parser.parse_args()
 
     year = int(args.year)
@@ -168,13 +168,17 @@ def main() -> None:
         )
     if learning_json.get("snapshotComplete") is not True:
         raise SystemExit("learning snapshot is not marked complete")
+    if not learning_json.get("racerStartTimingCount"):
+        raise SystemExit("learning snapshot has no racer start-timing seed")
 
-    learning = LearningProfile(learning_json)
     start = date(year, 1, 1)
     end = date(year, 9, 30)
-    records, race_errors = v9.build_records(start, end, learning, args.workers)
-    if race_errors:
-        raise SystemExit(f"race download failures: {race_errors}")
+    records, record_source = build_records_from_kfiles(
+        year=year,
+        learning_json=learning_json,
+        workers=args.workers,
+    )
+    print(json.dumps({"recordSource": record_source}, ensure_ascii=False, indent=2), flush=True)
 
     original_odds_url = v9.ODDS_URL
     v9.ODDS_URL = (
@@ -222,7 +226,6 @@ def main() -> None:
         target_key = f"{year}-{target_month:02d}"
         history_keys = [f"{year}-{month:02d}" for month in range(2, target_month)]
         selected_idx, cfg, score, decision = guarded_choose(
-            year=year,
             target_label=target_key,
             configs=configs,
             monthly_cache=monthly_cache,
@@ -252,12 +255,14 @@ def main() -> None:
     )
 
     result = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "targetYear": year,
         "learningTrainedFrom": learning_json.get("trainedFrom"),
         "learningTrainedThrough": learning_json.get("trainedThrough"),
-        "method": "independent guarded monthly adaptive walk-forward conditional finish-order model + archived trifecta odds",
+        "method": "independent guarded monthly adaptive walk-forward conditional finish-order model + official B/K archives + archived trifecta odds",
+        "featureLeakagePolicy": "current-race actual entrance/ST/result-time wind-wave are excluded; only settled earlier races may update them indirectly through historical aggregates",
+        "recordSource": record_source,
         "periods": {
             "calibration": [f"{year}-02-01", f"{year}-04-30"],
             "operation": [f"{year}-05-01", f"{year}-09-30"],
@@ -296,6 +301,9 @@ def main() -> None:
         ),
         "notes": [
             "The target year never uses a learning snapshot containing target-year or later results.",
+            "Official B files supply national/local win rates and motor/boat top-2 rates.",
+            "Official K exhibition time is retained because it was observable pre-race; actual K entrance/ST and race-time wind/wave are deliberately excluded from the same race's features.",
+            "Average start is reconstructed from prior settled K races only, seeded through the previous Dec 31 and updated after each whole day.",
             "Monthly models use only target-year races settled before the month being predicted.",
             "Configuration selection for each target month uses only earlier months in the same target year.",
             "The v12 guard thresholds are frozen from the 2026 development iteration and are not tuned here.",
@@ -311,6 +319,7 @@ def main() -> None:
         "positiveOperationMonths": positive_months,
         "worstOperationMonthRoi": worst_roi,
         "historicalCriteriaMet": historical_criteria_met,
+        "recordSource": record_source,
     }, ensure_ascii=False, indent=2))
 
 
