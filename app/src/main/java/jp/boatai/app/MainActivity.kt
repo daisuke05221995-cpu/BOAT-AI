@@ -246,7 +246,13 @@ private fun VenueTile(stadium: Int, races: List<RaceData>, modifier: Modifier = 
     val open = races.filter { it.isPurchasable() }
     val next = open.minByOrNull { closeTime(it.closedAt) }
     val recommended = open.count(PredictionEngine::isRecommended)
-    val skipped = open.count { PredictionEngine.predict(it).isNotEmpty() && !PredictionEngine.isRecommended(it) }
+    val skipped = open.count { race ->
+        if (PredictionEngine.hasValueStrategyModel()) {
+            PredictionEngine.cachedValueSelection(race)?.recommendation == RaceRecommendation.SKIP
+        } else {
+            PredictionEngine.predict(race).isNotEmpty() && !PredictionEngine.isRecommended(race)
+        }
+    }
     val first = races.firstOrNull()
     Card(
         onClick = onClick,
@@ -296,6 +302,7 @@ private fun VenueDetailScreen(ui: BoatUiState, vm: BoatViewModel, stadium: Int) 
             VenuePredictionCard(
                 races = races,
                 ui = ui,
+                purchasePicksFor = vm::purchasePicksFor,
                 onToggle = vm::toggleBulkRace,
                 onIndividualBuy = vm::recordRace,
                 onDetail = vm::selectRace
@@ -328,10 +335,9 @@ private fun BulkPurchaseCard(ui: BoatUiState, vm: BoatViewModel) {
     val selectedRaces = ui.races.filter { it.id in ui.selectedForBulk && it.isPurchasable() }
     val recommendedCount = selectedRaces.count(PredictionEngine::isRecommended)
     val skippedCount = selectedRaces.size - recommendedCount
-    val selectedTickets = selectedRaces.sumOf { PredictionEngine.predict(it).size }
-    val total = selectedRaces.sumOf { race ->
-        BetStrategy.allocate(race, PredictionEngine.predict(race), ui.raceBudget).sumOf { it.recommendedStake }
-    }
+    val selectedPicks = selectedRaces.map(vm::purchasePicksFor)
+    val selectedTickets = selectedPicks.sumOf { it.size }
+    val total = selectedPicks.sumOf { picks -> picks.sumOf { it.recommendedStake } }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
@@ -366,6 +372,7 @@ private fun BulkPurchaseCard(ui: BoatUiState, vm: BoatViewModel) {
 private fun VenuePredictionCard(
     races: List<RaceData>,
     ui: BoatUiState,
+    purchasePicksFor: (RaceData) -> List<PredictionPick>,
     onToggle: (String) -> Unit,
     onIndividualBuy: (RaceData) -> Unit,
     onDetail: (RaceData) -> Unit
@@ -381,7 +388,7 @@ private fun VenuePredictionCard(
                 RacePredictionRow(
                     race = race,
                     checked = race.id in ui.selectedForBulk,
-                    raceBudget = ui.raceBudget,
+                    picks = purchasePicksFor(race),
                     purchasedStake = ui.records.filter { it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber }.sumOf { it.stake },
                     onToggle = { onToggle(race.id) },
                     onIndividualBuy = { onIndividualBuy(race) },
@@ -397,13 +404,12 @@ private fun VenuePredictionCard(
 private fun RacePredictionRow(
     race: RaceData,
     checked: Boolean,
-    raceBudget: Int,
+    picks: List<PredictionPick>,
     purchasedStake: Int,
     onToggle: () -> Unit,
     onIndividualBuy: () -> Unit,
     onDetail: () -> Unit
 ) {
-    val picks = BetStrategy.allocate(race, PredictionEngine.predict(race), raceBudget)
     val total = picks.sumOf { it.recommendedStake }
     val enabled = race.isPurchasable() && picks.isNotEmpty() && purchasedStake == 0
     val decision = PredictionEngine.recommendation(race)
@@ -424,7 +430,13 @@ private fun RacePredictionRow(
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            Text(if (picks.isEmpty()) "予想データ不足" else picks.joinToString(" / ") { it.combination }, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(
+                if (picks.isEmpty()) {
+                    if (PredictionEngine.hasValueStrategyModel() && race.isPurchasable()) "公式オッズ判定中" else "予想データ不足"
+                } else picks.joinToString(" / ") { it.combination },
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
             if (picks.isNotEmpty()) {
                 Text(
                     decision.recommendation.label,
