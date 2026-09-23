@@ -1,0 +1,115 @@
+name: v0.16 CORE r3 quarterly walk-forward
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/v016_r3_walkforward.py'
+      - 'data/v016_r3_protocol.json'
+      - '.github/workflows/v016-r3-walkforward.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: v016-r3-walkforward
+  cancel-in-progress: false
+
+env:
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '2'
+
+jobs:
+  guards:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/v016_r3_test.py
+
+  walk-forward:
+    needs: guards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [residual, place]
+        quarter: [q2, q3, q4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35875673825'
+          name: v016-r2-features-2024
+          path: features
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35875673825'
+          name: v016-r2-result-${{ matrix.family }}-small-2024
+          path: baseline
+      - name: Fit only on prior data and evaluate fixed quarter
+        run: |
+          python -u scripts/v016_r3_walkforward.py run \
+            --family ${{ matrix.family }} \
+            --quarter ${{ matrix.quarter }} \
+            --cache features/features_2024.npz \
+            --baseline-dir baseline \
+            --output-dir results/${{ matrix.family }}-${{ matrix.quarter }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r3-${{ matrix.family }}-${{ matrix.quarter }}
+          path: results/${{ matrix.family }}-${{ matrix.quarter }}/
+          retention-days: 90
+
+  aggregate:
+    needs: walk-forward
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v016-r3-*
+          path: results
+      - run: |
+          python scripts/v016_r3_walkforward.py aggregate \
+            --input results \
+            --run '${{ github.run_id }}' \
+            --output data/v016_r3_partial_result.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r3-partial-result
+          path: data/v016_r3_partial_result.*
+          retention-days: 90
+      - name: Save research-only r3 result
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/v016_r3_partial_result.json data/v016_r3_partial_result.md
+          git diff --cached --quiet && exit 0
+          git commit -m 'Record v016 r3 walk-forward partial result [skip ci]'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main || exit 1
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1
