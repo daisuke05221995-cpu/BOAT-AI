@@ -194,3 +194,11 @@ v0.15.3で予想履歴保存とユーザー通知を分離した。
 - 同じ144条件を6ジョブで並列年次評価。旧5〜9月の会計との完全一致を必須チェック。Q4 2025は取得せず、2025年間cacheは読み込み前に拒否。
 - 3件の年度境界/12か月/会計テスト成功。実処理はこのpush後のActions（Run IDは起動後追記）。
 - 次: cache生成→6並列screen→年次集計の完了を確認。結果が `data/v016_annual2024_result.json` にcommitされる。年次105%未満ならr1不採用を確定。通過時も複数年・時刻監査が必要で自動採用しない。
+
+### 2024通年Run起動済み（最新の実行位置）
+
+- Run `35870380669`: IN_PROGRESS。https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/35870380669
+- 実装commit `fff90a33eb362ffe34b7c076fe9bc60bbde550b3`。
+- 現在は共通2024通年cache生成中。完了後6条件群をmatrixで並列screenし、集計を `data/v016_annual2024_result.json` へ自動commitする（本番更新なし）。
+- 次の1手: このRunのbuild/screen/aggregateの状態を読む。失敗なら失敗jobのログを確認しv016専用ファイルだけ修正。成功なら年次105%/購入件数/高配当依存の結果を読み、上の部分期間判定を更新する。
+- まだ年次ROI数値は出ていない。Q4 2025未開封、LONGSHOT未着手。
