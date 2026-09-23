@@ -1,7 +1,10 @@
 name: Apply compact app UI refresh
 
 on:
+  workflow_dispatch:
   push:
+    branches:
+      - main
     paths:
       - '.github/workflows/app-ui-refresh.yml'
 
@@ -17,97 +20,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Patch four-tab compact UI
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          main = Path('app/src/main/java/jp/boatai/app/MainActivity.kt')
-          text = main.read_text()
-
-          if 'import androidx.compose.material.icons.filled.ShoppingCart' not in text:
-              text = text.replace(
-                  'import androidx.compose.material.icons.filled.Refresh\n',
-                  'import androidx.compose.material.icons.filled.Refresh\nimport androidx.compose.material.icons.filled.ShoppingCart\n',
-                  1
-              )
-
-          text, n = re.subn(
-              r'ui\.tab == 1 -> "結果"\s*\n\s*else -> "損益"',
-              'ui.tab == 1 -> "購入"\n                            ui.tab == 2 -> "結果"\n                            else -> "損益"',
-              text,
-              count=1
-          )
-          if n != 1:
-              raise SystemExit('title mapping not found')
-
-          text = text.replace(
-              'if (selected == null && selectedVenue == null && ui.tab in 0..1) {',
-              'if (selected == null && selectedVenue == null && ui.tab in 0..2) {',
-              1
-          )
-
-          result_item = re.compile(
-              r'(?P<indent>\s*)NavigationBarItem\(\s*\n'
-              r'\s*selected = ui\.tab == 1,\s*\n'
-              r'\s*onClick = \{ vm\.setTab\(1\) \},\s*\n'
-              r'\s*icon = \{ Icon\(Icons\.Default\.CheckCircle, contentDescription = null\) \},\s*\n'
-              r'\s*label = \{ Text\("結果"\) \}\s*\n'
-              r'\s*\)',
-              re.MULTILINE
-          )
-          match = result_item.search(text)
-          if not match:
-              raise SystemExit('result navigation item not found')
-          indent = match.group('indent')
-          replacement = f'''{indent}NavigationBarItem(
-{indent}    selected = ui.tab == 1,
-{indent}    onClick = {{ vm.setTab(1) }},
-{indent}    icon = {{ Icon(Icons.Default.ShoppingCart, contentDescription = null) }},
-{indent}    label = {{ Text("購入") }}
-{indent})
-{indent}NavigationBarItem(
-{indent}    selected = ui.tab == 2,
-{indent}    onClick = {{ vm.setTab(2) }},
-{indent}    icon = {{ Icon(Icons.Default.CheckCircle, contentDescription = null) }},
-{indent}    label = {{ Text("結果") }}
-{indent})'''
-          text = result_item.sub(replacement, text, count=1)
-
-          text, n = re.subn(
-              r'(selected = ui\.tab == )2(,\s*\n\s*onClick = \{ vm\.setTab\()2(\) \},\s*\n\s*icon = \{ Icon\(Icons\.Default\.AccountBalanceWallet)',
-              r'\g<1>3\g<2>3\g<3>',
-              text,
-              count=1
-          )
-          if n != 1:
-              raise SystemExit('profit navigation item not found')
-
-          text, n = re.subn(
-              r'ui\.tab == 0 -> PredictionScreen\(ui, vm\)\s*\n\s*ui\.tab == 1 -> ResultsScreen\(ui, vm\)\s*\n\s*else -> ProfitScreen\(ui, vm\)',
-              'ui.tab == 0 -> PredictionScreen(ui, vm)\n                ui.tab == 1 -> PurchaseDashboardScreen(ui, vm)\n                ui.tab == 2 -> CompactResultsScreen(ui, vm)\n                else -> CompactProfitScreen(ui, vm)',
-              text,
-              count=1
-          )
-          if n != 1:
-              raise SystemExit('screen routing not found')
-
-          text = text.replace(
-              '        ui.pendingPurchase?.let { pending -> item { PendingPurchaseCard(pending, vm) } }\n        item { DateSelectorCard(ui, vm) }',
-              '        item { DateSelectorCard(ui, vm) }',
-              1
-          )
-
-          main.write_text(text)
-
-          vm = Path('app/src/main/java/jp/boatai/app/BoatViewModel.kt')
-          vm_text = vm.read_text()
-          old = 'tab = tab.coerceIn(0, 2)'
-          if old not in vm_text:
-              raise SystemExit('setTab range not found')
-          vm.write_text(vm_text.replace(old, 'tab = tab.coerceIn(0, 3)', 1))
-          PY
+      - name: Apply compact UI patch
+        run: python3 scripts/app_ui_refresh.py
 
       - name: Commit UI patch
         run: |
