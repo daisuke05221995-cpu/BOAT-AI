@@ -1,0 +1,124 @@
+name: Apply compact app UI refresh
+
+on:
+  push:
+    paths:
+      - '.github/workflows/app-ui-refresh.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch four-tab compact UI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          main = Path('app/src/main/java/jp/boatai/app/MainActivity.kt')
+          text = main.read_text()
+
+          text = text.replace(
+              'import androidx.compose.material.icons.filled.Refresh\n',
+              'import androidx.compose.material.icons.filled.Refresh\nimport androidx.compose.material.icons.filled.ShoppingCart\n'
+          )
+
+          old_title = '''                            ui.tab == 0 -> "予想  v${BuildConfig.VERSION_NAME}"
+                            ui.tab == 1 -> "結果"
+                            else -> "損益"'''
+          new_title = '''                            ui.tab == 0 -> "予想  v${BuildConfig.VERSION_NAME}"
+                            ui.tab == 1 -> "購入"
+                            ui.tab == 2 -> "結果"
+                            else -> "損益"'''
+          if old_title not in text:
+              raise SystemExit('title block not found')
+          text = text.replace(old_title, new_title, 1)
+
+          text = text.replace(
+              'if (selected == null && selectedVenue == null && ui.tab in 0..1) {',
+              'if (selected == null && selectedVenue == null && ui.tab in 0..2) {',
+              1
+          )
+
+          old_nav = '''                    NavigationBarItem(
+                        selected = ui.tab == 1,
+                        onClick = { vm.setTab(1) },
+                        icon = { Icon(Icons.Default.CheckCircle, contentDescription = null) },
+                        label = { Text("結果") }
+                    )
+                    NavigationBarItem(
+                        selected = ui.tab == 2,
+                        onClick = { vm.setTab(2) },
+                        icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
+                        label = { Text("損益") }
+                    )'''
+          new_nav = '''                    NavigationBarItem(
+                        selected = ui.tab == 1,
+                        onClick = { vm.setTab(1) },
+                        icon = { Icon(Icons.Default.ShoppingCart, contentDescription = null) },
+                        label = { Text("購入") }
+                    )
+                    NavigationBarItem(
+                        selected = ui.tab == 2,
+                        onClick = { vm.setTab(2) },
+                        icon = { Icon(Icons.Default.CheckCircle, contentDescription = null) },
+                        label = { Text("結果") }
+                    )
+                    NavigationBarItem(
+                        selected = ui.tab == 3,
+                        onClick = { vm.setTab(3) },
+                        icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
+                        label = { Text("損益") }
+                    )'''
+          if old_nav not in text:
+              raise SystemExit('navigation block not found')
+          text = text.replace(old_nav, new_nav, 1)
+
+          old_route = '''                ui.tab == 0 -> PredictionScreen(ui, vm)
+                ui.tab == 1 -> ResultsScreen(ui, vm)
+                else -> ProfitScreen(ui, vm)'''
+          new_route = '''                ui.tab == 0 -> PredictionScreen(ui, vm)
+                ui.tab == 1 -> PurchaseDashboardScreen(ui, vm)
+                ui.tab == 2 -> CompactResultsScreen(ui, vm)
+                else -> CompactProfitScreen(ui, vm)'''
+          if old_route not in text:
+              raise SystemExit('route block not found')
+          text = text.replace(old_route, new_route, 1)
+
+          # Dedicated purchase tab now owns the pending-purchase card on the main list.
+          text = text.replace(
+              '        ui.pendingPurchase?.let { pending -> item { PendingPurchaseCard(pending, vm) } }\n        item { DateSelectorCard(ui, vm) }',
+              '        item { DateSelectorCard(ui, vm) }',
+              1
+          )
+
+          main.write_text(text)
+
+          vm = Path('app/src/main/java/jp/boatai/app/BoatViewModel.kt')
+          vm_text = vm.read_text()
+          old = '                tab = tab.coerceIn(0, 2),'
+          new = '                tab = tab.coerceIn(0, 3),'
+          if old not in vm_text:
+              raise SystemExit('setTab range not found')
+          vm.write_text(vm_text.replace(old, new, 1))
+          PY
+
+      - name: Commit UI patch
+        run: |
+          if git diff --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/jp/boatai/app/MainActivity.kt app/src/main/java/jp/boatai/app/BoatViewModel.kt
+          git commit -m "Refresh app UI with purchase tab and compact dashboards [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
