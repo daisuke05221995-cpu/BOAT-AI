@@ -1,0 +1,35 @@
+name: Enable hardened prediction tracking
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/enable_prediction_tracking.py'
+      - '.github/workflows/enable-prediction-tracking.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python scripts/enable_prediction_tracking.py
+      - name: Commit app changes and remove temporary patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/AndroidManifest.xml app/src/main/java/jp/boatai/app/MainActivity.kt
+          git rm scripts/enable_prediction_tracking.py .github/workflows/enable-prediction-tracking.yml
+          git commit -m 'Re-enable hardened prediction tracking'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main || exit 1
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1
