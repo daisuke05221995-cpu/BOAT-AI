@@ -63,7 +63,6 @@ def _venue_from_line(line: str) -> int | None:
     compact = re.sub(r"\s+", "", line)
     if "ボートレース" not in compact:
         return None
-    # Prefer longer names so short names such as 津 cannot win a substring match.
     for venue_name, venue_code in sorted(VENUE_CODES.items(), key=lambda item: len(item[0]), reverse=True):
         if f"ボートレース{venue_name}" in compact:
             try:
@@ -87,9 +86,6 @@ def _metric_from_line(line: str) -> dict[str, Any] | None:
     if class_match is None:
         return None
     rank = class_match.group(1)
-    # Everything after A1/A2/B1/B2 starts with the eight model metrics we need:
-    # national win/top2, local win/top2, motor no/top2, boat no/top2. Later numbers
-    # are current-meet result history and are deliberately ignored.
     values = _NUMBER_RE.findall(remainder[class_match.end() :])
     if len(values) < 8:
         return None
@@ -202,7 +198,8 @@ def build_records_from_kfiles(
         "daysWithSchedule": 0,
         "settledRaces": 0,
         "records": 0,
-        "programMetricRacers": 0,
+        "programMetricParsedRacers": 0,
+        "programMetricMatchedRacers": 0,
         "recordRacers": 0,
         "averageStartAvailable": 0,
         "exhibitionAvailable": 0,
@@ -240,12 +237,12 @@ def build_records_from_kfiles(
 
                 try:
                     parsed = performance_parser.parse(performance_files)
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     stats["performanceParseErrors"][target_day.isoformat()] = f"{type(exc).__name__}: {exc}"
                     continue
 
                 program_metrics = parse_program_metrics(schedule_files, schedule_parser)
-                stats["programMetricRacers"] += len(program_metrics)
+                stats["programMetricParsedRacers"] += len(program_metrics)
 
                 race_by_key = {
                     (str(race.venue_code), int(race.race_number)): race
@@ -316,8 +313,6 @@ def build_records_from_kfiles(
                             "local_win": _as_float(metric.get("local_win")),
                             "motor_top2": _as_float(metric.get("motor_top2")),
                             "boat_top2": _as_float(metric.get("boat_top2")),
-                            # Actual K-file entrance/ST belong to the settled race and are
-                            # deliberately excluded from the race's own prediction.
                             "course": lane,
                             "preview_start": None,
                             "exhibition": exhibition,
@@ -325,7 +320,7 @@ def build_records_from_kfiles(
                         features.append(v6.feature_row(racer, venue, 0, 0, learning))
                         stats["recordRacers"] += 1
                         if metric:
-                            stats["programMetricRacers"] += 0  # counted once when parsed; kept for clarity
+                            stats["programMetricMatchedRacers"] += 1
                         if avg_start is not None:
                             stats["averageStartAvailable"] += 1
                         if exhibition is not None:
@@ -347,8 +342,6 @@ def build_records_from_kfiles(
                         _learning_race(venue, combo, amount, entries_by_lane, race_info, program_metrics, race_number)
                     )
 
-                # The whole day's predictions are frozen before any target-day result is
-                # allowed into average-start or venue/course learning.
                 for update in learning_updates:
                     learning.observe_race(update)
                 for entry in parsed.entries:
@@ -362,8 +355,7 @@ def build_records_from_kfiles(
                     start_count[reg_key] = int(start_count.get(reg_key, 0)) + 1
 
             print(
-                f"{year}: processed {current.isoformat()}..{chunk_end.isoformat()} "
-                f"records={len(records):,}",
+                f"{year}: processed {current.isoformat()}..{chunk_end.isoformat()} records={len(records):,}",
                 flush=True,
             )
             current = chunk_end + timedelta(days=1)
@@ -374,13 +366,14 @@ def build_records_from_kfiles(
     racer_rows = max(1, int(stats["recordRacers"]))
     stats["averageStartCoverage"] = round(int(stats["averageStartAvailable"]) * 100.0 / racer_rows, 2)
     stats["exhibitionCoverage"] = round(int(stats["exhibitionAvailable"]) * 100.0 / racer_rows, 2)
-    stats["programMetricCoverage"] = round(int(stats["programMetricRacers"]) * 100.0 / racer_rows, 2)
+    stats["programMetricCoverage"] = round(int(stats["programMetricMatchedRacers"]) * 100.0 / racer_rows, 2)
+    stats["programMetricParsedToRecordRatio"] = round(int(stats["programMetricParsedRacers"]) * 100.0 / racer_rows, 2)
     stats["racersWithStartHistoryAfterPeriod"] = len(start_count)
 
     if len(records) < 15_000:
         raise RuntimeError(f"K-file validation records too sparse for {year}: {len(records)}")
     if float(stats["programMetricCoverage"]) < 90.0:
-        raise RuntimeError(f"B-file program metric coverage too low: {stats['programMetricCoverage']}%")
+        raise RuntimeError(f"B-file matched program metric coverage too low: {stats['programMetricCoverage']}%")
     if float(stats["exhibitionCoverage"]) < 90.0:
         raise RuntimeError(f"exhibition coverage too low: {stats['exhibitionCoverage']}%")
     if float(stats["averageStartCoverage"]) < 70.0:
