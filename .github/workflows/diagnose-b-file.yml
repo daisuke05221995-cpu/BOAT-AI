@@ -27,6 +27,8 @@ jobs:
           for filename,content in list(files.items())[:2]:
               parsed=ScheduleParser().parse({filename:content})
               print('file',filename,'length',len(content),'entries',len(parsed.entries))
-              for index,line in enumerate(content.splitlines()[:105]):
+              for index,line in enumerate(content.splitlines()):
+                  if 'BBGN' in line or line.strip() in ('STARTB','ENDB'):print('section',index,repr(line[:100]))
+              for index,line in enumerate(content.splitlines()[:28]):
                   if line.strip():print(index,repr(line[:180]))
           PY
