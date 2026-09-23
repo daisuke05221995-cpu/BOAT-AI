@@ -58,20 +58,40 @@ class NotificationScheduler(private val context: Context) {
         val now = System.currentTimeMillis()
         races.forEach { race ->
             val close = closeAt(race) ?: return@forEach
-            val trigger = close.atZone(TOKYO).toInstant().toEpochMilli() - ALERT_LEAD_MINUTES * 60_000L
-            if (trigger <= now || race.hasResult) return@forEach
-            val intent = Intent(context, BoatNotificationReceiver::class.java).apply {
-                action = ACTION_EVALUATE
-                putExtra(EXTRA_RACE_ID, race.id)
-                putExtra(EXTRA_DATE, race.date.take(10))
+            if (race.hasResult) return@forEach
+            val closeMillis = close.atZone(TOKYO).toInstant().toEpochMilli()
+
+            val evaluateTrigger = closeMillis - ALERT_LEAD_MINUTES * 60_000L
+            if (evaluateTrigger > now) {
+                val evaluateIntent = Intent(context, BoatNotificationReceiver::class.java).apply {
+                    action = ACTION_EVALUATE
+                    putExtra(EXTRA_RACE_ID, race.id)
+                    putExtra(EXTRA_DATE, race.date.take(10))
+                }
+                val evaluatePending = PendingIntent.getBroadcast(
+                    context,
+                    race.id.hashCode(),
+                    evaluateIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                scheduleAlarm(evaluateTrigger, evaluatePending)
             }
-            val pending = PendingIntent.getBroadcast(
-                context,
-                race.id.hashCode(),
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            scheduleAlarm(trigger, pending)
+
+            val settleTrigger = closeMillis + SETTLE_DELAY_MINUTES * 60_000L
+            if (settleTrigger > now) {
+                val settleIntent = Intent(context, BoatNotificationReceiver::class.java).apply {
+                    action = ACTION_SETTLE
+                    putExtra(EXTRA_RACE_ID, race.id)
+                    putExtra(EXTRA_DATE, race.date.take(10))
+                }
+                val settlePending = PendingIntent.getBroadcast(
+                    context,
+                    race.id.hashCode() xor SETTLE_REQUEST_XOR,
+                    settleIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                scheduleAlarm(settleTrigger, settlePending)
+            }
         }
     }
 
@@ -214,12 +234,15 @@ class NotificationScheduler(private val context: Context) {
         const val ALERT_CHANNEL = "boat_ai_buy_alerts"
         const val SERVICE_CHANNEL = "boat_ai_alert_checks"
         const val ACTION_EVALUATE = "jp.boatai.app.action.EVALUATE_BUY_ALERT"
+        const val ACTION_SETTLE = "jp.boatai.app.action.SETTLE_PREDICTION_RESULT"
         const val ACTION_BOOTSTRAP = "jp.boatai.app.action.BOOTSTRAP_ALERTS"
         const val EXTRA_RACE_ID = "alert_race_id"
         const val EXTRA_DATE = "alert_date"
         const val ALERT_LEAD_MINUTES = 5
+        const val SETTLE_DELAY_MINUTES = 20
         const val ALERT_NOTIFICATION_BASE = 10_000
         const val SERVICE_NOTIFICATION_ID = 9_901
+        private const val SETTLE_REQUEST_XOR = 0x2A51
         private const val DAILY_REQUEST_CODE = 9_900
         private const val KEY_ENABLED = "notifications_enabled"
         private const val KEY_LAST_CHECK_RACE = "alert_last_check_race"
@@ -233,9 +256,10 @@ class BoatNotificationReceiver : BroadcastReceiver() {
         val scheduler = NotificationScheduler(context)
         if (!scheduler.enabled) return
         when (intent.action) {
-            NotificationScheduler.ACTION_EVALUATE -> {
+            NotificationScheduler.ACTION_EVALUATE,
+            NotificationScheduler.ACTION_SETTLE -> {
                 val serviceIntent = Intent(context, AlertEvaluationService::class.java).apply {
-                    action = NotificationScheduler.ACTION_EVALUATE
+                    action = intent.action
                     putExtra(NotificationScheduler.EXTRA_RACE_ID, intent.getStringExtra(NotificationScheduler.EXTRA_RACE_ID))
                     putExtra(NotificationScheduler.EXTRA_DATE, intent.getStringExtra(NotificationScheduler.EXTRA_DATE))
                 }
@@ -283,6 +307,10 @@ class AlertEvaluationService : Service() {
                         intent.getStringExtra(NotificationScheduler.EXTRA_DATE),
                         intent.getStringExtra(NotificationScheduler.EXTRA_RACE_ID)
                     )
+                    NotificationScheduler.ACTION_SETTLE -> settleDate(
+                        intent.getStringExtra(NotificationScheduler.EXTRA_DATE),
+                        intent.getStringExtra(NotificationScheduler.EXTRA_RACE_ID)
+                    )
                 }
             } finally {
                 stopForeground(STOP_FOREGROUND_REMOVE)
@@ -306,7 +334,7 @@ class AlertEvaluationService : Service() {
         val notification = NotificationCompat.Builder(this, NotificationScheduler.SERVICE_CHANNEL)
             .setSmallIcon(android.R.drawable.ic_popup_sync)
             .setContentTitle("BOAT AI")
-            .setContentText("購入推奨を確認中")
+            .setContentText("予想・結果を確認中")
             .setOngoing(true)
             .build()
         if (Build.VERSION.SDK_INT >= 29) {
@@ -330,6 +358,22 @@ class AlertEvaluationService : Service() {
         scheduler.scheduleDailyBootstrap()
     }
 
+    private suspend fun settleDate(dateText: String?, raceId: String?) {
+        val scheduler = NotificationScheduler(this)
+        if (!scheduler.enabled || dateText.isNullOrBlank()) return
+        val date = runCatching { LocalDate.parse(dateText.take(10)) }.getOrNull() ?: return
+        val races = runCatching { BoatRaceRepository().loadDate(date) }
+            .getOrElse {
+                scheduler.recordCheck(raceId ?: "settle-$date", "結果取得失敗: ${it.message ?: "不明"}")
+                return
+            }
+        val before = PredictionHistoryStore(this).load().count { !it.settled && it.date.take(10) == date.toString() }
+        val settled = PredictionHistoryStore(this).settle(races)
+        val after = settled.count { !it.settled && it.date.take(10) == date.toString() }
+        BetStore(this).settle(races)
+        scheduler.recordCheck(raceId ?: "settle-$date", "予想結果反映 ${before - after}件")
+    }
+
     private suspend fun evaluateRace(dateText: String?, raceId: String?) {
         val scheduler = NotificationScheduler(this)
         if (!scheduler.enabled || dateText.isNullOrBlank() || raceId.isNullOrBlank()) return
@@ -341,6 +385,10 @@ class AlertEvaluationService : Service() {
                 scheduler.recordCheck(raceId, "レース再取得失敗: ${it.message ?: "不明"}")
                 return
             }
+        // 以前のレースで既に結果が出ているものは、次の5分前評価時にも確定させる。
+        PredictionHistoryStore(this).settle(races)
+        BetStore(this).settle(races)
+
         val race = races.firstOrNull { it.id == raceId } ?: run {
             scheduler.recordCheck(raceId, "レースが見つかりません")
             return
