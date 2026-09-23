@@ -1,5 +1,6 @@
 package jp.boatai.app
 
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 
 object PredictionEngine {
@@ -8,6 +9,8 @@ object PredictionEngine {
     @Volatile private var learningProfile = LearningProfile()
     @Volatile private var persistentPerformanceProfile = PredictionPerformanceProfile()
     @Volatile private var performanceProfile = PredictionPerformanceProfile()
+    @Volatile private var valueStrategyModel: ValueStrategyModel? = null
+    private val valueSelections = ConcurrentHashMap<String, ValueSelection>()
 
     fun installLearningProfile(profile: LearningProfile) {
         learningProfile = profile
@@ -19,6 +22,36 @@ object PredictionEngine {
 
     fun installPerformanceProfile(profile: PredictionPerformanceProfile) {
         performanceProfile = persistentPerformanceProfile.mergedWith(profile)
+    }
+
+    /**
+     * The independently validated value model is optional. Stable releases without the
+     * promoted asset continue to use the legacy engine unchanged.
+     */
+    fun installValueStrategyModel(model: ValueStrategyModel?) {
+        valueStrategyModel = model
+        valueSelections.clear()
+    }
+
+    fun hasValueStrategyModel(): Boolean = valueStrategyModel != null
+
+    fun valueOddsCombinations(): List<String> = valueStrategyModel?.allCombinations().orEmpty()
+
+    fun clearValueSelections() {
+        valueSelections.clear()
+    }
+
+    fun cachedValueSelection(race: RaceData): ValueSelection? = valueSelections[race.id]
+
+    fun applyValueOdds(
+        race: RaceData,
+        odds: Map<String, Double>,
+        learningOverride: LearningProfile? = null
+    ): ValueSelection? {
+        val model = valueStrategyModel ?: return null
+        val selection = model.select(race, learningOverride ?: learningProfile, odds)
+        valueSelections[race.id] = selection
+        return selection
     }
 
     /** 内部判定用の0〜100スコア。画面には直接出さず、購入推奨/見送りへ丸める。 */
@@ -88,6 +121,18 @@ object PredictionEngine {
     }
 
     fun recommendation(race: RaceData): RecommendationDecision {
+        if (valueStrategyModel != null) {
+            valueSelections[race.id]?.let { selection ->
+                return RecommendationDecision(selection.recommendation, selection.reason)
+            }
+            if (isDecisionReady(race) && race.isPurchasable()) {
+                return RecommendationDecision(
+                    RaceRecommendation.SKIP,
+                    "公式3連単オッズを取得して期待値を判定中"
+                )
+            }
+        }
+
         if (race.racers.size < 6) {
             return RecommendationDecision(RaceRecommendation.SKIP, "6艇分の出走データが揃っていないため見送り")
         }
@@ -158,6 +203,12 @@ object PredictionEngine {
     }
 
     fun predict(race: RaceData, maxPicks: Int = 4): List<PredictionPick> {
+        valueSelections[race.id]?.let { selection ->
+            if (selection.recommendation == RaceRecommendation.BUY && selection.picks.isNotEmpty()) {
+                return selection.picks.take(maxPicks)
+            }
+        }
+
         if (race.racers.size < 3) return emptyList()
         val scores = race.racers.associate {
             it.lane to (racerScore(it) + learningProfile.bonus(race, it))
@@ -186,12 +237,19 @@ object PredictionEngine {
         race: RaceData,
         picks: List<PredictionPick>,
         odds: Map<String, Double>,
-        budget: Int = BetStrategy.DEFAULT_BUDGET
-    ): List<PredictionPick> = BetStrategy.allocate(
-        race,
-        picks.map { it.copy(odds = odds[it.combination]) },
-        budget
-    )
+        budget: Int = BetStrategy.DEFAULT_BUDGET,
+        learningOverride: LearningProfile? = null
+    ): List<PredictionPick> {
+        val valueSelection = applyValueOdds(race, odds, learningOverride)
+        if (valueSelection != null && valueSelection.recommendation == RaceRecommendation.BUY) {
+            return BetStrategy.allocate(race, valueSelection.picks, budget)
+        }
+        return BetStrategy.allocate(
+            race,
+            picks.map { it.copy(odds = odds[it.combination]) },
+            budget
+        )
+    }
 
     fun missReason(race: RaceData, combinations: List<String>): String? {
         val result = race.result?.trifectaCombination ?: return null
