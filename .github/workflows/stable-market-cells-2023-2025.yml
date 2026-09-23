@@ -1,0 +1,106 @@
+name: BOAT AI stable market cells 2023-2025
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/search_stable_market_cells_2023_2025.py'
+      - '.github/workflows/stable-market-cells-2023-2025.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: boat-ai-stable-market-cells-2023-2025
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'numpy>=2.0,<3.0'
+
+      - name: Download 2023 preview cache
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35830131609
+          name: preview-enhanced-2023-research
+          path: downloaded-2023
+
+      - name: Download 2024-2025 preview caches
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35830207608
+          pattern: preview-enhanced-signal-cache-*
+          path: downloaded-2425
+          merge-multiple: true
+
+      - name: Normalize cache layout and protect final holdout
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          target=Path('preview-cache'); target.mkdir(parents=True,exist_ok=True)
+          found={}
+          for root in (Path('downloaded-2023'),Path('downloaded-2425')):
+              for p in root.rglob('signal_cache_*.npz'):
+                  if p.name in ('signal_cache_2023.npz','signal_cache_2024.npz','signal_cache_2025.npz'):
+                      found[p.name]=p
+          expected={'signal_cache_2023.npz','signal_cache_2024.npz','signal_cache_2025.npz'}
+          assert set(found)==expected,{k:str(v) for k,v in found.items()}
+          for name,p in found.items(): shutil.copy2(p,target/name)
+          print({k:str(v) for k,v in found.items()})
+          PY
+
+      - name: Search stable cross-year cells and frozen-evaluate 2025
+        run: |
+          mkdir -p data
+          python -u scripts/search_stable_market_cells_2023_2025.py \
+            --cache-dir preview-cache \
+            --output data/stable_market_cells_2023_2025.json
+
+      - name: Verify Q4 remains unopened
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('data/stable_market_cells_2023_2025.json',encoding='utf-8'))
+          assert d['holdoutPolicy']['opened'] is False
+          assert d['holdoutPolicy']['reserved']=='2025-10-01..2025-12-31'
+          assert d['releaseQualified'] is False
+          print(json.dumps({
+              'selectedCellCount':d['selectedCellCount'],
+              'development2023':d['development2023']['total'],
+              'development2024':d['development2024']['total'],
+              'frozen2025':d['frozenEvaluation2025']['total'],
+              'readyForFinalHoldout':d['readyForFinalHoldout'],
+          },ensure_ascii=False,indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stable-market-cells-2023-2025
+          path: data/stable_market_cells_2023_2025.json
+          retention-days: 30
+
+      - name: Commit research result
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/stable_market_cells_2023_2025.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Update stable cross-year market cell result'
+          git pull --rebase origin main
+          git push origin HEAD:main
