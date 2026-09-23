@@ -26,7 +26,7 @@
         </provider>
 
         <activity
-            android:name=".MainActivity"
+            android:name=".RecoveryActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -34,27 +34,35 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
+
         <service
             android:name=".AlertEvaluationService"
+            android:enabled="false"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
         <service
             android:name=".PredictionTrackingService"
+            android:enabled="false"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
         <receiver
             android:name=".BoatNotificationReceiver"
+            android:enabled="false"
             android:exported="false" />
 
         <receiver
             android:name=".PredictionTrackingReceiver"
+            android:enabled="false"
             android:exported="false" />
 
         <receiver
             android:name=".ExactAlarmPermissionReceiver"
-            android:enabled="true"
+            android:enabled="false"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
@@ -63,7 +71,7 @@
 
         <receiver
             android:name=".BoatAlertBootRecoveryReceiver"
-            android:enabled="true"
+            android:enabled="false"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -73,7 +81,7 @@
 
         <receiver
             android:name=".PredictionTrackingBootReceiver"
-            android:enabled="true"
+            android:enabled="false"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
