@@ -1,0 +1,197 @@
+name: BOAT AI v13 calibrated strategy research
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/validate_multiyear_strategy_v13.py'
+      - '.github/workflows/strategy-v13-research.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: boat-ai-v13-research
+  cancel-in-progress: true
+
+jobs:
+  research:
+    name: research (${{ matrix.year }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        year: [2023, 2024, 2025]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y p7zip-full
+          pip install 'numpy>=2.0,<3.0' 'boatrace-lzh==0.1.0'
+
+      - name: Reuse verified official learning artifacts
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35814229078
+          pattern: learning-part-*
+          path: learning-parts
+          merge-multiple: true
+
+      - name: Build leakage-safe pre-year snapshot
+        env:
+          TARGET_YEAR: ${{ matrix.year }}
+        run: |
+          PREVIOUS_YEAR=$((TARGET_YEAR - 1))
+          mkdir -p selected-learning-parts
+          python - <<'PY'
+          import json, os, shutil
+          from pathlib import Path
+          target=int(os.environ['TARGET_YEAR'])
+          cutoff=target-1
+          selected=[]
+          for path in sorted(Path('learning-parts').glob('historical_learning_*.json')):
+              data=json.loads(path.read_text(encoding='utf-8'))
+              end_year=int(str(data['trainedThrough'])[:4])
+              if end_year <= cutoff:
+                  dst=Path('selected-learning-parts')/path.name
+                  shutil.copy2(path,dst)
+                  selected.append(path.name)
+          if not selected:
+              raise SystemExit('no eligible learning parts')
+          print('selected:', selected)
+          PY
+          python -u scripts/merge_validation_learning.py \
+            --input-dir selected-learning-parts \
+            --start 2021-09-22 \
+            --end "${PREVIOUS_YEAR}-12-31" \
+            --output "learning_${TARGET_YEAR}.json"
+
+      - name: Run v13 research
+        env:
+          TARGET_YEAR: ${{ matrix.year }}
+        run: |
+          python -u scripts/validate_multiyear_strategy_v13.py \
+            --year "$TARGET_YEAR" \
+            --learning "learning_${TARGET_YEAR}.json" \
+            --workers 16 \
+            --output "v13_${TARGET_YEAR}.json"
+
+      - name: Validate research output
+        env:
+          TARGET_YEAR: ${{ matrix.year }}
+        run: |
+          python - <<'PY'
+          import json, os
+          year=int(os.environ['TARGET_YEAR'])
+          data=json.load(open(f'v13_{year}.json', encoding='utf-8'))
+          assert data['schemaVersion'] == 13
+          assert data['targetYear'] == year
+          assert data['researchOnly'] is True
+          assert data['releaseQualified'] is False
+          assert data['learningTrainedThrough'] == f'{year-1}-12-31'
+          assert len(data['operationMonths']) == 5
+          source=data['recordSource']
+          assert float(source.get('programMetricCoverage', 0.0)) >= 90.0
+          print(json.dumps({
+              'year': year,
+              'operation': data['operation'],
+              'positiveMonths': data['positiveOperationMonths'],
+              'worstMonthRoi': data['worstOperationMonthRoi'],
+              'researchTargetMet': data['researchTargetMet'],
+              'fixedTicketConfig': data['fixedTicketConfig'],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload year result
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-research-${{ matrix.year }}
+          path: v13_*.json
+          retention-days: 30
+
+  merge:
+    name: merge v13 research
+    needs: research
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download year results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v13-research-*
+          path: v13-results
+          merge-multiple: true
+
+      - name: Merge research summary
+        run: |
+          mkdir -p data
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          rows=[]
+          for path in sorted(Path('v13-results').glob('v13_*.json')):
+              rows.append(json.loads(path.read_text(encoding='utf-8')))
+          if len(rows) != 3:
+              raise SystemExit(f'expected 3 year results, got {len(rows)}')
+          total_stake=sum(int(row['operation']['stake']) for row in rows)
+          total_payout=sum(int(row['operation']['payout']) for row in rows)
+          total_buys=sum(int(row['operation']['purchaseRaces']) for row in rows)
+          summary={
+              'schemaVersion': 13,
+              'generatedAt': datetime.now(timezone.utc).isoformat(),
+              'researchOnly': True,
+              'releaseQualified': False,
+              'years': [row['targetYear'] for row in rows],
+              'yearResults': rows,
+              'combined': {
+                  'purchaseRaces': total_buys,
+                  'stake': total_stake,
+                  'payout': total_payout,
+                  'profit': total_payout-total_stake,
+                  'roi': round(total_payout*100.0/total_stake, 1) if total_stake else 0.0,
+              },
+              'yearsMeetingResearchTarget': sum(bool(row['researchTargetMet']) for row in rows),
+              'note': '2023-2025 are development data. This file cannot unlock release by itself.',
+          }
+          Path('data/strategy_v13_multiyear.json').write_text(
+              json.dumps(summary, ensure_ascii=False, separators=(',', ':')),
+              encoding='utf-8',
+          )
+          print(json.dumps({
+              'combined': summary['combined'],
+              'yearsMeetingResearchTarget': summary['yearsMeetingResearchTarget'],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Commit research summary
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/strategy_v13_multiyear.json
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'Update v13 multi-year research results'
+          git push origin HEAD:main
