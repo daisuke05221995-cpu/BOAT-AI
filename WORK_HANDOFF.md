@@ -15,7 +15,7 @@
 7. 進行中GitHub Actions
 8. `data/strategy_search_2026.json`
 9. `data/multiyear_validation.json`
-10. `data/strategy_v13_multiyear.json` が存在すれば確認
+10. v14以降の研究結果JSONがあれば確認
 
 ## Workでの基本ルール
 
@@ -61,14 +61,12 @@ Workの使用上限、時間上限、コンテキスト上限、ツール制限�
 
 公式B/Kファイルからリークなしで2023〜2025を復元し、過去3連単オッズと結合して完走済み。
 
-データ品質（実際の予測レースへ一致した事前指標coverage）:
-- 2023: 97.75%
+データ品質:
+- 2023 program metric coverage: 97.75%
 - 2024: 98.03%
 - 2025: 97.68%
 - 平均ST coverage: 約99.96%
 - 展示タイム coverage: 100%
-
-したがって旧年の不振はパーサ不足ではなくv12戦略側の問題と判断。
 
 v12旧年運用成績:
 - 2023: ROI 72.0%, 7,381購入, 0/5月プラス
@@ -76,30 +74,52 @@ v12旧年運用成績:
 - 2025: ROI 56.3%, 1,326購入, 0/5月プラス
 
 `releaseCandidate=false`。v12は正式Releaseしない。
+2023〜2025年5〜9月は既に結果を見ているため今後は開発データ扱い。
 
-重要: 2023〜2025はこの結果を既に確認済みなので、今後は完全未使用holdoutではなく**開発データ**として扱う。
+### v13 結果
 
-### v13 研究版（現在進行中）
+`validate_multiyear_strategy_v13.py` で、alphaをROIではなくlog-lossだけで校正し、買い条件を2〜4月で固定する方式を試した。
+
+Run: `35823941965`
+結果: 2023/2024/2025すべて同じ理由でresearch step failure。
+原因: `no v13 ticket configuration met calibration-volume guard`。
+つまり確率精度を優先して市場側へ縮めると、minEV >=1.02で十分な購入件数を作れる設定が無かった。
+無理にalphaを上げて買わせる方向には進めない。
+
+### v14（現在進行中）
 
 新規:
-- `scripts/validate_multiyear_strategy_v13.py`
-- `.github/workflows/strategy-v13-research.yml`
+- `scripts/build_market_signal_cache.py`
+- `.github/workflows/build-market-signal-cache.yml`
+- `scripts/search_multiyear_strategy_v14.py`
 
-v13方針:
-- AI/市場ブレンド係数alphaをROIで選ばない。
-- alphaは過去月の正解3連単に対するlog-lossだけで校正。
-- alpha候補に0.0（市場単独）も含む。
-- 買い条件（minEV/minProbability/maxOdds/maxPoints/資金配分）は2〜4月で1回だけ選択。
-- 5〜9月は買い条件を固定。
-- 毎月変えてよいのはalphaだけで、対象月より前の結果しか使わない。
-- 2023〜2025は開発データなので、v13が良くてもそれだけでReleaseロックを解除しない。
+v14方針:
+- モデル確率 / 市場確率のlog-ratioを固定binへ分類。
+- 過去の実績から各binの市場比勝率multiplierを推定。
+- multiplierは固定prior=100で市場(1.0)へ縮約、0.50〜1.75にcap。
+- bin境界/prior/capは結果を見て探索しない。
+- 2023年5〜9月だけでticket条件を設計。
+- ticket条件を凍結し、2024/2025年5〜9月へそのまま適用。
+- 2024/25の結果を見てticket条件を変更しない。
 
-現行v13 Run:
-- **35823941965**
-- head commit: `3c87cc756d1911dec20439af2ed1a924d62fe838`
-- 2023/2024/2025を並列実行。
-- 最新確認時: 3年とも `Run v13 research` 本計算中。
-- 完了後 `data/strategy_v13_multiyear.json` をcommitする。
+重い公式B/K復元を毎回繰り返さないため、3年分の120通りAI確率・市場確率・オッズ・結果をNPZへキャッシュ中。
+
+現行キャッシュRun:
+- **35824767175**
+- workflow: `Build archived market signal caches`
+- 2023/2024/2025を並列生成中。
+- 成功したらArtifactのrun-id 35824767175をv14研究Workflowから再利用する。
+
+### 最終ホールドアウト（絶対に先に開かない）
+
+**2025年10月1日〜12月31日をv14以降の最終ホールドアウトとして予約。**
+
+重要ルール:
+- 今までの予想戦略検証は基本的に9月末までで、2025年10〜12月の戦略成績はまだ見ていない。
+- v14のアルゴリズム・bin・prior・cap・ticket条件を完全固定するまで2025年10〜12月を評価しない。
+- v14が2023設計＋2024/2025年5〜9月の固定条件評価で十分安定した場合のみ、一度だけ2025年10〜12月を開く。
+- 2025年10〜12月を見た後に条件を変更したら、その期間は以後holdoutとは呼ばない。
+- 最終Release判断ではこのルールを必ず保持する。
 
 ### Android側
 
@@ -110,35 +130,31 @@ Value Strategy統合済み:
 - 個別/一括/履歴が同じ確定買い目を使用
 - 購入時に再予想しない
 - SKIP履歴は仮想投資0円
-- 手動でSKIPを買う場合のみmanual override
+- manual overrideを分離
 - BUY/SKIP、120通り、最大10点、1200円配分、Python parity、判定凍結/復元Unit testあり
 
 最新Android Build確認済み:
 - Run `35817872634`: SUCCESS
 - Unit tests / lint / Debug APKすべてSUCCESS
 
-### 月別バックテスト表示
+現Android `ValueStrategyModel` は静的alpha/config前提。最終戦略がv14方式になった場合は empirical bin multiplier を実装し、Python/Kotlin parity testを追加する必要がある。
 
-v0.15用UIは新Value Strategy表示へ修正済み。
-- 1〜4月は学習・校正期間。
-- 5〜9月を運用検証として表示。
-- 2026だけではRelease判定しない旨を明示。
+### Release安全ロック
 
-ただし最終採用戦略がv13以降へ変わる場合、表示JSON/説明も最終戦略へ合わせて再更新すること。
+現在 `promote-value-model.yml` / `export_value_strategy_model.py` は旧v12独立検証ゲートでロックされており、assetは生成不能。これは意図どおり。
 
-### 昇格・Release安全ロック
-
-既存 `promote-value-model.yml` / `export_value_strategy_model.py` はv12用独立検証ゲートを要求しているため、現在は昇格不能で正しい。
-
-最終戦略を採用する場合は:
+最終Release工程:
 1. 最終戦略を固定。
-2. 可能な限り未使用期間または厳格な時系列外検証を実施。
-3. Android/Python parityを確認。
-4. Releaseゲートを最終戦略用へ更新。
-5. asset生成。
-6. Android Build/Unit test/lint成功。
-7. `versionCode 18`, `versionName 0.15.0`へ変更。
-8. signed Release APKと署名検証を通してGitHub Release公開。
+2. 予約済み2025年10〜12月holdoutを一度だけ評価。
+3. 合格なら2026整合性確認。
+4. Python/Kotlin parity。
+5. Releaseゲートを最終戦略用へ更新。
+6. model asset生成。
+7. Android Unit test/lint/Build成功。
+8. 月別損益UI/説明を最終戦略へ更新。
+9. versionCode 18 / versionName 0.15.0。
+10. signed Release APK・署名検証・GitHub Release公開。
+11. `PROJECT_STATUS.md` とこのファイルを完成状態へ更新。
 
 現在:
 - versionCode 17
@@ -146,11 +162,12 @@ v0.15用UIは新Value Strategy表示へ修正済み。
 
 ## 次の具体的な1手
 
-1. **Run 35823941965** を確認。
-2. 成功なら `data/strategy_v13_multiyear.json` を確認し、2023/2024/2025各年・合計ROI、プラス月数、最悪月、選ばれたalpha/固定買い条件を確認。
-3. v13が改善しない場合、基準を緩めず、AI確率と市場確率の比をbin/isotonic等で校正する次方式へ進む。
-4. v13が安定して改善した場合、設定を固定して2026を確認し、Android ValueStrategyModelへ同じ計算を実装してparity testを追加。
-5. Release条件を満たすまではv0.15.0を公開しない。
+1. **Run 35824767175** の3年signal cache完了を確認。
+2. Artifactが揃ったらv14研究Workflowを作成し、そのrun-idからcacheを取得。
+3. v14で2023 design / 2024・2025 May-Sep frozen-config評価。
+4. 結果が不安定なら2025 Oct-Decは開かず、開発期間だけでv15以降へ改善。
+5. 結果が十分安定した時だけアルゴリズムを完全固定して2025 Oct-Dec holdoutを一度だけ評価。
+6. Release条件を満たすまではv0.15.0を公開しない。
 
 ## 通常チャット復帰文
 
