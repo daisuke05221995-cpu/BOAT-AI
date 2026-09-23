@@ -1,0 +1,213 @@
+name: Fast independent multi-year validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/multiyear-validation-reuse.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        year: [2023, 2024, 2025]
+
+    steps:
+      - name: Checkout current validation code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install validation dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y p7zip-full
+          pip install 'numpy>=2.0,<3.0' 'boatrace-lzh==0.1.0'
+
+      - name: Reuse verified official learning artifacts
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: daisuke05221995-cpu/BOAT-AI
+          run-id: 35814229078
+          pattern: learning-part-*
+          path: learning-parts
+          merge-multiple: true
+
+      - name: Build leakage-safe pre-year snapshot
+        env:
+          TARGET_YEAR: ${{ matrix.year }}
+        run: |
+          PREVIOUS_YEAR=$((TARGET_YEAR - 1))
+          mkdir -p selected-learning-parts
+          python - <<'PY'
+          import json, os, shutil
+          from pathlib import Path
+          target=int(os.environ['TARGET_YEAR'])
+          cutoff=target-1
+          selected=[]
+          for path in sorted(Path('learning-parts').glob('historical_learning_*.json')):
+              data=json.loads(path.read_text(encoding='utf-8'))
+              end_year=int(str(data['trainedThrough'])[:4])
+              if end_year <= cutoff:
+                  dst=Path('selected-learning-parts')/path.name
+                  shutil.copy2(path,dst)
+                  selected.append(path.name)
+          if not selected:
+              raise SystemExit('no eligible learning parts')
+          print('selected:', selected)
+          PY
+          python -u scripts/merge_validation_learning.py \
+            --input-dir selected-learning-parts \
+            --start 2021-09-22 \
+            --end "${PREVIOUS_YEAR}-12-31" \
+            --output "learning_${TARGET_YEAR}.json"
+
+      - name: Validate guarded strategy independently
+        env:
+          TARGET_YEAR: ${{ matrix.year }}
+        run: |
+          python -u scripts/validate_multiyear_strategy.py \
+            --year "$TARGET_YEAR" \
+            --learning "learning_${TARGET_YEAR}.json" \
+            --workers 16 \
+            --output "validation_${TARGET_YEAR}.json"
+
+      - name: Validate output schema and leakage policy
+        env:
+          TARGET_YEAR: ${{ matrix.year }}
+        run: |
+          python - <<'PY'
+          import json, os
+          year=int(os.environ['TARGET_YEAR'])
+          data=json.load(open(f'validation_{year}.json', encoding='utf-8'))
+          assert data['targetYear'] == year
+          assert data['learningTrainedThrough'] == f'{year-1}-12-31'
+          assert len(data['operationMonths']) == 5
+          assert data['periods']['operation'] == [f'{year}-05-01', f'{year}-09-30']
+          source=data.get('recordSource') or {}
+          assert source.get('sameRaceActualStartUsed') is False
+          assert source.get('sameRaceActualCourseUsed') is False
+          assert source.get('sameRaceResultWeatherUsed') is False
+          print(json.dumps({
+            'year': year,
+            'recordSource': source,
+            'operation': data['operation'],
+            'positiveMonths': data['positiveOperationMonths'],
+            'worstMonthRoi': data['worstOperationMonthRoi'],
+            'historicalCriteriaMet': data['historicalCriteriaMet'],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload validation result
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-validation-${{ matrix.year }}
+          path: validation_${{ matrix.year }}.json
+          retention-days: 14
+
+  merge:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download year results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: fast-validation-*
+          path: validation-parts
+          merge-multiple: true
+
+      - name: Merge independent validation
+        run: |
+          python - <<'PY'
+          import glob, json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          files=sorted(glob.glob('validation-parts/validation_*.json'))
+          if len(files) != 3:
+              raise SystemExit(f'expected 3 validation files, got {files}')
+          years=sorted((json.load(open(path, encoding='utf-8')) for path in files), key=lambda x: x['targetYear'])
+          expected=[2023, 2024, 2025]
+          if [x['targetYear'] for x in years] != expected:
+              raise SystemExit(f'unexpected years: {[x["targetYear"] for x in years]}')
+
+          raw={'purchaseRaces':0,'hits':0,'stake':0,'payout':0,'bets':0}
+          for item in years:
+              stats=item['operation']
+              for key in raw:
+                  raw[key] += int(stats.get(key,0))
+          stake=raw['stake']; payout=raw['payout']; buys=raw['purchaseRaces']
+          combined={
+              **raw,
+              'profit': payout-stake,
+              'roi': round(payout*100.0/stake,1) if stake else 0.0,
+              'hitRate': round(raw['hits']*100.0/buys,1) if buys else 0.0,
+              'avgPoints': round(raw['bets']/buys,2) if buys else 0.0,
+          }
+          all_years_met=all(bool(item.get('historicalCriteriaMet')) for item in years)
+          strategy=json.load(open('data/strategy_search_2026.json', encoding='utf-8'))
+          development_2026_met=bool(strategy.get('historicalCriteriaMet'))
+          release_candidate=bool(all_years_met and development_2026_met)
+
+          payload={
+              'schemaVersion':1,
+              'generatedAt':datetime.now(timezone.utc).isoformat(),
+              'validationYears':expected,
+              'yearResults':years,
+              'combined':combined,
+              'yearsMeetingStrictCriteria':sum(bool(x.get('historicalCriteriaMet')) for x in years),
+              'allIndependentYearsMeetStrictCriteria':all_years_met,
+              'development2026CriteriaMet':development_2026_met,
+              'independentValidationPassed':all_years_met,
+              'releaseCandidate':release_candidate,
+              'releaseRule':'2023, 2024 and 2025 must EACH pass the same strict May-Sep rule (ROI >=105%, >=4/5 positive months, worst month ROI >=90%, >=50 buys/month, >=500 buys total), and 2026 development criteria must also be met.',
+              'notes':[
+                  '2023-2025 are independent of the repeated 2026 strategy-development outcomes.',
+                  'Each year uses official K-file learning history ending on Dec 31 of the previous year.',
+                  'Official B/K archives reconstruct historical features without same-race result leakage.',
+                  'The v12 guard policy is frozen during this independent validation.',
+                  'Learning artifacts were reused from successful run 35814229078; their generation code is unchanged from the current validation inputs.',
+                  'A releaseCandidate=true result permits release engineering checks; it is not a guarantee of future profitability.'
+              ],
+          }
+          Path('data/multiyear_validation.json').write_text(json.dumps(payload, ensure_ascii=False, separators=(',',':')), encoding='utf-8')
+          print(json.dumps({
+              'combined':combined,
+              'yearsMeetingStrictCriteria':payload['yearsMeetingStrictCriteria'],
+              'independentValidationPassed':all_years_met,
+              'releaseCandidate':release_candidate,
+              'yearSummary':[{ 'year':x['targetYear'], 'roi':x['operation']['roi'], 'profit':x['operation']['profit'], 'positiveMonths':x['positiveOperationMonths'], 'worstMonthRoi':x['worstOperationMonthRoi'], 'passed':x['historicalCriteriaMet']} for x in years],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Commit validation summary
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/multiyear_validation.json
+          if git diff --cached --quiet; then
+            echo 'Multi-year validation result is unchanged.'
+          else
+            git commit -m 'Refresh independent multi-year strategy validation'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
