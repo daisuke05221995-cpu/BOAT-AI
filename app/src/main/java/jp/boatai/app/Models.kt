@@ -165,7 +165,8 @@ data class PredictionRecord(
     val autoSkipReason: String? = null,
     val recommended: Boolean = false,
     val recommendationReason: String? = null,
-    val stakes: List<Int> = emptyList()
+    val stakes: List<Int> = emptyList(),
+    val strategyId: String? = null
 ) {
     val venueName: String get() = Venues.name(stadiumNumber)
     val recommendation: RaceRecommendation get() = if (recommended) RaceRecommendation.BUY else RaceRecommendation.SKIP
@@ -188,6 +189,7 @@ data class PredictionRecord(
         put("combinations", JSONArray().apply { combinations.forEach { put(it) } })
         put("stakePerPick", stakePerPick)
         if (stakes.isNotEmpty()) put("stakes", JSONArray().apply { stakes.forEach { put(it) } })
+        if (strategyId != null) put("strategyId", strategyId)
         put("resultCombination", resultCombination)
         put("trifectaPayout", trifectaPayout)
         put("settled", settled)
@@ -237,7 +239,8 @@ data class PredictionRecord(
                 autoSkipReason = obj.optString("autoSkipReason").takeIf { it.isNotBlank() },
                 recommended = if (obj.has("recommended")) obj.optBoolean("recommended") else !autoSkipped && confidence >= 70,
                 recommendationReason = obj.optString("recommendationReason").takeIf { it.isNotBlank() },
-                stakes = stakes
+                stakes = stakes,
+                strategyId = obj.optString("strategyId").takeIf { it.isNotBlank() }
             )
         }
     }
