@@ -6,64 +6,53 @@
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
 - Branch: `main`
-- 緊急復旧公開版: `v0.15.9`
-- versionCode: 27
-- versionName: 0.15.9
-- Release commit: `0a704cd541b673821dac2b3d3481145987c334fe`
-- Debug Run: `35883594459` SUCCESS
-- Signed Release Run: `35883594737` SUCCESS
-- Release: `https://github.com/daisuke05221995-cpu/BOAT-AI/releases/tag/v0.15.9`
-- APK SHA-256: `3ee4aa5bd4e06dcf4a4b5f8f5888144561b050c4f480d74f9d91566666cd2c80`
+- 復旧公開版: `v0.15.10`
+- versionCode: 28 / versionName: 0.15.10
+- Release commit: `a6062755ac65a2b4048c6ad3a122ccf30524ddb0`
+- Signed Release Run `35884992894`: SUCCESS
+- Release: `https://github.com/daisuke05221995-cpu/BOAT-AI/releases/tag/v0.15.10`
 
-## 最重要インシデント
+## 実機状態
 
-v0.15.8をユーザー実機で約5分操作後、突然アプリ終了。その後は起動直後に閉じる状態になった。クラッシュログ未取得のため原因は未確定。
+ユーザー実機でv0.15.10復旧モードが正常起動。復旧画面から通常モードへ入った後も、直前まで再現していたクラッシュは現時点で再発していない。
 
-ユーザーデータ保全のため、アンインストールやアプリストレージ消去は行わない。
+`CrashRecoveryStore` と `RecoveryActivity` は維持し、ユーザーデータを削除しない。アンインストール・アプリストレージ消去は禁止。
 
-## v0.15.9 緊急復旧
+クラッシュ原因切り分けのためバックグラウンドService/ReceiverはManifestで一時無効化中。自動予想追跡・Alarm/通知は一度に戻さない。
 
-v0.15.8で変更したAndroid実行時コードを、実機で動いていたv0.15.7相当へロールバックし、versionCodeだけ27へ上げて上書き可能にした。
+## Android再実装状況
 
-一時的に戻したもの:
-- 独立した右上⚙設定画面
-- 新しいBackHandlerによる戻るキー制御
-- v0.15.8の新通知チャンネル/Builder変更
+独立 `SettingsScreen.kt` は復旧安全版へ再追加済み。commit `128df8339ff0a1aebb2124a3767ec7e58698449e`、Build/Unit test/lint Run `35899813231` SUCCESS。
 
-研究用v0.16ファイル、本番予想ロジック、購入/予想履歴の保存形式は変更していない。
+次は以下を必ず1段階ずつ導入し、各段階でUnit test / lint / Debug buildを通す。
 
-## まず行う実機確認
+1. MainActivity右上設定ボタンからSettingsScreenへ接続
+2. Android戻るキーの画面階層制御
+3. 完全無音・無振動通知
+4. バックグラウンドReceiver/Serviceを例外隔離付きで段階復帰
 
-1. v0.15.9を**アンインストールせず上書きインストール**。
-2. 起動できるか確認。
-3. 予想/購入/結果/損益を切り替えながら10〜15分程度操作。
-4. 再クラッシュしなければ復旧成功として次段階へ。
-5. 再クラッシュした場合は保存データを消さず、クラッシュログ保存・例外隔離を組み込んだ次版で原因を特定する。
-
-## 復旧後の再実装順
-
-起動安定を確認後、以下を一度にまとめて戻さず、一つずつ再導入して実機確認する。
-
-- 独立した設定ボタン/設定画面
-- 戻るキーの画面階層制御
-- 完全無振動通知
-- 起動/日付切替/AlarmManager/foreground service周辺の例外保護
-- 端末内クラッシュ診断ログ
+署名ReleaseはAndroid検証成功時のみ。復旧モードとクラッシュ記録を削除しない。
 
 ## 継続機能
 
 - 4タブ `予想 / 購入 / 結果 / 損益`
 - 半自動一括公式投票ハンドオフ
-- 全レース締切前予想保存
 - BUY/SKIP履歴と結果settle
-- Exact Alarm設定
+- 実購入/AI仮想損益
+- GitHub Releases更新
 
-## v0.16 Work研究
+## v0.16研究
 
-CORE r1の144条件は2024通年で不採用確定。ROI105%以上通過0、十分な件数を持つ最高ROI94.081871%。同じ条件調整は繰り返さない。
+CORE r1旧144条件は2024通年で不採用確定。十分な件数の最高ROI 94.081871%。同じ閾値gridを再探索しない。
 
-Workは別仮説のCORE r2研究を継続。本番アプリ/UI/Releaseは通常チャット担当。2025 Q4 final holdoutは候補完全固定前に開かない。最新研究状態は必ず `WORK_HANDOFF.md` を確認する。
+CORE r2は6モデル全不採用。fundamental-small/mediumは2024 ROI 79.93/80.12%。residual-smallはROI 139.79%だが47購入・3的中、最大1的中除外ROI 82.55%で不採用。placeは購入0。校正監査Run `35876699180` SUCCESS。
 
-## 復帰文
+`data/v016_r3_protocol.json` を事前登録済み。r3は旧閾値調整ではなく、residual-small / place-smallを各評価四半期より前だけで再学習するwalk-forward仮説。買い条件は1200円、最大3点、minEV 1.10、minP 0.01、最大40倍に固定し、ROIを見て後付け変更しない。
 
-`BOAT AIの続き。GitHubのPROJECT_STATUS.md、NEXT_WEEK_HANDOFF.md、WORK_HANDOFF.mdを確認して、進行中Runも確認して続けて。`
+年間ゲートはROI>=105%、360購入以上、30的中以上、最大1的中依存<=25%、最大1的中除外ROI>=100%。
+
+**2025-10-01〜2025-12-31 final holdoutは未開封。候補を完全固定するまで開かない。**
+
+## 再開時
+
+`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、最新main commit、進行中Actionsを必ず確認。Androidと研究ファイルを同時に競合編集しない。
