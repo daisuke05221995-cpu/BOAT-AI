@@ -169,6 +169,7 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item { AppUpdateCard(ui.update, vm) }
+        ui.pendingPurchase?.let { pending -> item { PendingPurchaseCard(pending, vm) } }
         item { DateSelectorCard(ui, vm) }
         item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }
         item { PredictionModeBar(sortMode) { sortMode = it } }
@@ -204,7 +205,7 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
 
         item {
             Text(
-                "一括購入・個別購入は現在「購入記録」の登録です。購入推奨だけ、または見送りも含めて選択できます。",
+                "購入ボタンは買い目と金額を「公式投票待ち」に固定保存して、テレボートのシンプル投票サイトを開きます。公式側で実際に投票した後、BOAT AIへ戻って投票できたレースだけ実購入として確定してください。",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(4.dp)
             )
@@ -281,11 +282,13 @@ private fun VenueTile(stadium: Int, races: List<RaceData>, modifier: Modifier = 
 @Composable
 private fun VenueDetailScreen(ui: BoatUiState, vm: BoatViewModel, stadium: Int) {
     val races = ui.races.filter { it.stadiumNumber == stadium }.sortedBy { it.raceNumber }
+    val uriHandler = LocalUriHandler.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        ui.pendingPurchase?.let { pending -> item { PendingPurchaseCard(pending, vm) } }
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
@@ -304,7 +307,11 @@ private fun VenueDetailScreen(ui: BoatUiState, vm: BoatViewModel, stadium: Int) 
                 ui = ui,
                 purchasePicksFor = vm::purchasePicksFor,
                 onToggle = vm::toggleBulkRace,
-                onIndividualBuy = vm::recordRace,
+                onIndividualBuy = { race ->
+                    if (vm.prepareRacePurchase(race)) {
+                        uriHandler.openUri(PendingPurchaseStore.OFFICIAL_SIMPLE_BET_URL)
+                    }
+                },
                 onDetail = vm::selectRace
             )
         }
@@ -332,6 +339,7 @@ private fun DateSelectorCard(ui: BoatUiState, vm: BoatViewModel) {
 
 @Composable
 private fun BulkPurchaseCard(ui: BoatUiState, vm: BoatViewModel) {
+    val uriHandler = LocalUriHandler.current
     val selectedRaces = ui.races.filter { it.id in ui.selectedForBulk && it.isPurchasable() }
     val recommendedCount = selectedRaces.count(PredictionEngine::isRecommended)
     val skippedCount = selectedRaces.size - recommendedCount
@@ -354,11 +362,15 @@ private fun BulkPurchaseCard(ui: BoatUiState, vm: BoatViewModel) {
             OutlinedButton(onClick = vm::clearBulkSelection) { Text("選択解除") }
             Spacer(Modifier.height(8.dp))
             ConfirmPurchaseButton(
-                label = "選択分を一括購入登録",
-                summary = "${selectedRaces.size}レース（推奨 $recommendedCount / 見送り $skippedCount）・合計${money(total)}を購入記録へ登録します。",
-                enabled = selectedRaces.isNotEmpty(),
+                label = "選択分を一括投票へ",
+                summary = "${selectedRaces.size}レース・${selectedTickets}点・合計${money(total)}を投票待ちに固定保存して、公式シンプル投票サイトを開きます。公式側で実際に投票後、BOAT AIへ戻って投票できたレースだけ実購入として確定してください。",
+                enabled = selectedRaces.isNotEmpty() && selectedTickets > 0,
                 modifier = Modifier.fillMaxWidth(),
-                onConfirm = vm::recordSelectedRaces
+                onConfirm = {
+                    if (vm.prepareSelectedPurchase()) {
+                        uriHandler.openUri(PendingPurchaseStore.OFFICIAL_SIMPLE_BET_URL)
+                    }
+                }
             )
             ui.actionMessage?.let {
                 Spacer(Modifier.height(6.dp))
@@ -451,8 +463,8 @@ private fun RacePredictionRow(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 ConfirmPurchaseButton(
-                    label = if (purchasedStake > 0) "購入済み" else if (race.isPurchasable()) "個別購入" else "購入不可",
-                    summary = "${race.venueName} ${race.raceNumber}R・${decision.recommendation.label}・${picks.size}点、合計${money(total)}を登録します。",
+                    label = if (purchasedStake > 0) "購入済み" else if (race.isPurchasable()) "公式投票へ" else "購入不可",
+                    summary = "${race.venueName} ${race.raceNumber}R・${decision.recommendation.label}・${picks.size}点・合計${money(total)}を投票待ちに保存して公式サイトを開きます。実投票後にBOAT AIで完了記録してください。",
                     enabled = enabled,
                     outlined = true,
                     onConfirm = onIndividualBuy
@@ -764,6 +776,7 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        ui.pendingPurchase?.let { pending -> item { PendingPurchaseCard(pending, vm) } }
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
@@ -859,11 +872,15 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
                     Text("推奨合計 ${money(ui.predictions.sumOf { it.recommendedStake })}（1,000〜3,000円）", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(8.dp))
                     ConfirmPurchaseButton(
-                        label = if (ui.records.any { it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber }) "✓ このレースは購入済み" else "このレースを個別購入登録",
-                        summary = "${race.venueName} ${race.raceNumber}R・${decision.recommendation.label}・${ui.predictions.size}点、合計${money(ui.predictions.sumOf { it.recommendedStake })}を登録します。",
+                        label = if (ui.records.any { it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber }) "✓ このレースは購入済み" else "公式投票へ",
+                        summary = "${race.venueName} ${race.raceNumber}R・${decision.recommendation.label}・${ui.predictions.size}点・合計${money(ui.predictions.sumOf { it.recommendedStake })}を投票待ちに保存して公式サイトを開きます。実投票後にBOAT AIで完了記録してください。",
                         enabled = ui.predictions.isNotEmpty() && race.isPurchasable() && ui.records.none { it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber },
                         modifier = Modifier.fillMaxWidth(),
-                        onConfirm = vm::recordPredictions
+                        onConfirm = {
+                            if (vm.preparePredictionsPurchase()) {
+                                uriHandler.openUri(PendingPurchaseStore.OFFICIAL_SIMPLE_BET_URL)
+                            }
+                        }
                     )
                     ui.actionMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp)) }
                 }
