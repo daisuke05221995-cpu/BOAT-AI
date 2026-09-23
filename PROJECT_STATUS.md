@@ -24,10 +24,10 @@ v0.15.10ではユーザーデータを削除せず、`CrashRecoveryStore` がunc
 
 独立 `SettingsScreen.kt` は復旧安全版へ再追加済み。commit `128df8339ff0a1aebb2124a3767ec7e58698449e`、Build/Unit test/lint Run `35899813231` SUCCESS。
 
-2026-09-24 07:58 JSTから通常チャット側で、復旧モードを残したまま設定UI接続を段階導入中。最初の段階では右上設定ボタンから専用SettingsScreenへ接続し、損益画面内の旧設定折りたたみを外す。変更後は必ずBuild/Unit test/lintを確認してから次の戻るキー制御へ進む。
+右上設定ボタンから専用SettingsScreenへ接続し、損益画面内の旧設定折りたたみを外す変更を commit `6b921df387b6e4160dcb0df261c00034c9eae84f` で適用済み。現在この状態のBuild/Unit test/lintを検証中。復旧モードとクラッシュ記録は維持している。
 
 以降の順番:
-1. 右上設定ボタン/SettingsScreen接続
+1. 右上設定ボタン/SettingsScreen接続を検証
 2. Android戻るキーの画面階層制御
 3. 完全無音・無振動通知
 4. バックグラウンドReceiver/Serviceは最後に、例外隔離を追加して段階復帰
