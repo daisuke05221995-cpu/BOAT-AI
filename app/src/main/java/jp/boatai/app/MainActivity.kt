@@ -72,6 +72,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        runCatching {
+            PredictionTrackingScheduler(this).apply {
+                scheduleDailyBootstrap()
+                scheduleBootstrapSoon()
+            }
+        }.onFailure { CrashRecoveryStore(this).recordNonFatal("MainActivity.trackingBootstrap", it) }
         setContent { BoatAiTheme { BoatAiApp(vm) } }
     }
 

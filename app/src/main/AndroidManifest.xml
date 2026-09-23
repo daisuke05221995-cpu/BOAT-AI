@@ -46,7 +46,7 @@
 
         <service
             android:name=".PredictionTrackingService"
-            android:enabled="false"
+            android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
@@ -57,7 +57,7 @@
 
         <receiver
             android:name=".PredictionTrackingReceiver"
-            android:enabled="false"
+            android:enabled="true"
             android:exported="false" />
 
         <receiver
@@ -81,7 +81,7 @@
 
         <receiver
             android:name=".PredictionTrackingBootReceiver"
-            android:enabled="false"
+            android:enabled="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
