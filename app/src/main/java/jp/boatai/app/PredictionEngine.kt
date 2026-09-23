@@ -28,7 +28,7 @@ object PredictionEngine {
      * The independently validated value model is optional. Stable releases without the
      * promoted asset continue to use the legacy engine unchanged.
      */
-    fun installValueStrategyModel(model: ValueStrategyModel?) {
+    internal fun installValueStrategyModel(model: ValueStrategyModel?) {
         valueStrategyModel = model
         valueSelections.clear()
     }
@@ -41,9 +41,9 @@ object PredictionEngine {
         valueSelections.clear()
     }
 
-    fun cachedValueSelection(race: RaceData): ValueSelection? = valueSelections[race.id]
+    internal fun cachedValueSelection(race: RaceData): ValueSelection? = valueSelections[race.id]
 
-    fun applyValueOdds(
+    internal fun applyValueOdds(
         race: RaceData,
         odds: Map<String, Double>,
         learningOverride: LearningProfile? = null
