@@ -42,16 +42,29 @@ jobs:
           repository: ${{ github.repository }}
           run-id: 35830207608
           pattern: preview-enhanced-signal-cache-*
-          path: preview-cache
+          path: downloaded-preview-cache
           merge-multiple: true
 
-      - name: Verify holdout isolation
+      - name: Normalize cache layout and verify holdout isolation
         run: |
           python - <<'PY'
           from pathlib import Path
-          names=sorted(p.name for p in Path('preview-cache').glob('*.npz'))
+          import shutil
+
+          source = Path('downloaded-preview-cache')
+          target = Path('preview-cache')
+          target.mkdir(parents=True, exist_ok=True)
+          found = {}
+          for path in source.rglob('signal_cache_*.npz'):
+              if path.name in ('signal_cache_2024.npz', 'signal_cache_2025.npz'):
+                  found[path.name] = path
+          expected = {'signal_cache_2024.npz', 'signal_cache_2025.npz'}
+          assert set(found) == expected, {k: str(v) for k, v in found.items()}
+          for name, path in found.items():
+              shutil.copy2(path, target / name)
+          names = sorted(p.name for p in target.glob('*.npz'))
           assert names == ['signal_cache_2024.npz','signal_cache_2025.npz'], names
-          print(names)
+          print({name: str(path) for name, path in found.items()})
           PY
 
       - name: Design 2024 and frozen-evaluate 2025
