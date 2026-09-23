@@ -1,0 +1,88 @@
+name: BOAT AI v14 design volume diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/diagnose_v14_design_volume.py'
+      - '.github/workflows/v14-design-volume-diagnostic.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: boat-ai-v14-design-volume-diagnostic
+  cancel-in-progress: true
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install NumPy
+        run: pip install 'numpy>=2.0,<3.0'
+
+      - name: Download 2023 signal cache only
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35824767175
+          name: market-signal-cache-2023
+          path: caches
+
+      - name: Diagnose 2023 design volume
+        run: |
+          mkdir -p data
+          python -u scripts/diagnose_v14_design_volume.py \
+            --cache-dir caches \
+            --output data/v14_design_volume_diagnostic.json
+
+      - name: Validate diagnostic isolation
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/v14_design_volume_diagnostic.json', encoding='utf-8'))
+          assert data['diagnosticOnly'] is True
+          assert data['sourceYear'] == 2023
+          assert data['evaluationYearsOpened'] == []
+          assert data['reservedHoldoutOpened'] is False
+          print(json.dumps({
+              'currentGuardMatches': data['configsMeetingCurrentGuard'],
+              'bestMinVolume': data['bestByMinimumMonthlyVolume'][0],
+              'bestTotalVolume': data['bestByTotalVolume'][0],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: v14-design-volume-diagnostic
+          path: data/v14_design_volume_diagnostic.json
+          retention-days: 30
+
+      - name: Commit diagnostic
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/v14_design_volume_diagnostic.json
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'Update v14 design volume diagnostic'
+          git pull --rebase origin main
+          git push origin HEAD:main
