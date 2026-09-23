@@ -4,7 +4,9 @@
 Unlike merge_historical.py, this supports shorter prefixes used by independent
 validation (for example 2021-09-22 through 2022-12-31). It still requires exact
 contiguous date coverage and validates that the aggregate is large enough to be a
-meaningful baseline.
+meaningful baseline. Racer-level start-timing aggregates are also merged so the
+older-year validator can reconstruct the average-start feature using only data
+available before the target year.
 """
 from __future__ import annotations
 
@@ -62,6 +64,8 @@ def main() -> None:
     wind_starts: Counter[str] = Counter()
     wind_wins: Counter[str] = Counter()
     venue_counts: Counter[str] = Counter()
+    racer_start_sum: Counter[str] = Counter()
+    racer_start_count: Counter[str] = Counter()
     race_count = 0
     downloaded_days = 0
     missing_or_no_race_days = 0
@@ -75,6 +79,8 @@ def main() -> None:
         wind_starts.update({k: int(v) for k, v in part.get("windCourseStarts", {}).items()})
         wind_wins.update({k: int(v) for k, v in part.get("windCourseWins", {}).items()})
         venue_counts.update({k: int(v) for k, v in part.get("venueRaceCounts", {}).items()})
+        racer_start_sum.update({k: float(v) for k, v in part.get("racerStartTimingSum", {}).items()})
+        racer_start_count.update({k: int(v) for k, v in part.get("racerStartTimingCount", {}).items()})
 
     requested_days = (args.end - args.start).days + 1
     # Roughly 100+ races/day are typical. The lower bound is deliberately loose
@@ -86,6 +92,8 @@ def main() -> None:
         raise SystemExit("venue/lane learning map is unexpectedly sparse")
     if len(wind_starts) < 180 or len(wind_wins) < 180:
         raise SystemExit("wind/course learning map is unexpectedly sparse")
+    if sum(racer_start_count.values()) < race_count * 3:
+        raise SystemExit("racer start-timing seed is unexpectedly sparse")
 
     payload = {
         "schemaVersion": 1,
@@ -103,6 +111,14 @@ def main() -> None:
         "windCourseStarts": dict(sorted(wind_starts.items())),
         "windCourseWins": dict(sorted(wind_wins.items())),
         "venueRaceCounts": dict(sorted(venue_counts.items(), key=lambda item: int(item[0]))),
+        "racerStartTimingSum": {
+            key: round(float(value), 6)
+            for key, value in sorted(racer_start_sum.items(), key=lambda item: int(item[0]))
+        },
+        "racerStartTimingCount": {
+            key: int(value)
+            for key, value in sorted(racer_start_count.items(), key=lambda item: int(item[0]))
+        },
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
@@ -115,6 +131,8 @@ def main() -> None:
         "missingOrNoRaceDays": missing_or_no_race_days,
         "venueBuckets": len(starts),
         "windCourseBuckets": len(wind_starts),
+        "racerStartSamples": sum(racer_start_count.values()),
+        "racersWithStartHistory": len(racer_start_count),
     }, ensure_ascii=False, indent=2))
 
 
