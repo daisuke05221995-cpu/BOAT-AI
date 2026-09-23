@@ -1,0 +1,90 @@
+name: BOAT AI market residual stacker diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/diagnose_v16_market_residual_stacker.py'
+      - '.github/workflows/v16-market-residual-stacker-diagnostic.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: boat-ai-v16-market-residual-stacker-diagnostic
+  cancel-in-progress: true
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install NumPy
+        run: pip install 'numpy>=2.0,<3.0'
+
+      - name: Download 2023 signal cache only
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35824767175
+          name: market-signal-cache-2023
+          path: caches
+
+      - name: Diagnose regularized market residual stacker
+        run: |
+          mkdir -p data
+          python -u scripts/diagnose_v16_market_residual_stacker.py \
+            --cache-dir caches \
+            --output data/v16_market_residual_stacker_diagnostic.json
+
+      - name: Validate leakage isolation
+        run: |
+          python - <<'PY'
+          import json
+          data=json.load(open('data/v16_market_residual_stacker_diagnostic.json', encoding='utf-8'))
+          assert data['diagnosticOnly'] is True
+          assert data['candidateOutcomesRead'] is False
+          assert data['evaluationYearsOpened'] == []
+          assert data['reservedHoldoutOpened'] is False
+          print(json.dumps({
+              'selectedL2': data['selectedL2'],
+              'marketValidationLogLoss': data['marketValidationLogLoss'],
+              'stackerValidationLogLoss': data['stackerValidationLogLoss'],
+              'maxCalibratedEv': data['maxCalibratedEv'],
+              'aggregateRaceCounts': data['aggregateRaceCounts'],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: v16-market-residual-stacker-diagnostic
+          path: data/v16_market_residual_stacker_diagnostic.json
+          retention-days: 30
+
+      - name: Commit diagnostic
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/v16_market_residual_stacker_diagnostic.json
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'Update market residual stacker diagnostic'
+          git pull --rebase origin main
+          git push origin HEAD:main
