@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -93,7 +94,8 @@ private fun BoatAiApp(vm: BoatViewModel) {
                             selected != null -> "${selected.venueName} ${selected.raceNumber}R"
                             selectedVenue != null -> "${Venues.name(selectedVenue)} 開催レース"
                             ui.tab == 0 -> "予想  v${BuildConfig.VERSION_NAME}"
-                            ui.tab == 1 -> "結果"
+                            ui.tab == 1 -> "購入"
+                            ui.tab == 2 -> "結果"
                             else -> "損益"
                         }
                     )
@@ -106,7 +108,7 @@ private fun BoatAiApp(vm: BoatViewModel) {
                     }
                 },
                 actions = {
-                    if (selected == null && selectedVenue == null && ui.tab in 0..1) {
+                    if (selected == null && selectedVenue == null && ui.tab in 0..2) {
                         IconButton(onClick = vm::refresh) {
                             Icon(Icons.Default.Refresh, contentDescription = "更新")
                         }
@@ -126,12 +128,18 @@ private fun BoatAiApp(vm: BoatViewModel) {
                     NavigationBarItem(
                         selected = ui.tab == 1,
                         onClick = { vm.setTab(1) },
-                        icon = { Icon(Icons.Default.CheckCircle, contentDescription = null) },
-                        label = { Text("結果") }
+                        icon = { Icon(Icons.Default.ShoppingCart, contentDescription = null) },
+                        label = { Text("購入") }
                     )
                     NavigationBarItem(
                         selected = ui.tab == 2,
                         onClick = { vm.setTab(2) },
+                        icon = { Icon(Icons.Default.CheckCircle, contentDescription = null) },
+                        label = { Text("結果") }
+                    )
+                    NavigationBarItem(
+                        selected = ui.tab == 3,
+                        onClick = { vm.setTab(3) },
                         icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
                         label = { Text("損益") }
                     )
@@ -144,8 +152,9 @@ private fun BoatAiApp(vm: BoatViewModel) {
                 selected != null -> RaceDetailScreen(ui, vm)
                 selectedVenue != null -> VenueDetailScreen(ui, vm, selectedVenue)
                 ui.tab == 0 -> PredictionScreen(ui, vm)
-                ui.tab == 1 -> ResultsScreen(ui, vm)
-                else -> ProfitScreen(ui, vm)
+                ui.tab == 1 -> PurchaseDashboardScreen(ui, vm)
+                ui.tab == 2 -> CompactResultsScreen(ui, vm)
+                else -> CompactProfitScreen(ui, vm)
             }
         }
     }
@@ -169,7 +178,6 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item { AppUpdateCard(ui.update, vm) }
-        ui.pendingPurchase?.let { pending -> item { PendingPurchaseCard(pending, vm) } }
         item { DateSelectorCard(ui, vm) }
         item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }
         item { PredictionModeBar(sortMode) { sortMode = it } }

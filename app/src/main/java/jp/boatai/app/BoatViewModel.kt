@@ -431,7 +431,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     fun setTab(tab: Int) {
         _ui.update {
             it.copy(
-                tab = tab.coerceIn(0, 2),
+                tab = tab.coerceIn(0, 3),
                 selectedRace = null,
                 selectedVenue = null,
                 predictions = emptyList(),
