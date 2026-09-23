@@ -37,6 +37,7 @@ data class BoatUiState(
     val predictionHistory: List<PredictionRecord> = emptyList(),
     val performance: PredictionPerformanceProfile = PredictionPerformanceProfile(),
     val selectedForBulk: Set<String> = emptySet(),
+    val pendingPurchase: PendingPurchaseSession? = null,
     val stakePerPick: Int = 300,
     val raceBudget: Int = BetStrategy.DEFAULT_BUDGET,
     val tab: Int = 0,
@@ -50,6 +51,7 @@ data class BoatUiState(
 class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = BoatRaceRepository()
     private val betStore = BetStore(application)
+    private val pendingPurchaseStore = PendingPurchaseStore(application)
     private val predictionStore = PredictionHistoryStore(application)
     private val appUpdateManager = AppUpdateManager(application)
     private val learningStore = LearningStore(application)
@@ -64,6 +66,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val _ui = MutableStateFlow(
         BoatUiState(
             records = betStore.load(),
+            pendingPurchase = pendingPurchaseStore.load(),
             predictionHistory = initialPredictionHistory,
             performance = initialPerformance,
             notificationsEnabled = notificationScheduler.enabled
@@ -513,6 +516,106 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             // Only reached from explicit user selection of a SKIP race.
             PredictionEngine.manualOverridePicks(race, budget)
         }
+    }
+
+    fun prepareSelectedPurchase(): Boolean {
+        val state = _ui.value
+        val races = state.races.filter { it.id in state.selectedForBulk && it.isPurchasable() }
+        if (races.isEmpty()) {
+            _ui.update { it.copy(actionMessage = "購入するレースを選択してください") }
+            return false
+        }
+        val entries = races.mapNotNull { race ->
+            val picks = purchasePicksFor(race)
+            if (picks.isEmpty()) null else race to picks
+        }
+        return savePendingPurchase(entries, "${entries.size}レースを一括投票待ちに保存")
+    }
+
+    fun prepareRacePurchase(race: RaceData): Boolean {
+        if (!race.isPurchasable()) return false
+        val picks = purchasePicksFor(race)
+        if (picks.isEmpty()) {
+            _ui.update { it.copy(actionMessage = "公式オッズの最終判定を待ってください") }
+            return false
+        }
+        return savePendingPurchase(listOf(race to picks), "${race.venueName} ${race.raceNumber}Rを投票待ちに保存")
+    }
+
+    fun preparePredictionsPurchase(): Boolean {
+        val state = _ui.value
+        val race = state.selectedRace ?: return false
+        if (!race.isPurchasable() || state.predictions.isEmpty()) return false
+        return savePendingPurchase(
+            listOf(race to state.predictions),
+            "${race.venueName} ${race.raceNumber}Rを投票待ちに保存"
+        )
+    }
+
+    private fun savePendingPurchase(
+        entries: List<Pair<RaceData, List<PredictionPick>>>,
+        message: String
+    ): Boolean {
+        if (entries.isEmpty()) {
+            _ui.update { it.copy(actionMessage = "投票できる買い目がありません") }
+            return false
+        }
+        val session = PendingPurchaseSession.create(entries)
+        if (session == null) {
+            _ui.update { it.copy(actionMessage = "100円単位の買い目を作成できませんでした") }
+            return false
+        }
+        pendingPurchaseStore.save(session)
+        _ui.update {
+            it.copy(
+                pendingPurchase = session,
+                selectedForBulk = emptySet(),
+                actionMessage = "$message。公式サイトで投票後、BOAT AIへ戻って完了記録してください"
+            )
+        }
+        return true
+    }
+
+    fun togglePendingPurchaseRace(raceId: String) {
+        val session = _ui.value.pendingPurchase ?: return
+        if (session.races.none { it.raceId == raceId }) return
+        val selected = session.selectedRaceIds.toMutableSet()
+        if (!selected.add(raceId)) selected.remove(raceId)
+        val updated = session.copy(selectedRaceIds = selected)
+        pendingPurchaseStore.save(updated)
+        _ui.update { it.copy(pendingPurchase = updated, actionMessage = null) }
+    }
+
+    fun selectAllPendingPurchaseRaces() {
+        val session = _ui.value.pendingPurchase ?: return
+        val updated = session.copy(selectedRaceIds = session.races.mapTo(linkedSetOf()) { it.raceId })
+        pendingPurchaseStore.save(updated)
+        _ui.update { it.copy(pendingPurchase = updated, actionMessage = null) }
+    }
+
+    fun confirmPendingPurchase() {
+        val session = _ui.value.pendingPurchase ?: return
+        val selected = session.selectedRaces
+        if (selected.isEmpty()) {
+            _ui.update { it.copy(actionMessage = "公式サイトで実際に投票できたレースを選択してください") }
+            return
+        }
+        val before = _ui.value.records.size
+        val records = betStore.addConfirmedPurchases(selected)
+        val addedTickets = (records.size - before).coerceAtLeast(0)
+        pendingPurchaseStore.clear()
+        _ui.update {
+            it.copy(
+                records = records,
+                pendingPurchase = null,
+                actionMessage = "${selected.size}レース / ${addedTickets}点を実購入として記録しました"
+            )
+        }
+    }
+
+    fun cancelPendingPurchase() {
+        pendingPurchaseStore.clear()
+        _ui.update { it.copy(pendingPurchase = null, actionMessage = "投票待ちを破棄しました") }
     }
 
     fun recordSelectedRaces() {
