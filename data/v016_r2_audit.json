@@ -1,0 +1,1088 @@
+{
+  "runId": "35876699180",
+  "sourceRunId": 35875673825,
+  "results": [
+    {
+      "modelId": "fundamental-medium",
+      "year": 2023,
+      "sourcePredictionSha256": "35b2f5abeebe93c67b2d78571ede0b02fe6c440e96aeb146893a379764aba18a",
+      "pairedLoglossDifference": 0.08568666924150946,
+      "dailyClusterBootstrap95": [
+        0.07097123296945529,
+        0.10018363961430295
+      ],
+      "bootstrapReplicates": 1000,
+      "days": 30,
+      "usableRaces": 4078,
+      "fixedPolicy": {
+        "purchaseRaces": 2708,
+        "expectedRoi": 132.85942670361476,
+        "actualRoi": 79.98092072870507
+      },
+      "descriptiveCalibrationBins": [
+        {
+          "evFrom": 0,
+          "evTo": 0.5,
+          "ticketObservations": 12308,
+          "raceObservations": 3669,
+          "meanPredictedReturn": 0.4025025568969876,
+          "meanRealizedReturn": 0.7104809879753005
+        },
+        {
+          "evFrom": 0.5,
+          "evTo": 0.75,
+          "ticketObservations": 20717,
+          "raceObservations": 4022,
+          "meanPredictedReturn": 0.6223631948226427,
+          "meanRealizedReturn": 0.7524400251001594
+        },
+        {
+          "evFrom": 0.75,
+          "evTo": 1,
+          "ticketObservations": 13049,
+          "raceObservations": 3866,
+          "meanPredictedReturn": 0.8600357797544199,
+          "meanRealizedReturn": 0.8158249674304545
+        },
+        {
+          "evFrom": 1,
+          "evTo": 1.1,
+          "ticketObservations": 2782,
+          "raceObservations": 1966,
+          "meanPredictedReturn": 1.0467742481679427,
+          "meanRealizedReturn": 0.7157081236520488
+        },
+        {
+          "evFrom": 1.1,
+          "evTo": 1.25,
+          "ticketObservations": 2561,
+          "raceObservations": 1880,
+          "meanPredictedReturn": 1.1682914911541298,
+          "meanRealizedReturn": 0.7965638422491215
+        },
+        {
+          "evFrom": 1.25,
+          "evTo": 1.5,
+          "ticketObservations": 1934,
+          "raceObservations": 1455,
+          "meanPredictedReturn": 1.3533089658400959,
+          "meanRealizedReturn": 0.9038262668045501
+        },
+        {
+          "evFrom": 1.5,
+          "evTo": 2,
+          "ticketObservations": 902,
+          "raceObservations": 720,
+          "meanPredictedReturn": 1.6621867240166295,
+          "meanRealizedReturn": 0.8243902439024391
+        },
+        {
+          "evFrom": 2,
+          "evTo": null,
+          "ticketObservations": 137,
+          "raceObservations": 122,
+          "meanPredictedReturn": 2.250604281471928,
+          "meanRealizedReturn": 0.7291970802919708
+        }
+      ],
+      "newPolicySelected": false,
+      "holdoutOpened": false,
+      "limitations": [
+        "Daily resampling does not remove archive bias or development-year selection bias",
+        "Overlapping ticket observations are correlated; bin means are not independent trials"
+      ]
+    },
+    {
+      "modelId": "fundamental-medium",
+      "year": 2024,
+      "sourcePredictionSha256": "2bd0c5f8491af884c0c64d22c9ee813a1567ca6c486ea2dd4528397e85215983",
+      "pairedLoglossDifference": 0.08943868472313729,
+      "dailyClusterBootstrap95": [
+        0.08561855885525511,
+        0.09338744057155059
+      ],
+      "bootstrapReplicates": 1000,
+      "days": 366,
+      "usableRaces": 52008,
+      "fixedPolicy": {
+        "purchaseRaces": 34652,
+        "expectedRoi": 132.6196168384374,
+        "actualRoi": 80.11774212166686
+      },
+      "descriptiveCalibrationBins": [
+        {
+          "evFrom": 0,
+          "evTo": 0.5,
+          "ticketObservations": 156568,
+          "raceObservations": 46889,
+          "meanPredictedReturn": 0.4033829569551296,
+          "meanRealizedReturn": 0.7139753972714731
+        },
+        {
+          "evFrom": 0.5,
+          "evTo": 0.75,
+          "ticketObservations": 268944,
+          "raceObservations": 51425,
+          "meanPredictedReturn": 0.6226385741232208,
+          "meanRealizedReturn": 0.7755201826402522
+        },
+        {
+          "evFrom": 0.75,
+          "evTo": 1,
+          "ticketObservations": 167328,
+          "raceObservations": 49503,
+          "meanPredictedReturn": 0.8590757339713985,
+          "meanRealizedReturn": 0.7958889127940333
+        },
+        {
+          "evFrom": 1,
+          "evTo": 1.1,
+          "ticketObservations": 35856,
+          "raceObservations": 25695,
+          "meanPredictedReturn": 1.047207169523019,
+          "meanRealizedReturn": 0.7866772646140117
+        },
+        {
+          "evFrom": 1.1,
+          "evTo": 1.25,
+          "ticketObservations": 32893,
+          "raceObservations": 23730,
+          "meanPredictedReturn": 1.1669400525158125,
+          "meanRealizedReturn": 0.7944517070501322
+        },
+        {
+          "evFrom": 1.25,
+          "evTo": 1.5,
+          "ticketObservations": 24578,
+          "raceObservations": 18299,
+          "meanPredictedReturn": 1.3538068258032552,
+          "meanRealizedReturn": 0.8139311579461308
+        },
+        {
+          "evFrom": 1.5,
+          "evTo": 2,
+          "ticketObservations": 11046,
+          "raceObservations": 8904,
+          "meanPredictedReturn": 1.6638124786147908,
+          "meanRealizedReturn": 0.8028879232301286
+        },
+        {
+          "evFrom": 2,
+          "evTo": null,
+          "ticketObservations": 1572,
+          "raceObservations": 1414,
+          "meanPredictedReturn": 2.247714436842195,
+          "meanRealizedReturn": 0.6494910941475827
+        }
+      ],
+      "newPolicySelected": false,
+      "holdoutOpened": false,
+      "limitations": [
+        "Daily resampling does not remove archive bias or development-year selection bias",
+        "Overlapping ticket observations are correlated; bin means are not independent trials"
+      ]
+    },
+    {
+      "modelId": "fundamental-small",
+      "year": 2023,
+      "sourcePredictionSha256": "861b20c72f93ac10c2a55795101fb3ebca33bd034d9e37f37e873356ca56443e",
+      "pairedLoglossDifference": 0.0916813522253402,
+      "dailyClusterBootstrap95": [
+        0.07635438921803986,
+        0.10651387145340506
+      ],
+      "bootstrapReplicates": 1000,
+      "days": 30,
+      "usableRaces": 4078,
+      "fixedPolicy": {
+        "purchaseRaces": 2618,
+        "expectedRoi": 132.39524905283557,
+        "actualRoi": 81.78635090399796
+      },
+      "descriptiveCalibrationBins": [
+        {
+          "evFrom": 0,
+          "evTo": 0.5,
+          "ticketObservations": 12748,
+          "raceObservations": 3694,
+          "meanPredictedReturn": 0.40237784832700624,
+          "meanRealizedReturn": 0.7385629118293067
+        },
+        {
+          "evFrom": 0.5,
+          "evTo": 0.75,
+          "ticketObservations": 20887,
+          "raceObservations": 4015,
+          "meanPredictedReturn": 0.6215531868764849,
+          "meanRealizedReturn": 0.7433092354095849
+        },
+        {
+          "evFrom": 0.75,
+          "evTo": 1,
+          "ticketObservations": 12634,
+          "raceObservations": 3824,
+          "meanPredictedReturn": 0.8587354119497574,
+          "meanRealizedReturn": 0.8126167484565459
+        },
+        {
+          "evFrom": 1,
+          "evTo": 1.1,
+          "ticketObservations": 2677,
+          "raceObservations": 1922,
+          "meanPredictedReturn": 1.047328430401289,
+          "meanRealizedReturn": 0.6592454239820695
+        },
+        {
+          "evFrom": 1.1,
+          "evTo": 1.25,
+          "ticketObservations": 2442,
+          "raceObservations": 1780,
+          "meanPredictedReturn": 1.1660105466256212,
+          "meanRealizedReturn": 0.9217035217035218
+        },
+        {
+          "evFrom": 1.25,
+          "evTo": 1.5,
+          "ticketObservations": 1874,
+          "raceObservations": 1380,
+          "meanPredictedReturn": 1.3516228164688335,
+          "meanRealizedReturn": 0.8117929562433297
+        },
+        {
+          "evFrom": 1.5,
+          "evTo": 2,
+          "ticketObservations": 855,
+          "raceObservations": 681,
+          "meanPredictedReturn": 1.6661855519494406,
+          "meanRealizedReturn": 0.7106432748538011
+        },
+        {
+          "evFrom": 2,
+          "evTo": null,
+          "ticketObservations": 118,
+          "raceObservations": 104,
+          "meanPredictedReturn": 2.2492565696225792,
+          "meanRealizedReturn": 1.1457627118644067
+        }
+      ],
+      "newPolicySelected": false,
+      "holdoutOpened": false,
+      "limitations": [
+        "Daily resampling does not remove archive bias or development-year selection bias",
+        "Overlapping ticket observations are correlated; bin means are not independent trials"
+      ]
+    },
+    {
+      "modelId": "fundamental-small",
+      "year": 2024,
+      "sourcePredictionSha256": "d08ca11558e66f0f10af51d61a3be35f016b765299caa4ab0622ad8eae3d044c",
+      "pairedLoglossDifference": 0.09536712403047516,
+      "dailyClusterBootstrap95": [
+        0.09156298398175429,
+        0.09916443147200418
+      ],
+      "bootstrapReplicates": 1000,
+      "days": 366,
+      "usableRaces": 52008,
+      "fixedPolicy": {
+        "purchaseRaces": 33198,
+        "expectedRoi": 132.1736625441124,
+        "actualRoi": 79.93307829788944
+      },
+      "descriptiveCalibrationBins": [
+        {
+          "evFrom": 0,
+          "evTo": 0.5,
+          "ticketObservations": 163126,
+          "raceObservations": 47264,
+          "meanPredictedReturn": 0.40268391986836816,
+          "meanRealizedReturn": 0.7239875924132265
+        },
+        {
+          "evFrom": 0.5,
+          "evTo": 0.75,
+          "ticketObservations": 272041,
+          "raceObservations": 51413,
+          "meanPredictedReturn": 0.6213293489257045,
+          "meanRealizedReturn": 0.7708194720648726
+        },
+        {
+          "evFrom": 0.75,
+          "evTo": 1,
+          "ticketObservations": 162621,
+          "raceObservations": 49243,
+          "meanPredictedReturn": 0.8584072413455667,
+          "meanRealizedReturn": 0.8001328241739997
+        },
+        {
+          "evFrom": 1,
+          "evTo": 1.1,
+          "ticketObservations": 34372,
+          "raceObservations": 24872,
+          "meanPredictedReturn": 1.0471403350119506,
+          "meanRealizedReturn": 0.783655300826254
+        },
+        {
+          "evFrom": 1.1,
+          "evTo": 1.25,
+          "ticketObservations": 31267,
+          "raceObservations": 22776,
+          "meanPredictedReturn": 1.1673479063426508,
+          "meanRealizedReturn": 0.8118239677615376
+        },
+        {
+          "evFrom": 1.25,
+          "evTo": 1.5,
+          "ticketObservations": 23039,
+          "raceObservations": 17291,
+          "meanPredictedReturn": 1.3531547301148672,
+          "meanRealizedReturn": 0.7821910673206303
+        },
+        {
+          "evFrom": 1.5,
+          "evTo": 2,
+          "ticketObservations": 10227,
+          "raceObservations": 8242,
+          "meanPredictedReturn": 1.665975998008098,
+          "meanRealizedReturn": 0.8253642319350738
+        },
+        {
+          "evFrom": 2,
+          "evTo": null,
+          "ticketObservations": 1377,
+          "raceObservations": 1233,
+          "meanPredictedReturn": 2.246449826872915,
+          "meanRealizedReturn": 0.6209150326797386
+        }
+      ],
+      "newPolicySelected": false,
+      "holdoutOpened": false,
+      "limitations": [
+        "Daily resampling does not remove archive bias or development-year selection bias",
+        "Overlapping ticket observations are correlated; bin means are not independent trials"
+      ]
+    },
+    {
+      "modelId": "place-medium",
+      "year": 2023,
+      "sourcePredictionSha256": "8615e21f1432a3c6fa5cbb2e563ea0a49817a77a5a050e48857bd2269c47d28b",
+      "pairedLoglossDifference": -0.0025628881372669167,
+      "dailyClusterBootstrap95": [
+        -0.004147827617736721,
+        -0.0007953478718128509
+      ],
+      "bootstrapReplicates": 1000,
+      "days": 30,
+      "usableRaces": 4078,
+      "fixedPolicy": {
+        "purchaseRaces": 0,
+        "expectedRoi": null,
+        "actualRoi": null
+      },
+      "descriptiveCalibrationBins": [
+        {
+          "evFrom": 0,
+          "evTo": 0.5,
+          "ticketObservations": 29,
+          "raceObservations": 23,
+          "meanPredictedReturn": 0.47710395496711755,
+          "meanRealizedReturn": 0.0
+        },
+        {
+          "evFrom": 0.5,
+          "evTo": 0.75,
+          "ticketObservations": 27714,
+          "raceObservations": 4071,
+          "meanPredictedReturn": 0.7204888732603569,
+          "meanRealizedReturn": 0.7288446272641985
+        },
+        {
+          "evFrom": 0.75,
+          "evTo": 1,
+          "ticketObservations": 29019,
+          "raceObservations": 4077,
+          "meanPredictedReturn": 0.7811540314755412,
+          "meanRealizedReturn": 0.7886212481477652
+        },
+        {
+          "evFrom": 1,
+          "evTo": 1.1,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.1,
+          "evTo": 1.25,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.25,
+          "evTo": 1.5,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.5,
+          "evTo": 2,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 2,
+          "evTo": null,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        }
+      ],
+      "newPolicySelected": false,
+      "holdoutOpened": false,
+      "limitations": [
+        "Daily resampling does not remove archive bias or development-year selection bias",
+        "Overlapping ticket observations are correlated; bin means are not independent trials"
+      ]
+    },
+    {
+      "modelId": "place-medium",
+      "year": 2024,
+      "sourcePredictionSha256": "50b1e6e03adf229762ade87faa9e636fc9349d3bc31388575f37a407af50f39b",
+      "pairedLoglossDifference": -0.0030106691241166576,
+      "dailyClusterBootstrap95": [
+        -0.003483148594378644,
+        -0.0025224586732868477
+      ],
+      "bootstrapReplicates": 1000,
+      "days": 366,
+      "usableRaces": 52008,
+      "fixedPolicy": {
+        "purchaseRaces": 0,
+        "expectedRoi": null,
+        "actualRoi": null
+      },
+      "descriptiveCalibrationBins": [
+        {
+          "evFrom": 0,
+          "evTo": 0.5,
+          "ticketObservations": 354,
+          "raceObservations": 253,
+          "meanPredictedReturn": 0.4602029132142837,
+          "meanRealizedReturn": 0.5333333333333333
+        },
+        {
+          "evFrom": 0.5,
+          "evTo": 0.75,
+          "ticketObservations": 352575,
+          "raceObservations": 51931,
+          "meanPredictedReturn": 0.7202299331491541,
+          "meanRealizedReturn": 0.7315121605332199
+        },
+        {
+          "evFrom": 0.75,
+          "evTo": 1,
+          "ticketObservations": 372716,
+          "raceObservations": 52004,
+          "meanPredictedReturn": 0.7811826483491294,
+          "meanRealizedReturn": 0.8001773468270749
+        },
+        {
+          "evFrom": 1,
+          "evTo": 1.1,
+          "ticketObservations": 11,
+          "raceObservations": 11,
+          "meanPredictedReturn": 1.0207350871023968,
+          "meanRealizedReturn": 2.3363636363636364
+        },
+        {
+          "evFrom": 1.1,
+          "evTo": 1.25,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.25,
+          "evTo": 1.5,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.5,
+          "evTo": 2,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 2,
+          "evTo": null,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        }
+      ],
+      "newPolicySelected": false,
+      "holdoutOpened": false,
+      "limitations": [
+        "Daily resampling does not remove archive bias or development-year selection bias",
+        "Overlapping ticket observations are correlated; bin means are not independent trials"
+      ]
+    },
+    {
+      "modelId": "place-small",
+      "year": 2023,
+      "sourcePredictionSha256": "b9b0e8b72b2272ba2c25045ba47970ddc0397050d86fcb2bd2e374d742a2a6a8",
+      "pairedLoglossDifference": -0.0036664302402551947,
+      "dailyClusterBootstrap95": [
+        -0.005320592703138493,
+        -0.0020240450860470886
+      ],
+      "bootstrapReplicates": 1000,
+      "days": 30,
+      "usableRaces": 4078,
+      "fixedPolicy": {
+        "purchaseRaces": 0,
+        "expectedRoi": null,
+        "actualRoi": null
+      },
+      "descriptiveCalibrationBins": [
+        {
+          "evFrom": 0,
+          "evTo": 0.5,
+          "ticketObservations": 6,
+          "raceObservations": 6,
+          "meanPredictedReturn": 0.4858350745711129,
+          "meanRealizedReturn": 0.0
+        },
+        {
+          "evFrom": 0.5,
+          "evTo": 0.75,
+          "ticketObservations": 27685,
+          "raceObservations": 4075,
+          "meanPredictedReturn": 0.7203053688815054,
+          "meanRealizedReturn": 0.725569803142496
+        },
+        {
+          "evFrom": 0.75,
+          "evTo": 1,
+          "ticketObservations": 29071,
+          "raceObservations": 4076,
+          "meanPredictedReturn": 0.7812114671814505,
+          "meanRealizedReturn": 0.7910563792095217
+        },
+        {
+          "evFrom": 1,
+          "evTo": 1.1,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.1,
+          "evTo": 1.25,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.25,
+          "evTo": 1.5,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.5,
+          "evTo": 2,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 2,
+          "evTo": null,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        }
+      ],
+      "newPolicySelected": false,
+      "holdoutOpened": false,
+      "limitations": [
+        "Daily resampling does not remove archive bias or development-year selection bias",
+        "Overlapping ticket observations are correlated; bin means are not independent trials"
+      ]
+    },
+    {
+      "modelId": "place-small",
+      "year": 2024,
+      "sourcePredictionSha256": "99c27b67b02cf8bf925ae02e0ae020d73595f6a245124e1c39673b9833a94692",
+      "pairedLoglossDifference": -0.0033289846401746725,
+      "dailyClusterBootstrap95": [
+        -0.0038303864852209752,
+        -0.002823138579543094
+      ],
+      "bootstrapReplicates": 1000,
+      "days": 366,
+      "usableRaces": 52008,
+      "fixedPolicy": {
+        "purchaseRaces": 0,
+        "expectedRoi": null,
+        "actualRoi": null
+      },
+      "descriptiveCalibrationBins": [
+        {
+          "evFrom": 0,
+          "evTo": 0.5,
+          "ticketObservations": 220,
+          "raceObservations": 180,
+          "meanPredictedReturn": 0.4757684820446772,
+          "meanRealizedReturn": 0.44590909090909087
+        },
+        {
+          "evFrom": 0.5,
+          "evTo": 0.75,
+          "ticketObservations": 351487,
+          "raceObservations": 51952,
+          "meanPredictedReturn": 0.7201457097990063,
+          "meanRealizedReturn": 0.727159468202238
+        },
+        {
+          "evFrom": 0.75,
+          "evTo": 1,
+          "ticketObservations": 373939,
+          "raceObservations": 52006,
+          "meanPredictedReturn": 0.781262058567311,
+          "meanRealizedReturn": 0.8040324758851042
+        },
+        {
+          "evFrom": 1,
+          "evTo": 1.1,
+          "ticketObservations": 10,
+          "raceObservations": 10,
+          "meanPredictedReturn": 1.0120092464958277,
+          "meanRealizedReturn": 2.2
+        },
+        {
+          "evFrom": 1.1,
+          "evTo": 1.25,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.25,
+          "evTo": 1.5,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.5,
+          "evTo": 2,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 2,
+          "evTo": null,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        }
+      ],
+      "newPolicySelected": false,
+      "holdoutOpened": false,
+      "limitations": [
+        "Daily resampling does not remove archive bias or development-year selection bias",
+        "Overlapping ticket observations are correlated; bin means are not independent trials"
+      ]
+    },
+    {
+      "modelId": "residual-medium",
+      "year": 2023,
+      "sourcePredictionSha256": "631fdfc0a2c7baca8386eaaea2822fb3b6b10492e7f9d66d0db246c4b6db2727",
+      "pairedLoglossDifference": -0.007128010181092855,
+      "dailyClusterBootstrap95": [
+        -0.009624782678968427,
+        -0.004538040839257563
+      ],
+      "bootstrapReplicates": 1000,
+      "days": 30,
+      "usableRaces": 4078,
+      "fixedPolicy": {
+        "purchaseRaces": 6,
+        "expectedRoi": 112.05765374296857,
+        "actualRoi": 466.6666666666667
+      },
+      "descriptiveCalibrationBins": [
+        {
+          "evFrom": 0,
+          "evTo": 0.5,
+          "ticketObservations": 25,
+          "raceObservations": 19,
+          "meanPredictedReturn": 0.46747478107071316,
+          "meanRealizedReturn": 0.0
+        },
+        {
+          "evFrom": 0.5,
+          "evTo": 0.75,
+          "ticketObservations": 23723,
+          "raceObservations": 4039,
+          "meanPredictedReturn": 0.7050507610759654,
+          "meanRealizedReturn": 0.6943177507060658
+        },
+        {
+          "evFrom": 0.75,
+          "evTo": 1,
+          "ticketObservations": 32944,
+          "raceObservations": 4069,
+          "meanPredictedReturn": 0.8028871008461307,
+          "meanRealizedReturn": 0.8055154201068481
+        },
+        {
+          "evFrom": 1,
+          "evTo": 1.1,
+          "ticketObservations": 64,
+          "raceObservations": 50,
+          "meanPredictedReturn": 1.029571692322734,
+          "meanRealizedReturn": 0.75
+        },
+        {
+          "evFrom": 1.1,
+          "evTo": 1.25,
+          "ticketObservations": 6,
+          "raceObservations": 6,
+          "meanPredictedReturn": 1.1205765374296857,
+          "meanRealizedReturn": 4.666666666666667
+        },
+        {
+          "evFrom": 1.25,
+          "evTo": 1.5,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.5,
+          "evTo": 2,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 2,
+          "evTo": null,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        }
+      ],
+      "newPolicySelected": false,
+      "holdoutOpened": false,
+      "limitations": [
+        "Daily resampling does not remove archive bias or development-year selection bias",
+        "Overlapping ticket observations are correlated; bin means are not independent trials"
+      ]
+    },
+    {
+      "modelId": "residual-medium",
+      "year": 2024,
+      "sourcePredictionSha256": "f89a45b44bfea5ef42d27e4613b2a4c1295852c118df6e75b85bb381d569894a",
+      "pairedLoglossDifference": -0.007199600688380041,
+      "dailyClusterBootstrap95": [
+        -0.008118077891432394,
+        -0.006328166512000073
+      ],
+      "bootstrapReplicates": 1000,
+      "days": 366,
+      "usableRaces": 52008,
+      "fixedPolicy": {
+        "purchaseRaces": 65,
+        "expectedRoi": 113.38467960038803,
+        "actualRoi": 47.38461538461539
+      },
+      "descriptiveCalibrationBins": [
+        {
+          "evFrom": 0,
+          "evTo": 0.5,
+          "ticketObservations": 364,
+          "raceObservations": 272,
+          "meanPredictedReturn": 0.461489850021967,
+          "meanRealizedReturn": 0.4527472527472528
+        },
+        {
+          "evFrom": 0.5,
+          "evTo": 0.75,
+          "ticketObservations": 297968,
+          "raceObservations": 51433,
+          "meanPredictedReturn": 0.7048287562645292,
+          "meanRealizedReturn": 0.6943403318477153
+        },
+        {
+          "evFrom": 0.75,
+          "evTo": 1,
+          "ticketObservations": 426357,
+          "raceObservations": 51918,
+          "meanPredictedReturn": 0.8030396902099073,
+          "meanRealizedReturn": 0.8175167758474705
+        },
+        {
+          "evFrom": 1,
+          "evTo": 1.1,
+          "ticketObservations": 883,
+          "raceObservations": 653,
+          "meanPredictedReturn": 1.0313468649898714,
+          "meanRealizedReturn": 0.8125707814269536
+        },
+        {
+          "evFrom": 1.1,
+          "evTo": 1.25,
+          "ticketObservations": 83,
+          "raceObservations": 65,
+          "meanPredictedReturn": 1.1344622507837816,
+          "meanRealizedReturn": 0.46746987951807223
+        },
+        {
+          "evFrom": 1.25,
+          "evTo": 1.5,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.5,
+          "evTo": 2,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 2,
+          "evTo": null,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        }
+      ],
+      "newPolicySelected": false,
+      "holdoutOpened": false,
+      "limitations": [
+        "Daily resampling does not remove archive bias or development-year selection bias",
+        "Overlapping ticket observations are correlated; bin means are not independent trials"
+      ]
+    },
+    {
+      "modelId": "residual-small",
+      "year": 2023,
+      "sourcePredictionSha256": "1d7d512bb28592f57f7f0194a7593105d1be434ea741282fb3be5d7eddc9591b",
+      "pairedLoglossDifference": -0.008497790272593349,
+      "dailyClusterBootstrap95": [
+        -0.011350704091369304,
+        -0.005799631866463365
+      ],
+      "bootstrapReplicates": 1000,
+      "days": 30,
+      "usableRaces": 4078,
+      "fixedPolicy": {
+        "purchaseRaces": 2,
+        "expectedRoi": 113.49357304203807,
+        "actualRoi": 1400.0
+      },
+      "descriptiveCalibrationBins": [
+        {
+          "evFrom": 0,
+          "evTo": 0.5,
+          "ticketObservations": 7,
+          "raceObservations": 6,
+          "meanPredictedReturn": 0.4704928245588074,
+          "meanRealizedReturn": 0.0
+        },
+        {
+          "evFrom": 0.5,
+          "evTo": 0.75,
+          "ticketObservations": 23468,
+          "raceObservations": 4038,
+          "meanPredictedReturn": 0.7050251818764681,
+          "meanRealizedReturn": 0.6880092040224988
+        },
+        {
+          "evFrom": 0.75,
+          "evTo": 1,
+          "ticketObservations": 33222,
+          "raceObservations": 4070,
+          "meanPredictedReturn": 0.8031761961697205,
+          "meanRealizedReturn": 0.8085605923785444
+        },
+        {
+          "evFrom": 1,
+          "evTo": 1.1,
+          "ticketObservations": 63,
+          "raceObservations": 49,
+          "meanPredictedReturn": 1.0274589504332032,
+          "meanRealizedReturn": 0.7619047619047619
+        },
+        {
+          "evFrom": 1.1,
+          "evTo": 1.25,
+          "ticketObservations": 2,
+          "raceObservations": 2,
+          "meanPredictedReturn": 1.1349357304203807,
+          "meanRealizedReturn": 14.0
+        },
+        {
+          "evFrom": 1.25,
+          "evTo": 1.5,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.5,
+          "evTo": 2,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 2,
+          "evTo": null,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        }
+      ],
+      "newPolicySelected": false,
+      "holdoutOpened": false,
+      "limitations": [
+        "Daily resampling does not remove archive bias or development-year selection bias",
+        "Overlapping ticket observations are correlated; bin means are not independent trials"
+      ]
+    },
+    {
+      "modelId": "residual-small",
+      "year": 2024,
+      "sourcePredictionSha256": "628281b9429259962dbe0b845a4685067dd8a2e137a9333bdbcfe08b49d11af2",
+      "pairedLoglossDifference": -0.0076916299939776235,
+      "dailyClusterBootstrap95": [
+        -0.008563194783027885,
+        -0.006841339632179865
+      ],
+      "bootstrapReplicates": 1000,
+      "days": 366,
+      "usableRaces": 52008,
+      "fixedPolicy": {
+        "purchaseRaces": 47,
+        "expectedRoi": 112.78215348837539,
+        "actualRoi": 139.7872340425532
+      },
+      "descriptiveCalibrationBins": [
+        {
+          "evFrom": 0,
+          "evTo": 0.5,
+          "ticketObservations": 211,
+          "raceObservations": 176,
+          "meanPredictedReturn": 0.47494331455660527,
+          "meanRealizedReturn": 0.2895734597156398
+        },
+        {
+          "evFrom": 0.5,
+          "evTo": 0.75,
+          "ticketObservations": 295015,
+          "raceObservations": 51425,
+          "meanPredictedReturn": 0.7049699999759864,
+          "meanRealizedReturn": 0.6951175363964545
+        },
+        {
+          "evFrom": 0.75,
+          "evTo": 1,
+          "ticketObservations": 429553,
+          "raceObservations": 51940,
+          "meanPredictedReturn": 0.8030588847129979,
+          "meanRealizedReturn": 0.8158937313905384
+        },
+        {
+          "evFrom": 1,
+          "evTo": 1.1,
+          "ticketObservations": 825,
+          "raceObservations": 643,
+          "meanPredictedReturn": 1.0300461936107737,
+          "meanRealizedReturn": 0.8482424242424242
+        },
+        {
+          "evFrom": 1.1,
+          "evTo": 1.25,
+          "ticketObservations": 52,
+          "raceObservations": 47,
+          "meanPredictedReturn": 1.129874390109572,
+          "meanRealizedReturn": 1.2634615384615382
+        },
+        {
+          "evFrom": 1.25,
+          "evTo": 1.5,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 1.5,
+          "evTo": 2,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        },
+        {
+          "evFrom": 2,
+          "evTo": null,
+          "ticketObservations": 0,
+          "raceObservations": 0,
+          "meanPredictedReturn": null,
+          "meanRealizedReturn": null
+        }
+      ],
+      "newPolicySelected": false,
+      "holdoutOpened": false,
+      "limitations": [
+        "Daily resampling does not remove archive bias or development-year selection bias",
+        "Overlapping ticket observations are correlated; bin means are not independent trials"
+      ]
+    }
+  ],
+  "candidateSelectionChanged": false,
+  "holdoutOpened": false
+}
