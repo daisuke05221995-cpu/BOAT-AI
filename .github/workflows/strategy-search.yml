@@ -11,6 +11,7 @@ on:
       - 'scripts/search_2026_strategy_v8.py'
       - 'scripts/search_2026_strategy_v9.py'
       - 'scripts/search_2026_strategy_v10.py'
+      - 'scripts/search_2026_strategy_v11.py'
       - '.github/workflows/strategy-search.yml'
       - 'data/historical_learning_pre2026.json'
 
@@ -18,13 +19,13 @@ permissions:
   contents: write
 
 concurrency:
-  group: strategy-search-2026-v10
+  group: strategy-search-2026-v11
   cancel-in-progress: true
 
 jobs:
   search:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
@@ -49,9 +50,9 @@ jobs:
           assert int(data.get('historicalRaceCount', 0)) > 200000
           PY
 
-      - name: Run September holdout value validation
+      - name: Run monthly adaptive odds-value walk-forward
         run: |
-          python -u scripts/search_2026_strategy_v10.py \
+          python -u scripts/search_2026_strategy_v11.py \
             --start 2026-01-01 \
             --learning data/historical_learning_pre2026.json \
             --workers 16 \
@@ -62,26 +63,22 @@ jobs:
           python - <<'PY'
           import json
           data=json.load(open('data/strategy_search_2026.json', encoding='utf-8'))
-          schema=int(data.get('schemaVersion', 1))
-          assert schema >= 10
-          assert data['periods']['train'] == ['2026-01-01','2026-04-30']
-          assert data['periods']['development'] == ['2026-05-01','2026-08-31']
-          cfg=data['selected']['config']
+          assert int(data.get('schemaVersion', 0)) >= 11
+          assert data['periods']['calibration'] == ['2026-02-01','2026-04-30']
+          cfg=data['nextLiveConfig']
           assert 1 <= int(cfg['maxPoints']) <= 10
-          assert cfg['allocationMode'] in ('equal','probability','edge')
+          assert cfg['allocationMode'] in ('equal','probability')
           assert int(cfg['budget']) == 1200
           assert data.get('oddsFinalGateIncluded') is True
           coverage=data.get('oddsCoverage', {})
-          assert int(coverage.get('daysLoaded', 0)) >= 100
+          assert int(coverage.get('daysLoaded', 0)) >= 150
           print(json.dumps({
-            'schemaVersion': schema,
-            'config': cfg,
-            'developmentMonths': data['selected']['developmentMonths'],
-            'development': data['selected']['development'],
-            'qualifiedForFinal': data.get('qualifiedForFinal', False),
-            'qualifiedForRelease': data.get('qualifiedForRelease', False),
-            'final': data.get('final', {}),
-            'combinedThroughFinal': data.get('combinedThroughFinal', {}),
+            'operationMonths': data['operationMonths'],
+            'operation': data['operation'],
+            'positiveOperationMonths': data['positiveOperationMonths'],
+            'worstOperationMonthRoi': data['worstOperationMonthRoi'],
+            'qualifiedForRelease': data['qualifiedForRelease'],
+            'nextLiveConfig': cfg,
             'oddsCoverage': coverage,
           }, ensure_ascii=False, indent=2))
           PY
