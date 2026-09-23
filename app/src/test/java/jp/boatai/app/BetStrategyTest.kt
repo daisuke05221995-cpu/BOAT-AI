@@ -15,6 +15,32 @@ class BetStrategyTest {
     }
 
     @Test
+    fun preservesUpstreamEqualAllocationAtValidatedBudget() {
+        val picks = listOf(
+            PredictionPick("1-2-3", 1.2, odds = 20.0, recommendedStake = 600, reason = "value"),
+            PredictionPick("1-3-2", 1.1, odds = 25.0, recommendedStake = 600, reason = "value")
+        )
+
+        val result = BetStrategy.allocate(testRace(), picks, 1_200)
+
+        assertEquals(listOf(600, 600), result.map { it.recommendedStake })
+        assertEquals(listOf("value", "value"), result.map { it.reason })
+    }
+
+    @Test
+    fun scalesUpstreamAllocationWithoutChangingItsRatio() {
+        val picks = listOf(
+            PredictionPick("1-2-3", 1.2, odds = 20.0, recommendedStake = 600),
+            PredictionPick("1-3-2", 1.1, odds = 25.0, recommendedStake = 600)
+        )
+
+        val result = BetStrategy.allocate(testRace(), picks, 2_000)
+
+        assertEquals(listOf(1_000, 1_000), result.map { it.recommendedStake })
+        assertEquals(2_000, result.sumOf { it.recommendedStake })
+    }
+
+    @Test
     fun clampsBudgetToUserLimit() {
         val result = BetStrategy.allocate(testRace(), listOf(PredictionPick("1-2-3", 10.0)), 9_999)
         assertEquals(3_000, result.single().recommendedStake)
