@@ -127,10 +127,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fast-validation-${{ matrix.year }}
-          path: validation_${TARGET_YEAR}.json
+          path: validation_*.json
           retention-days: 14
-        env:
-          TARGET_YEAR: ${{ matrix.year }}
 
   merge:
     needs: validate
