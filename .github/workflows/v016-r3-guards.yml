@@ -1,0 +1,21 @@
+name: v0.16 CORE r3 chronology guards
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/v016_r3_test.py'
+      - 'data/v016_r3_protocol.json'
+      - '.github/workflows/v016-r3-guards.yml'
+  workflow_dispatch:
+
+jobs:
+  chronology-guards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify sealed holdout and chronology
+        run: python scripts/v016_r3_test.py
