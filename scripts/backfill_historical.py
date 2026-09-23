@@ -4,6 +4,10 @@
 This script can build either the full baseline or a partial date range. Partial
 outputs are intended to be merged by scripts/merge_historical.py so GitHub Actions
 can process several date ranges in parallel without hitting a single-job timeout.
+
+Validation prefixes also retain racer-level start-timing sums/counts. Those extra
+fields let older-year model validation reconstruct a pre-race average-start feature
+without using any target-day result information.
 """
 
 from __future__ import annotations
@@ -61,6 +65,8 @@ def main() -> None:
     wind_course_starts: Counter[str] = Counter()
     wind_course_wins: Counter[str] = Counter()
     venue_race_counts: Counter[str] = Counter()
+    racer_start_timing_sum: Counter[str] = Counter()
+    racer_start_timing_count: Counter[str] = Counter()
 
     historical_race_count = 0
     downloaded_days = 0
@@ -104,6 +110,14 @@ def main() -> None:
                 for entry in parsed.entries:
                     key = (entry.venue_code, entry.race_number)
                     entries_by_key.setdefault(key, []).append(entry)
+                    # Keep a leakage-safe pre-year seed for the average-start model
+                    # feature. The target year later updates this only after each day.
+                    racer_number = int(entry.racer_number or 0)
+                    timing = entry.st_timing
+                    if racer_number > 0 and timing is not None and -1.0 <= float(timing) <= 1.0:
+                        racer_key = str(racer_number)
+                        racer_start_timing_sum[racer_key] += float(timing)
+                        racer_start_timing_count[racer_key] += 1
 
                 for key, entries in entries_by_key.items():
                     venue_code, _race_number = key
@@ -168,6 +182,14 @@ def main() -> None:
             "venueRaceCounts": dict(
                 sorted(venue_race_counts.items(), key=lambda item: int(item[0]))
             ),
+            "racerStartTimingSum": {
+                key: round(float(value), 6)
+                for key, value in sorted(racer_start_timing_sum.items(), key=lambda item: int(item[0]))
+            },
+            "racerStartTimingCount": {
+                key: int(value)
+                for key, value in sorted(racer_start_timing_count.items(), key=lambda item: int(item[0]))
+            },
         }
 
         if args.allow_partial:
@@ -195,7 +217,8 @@ def main() -> None:
         print(
             f"wrote {args.output} with {historical_race_count:,} races; "
             f"starts={sum(starts.values()):,}, "
-            f"wind-course starts={sum(wind_course_starts.values()):,}",
+            f"wind-course starts={sum(wind_course_starts.values()):,}, "
+            f"racer-start samples={sum(racer_start_timing_count.values()):,}",
             flush=True,
         )
     finally:
