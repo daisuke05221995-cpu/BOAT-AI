@@ -6,114 +6,119 @@
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
 - Branch: `main`
-- 公開版: `v0.15.16`
-- versionCode: 34 / versionName: 0.15.16
-- Release target commit: `11338ffc426662f60e02803bf5ceb333bb048f61`
-- Debug validation Run: `35974408635` SUCCESS
-- Signed Release Run: `35974408547` SUCCESS
-- Release asset: `BOAT-AI-v0.15.16.apk`
-- APK SHA-256: `642fb50c605364a7c84f87b7dcd31419fe8aed6eff42613699c506e7d1cd5a98`
+- 公開版: **v0.16.0**
+- versionCode: **35** / versionName: **0.16.0**
+- Release target commit: `ef87c862a79bce0fbb68e5399798b215e5914ae7`
+- Final pre-version Debug gate Run: `36006480052` SUCCESS
+- v0.16.0 Build Run: `36006839510` SUCCESS
+- Signed Release Run: `36006839426` SUCCESS
+- Release ID: `395728675`
+- Published: `2026-09-24T13:38:22Z`
+- Release asset: `BOAT-AI-v0.16.0.apk` (13,662,586 bytes)
+- APK SHA-256: `78da792f0f577a67ed0c8610f08fbc61c4fc838f9d418e2c79618b7de83e5a10`
 - 復旧モード / `CrashRecoveryStore` は維持。ユーザーデータ削除・アンインストールは禁止。
 
-## Android v0.15.16
+## Android v0.16.0
 
-予想と購入判定を分離した安定版。
+市場非入力のforecast-only **Model A** を本番予想へ統合。
 
-- 純AIの着順予想はON。
-- 自動BUY推奨はOFF。
-- 予想順位はオッズを入力に使わない。
-- 現行は上位4点を表示し、手動購入導線は利用可能。
-- v0.15.15購入ロジックの2025年7〜8月診断はBUY率99.5%、ROI68.5%で不合格だったため自動購入を停止。
-- 過去ROIはv0.15.16 forecastには適用しない。
-- 既存の結果・損益・購入記録・更新・復旧機能は維持。
+- 3段 conditional grouped-softmax LightGBM、temperature 1.0。
+- 予想はオッズを入力に使わない。
+- 120通り3連単確率から上位4点を表示。
+- Android起動時に固定Model Aとcompact player-history assetをロード。
+- 履歴assetは2026-09-23まで構築済み。以降は前日分までを日次catch-upし、同日結果を予想へ混入させない。
+- 履歴が欠損・不完全・古い場合はfail-closedし、安定したv0.15.16純AIforecastへフォールバック。
+- 手動購入導線は利用可能。
+- **自動BUY推奨はOFFのまま。**
 
-## v0.16購入研究
+## Model A検証
 
-購入AIは現時点で本番昇格禁止。
+固定Model A:
+- train through 2025-05-31。
+- validation / early stopping / temperature through 2025-06-30。
+- Model Run `35940833546` / Artifact `10784912368`。
+- model artifact digest `sha256:58b845fa8d07efe258b08a23ac6caafab2e4854ce4b84618fb4af6ae3f3687fe`。
 
-- r1〜r4の購入policyは不採用。
-- OOF市場差研究もREJECT。
-- 歴史3連単オッズ監査の最終判定: `ODDS_NOT_SUITABLE_FOR_REALIZABLE_BACKTEST`。
-- 使用アーカイブはレース別の取得時刻/T-5分を証明できず、払戻/100とほぼ一致するため、締切前に実現可能なROI検証値として扱わない。
-- このオッズを使ったROI、期待値、BUY/SKIP条件による本番昇格は停止。
-- 自動BUY推奨は引き続きOFF。
+### 2025年9月 独立holdout
 
-## v0.16 forecast-only Model A
-
-市場入力なしのModel Aは予想モデルとして独立検証まで通過。
-
-固定候補:
-- 3段 conditional grouped-softmax LightGBM。
-- train through: 2025-05-31。
-- early stopping / temperature選択: 2025-06-30まで。
-- temperature=1.0。
-- 市場オッズ入力なし。
-- Model Artifact: Run `35940833546` / Artifact `10784912368`。
-- model digest: `sha256:58b845fa8d07efe258b08a23ac6caafab2e4854ce4b84618fb4af6ae3f3687fe`。
-
-### 2025年7〜8月 development
-
-同9,583レースで:
-- Model A 1着Top1 56.09%、Top2 75.81%。
-- 3連単Top1 9.72%、Top4 29.34%、Top8 45.42%。
-- logloss 3.796223、Brier 0.960191。
-- 現行v0.15.16純AIは1着Top1 45.33%、Top2 66.94%、3連単Top4 19.20%、Top8 32.95%。
-
-### 2025年9月 forecast-only独立holdout
-
-Protocol commit `2fbf3239f8ac68e4d45775b353aa03217d9a517f` を9月初回アクセス前に固定。
-Run `35993900879` SUCCESS。
-
-- source races 4,272。
-- 一意な6艇結果 3,959。
-- Model A必須入力欠損 3。
-- 同一比較集合 3,956レース、coverage 99.9242%。
-- 重複0、同日結果リーク0。
+Run `35993900879` SUCCESS、3,956レース、coverage 99.9242%。
 
 Model A vs v0.15.16純AI:
-- 3連単logloss `3.844202 vs 4.225358`。
-- Brier `0.963136 vs 0.978731`。
-- 1着Top1 `55.308% vs 44.085%`。
-- 1着Top2 `75.126% vs 66.785%`。
-- 3連単Top1 `8.948% vs 5.789%`。
-- Top2 `16.102% vs 10.617%`。
-- Top4 `27.856% vs 18.579%`。
-- Top8 `43.453% vs 30.713%`。
-- Top-choice ECEはModel A 0.012950、baseline 0.002876でModel Aの方が悪い点を記録。
+- 1着Top1 55.308% vs 44.085%。
+- 1着Top2 75.126% vs 66.785%。
+- 3連単Top4 27.856% vs 18.579%。
+- Top8 43.453% vs 30.713%。
+- LogLoss 3.844202 vs 4.225358。
+- Brier 0.963136 vs 0.978731。
+- LogLoss差95% CI `[-0.404683,-0.357090]`。
+- Decision: `PASS_FORECAST_HOLDOUT`。
 
-暦日30日を単位に2,000回paired block bootstrap:
-- logloss差 Model A-baseline = -0.381156、95% CI `[-0.404683,-0.357090]`。
-- Brier差 = -0.015595、95% CI `[-0.017337,-0.013903]`。
+### 2025年10〜12月 Q4 final holdout
 
-最終判定: **`PASS_FORECAST_HOLDOUT`**。
-ただし `productionPromotion=false`。購入収益の合格を意味しない。
+Q4初回アクセス前にProtocol commit `3a56378244dd1f3621f862ac89cea3db8ccea6af` を固定。
+Final Run `36004272796` SUCCESS。
 
-## Android Model A統合準備
+同一11,896レース、coverage 99.9412%、同日結果リーク0、重複0。
 
-- `LightGbmTextModel` のKotlin prototypeを追加。
-- 実Model AのLightGBM v4 numeric/non-linear treeをAndroid側で再現するための最小パーサ/推論器。
-- 実モデルの欠損分岐、threshold、leaf走査をLightGBM仕様に合わせる。
-- 研究用確認ではPython LightGBM raw scoreとKotlin prototypeのサンプル出力が一致。
-- prototype検証Run `35995823959`: live API schema / Unit test / Android lint / Debug APK build / artifact upload 全SUCCESS。
-- まだ本番 `PredictionEngine` へModel Aを接続していない。
-- モデルasset、履歴state、日次履歴更新、120通り確率chain、端末速度/メモリ、Python大量sample parityは今後の統合gate。
-- 約46.9MBの研究用history stateをそのままasset採用するかは未決定。
+Model A vs v0.15.16純AI:
+- 1着Top1 **57.8093% vs 46.1500%**。
+- 1着Top2 **76.5467% vs 67.6278%**。
+- 3連単Top1 **10.6254% vs 5.9011%**。
+- Top4 **30.6153% vs 19.3763%**。
+- Top8 **46.7384% vs 31.9519%**。
+- LogLoss **3.761125 vs 4.181624**。
+- Brier **0.957727 vs 0.976797**。
+- Paired day-block LogLoss差95% CI **[-0.440041,-0.402842]**。
+- Decision: **`PASS_Q4_FINAL_FORECAST`**。
+- 10月・11月・12月すべて月別でもModel Aが主要予想指標を改善。
 
-## 封印範囲
+## Android parity / 性能
 
-**2025-10-01〜2025-12-31 Q4 final holdoutは未取得・未開封のまま維持。**
+Dedicated parity Run `36001980730` SUCCESS。
 
-9月結果を見た後にModel Aの再学習、temperature変更、特徴量追加、係数救済をしない。
+- Python LightGBM 4.6.0 vs Kotlin raw score: 3,072 rowsで一致gate PASS。
+- 実pre-race 64レース × 120通り確率chain parity PASS。
+- player/course history parity PASS。
+- compact history byte parity PASS。
+- JVM smoke: model parse 167.988ms、history decode 76.181ms、1レースforecast median 6.212ms / P95 7.806ms。
+
+## 本番履歴asset
+
+Deployment Run `36005654248` SUCCESS / Artifact `10810058921`。
+
+- history through: 2026-09-23。
+- updateRaces: 141,542。
+- registered players: 1,726。
+- compact history: 4,222,646 bytes。
+- history SHA-256: `a180aa722ad0520b5d86705bac742ff588309e72a49bed373eabf102f257acc3`。
+- 2026履歴sourceはcommit固定し、docs/v2をfrozen r4 schemaへ正規化。
+- モデル再学習なし、オッズ/払戻入力なし。
+
+## 購入AI
+
+本番昇格禁止を継続。
+
+- 歴史オッズ監査: `ODDS_NOT_SUITABLE_FOR_REALIZABLE_BACKTEST`。
+- 締切前/T-5の取得時刻を証明できず、払戻/100とほぼ一致するため、過去ROIを実現可能な購入成績として扱わない。
+- r1〜r4購入policy / OOF市場差候補は不採用。
+- v0.16.0のModel A合格は**予想品質のみ**で、購入ROI合格を意味しない。
+- 自動BUYはOFF。新しい監査可能な締切前オッズ基盤ができるまで再開しない。
+
+## Release検証
+
+Release target `ef87c862a79bce0fbb68e5399798b215e5914ae7`。
+
+- Final pre-version gate `36006480052`: live API schema / Unit test / lint / Debug APK / artifact upload 全SUCCESS。
+- v0.16.0 Build `36006839510`: 同工程 全SUCCESS。
+- Signed Release `36006839426`: release test / lint / signed APK / signature verify / GitHub Release publish 全SUCCESS。
 
 ## 次の作業
 
-1. Python固定Model AとAndroid側で、同一feature rowsのraw scoreを大量sampleでparity検証する。
-2. 3段conditional softmaxと120通り3連単確率をAndroid側に実装し、確率和=1とPython予測一致を確認する。
-3. player/course履歴stateと日次更新方式をAndroid向けに設計する。同日結果は当日全予想後にまとめて反映する。
-4. 端末メモリ/推論速度/起動時間を計測する。
-5. parity・性能・欠損処理が合格した後にのみ、v0.16 forecastとしてProduction統合/Releaseを判断する。
-6. 自動BUYはOFFのまま。締切前時刻が監査可能なオッズ基盤ができるまで購入AI昇格を再開しない。
+1. v0.16.0実機で上書き更新し、当日Model A予想表示・手動購入・結果・損益・アプリ内更新を確認する。
+2. 実運用forecast結果を蓄積し、予測精度・欠損fallback・履歴catch-up失敗を監視する。
+3. 購入AIは、取得時刻を監査可能な締切前オッズデータ基盤を新設してから別研究として再開する。
+4. Model Aを9月/Q4結果へ合わせて再学習・temperature変更・救済調整しない。
 
 ## 再開時
 
-`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、`data/v016_sept_forecast_decision.json`、`data/v016_forecast_candidate.json`、最新main、進行中Actionsを確認する。
+`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`data/v016_q4_forecast_decision.json`、`data/v016_release_readiness.md`、最新main、最新Actions、v0.16.0 Releaseを確認する。
