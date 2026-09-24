@@ -8,11 +8,14 @@ on:
     paths:
       - 'app/src/main/java/jp/boatai/app/LightGbmTextModel.kt'
       - 'app/src/main/java/jp/boatai/app/ModelAConditionalPredictor.kt'
+      - 'app/src/main/java/jp/boatai/app/ModelAPlayerHistory.kt'
       - 'app/src/test/java/jp/boatai/app/ModelARealParityTest.kt'
       - 'app/src/test/java/jp/boatai/app/ModelAChainRealParityTest.kt'
       - 'app/src/test/java/jp/boatai/app/ModelAConditionalPredictorTest.kt'
+      - 'app/src/test/java/jp/boatai/app/ModelAPlayerHistoryParityTest.kt'
       - 'scripts/v016_android_parity_fixture.py'
       - 'scripts/v016_android_chain_fixture.py'
+      - 'scripts/v016_android_history_fixture.py'
       - '.github/workflows/v016-android-parity.yml'
 
 permissions:
@@ -20,7 +23,7 @@ permissions:
   actions: read
 
 jobs:
-  raw-score-and-chain-parity:
+  raw-score-chain-history-parity:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -92,6 +95,9 @@ jobs:
             --races 64
           cat /tmp/model-a-parity/chain.json
 
+      - name: Generate synthetic Python player-history fixture
+        run: python scripts/v016_android_history_fixture.py --output /tmp/model-a-parity/history.txt
+
       - name: Compare Kotlin raw scores against LightGBM 4.6.0
         env:
           BOAT_AI_PARITY_DIR: /tmp/model-a-parity
@@ -101,6 +107,11 @@ jobs:
         env:
           BOAT_AI_PARITY_DIR: /tmp/model-a-parity
         run: ./gradlew testDebugUnitTest --tests jp.boatai.app.ModelAChainRealParityTest --stacktrace
+
+      - name: Compare Kotlin player history against frozen Python implementation
+        env:
+          BOAT_AI_PARITY_DIR: /tmp/model-a-parity
+        run: ./gradlew testDebugUnitTest --tests jp.boatai.app.ModelAPlayerHistoryParityTest --stacktrace
 
       - name: Upload parity summaries
         uses: actions/upload-artifact@v4
