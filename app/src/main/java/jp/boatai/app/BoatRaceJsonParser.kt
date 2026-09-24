@@ -30,12 +30,15 @@ object BoatRaceJsonParser {
             if (racersObj != null) {
                 for (lane in 1..6) {
                     val r = racersObj.optJSONObject(lane.toString()) ?: continue
+                    val rankText = r.optTextOrNull("rank_number_source")
+                        ?: r.optIntOrNull("rank_number")?.toString()
+                        ?: "-"
                     add(
                         Racer(
                             lane = lane,
                             name = r.optString("name").trim(),
                             registrationNumber = r.optIntOrNull("number"),
-                            rank = r.optTextOrNull("rank_number_source") ?: r.optIntOrNull("rank_number")?.toString() ?: "-",
+                            rank = rankText,
                             branch = r.optTextOrNull("branch_number_source") ?: r.optIntOrNull("branch_number")?.toString(),
                             age = r.optIntOrNull("age"),
                             weight = r.optDoubleOrNull("weight"),
@@ -52,7 +55,12 @@ object BoatRaceJsonParser {
                             boatNumber = r.optIntOrNull("boat_number"),
                             boatTop2 = r.optDoubleOrNull("boat_top_2_percent"),
                             boatTop3 = r.optDoubleOrNull("boat_top_3_percent"),
-                            preview = previewRacers[lane]
+                            preview = previewRacers[lane],
+                            classNumber = r.optIntOrNull("rank_number")
+                                ?: r.optIntOrNull("racer_class_number")
+                                ?: classNumberFromText(rankText),
+                            flyingCount = r.optIntOrNull("flying_count") ?: r.optIntOrNull("racer_flying_count"),
+                            lateCount = r.optIntOrNull("late_count") ?: r.optIntOrNull("racer_late_count")
                         )
                     )
                 }
@@ -118,5 +126,13 @@ object BoatRaceJsonParser {
                 )
             }
         }
+    }
+
+    private fun classNumberFromText(value: String): Int? = when (value.trim().uppercase()) {
+        "A1" -> 1
+        "A2" -> 2
+        "B1" -> 3
+        "B2" -> 4
+        else -> null
     }
 }
