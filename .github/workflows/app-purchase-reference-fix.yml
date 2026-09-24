@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/app_purchase_reference_patch_01513.py'
+      - 'scripts/app_purchase_reference_patch_01513_fix.py'
       - '.github/workflows/app-purchase-reference-fix.yml'
   workflow_dispatch:
 
@@ -33,7 +34,9 @@ jobs:
       - name: Generate wrapper
         run: gradle wrapper --gradle-version 8.10.2
       - name: Apply patch
-        run: python3 scripts/app_purchase_reference_patch_01513.py
+        run: |
+          python3 scripts/app_purchase_reference_patch_01513.py
+          python3 scripts/app_purchase_reference_patch_01513_fix.py
       - name: Unit test, lint and build
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
       - name: Commit verified patch and remove one-shot files
@@ -41,7 +44,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git rm scripts/app_purchase_reference_patch_01513.py .github/workflows/app-purchase-reference-fix.yml
+          git rm scripts/app_purchase_reference_patch_01513.py scripts/app_purchase_reference_patch_01513_fix.py .github/workflows/app-purchase-reference-fix.yml
           git add app
           git commit -m 'Release v0.15.13 purchase handoff and reference mode'
           for attempt in 1 2 3; do
