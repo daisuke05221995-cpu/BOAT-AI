@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-09-24",
+  "purpose": "Diagnostic-only audit of Android v0.15.16 pure AI finish-order forecast. No threshold or coefficient tuning is allowed in this audit.",
+  "productionVersion": "0.15.16",
+  "period": {
+    "developmentEvaluation": "2025-07-01..2025-08-31",
+    "septemberOpened": false,
+    "finalHoldoutOpened": false,
+    "finalHoldout": "2025-10-01..2025-12-31"
+  },
+  "formula": {
+    "scoreTemperature": 14.0,
+    "coursePrior": {"1": 8.0, "2": 4.0, "3": 2.0, "4": 0.0, "5": -1.5, "6": -3.0},
+    "forecastUsesOdds": false,
+    "topK": [1, 2, 4, 8]
+  },
+  "primaryMetrics": [
+    "trifecta_logloss",
+    "trifecta_brier",
+    "top_combo_ece",
+    "first_top1_accuracy",
+    "first_top2_coverage",
+    "trifecta_top1_hit_rate",
+    "trifecta_top2_hit_rate",
+    "trifecta_top4_hit_rate",
+    "trifecta_top8_hit_rate"
+  ],
+  "segments": [
+    "month",
+    "venue",
+    "predicted_first_lane",
+    "actual_first_lane",
+    "preview_course_changed"
+  ],
+  "comparisonOnly": {
+    "marketProbability": "Allowed only as an external benchmark when valid archived odds exist. It must not alter v0.15.16 forecast ordering or probabilities."
+  },
+  "rules": {
+    "tuningPerformed": false,
+    "coefficientSearch": false,
+    "thresholdSearch": false,
+    "laneShareQuota": false,
+    "reuseR4DevelopmentCache": true,
+    "openSeptember": false,
+    "openFinalHoldout": false
+  },
+  "decisionUse": "Use the audit to identify model failure modes and choose the next hypothesis. Do not optimize v0.15.16 coefficients on this same July-August result."
+}
