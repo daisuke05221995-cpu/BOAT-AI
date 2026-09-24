@@ -1,0 +1,3258 @@
+{
+  "runId": "35986304640",
+  "oddsDecision": "ODDS_NOT_SUITABLE_FOR_REALIZABLE_BACKTEST",
+  "forecastDecision": "FORECAST_READY_FOR_INTEGRATION_DESIGN_PENDING_HOLDOUT",
+  "provenance": {
+    "sourceRepository": "lamrongol/BoatraceOdds",
+    "pinnedCommit": "ddd2f0c1011889779d04dfb802bee4e152b35b30",
+    "sourceFileSha256": {
+      "README.md": "edec8fe8adf4f7d776dfd70a8850c607d565cdded089b9808911dbbd9106baff",
+      "scraper.php": "ed1dd19fedbe8ed796db831d10629f6935b602a47acb509460501f73019e4a71",
+      "src/OddsSaver.php": "5a20a2cdf18504f6661ebfb27bcbbe2de378daabf549bd0d5df6d716c27aa126",
+      "src/OddsScraper.php": "8a4ce84844f07904fe31605d31dcaf51c6b93f84a7f4e742133e5c4a050c7f61",
+      ".github/workflows/cron.yml": "93ed7ad7e389b8d07ee0f54e9faadb4a8e36c403123a4ec8d727b8f12453e6cf",
+      ".github/workflows/get_past.yml": "a0fb87fbd1ce0a12569d95f6af8417ae59727454784893b49f02cf0fcf8f35d4"
+    },
+    "evidence": {
+      "scraper.php": [
+        "Carbon::yesterday('Asia/Tokyo')",
+        "recorded_day.json then subDay()",
+        "save to docs/v3/YYYY/YYYYMMDD.json"
+      ],
+      ".github/workflows/cron.yml": [
+        "cron: 0 0 * * * UTC (09:00 JST)",
+        "php scraper.php v3"
+      ],
+      ".github/workflows/get_past.yml": [
+        "cron: 21 */1 * * * UTC",
+        "php scraper.php v3 True"
+      ],
+      "src/OddsSaver.php": [
+        "json_encode(['odds' => $odds])",
+        "file_put_contents($path, $contents): overwrites one daily file"
+      ]
+    },
+    "sample": {
+      "day": "2025-07-01",
+      "raceCount": 144,
+      "rootKey": "odds",
+      "raceKeys": [
+        "date",
+        "exacta_odds",
+        "number",
+        "place_odds",
+        "quinella_odds",
+        "quinella_place_odds",
+        "stadium_number",
+        "trifecta_odds",
+        "trio_odds",
+        "win_odds"
+      ],
+      "timestampKeys": [],
+      "sha256": "ffe0a6fc3794ef7611e38acd9a0cf405ebdf2bdcc8b1a453936d26d804cdddf5"
+    },
+    "interpretation": {
+      "oneStoredArrayPerDay": true,
+      "historicalPerRaceSnapshots": false,
+      "storedPerRaceTimestamp": false,
+      "scheduledPrecloseQuote": false,
+      "regularDayArchiveGeneratedFromPreviousDay": true,
+      "backfillCanBeAfterRace": true,
+      "TMinus5Proven": false
+    },
+    "decision": "ODDS_NOT_SUITABLE_FOR_REALIZABLE_BACKTEST",
+    "protocolCommitSha": "44c617f78f25baeb19aff9d5fdd466c51cfd6c95",
+    "protocolSha256": "4762a38817db3c720bfdb01a9623ff06c8ac3e8eb0d4a146c635bde45a4bda33"
+  },
+  "monthly": [
+    {
+      "month": 7,
+      "payoutComparison": {
+        "races": 4820,
+        "exactStoredValue": 4798,
+        "withinAbsolute0_1": 4799,
+        "withinAbsolute0_5": 4805,
+        "withinRelative1Pct": 4820,
+        "withinRelative3Pct": 4820,
+        "withinRelative5Pct": 4820,
+        "signedOddsMinusPayout": {
+          "count": 4820,
+          "mean": -0.0027592994365455694,
+          "min": -0.900000000000091,
+          "median": 0.0,
+          "p90": 1.5258789076710855e-06,
+          "p95": 3.051757815342171e-06,
+          "p99": 1.2207031261368684e-05,
+          "max": 2.4414062522737368e-05
+        },
+        "absoluteOddsMinusPayout": {
+          "count": 4820,
+          "mean": 0.0027606302672888044,
+          "min": 0.0,
+          "median": 3.8146972691777137e-07,
+          "p90": 3.051757815342171e-06,
+          "p95": 6.103515630684342e-06,
+          "p99": 1.2207031261368684e-05,
+          "max": 0.900000000000091
+        },
+        "relativeAbsolute": {
+          "count": 4820,
+          "mean": 1.913825576137899e-06,
+          "min": 0.0,
+          "median": 1.9972236918398664e-08,
+          "p90": 4.0581885842316104e-08,
+          "p95": 4.4100546464482236e-08,
+          "p99": 4.709502801453968e-08,
+          "max": 0.000721211635547793
+        }
+      },
+      "venues": {
+        "1": {
+          "races": 202,
+          "exactStoredValue": 202,
+          "withinAbsolute0_1": 202,
+          "withinAbsolute0_5": 202,
+          "withinRelative1Pct": 202,
+          "withinRelative3Pct": 202,
+          "withinRelative5Pct": 202,
+          "signedOddsMinusPayout": {
+            "count": 202,
+            "mean": 2.464445508721375e-07,
+            "min": -1.2207031261368684e-05,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 202,
+            "mean": 1.3200363301159573e-06,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "relativeAbsolute": {
+            "count": 202,
+            "mean": 1.986580575018568e-08,
+            "min": 0.0,
+            "median": 1.966338789388735e-08,
+            "p90": 4.053652804748906e-08,
+            "p95": 4.497846560608626e-08,
+            "p99": 4.6376495730996236e-08,
+            "max": 4.716781785691145e-08
+          }
+        },
+        "2": {
+          "races": 155,
+          "exactStoredValue": 155,
+          "withinAbsolute0_1": 155,
+          "withinAbsolute0_5": 155,
+          "withinRelative1Pct": 155,
+          "withinRelative3Pct": 155,
+          "withinRelative5Pct": 155,
+          "signedOddsMinusPayout": {
+            "count": 155,
+            "mean": 2.9533140457902523e-08,
+            "min": -1.2207031261368684e-05,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 8.911132820799188e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 155,
+            "mean": 1.330221852141779e-06,
+            "min": 0.0,
+            "median": 7.629394502828291e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "relativeAbsolute": {
+            "count": 155,
+            "mean": 2.190667953074343e-08,
+            "min": 0.0,
+            "median": 2.1017615710270776e-08,
+            "p90": 4.2503590742927175e-08,
+            "p95": 4.5365827744784846e-08,
+            "p99": 4.6939007676332e-08,
+            "max": 4.746124129614574e-08
+          }
+        },
+        "3": {
+          "races": 127,
+          "exactStoredValue": 126,
+          "withinAbsolute0_1": 126,
+          "withinAbsolute0_5": 126,
+          "withinRelative1Pct": 127,
+          "withinRelative3Pct": 127,
+          "withinRelative5Pct": 127,
+          "signedOddsMinusPayout": {
+            "count": 127,
+            "mean": -0.0047242555092628985,
+            "min": -0.599999999999909,
+            "median": 0.0,
+            "p90": 2.1362304650551866e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031246589395e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 127,
+            "mean": 0.004725952598990243,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 6.1035156022626325e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 0.599999999999909
+          },
+          "relativeAbsolute": {
+            "count": 127,
+            "mean": 3.777752491518757e-06,
+            "min": 0.0,
+            "median": 2.192354742192038e-08,
+            "p90": 3.973642988726785e-08,
+            "p95": 4.37289126459613e-08,
+            "p99": 4.6746228256830786e-08,
+            "max": 0.0004770992366411491
+          }
+        },
+        "4": {
+          "races": 221,
+          "exactStoredValue": 220,
+          "withinAbsolute0_1": 220,
+          "withinAbsolute0_5": 220,
+          "withinRelative1Pct": 221,
+          "withinRelative3Pct": 221,
+          "withinRelative5Pct": 221,
+          "signedOddsMinusPayout": {
+            "count": 221,
+            "mean": -0.0036197200619801258,
+            "min": -0.7999999999999545,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 6.103515630684342e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 221,
+            "mean": 0.0036212787369246375,
+            "min": 0.0,
+            "median": 7.629394502828291e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 0.7999999999999545
+          },
+          "relativeAbsolute": {
+            "count": 221,
+            "mean": 3.0843615981771285e-06,
+            "min": 0.0,
+            "median": 2.137085294909885e-08,
+            "p90": 3.973642988726785e-08,
+            "p95": 4.4100546464482236e-08,
+            "p99": 4.7022906991546516e-08,
+            "max": 0.0006769334912844428
+          }
+        },
+        "5": {
+          "races": 214,
+          "exactStoredValue": 214,
+          "withinAbsolute0_1": 214,
+          "withinAbsolute0_5": 214,
+          "withinRelative1Pct": 214,
+          "withinRelative3Pct": 214,
+          "withinRelative5Pct": 214,
+          "signedOddsMinusPayout": {
+            "count": 214,
+            "mean": 7.308532074861588e-08,
+            "min": -1.2207031261368684e-05,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.0517578061051153e-06,
+            "p99": 1.1413574179925972e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 214,
+            "mean": 1.188973399099999e-06,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "relativeAbsolute": {
+            "count": 214,
+            "mean": 2.0223322946510897e-08,
+            "min": 0.0,
+            "median": 1.907986808228112e-08,
+            "p90": 4.0581885842316104e-08,
+            "p95": 4.354248131123556e-08,
+            "p99": 4.691172401328549e-08,
+            "max": 4.746124129614574e-08
+          }
+        },
+        "6": {
+          "races": 204,
+          "exactStoredValue": 203,
+          "withinAbsolute0_1": 203,
+          "withinAbsolute0_5": 204,
+          "withinRelative1Pct": 204,
+          "withinRelative3Pct": 204,
+          "withinRelative5Pct": 204,
+          "signedOddsMinusPayout": {
+            "count": 204,
+            "mean": -0.002450584897808289,
+            "min": -0.5,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 1.2023925737310031e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 204,
+            "mean": 0.0024523202110728237,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 0.5
+          },
+          "relativeAbsolute": {
+            "count": 204,
+            "mean": 2.2662985297527e-06,
+            "min": 0.0,
+            "median": 2.122993026983602e-08,
+            "p90": 4.0033568380124624e-08,
+            "p95": 4.2042533765806585e-08,
+            "p99": 4.575143568741325e-08,
+            "max": 0.0004580852038479157
+          }
+        },
+        "7": {
+          "races": 216,
+          "exactStoredValue": 214,
+          "withinAbsolute0_1": 214,
+          "withinAbsolute0_5": 216,
+          "withinRelative1Pct": 216,
+          "withinRelative3Pct": 216,
+          "withinRelative5Pct": 216,
+          "signedOddsMinusPayout": {
+            "count": 216,
+            "mean": -0.004166810380088564,
+            "min": -0.5,
+            "median": 0.0,
+            "p90": 7.629394538355427e-07,
+            "p95": 1.5258789076710855e-06,
+            "p99": 6.103515626421085e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 216,
+            "mean": 0.004167659415138862,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.0517578011313162e-06,
+            "p95": 6.10351560936806e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 0.5
+          },
+          "relativeAbsolute": {
+            "count": 216,
+            "mean": 3.6199663113665175e-06,
+            "min": 0.0,
+            "median": 1.8608722076430128e-08,
+            "p90": 4.125081802653011e-08,
+            "p95": 4.511164859515364e-08,
+            "p99": 4.740630930390483e-08,
+            "max": 0.0004063388866314506
+          }
+        },
+        "8": {
+          "races": 205,
+          "exactStoredValue": 205,
+          "withinAbsolute0_1": 205,
+          "withinAbsolute0_5": 205,
+          "withinRelative1Pct": 205,
+          "withinRelative3Pct": 205,
+          "withinRelative5Pct": 205,
+          "signedOddsMinusPayout": {
+            "count": 205,
+            "mean": -2.749373271834573e-07,
+            "min": -2.4414062522737368e-05,
+            "median": 0.0,
+            "p90": 7.629394538355427e-07,
+            "p95": 2.746582022439244e-06,
+            "p99": 6.103515629547474e-06,
+            "max": 6.103515630684342e-06
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 205,
+            "mean": 1.0769541661364716e-06,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.0517578011313162e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 1.1962890581571676e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "relativeAbsolute": {
+            "count": 205,
+            "mean": 1.973171305656292e-08,
+            "min": 0.0,
+            "median": 1.893150000701809e-08,
+            "p90": 3.857616543457654e-08,
+            "p95": 4.429277550827947e-08,
+            "p99": 4.6806101462303235e-08,
+            "max": 4.709502801453968e-08
+          }
+        },
+        "9": {
+          "races": 180,
+          "exactStoredValue": 180,
+          "withinAbsolute0_1": 180,
+          "withinAbsolute0_5": 180,
+          "withinRelative1Pct": 180,
+          "withinRelative3Pct": 180,
+          "withinRelative5Pct": 180,
+          "signedOddsMinusPayout": {
+            "count": 180,
+            "mean": 2.9351976197479323e-07,
+            "min": -1.2207031261368684e-05,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 1.4770507826256204e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 180,
+            "mean": 1.4093187113983774e-06,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.4770507826256204e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "relativeAbsolute": {
+            "count": 180,
+            "mean": 1.966773437831633e-08,
+            "min": 0.0,
+            "median": 1.9462741078643598e-08,
+            "p90": 3.9096175390363016e-08,
+            "p95": 4.367898310329471e-08,
+            "p99": 4.711031388143775e-08,
+            "max": 4.746124129614574e-08
+          }
+        },
+        "10": {
+          "races": 210,
+          "exactStoredValue": 209,
+          "withinAbsolute0_1": 209,
+          "withinAbsolute0_5": 209,
+          "withinRelative1Pct": 210,
+          "withinRelative3Pct": 210,
+          "withinRelative5Pct": 210,
+          "signedOddsMinusPayout": {
+            "count": 210,
+            "mean": -0.002857296353294465,
+            "min": -0.599999999999909,
+            "median": 0.0,
+            "p90": 1.5258789005656581e-06,
+            "p95": 3.0517578011313162e-06,
+            "p99": 6.103515630684342e-06,
+            "max": 1.2207031204525265e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 210,
+            "mean": 0.0028583190554647845,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.0517578011313162e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031256252776e-05,
+            "max": 0.599999999999909
+          },
+          "relativeAbsolute": {
+            "count": 210,
+            "mean": 2.3453815877449496e-06,
+            "min": 0.0,
+            "median": 1.7029898443813148e-08,
+            "p90": 3.8532295648259734e-08,
+            "p95": 4.191975021074411e-08,
+            "p99": 4.638105023768402e-08,
+            "max": 0.0004887585532746083
+          }
+        },
+        "11": {
+          "races": 206,
+          "exactStoredValue": 205,
+          "withinAbsolute0_1": 205,
+          "withinAbsolute0_5": 205,
+          "withinRelative1Pct": 206,
+          "withinRelative3Pct": 206,
+          "withinRelative5Pct": 206,
+          "signedOddsMinusPayout": {
+            "count": 206,
+            "mean": -0.0043689825002433255,
+            "min": -0.900000000000091,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 6.103515630684342e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 206,
+            "mean": 0.004370266719929207,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 0.900000000000091
+          },
+          "relativeAbsolute": {
+            "count": 206,
+            "mean": 1.7712703282176712e-06,
+            "min": 0.0,
+            "median": 2.0516021149165678e-08,
+            "p90": 4.0527992235619805e-08,
+            "p95": 4.4156488175382366e-08,
+            "p99": 4.708058168692786e-08,
+            "max": 0.0003605913698465848
+          }
+        },
+        "12": {
+          "races": 237,
+          "exactStoredValue": 234,
+          "withinAbsolute0_1": 234,
+          "withinAbsolute0_5": 235,
+          "withinRelative1Pct": 237,
+          "withinRelative3Pct": 237,
+          "withinRelative5Pct": 237,
+          "signedOddsMinusPayout": {
+            "count": 237,
+            "mean": -0.006751240758451609,
+            "min": -0.7999999999999545,
+            "median": 0.0,
+            "p90": 1.5258789005656581e-06,
+            "p95": 1.8310546863631142e-06,
+            "p99": 1.0009765634322237e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 237,
+            "mean": 0.006752465646476295,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 0.12800878906238905,
+            "max": 0.7999999999999545
+          },
+          "relativeAbsolute": {
+            "count": 237,
+            "mean": 4.616551844966672e-06,
+            "min": 0.0,
+            "median": 1.9462741078643598e-08,
+            "p90": 3.9612896944613133e-08,
+            "p95": 4.291019844463218e-08,
+            "p99": 4.8351672131647375e-05,
+            "max": 0.0005575689991636148
+          }
+        },
+        "13": {
+          "races": 275,
+          "exactStoredValue": 274,
+          "withinAbsolute0_1": 274,
+          "withinAbsolute0_5": 274,
+          "withinRelative1Pct": 275,
+          "withinRelative3Pct": 275,
+          "withinRelative5Pct": 275,
+          "signedOddsMinusPayout": {
+            "count": 275,
+            "mean": -0.0029093442396687795,
+            "min": -0.8000000000001819,
+            "median": 0.0,
+            "p90": 1.5258789005656581e-06,
+            "p95": 1.983642575709172e-06,
+            "p99": 6.103515630684342e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 275,
+            "mean": 0.002910347851839558,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515610789146e-06,
+            "p99": 1.5380859389324432e-05,
+            "max": 0.8000000000001819
+          },
+          "relativeAbsolute": {
+            "count": 275,
+            "mean": 1.254172966427896e-06,
+            "min": 0.0,
+            "median": 2.0732050279424704e-08,
+            "p90": 4.169068053746135e-08,
+            "p95": 4.435694499043853e-08,
+            "p99": 4.720946453121052e-08,
+            "max": 0.00033915550279811
+          }
+        },
+        "14": {
+          "races": 179,
+          "exactStoredValue": 178,
+          "withinAbsolute0_1": 178,
+          "withinAbsolute0_5": 178,
+          "withinRelative1Pct": 179,
+          "withinRelative3Pct": 179,
+          "withinRelative5Pct": 179,
+          "signedOddsMinusPayout": {
+            "count": 179,
+            "mean": -0.005027798700599617,
+            "min": -0.900000000000091,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 1.2207031217030817e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 179,
+            "mean": 0.005029207368135924,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 0.900000000000091
+          },
+          "relativeAbsolute": {
+            "count": 179,
+            "mean": 4.049334097422989e-06,
+            "min": 0.0,
+            "median": 1.8978593290617636e-08,
+            "p90": 3.973642988726785e-08,
+            "p95": 4.481377011165691e-08,
+            "p99": 4.709502801453968e-08,
+            "max": 0.000721211635547793
+          }
+        },
+        "15": {
+          "races": 161,
+          "exactStoredValue": 161,
+          "withinAbsolute0_1": 161,
+          "withinAbsolute0_5": 161,
+          "withinRelative1Pct": 161,
+          "withinRelative3Pct": 161,
+          "withinRelative5Pct": 161,
+          "signedOddsMinusPayout": {
+            "count": 161,
+            "mean": -4.715060594715782e-07,
+            "min": -1.2207031261368684e-05,
+            "median": 0.0,
+            "p90": 7.629394538355427e-07,
+            "p95": 1.5258789076710855e-06,
+            "p99": 6.103515613631316e-06,
+            "max": 6.103515630684342e-06
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 161,
+            "mean": 1.1846885906284461e-06,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031227262633e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "relativeAbsolute": {
+            "count": 161,
+            "mean": 1.9593335124722915e-08,
+            "min": 0.0,
+            "median": 1.8699496330461497e-08,
+            "p90": 3.8532295648259734e-08,
+            "p95": 4.286176706941251e-08,
+            "p99": 4.527188222241501e-08,
+            "max": 4.716781785691145e-08
+          }
+        },
+        "16": {
+          "races": 260,
+          "exactStoredValue": 259,
+          "withinAbsolute0_1": 259,
+          "withinAbsolute0_5": 259,
+          "withinRelative1Pct": 260,
+          "withinRelative3Pct": 260,
+          "withinRelative5Pct": 260,
+          "signedOddsMinusPayout": {
+            "count": 260,
+            "mean": -0.0034614518972551148,
+            "min": -0.900000000000091,
+            "median": 0.0,
+            "p90": 1.6784667970171e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 260,
+            "mean": 0.003463168511023341,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 2.4414062522737368e-05,
+            "max": 0.900000000000091
+          },
+          "relativeAbsolute": {
+            "count": 260,
+            "mean": 2.6713605453757886e-06,
+            "min": 0.0,
+            "median": 1.966338789388735e-08,
+            "p90": 3.973642988726785e-08,
+            "p95": 4.228359391128638e-08,
+            "p99": 4.692456134872018e-08,
+            "max": 0.0006891798759476919
+          }
+        },
+        "17": {
+          "races": 179,
+          "exactStoredValue": 179,
+          "withinAbsolute0_1": 179,
+          "withinAbsolute0_5": 179,
+          "withinRelative1Pct": 179,
+          "withinRelative3Pct": 179,
+          "withinRelative5Pct": 179,
+          "signedOddsMinusPayout": {
+            "count": 179,
+            "mean": 8.52446313487695e-08,
+            "min": -1.2207031261368684e-05,
+            "median": 0.0,
+            "p90": 1.5258789019867435e-06,
+            "p95": 3.0517578025524016e-06,
+            "p99": 6.103515630684342e-06,
+            "max": 1.2207031204525265e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 179,
+            "mean": 9.057242106084491e-07,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 7.446289056929338e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "relativeAbsolute": {
+            "count": 179,
+            "mean": 1.970097840043511e-08,
+            "min": 0.0,
+            "median": 2.045414075825279e-08,
+            "p90": 3.8532295648259734e-08,
+            "p95": 4.191975021074411e-08,
+            "p99": 4.444279714203293e-08,
+            "max": 4.753516846327369e-08
+          }
+        },
+        "18": {
+          "races": 181,
+          "exactStoredValue": 180,
+          "withinAbsolute0_1": 180,
+          "withinAbsolute0_5": 180,
+          "withinRelative1Pct": 181,
+          "withinRelative3Pct": 181,
+          "withinRelative5Pct": 181,
+          "signedOddsMinusPayout": {
+            "count": 181,
+            "mean": -0.0038671775417437266,
+            "min": -0.7000000000000455,
+            "median": 0.0,
+            "p90": 1.5258789005656581e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 181,
+            "mean": 0.0038685485144345907,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.0517578011313162e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.4648437513642282e-05,
+            "max": 0.7000000000000455
+          },
+          "relativeAbsolute": {
+            "count": 181,
+            "mean": 3.851800224496535e-06,
+            "min": 0.0,
+            "median": 2.0732050279424704e-08,
+            "p90": 4.079890127462795e-08,
+            "p95": 4.4100546464482236e-08,
+            "p99": 4.686388677275052e-08,
+            "max": 0.0006932752302664608
+          }
+        },
+        "19": {
+          "races": 225,
+          "exactStoredValue": 223,
+          "withinAbsolute0_1": 223,
+          "withinAbsolute0_5": 225,
+          "withinRelative1Pct": 225,
+          "withinRelative3Pct": 225,
+          "withinRelative5Pct": 225,
+          "signedOddsMinusPayout": {
+            "count": 225,
+            "mean": -0.0022219166225869655,
+            "min": -0.3000000000001819,
+            "median": 0.0,
+            "p90": 3.0517578011313162e-06,
+            "p95": 5.493164044878488e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 225,
+            "mean": 0.002223655276828581,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 2.1484375020008774e-05,
+            "max": 0.3000000000001819
+          },
+          "relativeAbsolute": {
+            "count": 225,
+            "mean": 1.0321357419625263e-06,
+            "min": 0.0,
+            "median": 2.0682872254363375e-08,
+            "p90": 4.1611323701632054e-08,
+            "p95": 4.5548725350347354e-08,
+            "p99": 4.7447004317746744e-08,
+            "max": 0.00013044612575009487
+          }
+        },
+        "20": {
+          "races": 197,
+          "exactStoredValue": 196,
+          "withinAbsolute0_1": 196,
+          "withinAbsolute0_5": 196,
+          "withinRelative1Pct": 197,
+          "withinRelative3Pct": 197,
+          "withinRelative5Pct": 197,
+          "signedOddsMinusPayout": {
+            "count": 197,
+            "mean": -0.0030456552650720632,
+            "min": -0.599999999999909,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 6.34765625363793e-06,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 197,
+            "mean": 0.003047089165235835,
+            "min": 0.0,
+            "median": 7.629394502828291e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2695312511823334e-05,
+            "max": 0.599999999999909
+          },
+          "relativeAbsolute": {
+            "count": 197,
+            "mean": 1.3225371456840191e-06,
+            "min": 0.0,
+            "median": 1.9413217564448578e-08,
+            "p90": 4.143055073709977e-08,
+            "p95": 4.4100546464482236e-08,
+            "p99": 4.681765852439269e-08,
+            "max": 0.0002564540947170068
+          }
+        },
+        "21": {
+          "races": 166,
+          "exactStoredValue": 164,
+          "withinAbsolute0_1": 164,
+          "withinAbsolute0_5": 164,
+          "withinRelative1Pct": 166,
+          "withinRelative3Pct": 166,
+          "withinRelative5Pct": 166,
+          "signedOddsMinusPayout": {
+            "count": 166,
+            "mean": -0.009036251435796543,
+            "min": -0.7999999999999545,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 1.2207031224420461e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 166,
+            "mean": 0.009037672755229305,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 1.2207031204525265e-05,
+            "p99": 0.2450158691406517,
+            "max": 0.7999999999999545
+          },
+          "relativeAbsolute": {
+            "count": 166,
+            "mean": 7.374800196309955e-06,
+            "min": 0.0,
+            "median": 2.0732050279424704e-08,
+            "p90": 4.29828455074617e-08,
+            "p95": 4.501117721743615e-08,
+            "p99": 0.0002133155527914409,
+            "max": 0.0006112469437652465
+          }
+        },
+        "22": {
+          "races": 197,
+          "exactStoredValue": 197,
+          "withinAbsolute0_1": 197,
+          "withinAbsolute0_5": 197,
+          "withinRelative1Pct": 197,
+          "withinRelative3Pct": 197,
+          "withinRelative5Pct": 197,
+          "signedOddsMinusPayout": {
+            "count": 197,
+            "mean": 2.1711823929938776e-07,
+            "min": -1.2207031204525265e-05,
+            "median": 0.0,
+            "p90": 1.525878903407829e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 197,
+            "mean": 1.2918172137954994e-06,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515607946974e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "relativeAbsolute": {
+            "count": 197,
+            "mean": 1.973653073288383e-08,
+            "min": 0.0,
+            "median": 1.8473110176339688e-08,
+            "p90": 3.945589151759211e-08,
+            "p95": 4.436985822042119e-08,
+            "p99": 4.709502801453968e-08,
+            "max": 4.746124129614574e-08
+          }
+        },
+        "23": {
+          "races": 226,
+          "exactStoredValue": 223,
+          "withinAbsolute0_1": 224,
+          "withinAbsolute0_5": 224,
+          "withinRelative1Pct": 226,
+          "withinRelative3Pct": 226,
+          "withinRelative5Pct": 226,
+          "signedOddsMinusPayout": {
+            "count": 226,
+            "mean": -0.006636785405926443,
+            "min": -0.7000000000000455,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 1.2207031247157829e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 226,
+            "mean": 0.006638481764664905,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 0.07500610351556247,
+            "max": 0.7000000000000455
+          },
+          "relativeAbsolute": {
+            "count": 226,
+            "mean": 2.898512973172258e-06,
+            "min": 0.0,
+            "median": 2.0974765895532428e-08,
+            "p90": 4.096385640107524e-08,
+            "p95": 4.3043384726486296e-08,
+            "p99": 5.665394908969742e-05,
+            "max": 0.00035198873636045933
+          }
+        },
+        "24": {
+          "races": 197,
+          "exactStoredValue": 197,
+          "withinAbsolute0_1": 197,
+          "withinAbsolute0_5": 197,
+          "withinRelative1Pct": 197,
+          "withinRelative3Pct": 197,
+          "withinRelative5Pct": 197,
+          "signedOddsMinusPayout": {
+            "count": 197,
+            "mean": -2.914273803417556e-07,
+            "min": -2.4414062522737368e-05,
+            "median": 0.0,
+            "p90": 1.5258789005656581e-06,
+            "p95": 1.8310546863631142e-06,
+            "p99": 6.103515630684342e-06,
+            "max": 6.103515630684342e-06
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 197,
+            "mean": 1.1763596894714645e-06,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.0517578011313162e-06,
+            "p95": 6.103515607946974e-06,
+            "p99": 1.2695312511823334e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "relativeAbsolute": {
+            "count": 197,
+            "mean": 2.0553191536515854e-08,
+            "min": 0.0,
+            "median": 2.0732050279424704e-08,
+            "p90": 4.1020033530859e-08,
+            "p95": 4.435694499043853e-08,
+            "p99": 4.664602423331625e-08,
+            "max": 4.709502801453968e-08
+          }
+        }
+      },
+      "top20Mismatches": [
+        {
+          "day": "2025-07-02",
+          "venue": 11,
+          "race": 9,
+          "winningCombo": "5-6-4",
+          "archivedOdds": 2495.0,
+          "payoutOdds": 2495.9,
+          "signedOddsMinusPayout": -0.900000000000091
+        },
+        {
+          "day": "2025-07-08",
+          "venue": 14,
+          "race": 1,
+          "winningCombo": "2-3-6",
+          "archivedOdds": 1247.0,
+          "payoutOdds": 1247.9,
+          "signedOddsMinusPayout": -0.900000000000091
+        },
+        {
+          "day": "2025-07-21",
+          "venue": 16,
+          "race": 9,
+          "winningCombo": "6-4-3",
+          "archivedOdds": 1305.0,
+          "payoutOdds": 1305.9,
+          "signedOddsMinusPayout": -0.900000000000091
+        },
+        {
+          "day": "2025-07-13",
+          "venue": 13,
+          "race": 12,
+          "winningCombo": "5-3-6",
+          "archivedOdds": 2358.0,
+          "payoutOdds": 2358.8,
+          "signedOddsMinusPayout": -0.8000000000001819
+        },
+        {
+          "day": "2025-07-12",
+          "venue": 12,
+          "race": 6,
+          "winningCombo": "4-6-2",
+          "archivedOdds": 1434.0,
+          "payoutOdds": 1434.8,
+          "signedOddsMinusPayout": -0.7999999999999545
+        },
+        {
+          "day": "2025-07-20",
+          "venue": 21,
+          "race": 8,
+          "winningCombo": "3-4-2",
+          "archivedOdds": 1308.0,
+          "payoutOdds": 1308.8,
+          "signedOddsMinusPayout": -0.7999999999999545
+        },
+        {
+          "day": "2025-07-22",
+          "venue": 4,
+          "race": 12,
+          "winningCombo": "6-4-3",
+          "archivedOdds": 1181.0,
+          "payoutOdds": 1181.8,
+          "signedOddsMinusPayout": -0.7999999999999545
+        },
+        {
+          "day": "2025-07-06",
+          "venue": 21,
+          "race": 3,
+          "winningCombo": "6-5-4",
+          "archivedOdds": 1148.0,
+          "payoutOdds": 1148.7,
+          "signedOddsMinusPayout": -0.7000000000000455
+        },
+        {
+          "day": "2025-07-26",
+          "venue": 18,
+          "race": 10,
+          "winningCombo": "3-5-4",
+          "archivedOdds": 1009.0,
+          "payoutOdds": 1009.7,
+          "signedOddsMinusPayout": -0.7000000000000455
+        },
+        {
+          "day": "2025-07-28",
+          "venue": 23,
+          "race": 2,
+          "winningCombo": "6-4-2",
+          "archivedOdds": 1988.0,
+          "payoutOdds": 1988.7,
+          "signedOddsMinusPayout": -0.7000000000000455
+        },
+        {
+          "day": "2025-07-03",
+          "venue": 23,
+          "race": 3,
+          "winningCombo": "6-4-1",
+          "archivedOdds": 3141.0,
+          "payoutOdds": 3141.7,
+          "signedOddsMinusPayout": -0.6999999999998181
+        },
+        {
+          "day": "2025-07-06",
+          "venue": 3,
+          "race": 7,
+          "winningCombo": "5-2-4",
+          "archivedOdds": 1257.0,
+          "payoutOdds": 1257.6,
+          "signedOddsMinusPayout": -0.599999999999909
+        },
+        {
+          "day": "2025-07-07",
+          "venue": 10,
+          "race": 6,
+          "winningCombo": "5-6-3",
+          "archivedOdds": 1227.0,
+          "payoutOdds": 1227.6,
+          "signedOddsMinusPayout": -0.599999999999909
+        },
+        {
+          "day": "2025-07-10",
+          "venue": 20,
+          "race": 10,
+          "winningCombo": "6-5-4",
+          "archivedOdds": 2339.0,
+          "payoutOdds": 2339.6,
+          "signedOddsMinusPayout": -0.599999999999909
+        },
+        {
+          "day": "2025-07-21",
+          "venue": 12,
+          "race": 12,
+          "winningCombo": "5-6-2",
+          "archivedOdds": 1314.0,
+          "payoutOdds": 1314.6,
+          "signedOddsMinusPayout": -0.599999999999909
+        },
+        {
+          "day": "2025-07-02",
+          "venue": 6,
+          "race": 7,
+          "winningCombo": "5-6-3",
+          "archivedOdds": 1091.0,
+          "payoutOdds": 1091.5,
+          "signedOddsMinusPayout": -0.5
+        },
+        {
+          "day": "2025-07-19",
+          "venue": 7,
+          "race": 11,
+          "winningCombo": "5-3-2",
+          "archivedOdds": 1230.0,
+          "payoutOdds": 1230.5,
+          "signedOddsMinusPayout": -0.5
+        },
+        {
+          "day": "2025-07-14",
+          "venue": 7,
+          "race": 3,
+          "winningCombo": "6-5-3",
+          "archivedOdds": 1077.0,
+          "payoutOdds": 1077.4,
+          "signedOddsMinusPayout": -0.40000000000009095
+        },
+        {
+          "day": "2025-07-19",
+          "venue": 19,
+          "race": 11,
+          "winningCombo": "6-3-1",
+          "archivedOdds": 3087.0,
+          "payoutOdds": 3087.3,
+          "signedOddsMinusPayout": -0.3000000000001819
+        },
+        {
+          "day": "2025-07-04",
+          "venue": 19,
+          "race": 5,
+          "winningCombo": "6-3-5",
+          "archivedOdds": 1533.0,
+          "payoutOdds": 1533.2,
+          "signedOddsMinusPayout": -0.20000000000004547
+        }
+      ],
+      "population": {
+        "sourceRaces": 5196,
+        "eligibleSettled": 4820,
+        "preRaceFeatureUsable": 4820,
+        "all120OddsUsable": 4820,
+        "jointUsable": 4820,
+        "winningOddsUsable": 4820
+      },
+      "rawSha256": "1eb40406738f70edf18e39a1a0daeaa70ab3852bebcbb36eec6be1dd49e2ddce",
+      "rawMetadataSha256": "8be4e44b95f45d2dde519339b0d4a73c4baae5908810c7003fd5ef7f3c928b98",
+      "protocolCommitSha": "44c617f78f25baeb19aff9d5fdd466c51cfd6c95",
+      "protocolSha256": "4762a38817db3c720bfdb01a9623ff06c8ac3e8eb0d4a146c635bde45a4bda33",
+      "sealedAfterAugust": true,
+      "sourcePopulation": {
+        "sourceRaces": 5196,
+        "sourceResults": 5196,
+        "eligibleSettled": 4820,
+        "multiplePayout": 0,
+        "resultWithoutProgram": 0,
+        "excludedReasons": {
+          "nonSixBoatOrIncompleteFinish": 376
+        },
+        "refundFieldPaths": {},
+        "refundObservability": "explicit field paths only; no refund stake/count inferred when absent"
+      }
+    },
+    {
+      "month": 8,
+      "payoutComparison": {
+        "races": 4768,
+        "exactStoredValue": 4748,
+        "withinAbsolute0_1": 4750,
+        "withinAbsolute0_5": 4758,
+        "withinRelative1Pct": 4768,
+        "withinRelative3Pct": 4768,
+        "withinRelative5Pct": 4768,
+        "signedOddsMinusPayout": {
+          "count": 4768,
+          "mean": -0.0023069961959083884,
+          "min": -0.900000000000091,
+          "median": 0.0,
+          "p90": 1.5258789076710855e-06,
+          "p95": 3.051757815342171e-06,
+          "p99": 1.2207031261368684e-05,
+          "max": 2.4414062522737368e-05
+        },
+        "absoluteOddsMinusPayout": {
+          "count": 4768,
+          "mean": 0.0023083361003216527,
+          "min": 0.0,
+          "median": 3.8146972691777137e-07,
+          "p90": 3.051757815342171e-06,
+          "p95": 6.103515630684342e-06,
+          "p99": 1.2207031261368684e-05,
+          "max": 0.900000000000091
+        },
+        "relativeAbsolute": {
+          "count": 4768,
+          "mean": 1.7212041808435816e-06,
+          "min": 0.0,
+          "median": 2.0183583340815585e-08,
+          "p90": 4.008221367756086e-08,
+          "p95": 4.4078273461217325e-08,
+          "p99": 4.709502801453968e-08,
+          "max": 0.0007544639114763106
+        }
+      },
+      "venues": {
+        "1": {
+          "races": 203,
+          "exactStoredValue": 203,
+          "withinAbsolute0_1": 203,
+          "withinAbsolute0_5": 203,
+          "withinRelative1Pct": 203,
+          "withinRelative3Pct": 203,
+          "withinRelative5Pct": 203,
+          "signedOddsMinusPayout": {
+            "count": 203,
+            "mean": 1.5456101006395812e-07,
+            "min": -1.2207031204525265e-05,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 1.2084960948754934e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 203,
+            "mean": 1.337023203359044e-06,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 5.798339823570517e-06,
+            "p99": 1.2207031260231815e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "relativeAbsolute": {
+            "count": 203,
+            "mean": 2.062351728570539e-08,
+            "min": 0.0,
+            "median": 2.0931123464549493e-08,
+            "p90": 4.124264924816115e-08,
+            "p95": 4.4062637685286397e-08,
+            "p99": 4.540635474267416e-08,
+            "max": 4.709502801453968e-08
+          }
+        },
+        "2": {
+          "races": 231,
+          "exactStoredValue": 230,
+          "withinAbsolute0_1": 230,
+          "withinAbsolute0_5": 231,
+          "withinRelative1Pct": 231,
+          "withinRelative3Pct": 231,
+          "withinRelative5Pct": 231,
+          "signedOddsMinusPayout": {
+            "count": 231,
+            "mean": -0.0021642503284268694,
+            "min": -0.5,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 1.0375976572163312e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 231,
+            "mean": 0.002165888501451526,
+            "min": 0.0,
+            "median": 7.629394502828291e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 2.0751953144326623e-05,
+            "max": 0.5
+          },
+          "relativeAbsolute": {
+            "count": 231,
+            "mean": 1.393268564629444e-06,
+            "min": 0.0,
+            "median": 1.9413217564448578e-08,
+            "p90": 3.9225678860439216e-08,
+            "p95": 4.2268113785902644e-08,
+            "p99": 4.63380148481935e-08,
+            "max": 0.0003171582619727244
+          }
+        },
+        "3": {
+          "races": 128,
+          "exactStoredValue": 128,
+          "withinAbsolute0_1": 128,
+          "withinAbsolute0_5": 128,
+          "withinRelative1Pct": 128,
+          "withinRelative3Pct": 128,
+          "withinRelative5Pct": 128,
+          "signedOddsMinusPayout": {
+            "count": 128,
+            "mean": 2.6822089389810788e-08,
+            "min": -1.2207031261368684e-05,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 5.0354003768404445e-06,
+            "p99": 1.055908199958824e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 128,
+            "mean": 1.607835291329851e-06,
+            "min": 0.0,
+            "median": 7.629394502828291e-07,
+            "p90": 3.967285151418301e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.220703124602096e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "relativeAbsolute": {
+            "count": 128,
+            "mean": 2.0430066010249505e-08,
+            "min": 0.0,
+            "median": 1.889755760162771e-08,
+            "p90": 3.7769279892848653e-08,
+            "p95": 4.188958178187414e-08,
+            "p99": 4.724691751785308e-08,
+            "max": 4.753516846327369e-08
+          }
+        },
+        "4": {
+          "races": 231,
+          "exactStoredValue": 231,
+          "withinAbsolute0_1": 231,
+          "withinAbsolute0_5": 231,
+          "withinRelative1Pct": 231,
+          "withinRelative3Pct": 231,
+          "withinRelative5Pct": 231,
+          "signedOddsMinusPayout": {
+            "count": 231,
+            "mean": 3.9055233943267314e-07,
+            "min": -2.4414062522737368e-05,
+            "median": 0.0,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515616473487e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 231,
+            "mean": 1.4788144584520228e-06,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "relativeAbsolute": {
+            "count": 231,
+            "mean": 2.1447211315834933e-08,
+            "min": 0.0,
+            "median": 2.0732050279424704e-08,
+            "p90": 3.902503600181804e-08,
+            "p95": 4.1549260318541874e-08,
+            "p99": 4.572355023456275e-08,
+            "max": 4.709502801453968e-08
+          }
+        },
+        "5": {
+          "races": 179,
+          "exactStoredValue": 177,
+          "withinAbsolute0_1": 177,
+          "withinAbsolute0_5": 178,
+          "withinRelative1Pct": 179,
+          "withinRelative3Pct": 179,
+          "withinRelative5Pct": 179,
+          "signedOddsMinusPayout": {
+            "count": 179,
+            "mean": -0.0055864174272753295,
+            "min": -0.599999999999909,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 6.103515630684342e-06,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 179,
+            "mean": 0.005587622573255206,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.1035156022626325e-06,
+            "p99": 0.08801904296878729,
+            "max": 0.599999999999909
+          },
+          "relativeAbsolute": {
+            "count": 179,
+            "mean": 4.439706784022446e-06,
+            "min": 0.0,
+            "median": 1.7660635423213634e-08,
+            "p90": 3.981480548862342e-08,
+            "p95": 4.439596869570871e-08,
+            "p99": 7.747403075845383e-05,
+            "max": 0.00043936731107198964
+          }
+        },
+        "6": {
+          "races": 220,
+          "exactStoredValue": 219,
+          "withinAbsolute0_1": 219,
+          "withinAbsolute0_5": 220,
+          "withinRelative1Pct": 220,
+          "withinRelative3Pct": 220,
+          "withinRelative5Pct": 220,
+          "signedOddsMinusPayout": {
+            "count": 220,
+            "mean": -0.0022726535797122126,
+            "min": -0.5,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 1.2207031250568434e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 220,
+            "mean": 0.0022743251106945033,
+            "min": 0.0,
+            "median": 7.629394502828291e-07,
+            "p90": 3.3569335940342e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 0.5
+          },
+          "relativeAbsolute": {
+            "count": 220,
+            "mean": 2.060785584189143e-06,
+            "min": 0.0,
+            "median": 2.1148956630182387e-08,
+            "p90": 4.2539408375575705e-08,
+            "p95": 4.4100546464482236e-08,
+            "p99": 4.7040131969614756e-08,
+            "max": 0.00044863167339614175
+          }
+        },
+        "7": {
+          "races": 122,
+          "exactStoredValue": 122,
+          "withinAbsolute0_1": 122,
+          "withinAbsolute0_5": 122,
+          "withinRelative1Pct": 122,
+          "withinRelative3Pct": 122,
+          "withinRelative5Pct": 122,
+          "signedOddsMinusPayout": {
+            "count": 122,
+            "mean": 1.6024855354519182e-07,
+            "min": -1.2207031261368684e-05,
+            "median": 0.0,
+            "p90": 1.5258789005656581e-06,
+            "p95": 1.5258789076710855e-06,
+            "p99": 2.056884767540609e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 122,
+            "mean": 1.3476512471794934e-06,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 2.1850585957849847e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "relativeAbsolute": {
+            "count": 122,
+            "mean": 1.9661006631233078e-08,
+            "min": 0.0,
+            "median": 1.851794782239876e-08,
+            "p90": 3.943071704938497e-08,
+            "p95": 4.3062133437530466e-08,
+            "p99": 4.688663365989224e-08,
+            "max": 4.709502801453968e-08
+          }
+        },
+        "8": {
+          "races": 202,
+          "exactStoredValue": 200,
+          "withinAbsolute0_1": 200,
+          "withinAbsolute0_5": 201,
+          "withinRelative1Pct": 202,
+          "withinRelative3Pct": 202,
+          "withinRelative5Pct": 202,
+          "signedOddsMinusPayout": {
+            "count": 202,
+            "mean": -0.0059408296452891874,
+            "min": -0.7000000000000455,
+            "median": 0.0,
+            "p90": 1.5258789069605428e-06,
+            "p95": 3.0517578011313162e-06,
+            "p99": 6.103515630684342e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 202,
+            "mean": 0.0059418767985730606,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 2.4414062522737368e-05,
+            "max": 0.7000000000000455
+          },
+          "relativeAbsolute": {
+            "count": 202,
+            "mean": 4.431044372729057e-06,
+            "min": 0.0,
+            "median": 2.2075239847636502e-08,
+            "p90": 4.0581885842316104e-08,
+            "p95": 4.541306272830611e-08,
+            "p99": 4.709502801453968e-08,
+            "max": 0.0004967709885742673
+          }
+        },
+        "9": {
+          "races": 238,
+          "exactStoredValue": 237,
+          "withinAbsolute0_1": 237,
+          "withinAbsolute0_5": 237,
+          "withinRelative1Pct": 238,
+          "withinRelative3Pct": 238,
+          "withinRelative5Pct": 238,
+          "signedOddsMinusPayout": {
+            "count": 238,
+            "mean": -0.003781237321741671,
+            "min": -0.900000000000091,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.5095214833801705e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 238,
+            "mean": 0.003782843341346203,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 0.900000000000091
+          },
+          "relativeAbsolute": {
+            "count": 238,
+            "mean": 2.8412846675867814e-06,
+            "min": 0.0,
+            "median": 2.1416519211253076e-08,
+            "p90": 4.0581885842316104e-08,
+            "p95": 4.316295966610052e-08,
+            "p99": 4.709502801453968e-08,
+            "max": 0.0006711909911254313
+          }
+        },
+        "10": {
+          "races": 172,
+          "exactStoredValue": 171,
+          "withinAbsolute0_1": 171,
+          "withinAbsolute0_5": 171,
+          "withinRelative1Pct": 172,
+          "withinRelative3Pct": 172,
+          "withinRelative5Pct": 172,
+          "signedOddsMinusPayout": {
+            "count": 172,
+            "mean": -0.00523263465526407,
+            "min": -0.900000000000091,
+            "median": 0.0,
+            "p90": 1.5258789069605428e-06,
+            "p95": 2.212524409728172e-06,
+            "p99": 7.873535163582753e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 172,
+            "mean": 0.005233810114304767,
+            "min": 0.0,
+            "median": 3.8146972602959295e-07,
+            "p90": 3.0517578011313162e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 0.900000000000091
+          },
+          "relativeAbsolute": {
+            "count": 172,
+            "mean": 2.3645314225112062e-06,
+            "min": 0.0,
+            "median": 1.7825688090720306e-08,
+            "p90": 4.054976297753327e-08,
+            "p95": 4.341921779719387e-08,
+            "p99": 4.72743495327565e-08,
+            "max": 0.00040342462683226095
+          }
+        },
+        "11": {
+          "races": 229,
+          "exactStoredValue": 229,
+          "withinAbsolute0_1": 229,
+          "withinAbsolute0_5": 229,
+          "withinRelative1Pct": 229,
+          "withinRelative3Pct": 229,
+          "withinRelative5Pct": 229,
+          "signedOddsMinusPayout": {
+            "count": 229,
+            "mean": -7.246258971802571e-08,
+            "min": -2.4414062522737368e-05,
+            "median": 0.0,
+            "p90": 1.5258789019867435e-06,
+            "p95": 1.5258789076710855e-06,
+            "p99": 6.103515630684342e-06,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 229,
+            "mean": 1.1477407928050542e-06,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.0517578011313162e-06,
+            "p95": 4.88281248749443e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "relativeAbsolute": {
+            "count": 229,
+            "mean": 2.0254029506973597e-08,
+            "min": 0.0,
+            "median": 1.9462741078643598e-08,
+            "p90": 4.1196901279413365e-08,
+            "p95": 4.425438558005601e-08,
+            "p99": 4.709502801453968e-08,
+            "max": 4.735078068800886e-08
+          }
+        },
+        "12": {
+          "races": 145,
+          "exactStoredValue": 144,
+          "withinAbsolute0_1": 144,
+          "withinAbsolute0_5": 144,
+          "withinRelative1Pct": 145,
+          "withinRelative3Pct": 145,
+          "withinRelative5Pct": 145,
+          "signedOddsMinusPayout": {
+            "count": 145,
+            "mean": -0.004138071125951002,
+            "min": -0.599999999999909,
+            "median": 0.0,
+            "p90": 7.629394538355427e-07,
+            "p95": 1.5258789076710855e-06,
+            "p99": 4.760742176017637e-06,
+            "max": 1.2207031204525265e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 145,
+            "mean": 0.004138899836045181,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 1.5258789076710855e-06,
+            "p95": 5.493164044878488e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 0.599999999999909
+          },
+          "relativeAbsolute": {
+            "count": 145,
+            "mean": 2.8858047584476214e-06,
+            "min": 0.0,
+            "median": 1.966338789388735e-08,
+            "p90": 3.92094814127627e-08,
+            "p95": 4.286176706941251e-08,
+            "p99": 4.6354963288596915e-08,
+            "max": 0.00041562759767242247
+          }
+        },
+        "13": {
+          "races": 170,
+          "exactStoredValue": 169,
+          "withinAbsolute0_1": 169,
+          "withinAbsolute0_5": 170,
+          "withinRelative1Pct": 170,
+          "withinRelative3Pct": 170,
+          "withinRelative5Pct": 170,
+          "signedOddsMinusPayout": {
+            "count": 170,
+            "mean": -0.001176477881039922,
+            "min": -0.20000000000004547,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 7.995605458575042e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 170,
+            "mean": 0.001177670534919092,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 0.20000000000004547
+          },
+          "relativeAbsolute": {
+            "count": 170,
+            "mean": 1.1443010041783428e-06,
+            "min": 0.0,
+            "median": 2.145443879117936e-08,
+            "p90": 3.984267702600386e-08,
+            "p95": 4.5382697381756726e-08,
+            "p99": 4.723721206873239e-08,
+            "max": 0.00019098548510317558
+          }
+        },
+        "14": {
+          "races": 189,
+          "exactStoredValue": 187,
+          "withinAbsolute0_1": 187,
+          "withinAbsolute0_5": 188,
+          "withinRelative1Pct": 189,
+          "withinRelative3Pct": 189,
+          "withinRelative5Pct": 189,
+          "signedOddsMinusPayout": {
+            "count": 189,
+            "mean": -0.006349126624051994,
+            "min": -0.900000000000091,
+            "median": 0.0,
+            "p90": 3.0517578011313162e-06,
+            "p95": 4.88281248749443e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 189,
+            "mean": 0.006350831127671461,
+            "min": 0.0,
+            "median": 7.629394502828291e-07,
+            "p90": 6.103515630684342e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 0.03601074218750591,
+            "max": 0.900000000000091
+          },
+          "relativeAbsolute": {
+            "count": 189,
+            "mean": 4.171851201132394e-06,
+            "min": 0.0,
+            "median": 2.326034909398869e-08,
+            "p90": 4.300249806764186e-08,
+            "p95": 4.5106223325507286e-08,
+            "p99": 2.0715652549017294e-05,
+            "max": 0.0006118702834999598
+          }
+        },
+        "15": {
+          "races": 170,
+          "exactStoredValue": 169,
+          "withinAbsolute0_1": 169,
+          "withinAbsolute0_5": 169,
+          "withinRelative1Pct": 170,
+          "withinRelative3Pct": 170,
+          "withinRelative5Pct": 170,
+          "signedOddsMinusPayout": {
+            "count": 170,
+            "mean": -0.003529691135182439,
+            "min": -0.599999999999909,
+            "median": 0.0,
+            "p90": 1.5258789005656581e-06,
+            "p95": 3.0517578011313162e-06,
+            "p99": 7.995605458575042e-06,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 170,
+            "mean": 0.0035308961307288843,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 2.4414062522737368e-05,
+            "max": 0.599999999999909
+          },
+          "relativeAbsolute": {
+            "count": 170,
+            "mean": 2.7174656383989795e-06,
+            "min": 0.0,
+            "median": 2.132779885067254e-08,
+            "p90": 4.191975021074411e-08,
+            "p95": 4.471677271528721e-08,
+            "p99": 4.7117592865674926e-08,
+            "max": 0.00045850527281056787
+          }
+        },
+        "16": {
+          "races": 278,
+          "exactStoredValue": 276,
+          "withinAbsolute0_1": 277,
+          "withinAbsolute0_5": 277,
+          "withinRelative1Pct": 278,
+          "withinRelative3Pct": 278,
+          "withinRelative5Pct": 278,
+          "signedOddsMinusPayout": {
+            "count": 278,
+            "mean": -0.0028779700505645297,
+            "min": -0.7000000000000455,
+            "median": 0.0,
+            "p90": 9.91821287854586e-07,
+            "p95": 1.5258789076710855e-06,
+            "p99": 6.103515630684342e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 278,
+            "mean": 0.002878810518936196,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.5014648451483704e-05,
+            "max": 0.7000000000000455
+          },
+          "relativeAbsolute": {
+            "count": 278,
+            "mean": 2.1234997767847672e-06,
+            "min": 0.0,
+            "median": 2.050912500760293e-08,
+            "p90": 4.0581885842316104e-08,
+            "p95": 4.286176706941251e-08,
+            "p99": 4.717925706930908e-08,
+            "max": 0.0005352909688766884
+          }
+        },
+        "17": {
+          "races": 206,
+          "exactStoredValue": 204,
+          "withinAbsolute0_1": 205,
+          "withinAbsolute0_5": 206,
+          "withinRelative1Pct": 206,
+          "withinRelative3Pct": 206,
+          "withinRelative5Pct": 206,
+          "signedOddsMinusPayout": {
+            "count": 206,
+            "mean": -0.001456166239618096,
+            "min": -0.20000000000004547,
+            "median": 0.0,
+            "p90": 3.0517578011313162e-06,
+            "p95": 6.1035156022626325e-06,
+            "p99": 1.190185542583315e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 206,
+            "mean": 0.001457767116211447,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 6.1035156022626325e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 0.20000000000004547
+          },
+          "relativeAbsolute": {
+            "count": 206,
+            "mean": 1.3564180577450604e-06,
+            "min": 0.0,
+            "median": 2.0620587643513817e-08,
+            "p90": 3.973642988726785e-08,
+            "p95": 4.435694499043853e-08,
+            "p99": 4.709502801453968e-08,
+            "max": 0.00018311664530309968
+          }
+        },
+        "18": {
+          "races": 208,
+          "exactStoredValue": 208,
+          "withinAbsolute0_1": 208,
+          "withinAbsolute0_5": 208,
+          "withinRelative1Pct": 208,
+          "withinRelative3Pct": 208,
+          "withinRelative5Pct": 208,
+          "signedOddsMinusPayout": {
+            "count": 208,
+            "mean": -1.3067172189595001e-07,
+            "min": -2.4414062522737368e-05,
+            "median": 0.0,
+            "p90": 1.5258789005656581e-06,
+            "p95": 2.5177001884202007e-06,
+            "p99": 6.1035156286948224e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 208,
+            "mean": 1.0660061468163836e-06,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.051757805394573e-06,
+            "p95": 5.035400376840401e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "relativeAbsolute": {
+            "count": 208,
+            "mean": 2.1501905069443453e-08,
+            "min": 0.0,
+            "median": 2.0732050279424704e-08,
+            "p90": 4.064699047200966e-08,
+            "p95": 4.393972620092448e-08,
+            "p99": 4.7044926920907195e-08,
+            "max": 4.709502801453968e-08
+          }
+        },
+        "19": {
+          "races": 137,
+          "exactStoredValue": 136,
+          "withinAbsolute0_1": 136,
+          "withinAbsolute0_5": 136,
+          "withinRelative1Pct": 137,
+          "withinRelative3Pct": 137,
+          "withinRelative5Pct": 137,
+          "signedOddsMinusPayout": {
+            "count": 137,
+            "mean": -0.006569445046195912,
+            "min": -0.900000000000091,
+            "median": 0.0,
+            "p90": 7.629394517039145e-07,
+            "p95": 1.5258789076710855e-06,
+            "p99": 3.051757810226263e-06,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 137,
+            "mean": 0.006570285254151794,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 2.1362304650551866e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 2.0019531268644473e-05,
+            "max": 0.900000000000091
+          },
+          "relativeAbsolute": {
+            "count": 137,
+            "mean": 4.720411780178389e-06,
+            "min": 0.0,
+            "median": 2.2308171060901433e-08,
+            "p90": 4.135355913149805e-08,
+            "p95": 4.435694499043853e-08,
+            "p99": 4.6991014455734555e-08,
+            "max": 0.0006438228771729672
+          }
+        },
+        "20": {
+          "races": 251,
+          "exactStoredValue": 251,
+          "withinAbsolute0_1": 251,
+          "withinAbsolute0_5": 251,
+          "withinRelative1Pct": 251,
+          "withinRelative3Pct": 251,
+          "withinRelative5Pct": 251,
+          "signedOddsMinusPayout": {
+            "count": 251,
+            "mean": 3.229574405692013e-08,
+            "min": -1.2207031261368684e-05,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 9.155273446026513e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 251,
+            "mean": 1.2378768611712043e-06,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 1.2207031261368684e-05
+          },
+          "relativeAbsolute": {
+            "count": 251,
+            "mean": 1.907933612966679e-08,
+            "min": 0.0,
+            "median": 1.7660635423213634e-08,
+            "p90": 3.8727891057641766e-08,
+            "p95": 4.169068053746135e-08,
+            "p99": 4.5684997235661246e-08,
+            "max": 4.709502801453968e-08
+          }
+        },
+        "21": {
+          "races": 217,
+          "exactStoredValue": 216,
+          "withinAbsolute0_1": 216,
+          "withinAbsolute0_5": 217,
+          "withinRelative1Pct": 217,
+          "withinRelative3Pct": 217,
+          "withinRelative5Pct": 217,
+          "signedOddsMinusPayout": {
+            "count": 217,
+            "mean": -0.0023040066116963597,
+            "min": -0.5,
+            "median": 0.0,
+            "p90": 1.525878903407829e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 6.103515630684342e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 217,
+            "mean": 0.0023051158623753768,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.1035156022626325e-06,
+            "p99": 6.103515630684342e-06,
+            "max": 0.5
+          },
+          "relativeAbsolute": {
+            "count": 217,
+            "mean": 2.2282159663508277e-06,
+            "min": 0.0,
+            "median": 1.966338789388735e-08,
+            "p90": 3.861053381201255e-08,
+            "p95": 4.3797276230915595e-08,
+            "p99": 4.648304367710268e-08,
+            "max": 0.0004791566842357451
+          }
+        },
+        "22": {
+          "races": 205,
+          "exactStoredValue": 204,
+          "withinAbsolute0_1": 204,
+          "withinAbsolute0_5": 204,
+          "withinRelative1Pct": 205,
+          "withinRelative3Pct": 205,
+          "withinRelative5Pct": 205,
+          "signedOddsMinusPayout": {
+            "count": 205,
+            "mean": -0.004390221107297659,
+            "min": -0.900000000000091,
+            "median": 0.0,
+            "p90": 1.5258789076710855e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 6.103515630684342e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 205,
+            "mean": 0.004391440880007804,
+            "min": 0.0,
+            "median": 3.8146972514141453e-07,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 1.2207031261368684e-05,
+            "max": 0.900000000000091
+          },
+          "relativeAbsolute": {
+            "count": 205,
+            "mean": 3.69886649234278e-06,
+            "min": 0.0,
+            "median": 1.665806660006177e-08,
+            "p90": 3.976751444780548e-08,
+            "p95": 4.3349180980762725e-08,
+            "p99": 4.703862678338455e-08,
+            "max": 0.0007544639114763106
+          }
+        },
+        "23": {
+          "races": 193,
+          "exactStoredValue": 193,
+          "withinAbsolute0_1": 193,
+          "withinAbsolute0_5": 193,
+          "withinRelative1Pct": 193,
+          "withinRelative3Pct": 193,
+          "withinRelative5Pct": 193,
+          "signedOddsMinusPayout": {
+            "count": 193,
+            "mean": 1.302037212186789e-07,
+            "min": -6.103515630684342e-06,
+            "median": 0.0,
+            "p90": 1.52587890625e-06,
+            "p95": 3.0517578011313162e-06,
+            "p99": 6.591796854991019e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 193,
+            "mean": 9.321795837204961e-07,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 3.0517578011313162e-06,
+            "p95": 3.051757815342171e-06,
+            "p99": 6.591796881138992e-06,
+            "max": 1.2207031261368684e-05
+          },
+          "relativeAbsolute": {
+            "count": 193,
+            "mean": 2.062280974662365e-08,
+            "min": 0.0,
+            "median": 2.1674416201216733e-08,
+            "p90": 3.767693446523778e-08,
+            "p95": 4.268242913188358e-08,
+            "p99": 4.541306272830611e-08,
+            "max": 4.5684997235661246e-08
+          }
+        },
+        "24": {
+          "races": 244,
+          "exactStoredValue": 244,
+          "withinAbsolute0_1": 244,
+          "withinAbsolute0_5": 244,
+          "withinRelative1Pct": 244,
+          "withinRelative3Pct": 244,
+          "withinRelative5Pct": 244,
+          "signedOddsMinusPayout": {
+            "count": 244,
+            "mean": 3.126801037543144e-07,
+            "min": -2.4414062522737368e-05,
+            "median": 0.0,
+            "p90": 3.051757815342171e-06,
+            "p95": 6.103515626421085e-06,
+            "p99": 1.916503908034875e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "absoluteOddsMinusPayout": {
+            "count": 244,
+            "mean": 1.8151080019340828e-06,
+            "min": 0.0,
+            "median": 3.8146972691777137e-07,
+            "p90": 6.1035156022626325e-06,
+            "p95": 6.103515630684342e-06,
+            "p99": 2.4414062522737368e-05,
+            "max": 2.4414062522737368e-05
+          },
+          "relativeAbsolute": {
+            "count": 244,
+            "mean": 2.0827519665125417e-08,
+            "min": 0.0,
+            "median": 2.038038889901989e-08,
+            "p90": 3.796707412670148e-08,
+            "p95": 4.2720464540612244e-08,
+            "p99": 4.6970789597078004e-08,
+            "max": 4.7277425489421705e-08
+          }
+        }
+      },
+      "top20Mismatches": [
+        {
+          "day": "2025-08-01",
+          "venue": 9,
+          "race": 6,
+          "winningCombo": "2-6-3",
+          "archivedOdds": 1340.0,
+          "payoutOdds": 1340.9,
+          "signedOddsMinusPayout": -0.900000000000091
+        },
+        {
+          "day": "2025-08-04",
+          "venue": 14,
+          "race": 7,
+          "winningCombo": "3-6-2",
+          "archivedOdds": 1470.0,
+          "payoutOdds": 1470.9,
+          "signedOddsMinusPayout": -0.900000000000091
+        },
+        {
+          "day": "2025-08-06",
+          "venue": 22,
+          "race": 2,
+          "winningCombo": "6-3-5",
+          "archivedOdds": 1192.0,
+          "payoutOdds": 1192.9,
+          "signedOddsMinusPayout": -0.900000000000091
+        },
+        {
+          "day": "2025-08-12",
+          "venue": 19,
+          "race": 6,
+          "winningCombo": "5-3-4",
+          "archivedOdds": 1397.0,
+          "payoutOdds": 1397.9,
+          "signedOddsMinusPayout": -0.900000000000091
+        },
+        {
+          "day": "2025-08-26",
+          "venue": 10,
+          "race": 4,
+          "winningCombo": "2-6-5",
+          "archivedOdds": 2230.0,
+          "payoutOdds": 2230.9,
+          "signedOddsMinusPayout": -0.900000000000091
+        },
+        {
+          "day": "2025-08-08",
+          "venue": 16,
+          "race": 7,
+          "winningCombo": "6-4-1",
+          "archivedOdds": 1307.0,
+          "payoutOdds": 1307.7,
+          "signedOddsMinusPayout": -0.7000000000000455
+        },
+        {
+          "day": "2025-08-19",
+          "venue": 8,
+          "race": 12,
+          "winningCombo": "6-2-3",
+          "archivedOdds": 1776.0,
+          "payoutOdds": 1776.7,
+          "signedOddsMinusPayout": -0.7000000000000455
+        },
+        {
+          "day": "2025-08-12",
+          "venue": 15,
+          "race": 7,
+          "winningCombo": "4-3-1",
+          "archivedOdds": 1308.0,
+          "payoutOdds": 1308.6,
+          "signedOddsMinusPayout": -0.599999999999909
+        },
+        {
+          "day": "2025-08-18",
+          "venue": 12,
+          "race": 11,
+          "winningCombo": "3-5-6",
+          "archivedOdds": 1443.0,
+          "payoutOdds": 1443.6,
+          "signedOddsMinusPayout": -0.599999999999909
+        },
+        {
+          "day": "2025-08-24",
+          "venue": 5,
+          "race": 5,
+          "winningCombo": "3-6-2",
+          "archivedOdds": 1365.0,
+          "payoutOdds": 1365.6,
+          "signedOddsMinusPayout": -0.599999999999909
+        },
+        {
+          "day": "2025-08-10",
+          "venue": 2,
+          "race": 5,
+          "winningCombo": "5-1-3",
+          "archivedOdds": 1576.0,
+          "payoutOdds": 1576.5,
+          "signedOddsMinusPayout": -0.5
+        },
+        {
+          "day": "2025-08-22",
+          "venue": 8,
+          "race": 2,
+          "winningCombo": "6-4-2",
+          "archivedOdds": 1006.0,
+          "payoutOdds": 1006.5,
+          "signedOddsMinusPayout": -0.5
+        },
+        {
+          "day": "2025-08-26",
+          "venue": 21,
+          "race": 2,
+          "winningCombo": "6-2-5",
+          "archivedOdds": 1043.0,
+          "payoutOdds": 1043.5,
+          "signedOddsMinusPayout": -0.5
+        },
+        {
+          "day": "2025-08-30",
+          "venue": 6,
+          "race": 9,
+          "winningCombo": "5-4-3",
+          "archivedOdds": 1114.0,
+          "payoutOdds": 1114.5,
+          "signedOddsMinusPayout": -0.5
+        },
+        {
+          "day": "2025-08-11",
+          "venue": 5,
+          "race": 7,
+          "winningCombo": "6-1-5",
+          "archivedOdds": 1136.0,
+          "payoutOdds": 1136.4,
+          "signedOddsMinusPayout": -0.40000000000009095
+        },
+        {
+          "day": "2025-08-06",
+          "venue": 14,
+          "race": 4,
+          "winningCombo": "5-2-4",
+          "archivedOdds": 1741.0,
+          "payoutOdds": 1741.3,
+          "signedOddsMinusPayout": -0.2999999999999545
+        },
+        {
+          "day": "2025-08-14",
+          "venue": 13,
+          "race": 4,
+          "winningCombo": "5-3-4",
+          "archivedOdds": 1047.0,
+          "payoutOdds": 1047.2,
+          "signedOddsMinusPayout": -0.20000000000004547
+        },
+        {
+          "day": "2025-08-28",
+          "venue": 17,
+          "race": 4,
+          "winningCombo": "3-2-6",
+          "archivedOdds": 1092.0,
+          "payoutOdds": 1092.2,
+          "signedOddsMinusPayout": -0.20000000000004547
+        },
+        {
+          "day": "2025-08-06",
+          "venue": 17,
+          "race": 3,
+          "winningCombo": "4-6-3",
+          "archivedOdds": 1086.0,
+          "payoutOdds": 1086.1,
+          "signedOddsMinusPayout": -0.09999999999990905
+        },
+        {
+          "day": "2025-08-16",
+          "venue": 16,
+          "race": 12,
+          "winningCombo": "6-3-4",
+          "archivedOdds": 2025.0,
+          "payoutOdds": 2025.1,
+          "signedOddsMinusPayout": -0.09999999999990905
+        }
+      ],
+      "population": {
+        "sourceRaces": 5088,
+        "eligibleSettled": 4768,
+        "preRaceFeatureUsable": 4763,
+        "all120OddsUsable": 4768,
+        "jointUsable": 4763,
+        "winningOddsUsable": 4768
+      },
+      "rawSha256": "1eb40406738f70edf18e39a1a0daeaa70ab3852bebcbb36eec6be1dd49e2ddce",
+      "rawMetadataSha256": "8be4e44b95f45d2dde519339b0d4a73c4baae5908810c7003fd5ef7f3c928b98",
+      "protocolCommitSha": "44c617f78f25baeb19aff9d5fdd466c51cfd6c95",
+      "protocolSha256": "4762a38817db3c720bfdb01a9623ff06c8ac3e8eb0d4a146c635bde45a4bda33",
+      "sealedAfterAugust": true,
+      "sourcePopulation": {
+        "sourceRaces": 5088,
+        "sourceResults": 5088,
+        "eligibleSettled": 4768,
+        "multiplePayout": 0,
+        "resultWithoutProgram": 0,
+        "excludedReasons": {
+          "nonSixBoatOrIncompleteFinish": 320
+        },
+        "refundFieldPaths": {},
+        "refundObservability": "explicit field paths only; no refund stake/count inferred when absent"
+      }
+    }
+  ],
+  "payoutCounts": {
+    "races": 9588,
+    "exactStoredValue": 9546,
+    "withinAbsolute0_1": 9549,
+    "withinAbsolute0_5": 9563,
+    "withinRelative1Pct": 9588,
+    "withinRelative3Pct": 9588,
+    "withinRelative5Pct": 9588
+  },
+  "population": {
+    "sourceRaces": 10284,
+    "eligibleSettled": 9588,
+    "preRaceFeatureUsable": 9583,
+    "all120OddsUsable": 9588,
+    "jointUsable": 9583,
+    "winningOddsUsable": 9588
+  },
+  "excludedReasons": {
+    "nonSixBoatOrIncompleteFinish": 696
+  },
+  "refundFieldPaths": {},
+  "venues": {
+    "1": {
+      "races": 405,
+      "signed": {
+        "count": 405,
+        "mean": 2.0038934399791425e-07,
+        "min": -1.2207031261368684e-05,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 405,
+        "mean": 1.328550738185949e-06,
+        "min": 0.0,
+        "median": 3.8146972691777137e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 2.4414062522737368e-05
+      }
+    },
+    "2": {
+      "races": 386,
+      "signed": {
+        "count": 386,
+        "mean": -0.00129517421821201,
+        "min": -0.5,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 386,
+        "mean": 0.0012967005912497007,
+        "min": 0.0,
+        "median": 7.629394502828291e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.5
+      }
+    },
+    "3": {
+      "races": 255,
+      "signed": {
+        "count": 255,
+        "mean": -0.002352851044897828,
+        "min": -0.599999999999909,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 6.103515610789146e-06,
+        "p99": 1.2207031230673238e-05,
+        "max": 1.2207031261368684e-05
+      },
+      "absolute": {
+        "count": 255,
+        "mean": 0.0023545167960354945,
+        "min": 0.0,
+        "median": 7.629394502828291e-07,
+        "p90": 6.1035156022626325e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.599999999999909
+      }
+    },
+    "4": {
+      "races": 452,
+      "signed": {
+        "count": 452,
+        "mean": -0.0017696192834230063,
+        "min": -0.7999999999999545,
+        "median": 0.0,
+        "p90": 3.0517578011313162e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 1.2207031261368684e-05
+      },
+      "absolute": {
+        "count": 452,
+        "mean": 0.0017713367411509896,
+        "min": 0.0,
+        "median": 7.629394502828291e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.7999999999999545
+      }
+    },
+    "5": {
+      "races": 393,
+      "signed": {
+        "count": 393,
+        "mean": -0.0025444098707980757,
+        "min": -0.599999999999909,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 6.591796876591519e-06,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 393,
+        "mean": 0.0025456460074302525,
+        "min": 0.0,
+        "median": 3.8146972514141453e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515613631316e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.599999999999909
+      }
+    },
+    "6": {
+      "races": 424,
+      "signed": {
+        "count": 424,
+        "mean": -0.002358262044079193,
+        "min": -0.5,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 1.2207031248294698e-05,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 424,
+        "mean": 0.002359964262763318,
+        "min": 0.0,
+        "median": 7.629394502828291e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.5
+      }
+    },
+    "7": {
+      "races": 338,
+      "signed": {
+        "count": 338,
+        "mean": -0.0026627558928272108,
+        "min": -0.5,
+        "median": 0.0,
+        "p90": 1.5258789005656581e-06,
+        "p95": 1.5258789076710855e-06,
+        "p99": 6.103515630684342e-06,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 338,
+        "mean": 0.0026638427429649413,
+        "min": 0.0,
+        "median": 3.8146972514141453e-07,
+        "p90": 3.051757805394573e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.98974609560309e-05,
+        "max": 0.5
+      }
+    },
+    "8": {
+      "races": 407,
+      "signed": {
+        "count": 407,
+        "mean": -0.002948658355038055,
+        "min": -0.7000000000000455,
+        "median": 0.0,
+        "p90": 1.5258789005656581e-06,
+        "p95": 3.0517578011313162e-06,
+        "p99": 6.103515630684342e-06,
+        "max": 1.2207031261368684e-05
+      },
+      "absolute": {
+        "count": 407,
+        "mean": 0.0029495820366481967,
+        "min": 0.0,
+        "median": 3.8146972691777137e-07,
+        "p90": 3.051757806815658e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 2.3681640647055217e-05,
+        "max": 0.7000000000000455
+      }
+    },
+    "9": {
+      "races": 418,
+      "signed": {
+        "count": 418,
+        "mean": -0.00215282691152479,
+        "min": -0.900000000000091,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 418,
+        "mean": 0.0021544746234651866,
+        "min": 0.0,
+        "median": 3.8146972602959295e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.900000000000091
+      }
+    },
+    "10": {
+      "races": 382,
+      "signed": {
+        "count": 382,
+        "mean": -0.003926820405490203,
+        "min": -0.900000000000091,
+        "median": 0.0,
+        "p90": 1.5258789005656581e-06,
+        "p95": 3.0517578011313162e-06,
+        "p99": 7.263183589714104e-06,
+        "max": 1.2207031261368684e-05
+      },
+      "absolute": {
+        "count": 382,
+        "mean": 0.003927911888240902,
+        "min": 0.0,
+        "median": 3.8146972514141453e-07,
+        "p90": 3.0517578011313162e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.900000000000091
+      }
+    },
+    "11": {
+      "races": 435,
+      "signed": {
+        "count": 435,
+        "mean": -0.0020690275608808515,
+        "min": -0.900000000000091,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 6.103515630684342e-06,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 435,
+        "mean": 0.002070201786084986,
+        "min": 0.0,
+        "median": 3.8146972514141453e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.900000000000091
+      }
+    },
+    "12": {
+      "races": 382,
+      "signed": {
+        "count": 382,
+        "mean": -0.005759330819413421,
+        "min": -0.7999999999999545,
+        "median": 0.0,
+        "p90": 7.629394538355427e-07,
+        "p95": 1.5258789076710855e-06,
+        "p99": 7.263183589714104e-06,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 382,
+        "mean": 0.005760405325762914,
+        "min": 0.0,
+        "median": 3.8146972514141453e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 0.0380197753906084,
+        "max": 0.7999999999999545
+      }
+    },
+    "13": {
+      "races": 445,
+      "signed": {
+        "count": 445,
+        "mean": -0.0022473503498555082,
+        "min": -0.8000000000001819,
+        "median": 0.0,
+        "p90": 1.5258789005656581e-06,
+        "p95": 3.0517578011313162e-06,
+        "p99": 6.103515630684342e-06,
+        "max": 1.2207031261368684e-05
+      },
+      "absolute": {
+        "count": 445,
+        "mean": 0.0022484261802070203,
+        "min": 0.0,
+        "median": 3.8146972514141453e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.8000000000001819
+      }
+    },
+    "14": {
+      "races": 368,
+      "signed": {
+        "count": 368,
+        "mean": -0.005706415487372713,
+        "min": -0.900000000000091,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 1.2207031261368684e-05
+      },
+      "absolute": {
+        "count": 368,
+        "mean": 0.005707976092462599,
+        "min": 0.0,
+        "median": 7.629394502828291e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.900000000000091
+      }
+    },
+    "15": {
+      "races": 331,
+      "signed": {
+        "count": 331,
+        "mean": -0.0018130616479051045,
+        "min": -0.599999999999909,
+        "median": 0.0,
+        "p90": 7.629394538355427e-07,
+        "p95": 3.0517578011313162e-06,
+        "p99": 6.103515630684342e-06,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 331,
+        "mean": 0.0018140274232235694,
+        "min": 0.0,
+        "median": 3.8146972514141453e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.599999999999909
+      }
+    },
+    "16": {
+      "races": 538,
+      "signed": {
+        "count": 538,
+        "mean": -0.0031599501251733625,
+        "min": -0.900000000000091,
+        "median": 0.0,
+        "p90": 1.5258789005656581e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 1.2207031240336619e-05,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 538,
+        "mean": 0.0031612140095359314,
+        "min": 0.0,
+        "median": 3.8146972691777137e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 2.4414062522737368e-05,
+        "max": 0.900000000000091
+      }
+    },
+    "17": {
+      "races": 385,
+      "signed": {
+        "count": 385,
+        "mean": -0.0007791038612267957,
+        "min": -0.20000000000004547,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 7.080078122498695e-06,
+        "max": 1.2207031261368684e-05
+      },
+      "absolute": {
+        "count": 385,
+        "mean": 0.000780421170320148,
+        "min": 0.0,
+        "median": 3.8146972691777137e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.20000000000004547
+      }
+    },
+    "18": {
+      "races": 389,
+      "signed": {
+        "count": 389,
+        "mean": -0.001799450680652362,
+        "min": -0.7000000000000455,
+        "median": 0.0,
+        "p90": 1.5258789005656581e-06,
+        "p95": 3.0517578011313162e-06,
+        "p99": 6.83593750636649e-06,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 389,
+        "mean": 0.0018005887156586086,
+        "min": 0.0,
+        "median": 3.8146972514141453e-07,
+        "p90": 3.0517578011313162e-06,
+        "p95": 6.1035156022626325e-06,
+        "p99": 1.367187501273298e-05,
+        "max": 0.7000000000000455
+      }
+    },
+    "19": {
+      "races": 362,
+      "signed": {
+        "count": 362,
+        "mean": -0.0038672519652235005,
+        "min": -0.900000000000091,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 362,
+        "mean": 0.003868650599738195,
+        "min": 0.0,
+        "median": 3.8146972691777137e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 2.4414062522737368e-05,
+        "max": 0.900000000000091
+      }
+    },
+    "20": {
+      "races": 448,
+      "signed": {
+        "count": 448,
+        "mean": -0.0013392544218469602,
+        "min": -0.599999999999909,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 9.338378884819865e-06,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 448,
+        "mean": 0.0013405965907223513,
+        "min": 0.0,
+        "median": 3.8146972691777137e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.599999999999909
+      }
+    },
+    "21": {
+      "races": 383,
+      "signed": {
+        "count": 383,
+        "mean": -0.005221898624230643,
+        "min": -0.7999999999999545,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 7.20214843397575e-06,
+        "max": 1.2207031261368684e-05
+      },
+      "absolute": {
+        "count": 383,
+        "mean": 0.00522314313186298,
+        "min": 0.0,
+        "median": 3.8146972691777137e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.4404296888415131e-05,
+        "max": 0.7999999999999545
+      }
+    },
+    "22": {
+      "races": 402,
+      "signed": {
+        "count": 402,
+        "mean": -0.002238687947022085,
+        "min": -0.900000000000091,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 1.220703126080025e-05,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 402,
+        "mean": 0.0022400494238624816,
+        "min": 0.0,
+        "median": 3.8146972691777137e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 0.900000000000091
+      }
+    },
+    "23": {
+      "races": 419,
+      "signed": {
+        "count": 419,
+        "mean": -0.0035796858530338445,
+        "min": -0.7000000000000455,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 1.2207031251136868e-05,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 419,
+        "mean": 0.0035810901896752424,
+        "min": 0.0,
+        "median": 3.8146972691777137e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.1035156022626325e-06,
+        "p99": 2.221679689569092e-05,
+        "max": 0.7000000000000455
+      }
+    },
+    "24": {
+      "races": 441,
+      "signed": {
+        "count": 441,
+        "mean": 4.281803035992485e-08,
+        "min": -2.4414062522737368e-05,
+        "median": 0.0,
+        "p90": 1.5258789076710855e-06,
+        "p95": 3.051757815342171e-06,
+        "p99": 1.2207031261368684e-05,
+        "max": 2.4414062522737368e-05
+      },
+      "absolute": {
+        "count": 441,
+        "mean": 1.5297714541900108e-06,
+        "min": 0.0,
+        "median": 3.8146972514141453e-07,
+        "p90": 3.051757815342171e-06,
+        "p95": 6.103515630684342e-06,
+        "p99": 2.4414062522737368e-05,
+        "max": 2.4414062522737368e-05
+      }
+    }
+  },
+  "overallDifference": {
+    "signedOddsMinusPayout": {
+      "count": 9588,
+      "mean": -0.00253437433732174,
+      "min": -0.900000000000091,
+      "median": 0.0,
+      "p90": 1.5258789076710855e-06,
+      "p95": 3.051757815342171e-06,
+      "p99": 1.2207031261368684e-05,
+      "max": 2.4414062522737368e-05
+    },
+    "absoluteOddsMinusPayout": {
+      "count": 9588,
+      "mean": 0.00253570968029471,
+      "min": 0.0,
+      "median": 3.8146972691777137e-07,
+      "p90": 3.051757815342171e-06,
+      "p95": 6.103515630684342e-06,
+      "p99": 1.2207031261368684e-05,
+      "max": 0.900000000000091
+    },
+    "relativeAbsolute": {
+      "count": 9588,
+      "mean": 1.818037214356161e-06,
+      "min": 0.0,
+      "median": 1.9972236918398664e-08,
+      "p90": 4.0581885842316104e-08,
+      "p95": 4.4100546464482236e-08,
+      "p99": 4.709502801453968e-08,
+      "max": 0.0007544639114763106
+    }
+  },
+  "top20Mismatches": [
+    {
+      "day": "2025-07-02",
+      "venue": 11,
+      "race": 9,
+      "winningCombo": "5-6-4",
+      "archivedOdds": 2495.0,
+      "payoutOdds": 2495.9,
+      "signedOddsMinusPayout": -0.900000000000091
+    },
+    {
+      "day": "2025-07-08",
+      "venue": 14,
+      "race": 1,
+      "winningCombo": "2-3-6",
+      "archivedOdds": 1247.0,
+      "payoutOdds": 1247.9,
+      "signedOddsMinusPayout": -0.900000000000091
+    },
+    {
+      "day": "2025-07-21",
+      "venue": 16,
+      "race": 9,
+      "winningCombo": "6-4-3",
+      "archivedOdds": 1305.0,
+      "payoutOdds": 1305.9,
+      "signedOddsMinusPayout": -0.900000000000091
+    },
+    {
+      "day": "2025-08-01",
+      "venue": 9,
+      "race": 6,
+      "winningCombo": "2-6-3",
+      "archivedOdds": 1340.0,
+      "payoutOdds": 1340.9,
+      "signedOddsMinusPayout": -0.900000000000091
+    },
+    {
+      "day": "2025-08-04",
+      "venue": 14,
+      "race": 7,
+      "winningCombo": "3-6-2",
+      "archivedOdds": 1470.0,
+      "payoutOdds": 1470.9,
+      "signedOddsMinusPayout": -0.900000000000091
+    },
+    {
+      "day": "2025-08-06",
+      "venue": 22,
+      "race": 2,
+      "winningCombo": "6-3-5",
+      "archivedOdds": 1192.0,
+      "payoutOdds": 1192.9,
+      "signedOddsMinusPayout": -0.900000000000091
+    },
+    {
+      "day": "2025-08-12",
+      "venue": 19,
+      "race": 6,
+      "winningCombo": "5-3-4",
+      "archivedOdds": 1397.0,
+      "payoutOdds": 1397.9,
+      "signedOddsMinusPayout": -0.900000000000091
+    },
+    {
+      "day": "2025-08-26",
+      "venue": 10,
+      "race": 4,
+      "winningCombo": "2-6-5",
+      "archivedOdds": 2230.0,
+      "payoutOdds": 2230.9,
+      "signedOddsMinusPayout": -0.900000000000091
+    },
+    {
+      "day": "2025-07-13",
+      "venue": 13,
+      "race": 12,
+      "winningCombo": "5-3-6",
+      "archivedOdds": 2358.0,
+      "payoutOdds": 2358.8,
+      "signedOddsMinusPayout": -0.8000000000001819
+    },
+    {
+      "day": "2025-07-12",
+      "venue": 12,
+      "race": 6,
+      "winningCombo": "4-6-2",
+      "archivedOdds": 1434.0,
+      "payoutOdds": 1434.8,
+      "signedOddsMinusPayout": -0.7999999999999545
+    },
+    {
+      "day": "2025-07-20",
+      "venue": 21,
+      "race": 8,
+      "winningCombo": "3-4-2",
+      "archivedOdds": 1308.0,
+      "payoutOdds": 1308.8,
+      "signedOddsMinusPayout": -0.7999999999999545
+    },
+    {
+      "day": "2025-07-22",
+      "venue": 4,
+      "race": 12,
+      "winningCombo": "6-4-3",
+      "archivedOdds": 1181.0,
+      "payoutOdds": 1181.8,
+      "signedOddsMinusPayout": -0.7999999999999545
+    },
+    {
+      "day": "2025-07-06",
+      "venue": 21,
+      "race": 3,
+      "winningCombo": "6-5-4",
+      "archivedOdds": 1148.0,
+      "payoutOdds": 1148.7,
+      "signedOddsMinusPayout": -0.7000000000000455
+    },
+    {
+      "day": "2025-07-26",
+      "venue": 18,
+      "race": 10,
+      "winningCombo": "3-5-4",
+      "archivedOdds": 1009.0,
+      "payoutOdds": 1009.7,
+      "signedOddsMinusPayout": -0.7000000000000455
+    },
+    {
+      "day": "2025-07-28",
+      "venue": 23,
+      "race": 2,
+      "winningCombo": "6-4-2",
+      "archivedOdds": 1988.0,
+      "payoutOdds": 1988.7,
+      "signedOddsMinusPayout": -0.7000000000000455
+    },
+    {
+      "day": "2025-08-08",
+      "venue": 16,
+      "race": 7,
+      "winningCombo": "6-4-1",
+      "archivedOdds": 1307.0,
+      "payoutOdds": 1307.7,
+      "signedOddsMinusPayout": -0.7000000000000455
+    },
+    {
+      "day": "2025-08-19",
+      "venue": 8,
+      "race": 12,
+      "winningCombo": "6-2-3",
+      "archivedOdds": 1776.0,
+      "payoutOdds": 1776.7,
+      "signedOddsMinusPayout": -0.7000000000000455
+    },
+    {
+      "day": "2025-07-03",
+      "venue": 23,
+      "race": 3,
+      "winningCombo": "6-4-1",
+      "archivedOdds": 3141.0,
+      "payoutOdds": 3141.7,
+      "signedOddsMinusPayout": -0.6999999999998181
+    },
+    {
+      "day": "2025-07-06",
+      "venue": 3,
+      "race": 7,
+      "winningCombo": "5-2-4",
+      "archivedOdds": 1257.0,
+      "payoutOdds": 1257.6,
+      "signedOddsMinusPayout": -0.599999999999909
+    },
+    {
+      "day": "2025-07-07",
+      "venue": 10,
+      "race": 6,
+      "winningCombo": "5-6-3",
+      "archivedOdds": 1227.0,
+      "payoutOdds": 1227.6,
+      "signedOddsMinusPayout": -0.599999999999909
+    }
+  ],
+  "forecastMetrics": {
+    "logloss": 3.796222502203683,
+    "brier": 0.9601908119622209,
+    "topChoiceEce": 0.0060929705136260415,
+    "firstTop1": 0.560889074402588,
+    "firstTop2": 0.7581133256808933,
+    "trifectaTop1": 0.09715120525931337,
+    "trifectaTop2": 0.17531044558071585,
+    "trifectaTop4": 0.29343629343629346,
+    "trifectaTop8": 0.4542418866743191
+  },
+  "androidBaseline": {
+    "trifectaLogloss": 4.166483,
+    "trifectaBrier": 0.976524,
+    "firstTop1Accuracy": 45.33,
+    "firstTop2Coverage": 66.941,
+    "trifectaTop1HitRate": 5.614,
+    "trifectaTop4HitRate": 19.201,
+    "trifectaTop8HitRate": 32.954
+  },
+  "candidateStatus": "PENDING_INDEPENDENT_HOLDOUT",
+  "protocolCommitSha": "44c617f78f25baeb19aff9d5fdd466c51cfd6c95",
+  "protocolSha256": "4762a38817db3c720bfdb01a9623ff06c8ac3e8eb0d4a146c635bde45a4bda33",
+  "septemberOpened": false,
+  "q4Opened": false,
+  "productionPromotion": false
+}
