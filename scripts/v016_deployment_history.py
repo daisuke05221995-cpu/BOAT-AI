@@ -11,9 +11,14 @@ from v016_core_research import dump
 from v016_r4_features import COMBOS, COMBO_TEXT, extract_pre
 from v016_r4_player_history import PlayerHistory, enrich
 
-SOURCE={'programs':('BoatraceOpenAPI/programs','d3e37a2b5bce2bc10ac9d8154713cfe250aa5fa1'),
-        'previews':('BoatraceOpenAPI/previews','5089ce91e150538a8adc8da86ca403f578343318'),
-        'results':('BoatraceOpenAPI/results','04dfd55682c1f083963ca80b5bfce93ed43cb755')}
+# Current 2026 sources are pinned at the exact gh-pages revisions observed before
+# this release. The upstream historical format moved from docs/v3 to docs/v2 in
+# April; normalize v2 keys into the frozen r4 inference schema below.
+SOURCE={
+    'programs':('boatraceopenapi/programs','e4032602493edd52d1a1d00ae9e58bd080ab7a98'),
+    'previews':('boatraceopenapi/previews','1dd0b5868f3638b6d917d013a2a91366406292f9'),
+    'results':('boatraceopenapi/results','ddac62a656494dbad1a69e172d50725c145e69e7')
+}
 START=date(2026,1,1)
 
 
@@ -21,7 +26,31 @@ def source_url(day,kind,through):
     if not START<=day<=through: raise ValueError('Deployment history date fence')
     if kind not in SOURCE: raise ValueError('Only programs/previews/results are allowed')
     repo,sha=SOURCE[kind]
-    return f'https://raw.githubusercontent.com/{repo}/{sha}/docs/v3/2026/{day:%Y%m%d}.json'
+    return f'https://raw.githubusercontent.com/{repo}/{sha}/docs/v2/2026/{day:%Y%m%d}.json'
+
+
+def normalize(kind,row):
+    common={
+        'date':row.get('race_date'),
+        'stadium_number':row.get('race_stadium_number'),
+        'number':row.get('race_number')
+    }
+    if kind=='programs':
+        out=dict(row); out.update(common); return out
+    if kind=='previews':
+        boats=row.get('boats',{})
+        if isinstance(boats,dict): boats=list(boats.values())
+        out=dict(row); out.update(common); out.update({
+            'boats':boats,
+            'wind_speed':row.get('race_wind'),
+            'wind_direction_number':row.get('race_wind_direction_number'),
+            'wave_height':row.get('race_wave'),
+            'air_temperature':row.get('race_temperature'),
+            'water_temperature':row.get('race_water_temperature')
+        }); return out
+    if kind=='results':
+        out=dict(row); out.update(common); return out
+    raise ValueError('Unknown source kind')
 
 
 def read_day(day,through):
@@ -32,7 +61,8 @@ def read_day(day,through):
             try:
                 with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'BOAT-AI-v016-deployment-history'}),timeout=45) as r: raw=r.read()
                 records=json.loads(raw)[kind]; keyed={}
-                for row in records:
+                for original in records:
+                    row=normalize(kind,original)
                     if row.get('date')!=day.isoformat(): raise ValueError('Source date mismatch')
                     key=(int(row['stadium_number']),int(row['number']))
                     if key in keyed: raise ValueError('Duplicate race')
@@ -69,12 +99,10 @@ def build_chunk(days,through):
                 counts['eligibleSettled']+=1
                 try:
                     preview=src['previews'].get((venue,race))
-                    if preview is not None and not isinstance(preview.get('boats',[]),list):
-                        raise TypeError('preview boats is not a list')
+                    if preview is not None and not isinstance(preview.get('boats',[]),list): raise TypeError('preview boats is not a list')
                     b,g,ids,classes,usable=extract_pre(program,preview,day,venue,race)
                 except (TypeError,KeyError,IndexError,ValueError):
-                    counts['malformedPreRaceInput']+=1
-                    continue
+                    counts['malformedPreRaceInput']+=1; continue
                 if not usable: counts['missingRequiredInput']+=1
                 rows.append((day.toordinal(),day.month,venue,race,label,b,g,ids,classes,usable))
     rows.sort(key=lambda r:(r[0],r[2],r[3])); names=('day_ordinal','month','venue','race_number','actual_index','current','global_features','racer_id','racer_class','usable')
@@ -100,7 +128,8 @@ def run(args):
     if history.state['lastDay']!=through.toordinal(): raise ValueError('History did not advance through target date')
     args.output.parent.mkdir(parents=True,exist_ok=True); dump(args.output,history.state)
     summary={'through':through.isoformat(),'lastDay':history.state['lastDay'],'updateRaces':history.state['updateRaces'],'registeredPlayers':len(history.state['recent']),
-             'population':dict(total),'oddsRead':False,'payoutRead':False,'modelRetrained':False}
+             'population':dict(total),'sourceCommits':{k:v[1] for k,v in SOURCE.items()},'sourceSchema':'docs/v2 normalized to frozen r4 schema',
+             'oddsRead':False,'payoutRead':False,'modelRetrained':False}
     dump(args.output.with_suffix('.summary.json'),summary); print(json.dumps(summary,ensure_ascii=False))
 
 if __name__=='__main__':
