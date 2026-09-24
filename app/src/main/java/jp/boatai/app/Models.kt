@@ -49,7 +49,10 @@ data class Racer(
     val boatNumber: Int?,
     val boatTop2: Double?,
     val boatTop3: Double?,
-    val preview: PreviewRacer?
+    val preview: PreviewRacer?,
+    val classNumber: Int? = null,
+    val flyingCount: Int? = null,
+    val lateCount: Int? = null
 )
 
 data class PreviewData(
