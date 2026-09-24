@@ -61,7 +61,8 @@ data class PreviewData(
     val waveHeight: Int?,
     val weather: String?,
     val airTemperature: Double?,
-    val waterTemperature: Double?
+    val waterTemperature: Double?,
+    val windDirectionNumber: Int? = null
 )
 
 data class RaceResultData(
