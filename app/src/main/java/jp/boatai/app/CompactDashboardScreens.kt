@@ -293,9 +293,29 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
                     Text("Model A 過去仮想損益（確定払戻）", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     Text(signedCompactMoney(retrospective.profit), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
                     Text("${retrospective.hits}/${retrospective.races}的中 / 購入 ${compactMoney(retrospective.stake)} / 払戻 ${compactMoney(retrospective.payout)} / 回収率 ${compactPercent(retrospective.roi)}")
-                    Text("対象日前日までの履歴だけでModel A上位4点を先に再現し、1点300円（1R 1,200円）をレース終了後の確定払戻で精算。締切前に同じ価格で買えたことを示すROIではありません。", style = MaterialTheme.typography.bodySmall)
-                    ui.modelARecentVirtualThroughDate?.let { Text("更新: $it まで / 表示は直近1か月", style = MaterialTheme.typography.labelSmall) }
+                    Text("対象日前日までの履歴だけで市場非入力Model Aを再現。4〜8点・1R 1,000〜3,000円（100円単位）の配分は終了後オッズを使う研究用仮想配分です。締切前に同じ価格で買えたことを示すROIではなく、自動BUYには使用しません。", style = MaterialTheme.typography.bodySmall)
+                    ui.modelARecentVirtualThroughDate?.let { through ->
+                        Text("期間: ${ui.modelARecentVirtualWindowStart ?: "-"} 〜 $through / 直近30日", style = MaterialTheme.typography.labelSmall)
+                    }
                     ui.modelARecentVirtualError?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
+                }
+            }
+        }
+
+        ui.modelARecentVirtualSummary?.let { summary ->
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("Model A 点数別30日診断", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text("全体 ${summary.hits}/${summary.races}的中 / 回収率 ${compactPercent(summary.roi)} / ${signedCompactMoney(summary.profit)}", fontWeight = FontWeight.SemiBold)
+                        Text("平均 ${String.format(Locale.US, "%.2f", summary.averagePoints)}点 / ${compactMoney(summary.averageStake.toInt())}", style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(6.dp))
+                        summary.pointBreakdown.forEach { row ->
+                            Text("${row.points}点　${row.hits}/${row.races}的中（${compactPercent(row.hitRate)}）　ROI ${compactPercent(row.roi)}　${signedCompactMoney(row.profit)}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text("点数別数値は診断用です。結果を見て点数を後付け選択する用途には使いません。", style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
