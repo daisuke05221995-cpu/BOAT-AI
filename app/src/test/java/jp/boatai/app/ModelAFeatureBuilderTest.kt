@@ -21,7 +21,7 @@ class ModelAFeatureBuilderTest {
         assertEquals(day, result.predictionDayOrdinal)
         assertEquals(day - 1, result.historyThroughDayOrdinal)
         assertEquals(6, result.laneHistory.size)
-        val input = assertNotNull(result.input) as ModelAConditionalPredictor.Input
+        val input = requireNotNull(result.input)
         assertEquals(6, input.boat.size)
         input.boat.forEach { assertEquals(82, it.size) }
         assertEquals(24, input.global.size)
@@ -36,16 +36,15 @@ class ModelAFeatureBuilderTest {
         assertEquals(f32(6.70), lane1[15], 0.0)
         assertEquals(f32(0.10), lane1[16], 0.0)
         assertEquals(f32(1.0), lane1[17], 0.0)
-        assertEquals(f32(1.0), lane1[20], 0.0) // class_1
+        assertEquals(f32(1.0), lane1[20], 0.0)
         assertEquals(f32(0.0), lane1[21], 0.0)
-        assertEquals(f32(0.0), lane1[24], 0.0) // course_changed
-        assertEquals(f32(1.0), lane1[25], 0.0) // exhibition rank
-        assertEquals(f32(1.0), lane1[26], 0.0) // preview ST rank
-        assertEquals(f32(0.0), lane1[27], 0.0) // gap best
-        assertEquals(f32(-0.05), lane1[28], 1e-6) // gap worst
-        assertEquals(f32(0.0), lane1[29], 0.0) // gap lane1
+        assertEquals(f32(0.0), lane1[24], 0.0)
+        assertEquals(f32(1.0), lane1[25], 0.0)
+        assertEquals(f32(1.0), lane1[26], 0.0)
+        assertEquals(f32(0.0), lane1[27], 0.0)
+        assertEquals(f32(-0.05), lane1[28], 1e-6)
+        assertEquals(f32(0.0), lane1[29], 0.0)
 
-        // Fresh empty history uses the exact frozen Python priors.
         assertEquals(f32(0.0), lane1[30], 0.0)
         assertEquals(f32(1.0 / 6.0), lane1[31], 0.0)
         assertEquals(f32(6.8), lane1[38], 0.0)
