@@ -22,3 +22,9 @@
 - 日別・場別の全診断値はresult.json。事後的な場選別・閾値変更には使わない。
 - baselineは同一ソースの固定式を再現し、既存7〜8月9,583レースの全報告指標一致を確認。
 - PASSでもAndroid互換LightGBM推論・日次履歴更新prototypeとPython parity/端末性能の検証が次段階。app/とReleaseは未変更。
+
+## 事前登録外の診断（採否・閾値には使用しない）
+
+- 9月の30暦日と実施22場のすべてで、Model Aの3連単loglossはbaselineより小さい。最大母集団は場21の222レース。
+- 場2（155レース）のBrier差はModel A−baselineで +0.000179。9月8日（111レース）の3連単Top4差は −0.901ポイント。集計全体の事前登録判定は変更しない。
+- Top-choice ECEはModel A 0.012950、baseline 0.002876でModel Aが大きい。今回のPASS条件にはECEの優劣を含めていない。9月を見た後の係数・温度・特徴量調整はしない。
