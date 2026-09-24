@@ -40,6 +40,63 @@
     "2900": 39,
     "3000": 431
   },
+  "pointBreakdown": {
+    "4": {
+      "races": 1538,
+      "hits": 582,
+      "hitRate": 37.841352405721715,
+      "stake": 2285700,
+      "payout": 1794330,
+      "profit": -491370,
+      "roi": 78.50242814017588,
+      "averageStake": 1486.150845253576,
+      "averageWinningPayout": 3083.041237113402
+    },
+    "5": {
+      "races": 1029,
+      "hits": 344,
+      "hitRate": 33.43051506316812,
+      "stake": 1522500,
+      "payout": 1423420,
+      "profit": -99080,
+      "roi": 93.49228243021346,
+      "averageStake": 1479.591836734694,
+      "averageWinningPayout": 4137.8488372093025
+    },
+    "6": {
+      "races": 661,
+      "hits": 223,
+      "hitRate": 33.73676248108926,
+      "stake": 1014200,
+      "payout": 922830,
+      "profit": -91370,
+      "roi": 90.99092881088542,
+      "averageStake": 1534.341906202723,
+      "averageWinningPayout": 4138.251121076233
+    },
+    "7": {
+      "races": 437,
+      "hits": 113,
+      "hitRate": 25.85812356979405,
+      "stake": 694400,
+      "payout": 423640,
+      "profit": -270760,
+      "roi": 61.00806451612903,
+      "averageStake": 1589.0160183066362,
+      "averageWinningPayout": 3749.026548672566
+    },
+    "8": {
+      "races": 524,
+      "hits": 127,
+      "hitRate": 24.236641221374047,
+      "stake": 787400,
+      "payout": 655440,
+      "profit": -131960,
+      "roi": 83.24104648209297,
+      "averageStake": 1502.671755725191,
+      "averageWinningPayout": 5160.944881889764
+    }
+  },
   "historyLastDay": 739883,
   "historyUpdateRaces": 141675,
   "historyStateBytes": 4224242,
@@ -87,5 +144,5 @@
   "preCloseOddsClaim": false,
   "automaticBuy": false,
   "resultUsedForSelection": false,
-  "oddsArchiveCommit": "778ce0de6dcd9fa4d7aa84fe33ebd85ae547b089"
+  "oddsArchiveCommit": "65100fb6fe6f1608df7c553f17f4b21f45af0682"
 }
