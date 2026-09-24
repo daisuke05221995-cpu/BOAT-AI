@@ -1,0 +1,187 @@
+{
+  "protocolCommitSha": "2fbf3239f8ac68e4d45775b353aa03217d9a517f",
+  "protocolSha256": "7ab78d85a62bcbe51273ed558dc007d4ed82ad4c8db488c6c0b953cd6be157d2",
+  "sourceHashes": {
+    "2025-09-05": {
+      "programs": "d847999384c3246a3c814d9bed084cc70cf3bd3fb551d01e38f3d0ad00918052",
+      "previews": "1f56757f9d4213eb47e4e1bbdc963bcebe376bf97d0519bd41478b28d9077fc7",
+      "results": "58bfc665703ae329ff9406afc05c575a67143419275a45543cd98285e2d52eef"
+    },
+    "2025-09-04": {
+      "programs": "a5b122f16784a30d1e03a1a2b0fd186cd40f6e8a91abd5dea9334e08c3e29cfb",
+      "previews": "1abc20d838886e5484e913e13fc64025ad14771ee57fd745c3ebafc18e59bdd3",
+      "results": "d9e7fa2ecd72ef9488e0ca2c0d4759833c434471acf15801b6364e9c668cb311"
+    },
+    "2025-09-09": {
+      "programs": "742bdfcfba42aa2bcbabb8708b392a2a26b46acb16599b22f44f7a5e22153787",
+      "previews": "d700dd84c670773a31636106e8eb3f8a32e106de085582cd1b3735c884d63c4f",
+      "results": "b64948c2e22dd83822ba8ef88acd8fcf59c6737a4a05441cb933c436300d1b0c"
+    },
+    "2025-09-07": {
+      "programs": "87ced38bf51b9515c98de7899d8091c48f4098cd3257bbeffd8a227e802025de",
+      "previews": "d918bee45ad39c5e00e551692e2fec259d5e2b065817134f7fd37df4e143f574",
+      "results": "1e8852959edfee5388f6b1a4032c1a9cc68c36393d55f5bfa6847b7dd03aee0a"
+    },
+    "2025-09-08": {
+      "programs": "ffe93c2566aca3ea83a3965834ef5997aa3d887488becdcce9d211b5422d042d",
+      "previews": "936a784feb4c1d404cddcf5678ea53a407f3d0f95eb786a1dd8c53a6976ec4b0",
+      "results": "0527eea1b6cb94754440fbb34c891643ce8051573b9dceded49e9d781254f1fb"
+    },
+    "2025-09-01": {
+      "programs": "0291b2da518d37505d2f305a6897fa83d6af4cf226656a8edc02f7009e1aa8a2",
+      "previews": "f90c91f73028043979b0c7a604418991dd3076c3b60ac010b67ca789b2dcb059",
+      "results": "d3b7f37f43b5f4bf275f255424e533cc4e320b7d98d3d9dfb1bdf382d4a6d909"
+    },
+    "2025-09-02": {
+      "programs": "b870ef8b92e3154952bfde91bf648dc3a07bbcd821cf89c35047ad68051f9f46",
+      "previews": "037a0834f4817ac77a25058592dbb07a6eaba799b7084cd0c09748cb2a4579f0",
+      "results": "edc7778da9772e357ccc1cc07173bd583b648e4a4f298bd51da89d689299682f"
+    },
+    "2025-09-10": {
+      "programs": "85f291eda903add94008aa155b3d658a2841340a735431bdb4f26909cdf7d666",
+      "previews": "7fba6f39d30d8717d7410dd3e5638b923a5e9ff03b79b309793a15ad2bd97773",
+      "results": "2db2279cc4dba40cbfe4b70d14a298b177edcfdbcc8bb25b2019ef9f2d5c9609"
+    },
+    "2025-09-06": {
+      "programs": "7544db3e03106123f7d975d6ee99fbaa8c3a5a7fe4aa262922067c9540a5578a",
+      "previews": "596e3be19466550acfc153d56c589790e9fcd1b39dd7db113cc87eaa9f11df4f",
+      "results": "f86adda286885465975c0b6b7835abd03c973d1b60fbe07aab99d36efa4041af"
+    },
+    "2025-09-03": {
+      "programs": "671f3d8c12250687cd6a0133832115c8e90d9fac6c7e92c7be3cdcda96303184",
+      "previews": "b06de606a8c6c538126b4236584e6ef8e14e64a1b6ae8acd91983cce9667ced8",
+      "results": "184611f565481648d8eb6de2b906896d0b7d811f8a22d146d8deb6c756b0c908"
+    },
+    "2025-09-11": {
+      "programs": "16ca38aaf025aa111af8359b059bced1cebaa9c54a284789be3679bf4840c04c",
+      "previews": "d6199e47fc0f88e2826a9531dc9a4888fcb57bcc956873440be096a0b87079fa",
+      "results": "415b1d0edd32a3303bba276362078b138184b177fdebbfd3b72caa18db5bbaa5"
+    },
+    "2025-09-12": {
+      "programs": "343a55bebddd70af4ef936e9b2f7631104017004bfe273bfe0687242fa515ef0",
+      "previews": "b4448a7d2521f30e920906550d1d4c8620cae1d4475708add796e7017129cd34",
+      "results": "448d96e3ab7008f90d76314d2961e3d662452c3018efbba8b88fcb251ed3b00a"
+    },
+    "2025-09-14": {
+      "programs": "aedba5c8773454f8fd92fe5052d600943d32d49189f4146d07740fa9c635ae2f",
+      "previews": "820d5835744523e908c4d1b4e4e398d5c74049963fc9f25441c4b851091e4eb6",
+      "results": "c6a2b3f7a5610c8dec9f2fad3f85a402a9d8aac9aa6d3433894224429d522ef8"
+    },
+    "2025-09-13": {
+      "programs": "3fca519a637699549a7c89d01d811a2e55b6004b42175156e577cf61fe7cabb5",
+      "previews": "27356c88aeb0e0102591141aab5544eca32fa01a3d51d868d7e30f716aeec8c6",
+      "results": "e8ef5650e434dd4e3a37cca89d49f1905ad86b0c8ff2ca2f78da47b9229eeed7"
+    },
+    "2025-09-17": {
+      "programs": "d090ceb0b01221da059d6d4222bec01ba369b3763301c8f480cdbb091e64cfaa",
+      "previews": "0847a00e07638e8b7c88bd9b9ecbcc1e1cee63cb476623b7d3df43e85d40ea0a",
+      "results": "019cb7ec70330d4c0c08835488b2edad5db3d5b6352ddaee0dc241d60079e258"
+    },
+    "2025-09-19": {
+      "programs": "e7f4da8e13f679b7be8db770dcd4c5b0370ceb65ece42f58e896e26d89057336",
+      "previews": "808e9082ecfffe27e6696fc22f4564aaa3bbe6cd442defe67a69ad405d5423ff",
+      "results": "0022bf8bc0acfc9aa5c9cd4e414d9bc81bd1b1ec6a904ade00cf8b8f290ccb1c"
+    },
+    "2025-09-16": {
+      "programs": "c6b8fbb6e6a96b896531a2e3e726e7416373c7c813ecb01727fa887a1dd1380a",
+      "previews": "4cb1daf4ddccf6ce3b88baa8b60d0e02acea06f3f603b7776a7c978c41f485d5",
+      "results": "baf283a89dd73eae35093821e696b3b85b7105bf185c48abc19c2bfbf94e977b"
+    },
+    "2025-09-15": {
+      "programs": "0e6ff30ab6d0542749b0aee1734f3001235f03847e0b0ec652c0e4f950b68343",
+      "previews": "5b93034bce8f2b7ef5f4ef6557c59648a173884e5506f58670000e9361b2d390",
+      "results": "9e3e45c5d0531d3b20f9fe8d56ac61f59371c7dfa8970bbb7d788b31f8a0a073"
+    },
+    "2025-09-18": {
+      "programs": "3bf183278451ae04b6dbfcd65f9218d02975cbc169015a6dab54db9987e83fdf",
+      "previews": "ab48c9dd8ab3dc2870577057b52463198707e0f9c7bd9e25a48f15ad06ebf98e",
+      "results": "f6a4ef72ed99565a91df26d59c1eaadc9bd2cae9590137b5cb6e9efdf6830bb0"
+    },
+    "2025-09-20": {
+      "programs": "fc69c175f6daf9e2332e69318b2740b2ee779956f4db2f4b689586ddd69dcb40",
+      "previews": "28c41bb34930288414920e243ae16eed917b660a1ddcb16b1f6b6aea530ac0a0",
+      "results": "34d64ff1ecfcdc9c8545321cef352aa8a8d2691fa817c30d42ab1a6b6a718689"
+    },
+    "2025-09-24": {
+      "programs": "5ad69169ace658263b5cb700780bde289deb79f40261c8ba078ab91c00d9dbe4",
+      "previews": "39d52654f0b37455fe4ed26a6de64d2da50d26f60a3e4e2d2ee490bb432f3b3f",
+      "results": "208bf495d50a08bb13095ccbc34511cc99ae384764dcb9244fd38b9e0ff6abe9"
+    },
+    "2025-09-21": {
+      "programs": "a39e26ef0a7b47c67ae4ffd40c11b2a3d13296c5844a7ec44f7cf0db902fb9a4",
+      "previews": "9a0f1666ee2d0ce3e861de4d2d88812cfea54807579a44f372997e3081ccef17",
+      "results": "a1785abd42419c605ce35535d1a10d438111cd2eaaee786a1e06cb582e02d9b8"
+    },
+    "2025-09-23": {
+      "programs": "ef0f2e2c8de553db2aa563642eba88e5cb0bafd307c7d77a60cc663eb0283730",
+      "previews": "be382cfedc3c5c489bc21029c445930acaf35925d84efd464583ef70f85a418a",
+      "results": "cfdef7a72636e41a99195295d84ef8dd4bec970970f9dbb9082fbddc8730a3a0"
+    },
+    "2025-09-22": {
+      "programs": "f1facdc2182c8cd1a88f85547698e4822b2625340bc88fa6e6e6759325e025a0",
+      "previews": "918be4ed5b525265f6cbe809bd1191bdb49147df1775bfb958759b5d9c9405e2",
+      "results": "fcf51fce873eebb6dc4750db0040248e66996edfb08a09d61800652082416778"
+    },
+    "2025-09-27": {
+      "programs": "ec220256dee504f90b37f0b0896dba5332e3252e532070a4d1f028a05218ddbc",
+      "previews": "05996d4ec0a987631b223f703f09257d59bb9ce7a1ccde3d749bf09770c25b4d",
+      "results": "623941ddb3a9f1b5bcd44be92a61661923a8aec991115521db807c7ce0fba068"
+    },
+    "2025-09-28": {
+      "programs": "a283dfd489b2abdf94498e8224dcdcc55518f26688a8ad9543e53c57e11b750a",
+      "previews": "1a30fa3f937c98633fd00dc42693cd90c67d7af136742ea251da673b57170910",
+      "results": "4dcb90a3a8b7162eb369db00d0ef4baee0abc03372d3a7dcc72afb349be38f1c"
+    },
+    "2025-09-29": {
+      "programs": "2aeda466cc68f2ec4dccdc9b38da7506f0441a2e6ba21b93db0261b6c8c17d92",
+      "previews": "31439b8085ac2da734b22ab0956f231a12400b8925554578bf588ce30c254a8b",
+      "results": "ffd920bf41c35ac491b20994cf943fb95c7c503d93404d3b7ce2f10c137d2c2f"
+    },
+    "2025-09-25": {
+      "programs": "3e1d9fe68caba6005c64f1a607437b853eab489362e3561e1907ef2d33257cec",
+      "previews": "0b28d3e2829202c4dc9dec9e19c1e566a5995f8412dcdd2383dfaf5a1b5a6527",
+      "results": "c0d2358fe29b199cb354b9ad6337df32cbcf96c322c655dcd560c95e6897cddb"
+    },
+    "2025-09-26": {
+      "programs": "6f74fb04bcf8e4ee8c9e3577f30a045cd7c3989d660607bea067af9d2badf663",
+      "previews": "116cb46928098b794426b12dbac0eadb23392562a65d008397d3b27ee3b3ef2f",
+      "results": "c1aa1209add4e91f72554abb09831e3cca40b121d3baaa4ce4bd29893c74f43d"
+    },
+    "2025-09-30": {
+      "programs": "0cb98dc0b765fd05f8cbb9fc32859b9e0c35ad55c3dc4594b4d344d8bc9e4945",
+      "previews": "ebfd446a2530be6c4280be029e4945d59cafb7be61e2ff2801049f1c764be6a3",
+      "results": "a58815282f4470c81a8a2aa1625bf2faba78cb505049e47f15d91d32a8a95119"
+    }
+  },
+  "sourceCommits": {
+    "programs": "d3e37a2b5bce2bc10ac9d8154713cfe250aa5fa1",
+    "previews": "5089ce91e150538a8adc8da86ca403f578343318",
+    "results": "04dfd55682c1f083963ca80b5bfce93ed43cb755"
+  },
+  "population": {
+    "sourceRaces": 4272,
+    "resultWithoutProgram": 0,
+    "notSixBoatUniqueFinish": 313,
+    "eligibleSettled": 3959,
+    "modelMissingRequiredInput": 3
+  },
+  "comparisonRaces": 3956,
+  "modelCoverageOfEligible": 0.9992422328870927,
+  "missingInputRate": 0.0007577671129072998,
+  "firstDay": "2025-09-01",
+  "lastDay": "2025-09-30",
+  "sourceDays": 30,
+  "q4Rows": 0,
+  "duplicateRaceKeys": 0,
+  "sameDayHistoryLeakRows": 0,
+  "historyStateStartSha256": "289a976fd44e8f69fc00c3456f7dafcc2fc76769193e1e624576957fcf54dd2b",
+  "historyStateStartThrough": "2025-08-31",
+  "historyStateEndThrough": "2025-09-30",
+  "historyUpdateRacesEnd": 91447,
+  "featureCacheSha256": "4f980fc989a9153aaa4db5073407f9ee75ab445c548a10abbc72da3a49a6eded",
+  "oddsRead": false,
+  "payoutFieldRead": false,
+  "septemberOpened": true,
+  "q4Opened": false,
+  "productionPromotion": false
+}

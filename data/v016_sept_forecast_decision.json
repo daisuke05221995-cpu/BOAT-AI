@@ -1,0 +1,66 @@
+{
+  "decision": "PASS_FORECAST_HOLDOUT",
+  "protocolCommitSha": "2fbf3239f8ac68e4d45775b353aa03217d9a517f",
+  "protocolSha256": "7ab78d85a62bcbe51273ed558dc007d4ed82ad4c8db488c6c0b953cd6be157d2",
+  "modelRunId": 35940833546,
+  "modelArtifactId": 10784912368,
+  "modelArtifactDigest": "sha256:58b845fa8d07efe258b08a23ac6caafab2e4854ce4b84618fb4af6ae3f3687fe",
+  "modelManifestSha256": "d39ebab7549689d71f715daee174ec62257f9f9ddbe29f7667256eba8b148da2",
+  "baselineSourceSha256": "57acef9ad213d0aaae719fc60b2c61419543ee54d094817d26cd9f9d5bad6eca",
+  "population": {
+    "sourceRaces": 4272,
+    "resultWithoutProgram": 0,
+    "notSixBoatUniqueFinish": 313,
+    "eligibleSettled": 3959,
+    "modelMissingRequiredInput": 3
+  },
+  "comparisonRaces": 3956,
+  "coverage": 0.9992422328870927,
+  "missingInputRate": 0.0007577671129072998,
+  "modelMetrics": {
+    "races": 3956,
+    "trifectaLogloss": 3.844201735732251,
+    "trifectaBrier": 0.9631357101750349,
+    "topChoiceEce": 0.012950479378821805,
+    "firstTop1": 0.5530839231547017,
+    "firstTop2": 0.7512639029322548,
+    "trifectaTop1": 0.08948432760364004,
+    "trifectaTop2": 0.16102123356926187,
+    "trifectaTop4": 0.27856420626895856,
+    "trifectaTop8": 0.4345298281092012
+  },
+  "baselineMetrics": {
+    "races": 3956,
+    "trifectaLogloss": 4.225357724624932,
+    "trifectaBrier": 0.9787305189895915,
+    "topChoiceEce": 0.0028760698220632033,
+    "firstTop1": 0.4408493427704752,
+    "firstTop2": 0.6678463094034378,
+    "trifectaTop1": 0.05788675429726997,
+    "trifectaTop2": 0.10616784630940344,
+    "trifectaTop4": 0.18579373104145602,
+    "trifectaTop8": 0.30712841253791706
+  },
+  "pairedDayBlockBootstrap95": {
+    "trifectaLogloss": {
+      "point": -0.3811559888926808,
+      "ci95": [
+        -0.4046829449181518,
+        -0.35709042340407104
+      ]
+    },
+    "trifectaBrier": {
+      "point": -0.015594808814556514,
+      "ci95": [
+        -0.0173374496770613,
+        -0.01390255241432342
+      ]
+    }
+  },
+  "primaryPass": true,
+  "secondarySafetyPass": true,
+  "validityIssues": [],
+  "septemberOpened": true,
+  "q4Opened": false,
+  "productionPromotion": false
+}
