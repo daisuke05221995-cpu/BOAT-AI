@@ -15,6 +15,7 @@ on:
       - 'app/src/test/java/jp/boatai/app/ModelAConditionalPredictorTest.kt'
       - 'app/src/test/java/jp/boatai/app/ModelAPlayerHistoryParityTest.kt'
       - 'app/src/test/java/jp/boatai/app/ModelAHistoryAssetParityTest.kt'
+      - 'app/src/test/java/jp/boatai/app/ModelAPerformanceSmokeTest.kt'
       - 'scripts/v016_android_parity_fixture.py'
       - 'scripts/v016_android_chain_fixture.py'
       - 'scripts/v016_android_history_fixture.py'
@@ -129,6 +130,11 @@ jobs:
         env:
           BOAT_AI_PARITY_DIR: /tmp/model-a-parity
         run: ./gradlew testDebugUnitTest --tests jp.boatai.app.ModelAHistoryAssetParityTest --stacktrace
+
+      - name: Measure frozen Model A JVM smoke performance
+        env:
+          BOAT_AI_PARITY_DIR: /tmp/model-a-parity
+        run: ./gradlew testDebugUnitTest --tests jp.boatai.app.ModelAPerformanceSmokeTest --info
 
       - name: Upload parity summaries
         uses: actions/upload-artifact@v4
