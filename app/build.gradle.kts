@@ -14,6 +14,7 @@ android {
         targetSdk = 35
         versionCode = 31
         versionName = "0.15.13"
+        // v0.15.13: official-app purchase handoff + temporary r3 reference mode.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
