@@ -1,0 +1,114 @@
+{
+  "revision": "v016-q4-final-forecast-holdout-v1",
+  "registeredBefore": "first access, fetch, or view of any 2025-10-01 through 2025-12-31 race data in this project",
+  "period": {
+    "historyWarmupStart": "2025-09-01",
+    "historyWarmupEnd": "2025-09-30",
+    "holdoutStart": "2025-10-01",
+    "holdoutEnd": "2025-12-31",
+    "holdoutCalendarDays": 92,
+    "trainThrough": "2025-05-31",
+    "validationThrough": "2025-06-30",
+    "historySeedThrough": "2025-08-31"
+  },
+  "scope": {
+    "forecastOnly": true,
+    "marketInputs": false,
+    "payoutInputs": false,
+    "roiMetrics": false,
+    "oddsAcquisition": false,
+    "purchaseDecision": false,
+    "retraining": false,
+    "newFeatures": false,
+    "temperatureSelection": false,
+    "hyperparameterSearch": false,
+    "postHoldoutRescue": false,
+    "automaticBuyPromotion": false
+  },
+  "candidate": {
+    "manifestPath": "data/v016_forecast_candidate.json",
+    "variant": "reaction",
+    "modelRunId": 35940833546,
+    "modelArtifactId": 10784912368,
+    "modelArtifactDigest": "sha256:58b845fa8d07efe258b08a23ac6caafab2e4854ce4b84618fb4af6ae3f3687fe",
+    "modelManifestSha256": "d39ebab7549689d71f715daee174ec62257f9f9ddbe29f7667256eba8b148da2",
+    "featureSchemaSha256": "6b785480a44316381ae749f27f45243eacb32f1f6b93f7b9cdc3c43ed7826ee2",
+    "r4ProtocolSha256": "240a66c66deb10fdb312091a027e540efc77888c96f3706600fc0485937fa2f1",
+    "historySeedSha256": "289a976fd44e8f69fc00c3456f7dafcc2fc76769193e1e624576957fcf54dd2b",
+    "temperature": 1,
+    "marketInputs": false,
+    "modelFileSha256": {
+      "stage0.txt": "ee67bc585ad4b19904d64ea8c77e25964ed41887b58e94a425bbd10c1d5a1a45",
+      "stage1.txt": "ad8425277311dd7080b0a05f719a322632d5993ab4382cadc721f152ddcfb1e7",
+      "stage2.txt": "23e78898a8229794d5c1b819297d2cb77d23ec07edeb4ab6cb07a7d5758eac8a"
+    }
+  },
+  "baseline": {
+    "name": "Android v0.15.16 pure AI forecast",
+    "sourcePath": "app/src/main/java/jp/boatai/app/AverageRoiReferenceStrategy.kt",
+    "sourceSha256": "57acef9ad213d0aaae719fc60b2c61419543ee54d094817d26cd9f9d5bad6eca",
+    "replayReferencePath": "scripts/v01516_forecast_audit.py",
+    "replayReferenceSha256": "fb2c12a02d6cdf5ecdf0507cb2ccbbf81c5619941779bed1f97def55a9fddd8e",
+    "scoreTemperature": 14,
+    "odds": false
+  },
+  "population": {
+    "sources": {
+      "programs": "BoatraceOpenAPI/programs@d3e37a2b5bce2bc10ac9d8154713cfe250aa5fa1",
+      "previews": "BoatraceOpenAPI/previews@5089ce91e150538a8adc8da86ca403f578343318",
+      "results": "BoatraceOpenAPI/results@04dfd55682c1f083963ca80b5bfce93ed43cb755"
+    },
+    "allowedDailyFetch": ["programs", "previews", "results"],
+    "forbiddenFetch": ["odds", "payouts"],
+    "eligibleSettled": "exactly six matching boat numbers and racer IDs with unique ranks 1..6",
+    "modelUsable": "fixed r4 required pre-race inputs, six distinct registration IDs, valid six-course permutation",
+    "comparison": "exact identical intersection race keys for Model A and frozen v0.15.16 baseline",
+    "coverageMinimumOfEligible": 0.95,
+    "sourceDayCompleteness": 92
+  },
+  "history": {
+    "seedThrough": "2025-08-31",
+    "warmup": "replay September 2025 programs/previews/results only to advance player history through 2025-09-30; September metrics are not reused for Q4 decisions",
+    "holdoutProcess": "for each Q4 calendar day create all pre-race snapshots from prior-day state, then batch apply that day's eligible usable outcomes after all snapshots are created",
+    "sameDayLeakRequired": 0
+  },
+  "guards": {
+    "dateRangeExactlyQ4": true,
+    "duplicateRaceKeysRequired": 0,
+    "sourceDatesExactly92": true,
+    "modelAndBaselineRaceKeysEqual": true,
+    "modelProbabilityCount": 120,
+    "probabilityTolerance": 0.00001,
+    "firstMarginalTolerance": 0.00001,
+    "modelAndStateHashesMatch": true,
+    "modelTemperatureMustEqual": 1,
+    "marketInputsRequiredFalse": true
+  },
+  "evaluation": {
+    "primary": ["trifectaLogloss", "trifectaBrier"],
+    "secondary": ["firstTop1", "firstTop2", "trifectaTop1", "trifectaTop2", "trifectaTop4", "trifectaTop8", "topChoiceEce", "coverage"],
+    "bootstrap": {
+      "unit": "calendar day",
+      "replicates": 2000,
+      "seed": 16102025,
+      "drawDaysPerReplicate": 92,
+      "interval": "two-sided empirical 95% interval for paired ModelA-minus-baseline loss"
+    },
+    "primaryPass": "Model A logloss < baseline AND paired day-block logloss 95% CI upper < 0 AND Model A Brier < baseline",
+    "secondarySafety": "Model A firstTop1 >= baseline AND Model A trifectaTop4 >= baseline",
+    "decision": "PASS_Q4_FINAL_FORECAST iff all validity guards, coverage, primaryPass and secondarySafety pass; FAIL_Q4_FINAL_FORECAST when valid evaluation misses any metric gate; INCONCLUSIVE_Q4_FINAL_FORECAST on material source/history/model/parity validity failure",
+    "noRescue": "No model, feature, temperature, threshold, gate, population or metric definition may be changed after Q4 is opened to obtain PASS"
+  },
+  "releaseGate": {
+    "forecastIntegrationAllowedOnlyIf": ["PASS_Q4_FINAL_FORECAST", "Android Python/Kotlin parity workflow SUCCESS", "Android build/lint/unit tests SUCCESS"],
+    "autoBuyMustRemainOff": true,
+    "purchaseRoiQualification": false
+  },
+  "outputs": [
+    "data/v016_q4_forecast_data_audit.json",
+    "data/v016_q4_forecast_result.json",
+    "data/v016_q4_forecast_report.md",
+    "data/v016_q4_forecast_decision.json"
+  ],
+  "sealedUntilThisProtocolCommit": true
+}
