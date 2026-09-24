@@ -86,7 +86,7 @@ jobs:
           ids=[r['id'] for r in p['records']]
           assert len(ids)==len(set(ids))
           assert all(r['settled'] for r in p['records'])
-          assert all(3 <= len(r['combinations']) <= 8 for r in p['records'])
+          assert all(4 <= len(r['combinations']) <= 8 for r in p['records'])
           assert all(len(r['combinations']) == len(r['stakes']) == len(r['endedOdds']) for r in p['records'])
           assert all(1000 <= r['virtualStake'] <= 3000 for r in p['records'])
           assert all(r['virtualStake'] == sum(r['stakes']) for r in p['records'])
