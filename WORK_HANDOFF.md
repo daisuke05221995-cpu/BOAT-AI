@@ -295,3 +295,15 @@ v0.15.3で予想履歴保存とユーザー通知を分離した。
 - 3モデルcurrent/history/reactionで増分価値を検証。候補はreactionのみ。登録番号はlookup専用、同日の特徴量を全て生成してからその日の履歴を更新。実ST/実進入は使わない。
 - 現在位置: protocolのみ登録、r4実装/Run/成績は未完。次: player history accumulatorとリーク防止テスト→年別raw cache→時系列feature cache→モデル別Actions matrix→品質gate→固定買い方→条件を満たせばfreeze後Sep確認。
 - 年次105%/360購入ゲートは維持。Jul-Aug/Sepだけで年間合格としない。Q4未開封、LONGSHOT未着手、本番変更なし。
+
+
+### r4実装チェックポイント
+
+- protocol事前登録commit `b97e3969b04953435a93cccf10556f27f85bbadd` 後に研究専用コードを実装。
+- `v016_r4_features.py`: 固定commit programs/previews/results/odds、2024既存年次cacheの結果再利用、2025 Jan-Augのみ取得。9月はfreeze必須、Q4は許可経路なし。
+- `v016_r4_player_history.py`: 登録番号×previewコースの履歴、30/60/90/180日成績、階層縮約、本人比展示/ST、コース別展示反応。同日全snapshot完了後に結果更新。
+- `v016_r4_model.py`: current/history/reactionの3比較、登録番号・市場情報を予測入力へ入れない。Jun loglossで学習停止とtemperature固定。
+- `v016_r4_evaluate.py`: まずJul-Augの確率増分gate、その後固定2policyのみ。候補時はprotocol/コード/モデル/履歴状態/買い方をSHAでfreezeしSepのみ確認。年次gateは常に未評価表示。
+- 14テスト成功（r4 8、確率エンジン6）。同日/未来ラベル改変、同日順序入れ替え、ID/オッズ/結果入力排除、実ST/実進入の未使用、NPZ結果読込前Q4拒否などを確認。
+- Run ID: このpushで起動後追記。実データcache/学習/採否はまだ未完。
+- 次の1手: v016-r4 Actionsのcheck→raw 2年並列→history-features→model 3並列→select→候補時のみseptember→publishを監視。失敗は研究専用ファイルのみ修正し、再計算はcacheを再利用する。

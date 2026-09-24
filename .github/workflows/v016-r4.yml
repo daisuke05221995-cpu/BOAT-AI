@@ -1,0 +1,283 @@
+name: v016 r4 player course exhibition response
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/v016_r4_*.py
+      - data/v016_r4_protocol.json
+      - .github/workflows/v016-r4.yml
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: v016-r4
+  cancel-in-progress: false
+env:
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '2'
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - run: |
+          python scripts/v016_r4_test.py
+          python scripts/v016_r2_test.py
+
+  raw:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - year: 2024
+            end: 12
+          - year: 2025
+            end: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/cache@v4
+        id: raw-cache
+        with:
+          path: raw/
+          key: v016-r4-raw-${{ matrix.year }}-${{ hashFiles('scripts/v016_r4_features.py', 'scripts/v016_r2_features.py', 'data/v016_r4_protocol.json') }}
+      - uses: actions/download-artifact@v4
+        if: matrix.year == 2024 && steps.raw-cache.outputs.cache-hit != 'true'
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35870380669'
+          name: v016-annual-cache-2024
+          path: seed
+      - if: matrix.year == 2024 && steps.raw-cache.outputs.cache-hit != 'true'
+        run: python -u scripts/v016_r4_features.py --year 2024 --end-month 12 --seed-cache seed/annual_2024.npz --output raw/raw_2024.npz
+      - if: matrix.year == 2025 && steps.raw-cache.outputs.cache-hit != 'true'
+        run: python -u scripts/v016_r4_features.py --year 2025 --end-month 8 --output raw/raw_2025.npz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r4-raw-${{ matrix.year }}
+          path: raw/
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r4-metadata-raw-${{ matrix.year }}
+          path: raw/*.json
+          retention-days: 90
+
+  history-features:
+    needs: raw
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/cache@v4
+        id: feature-cache
+        with:
+          path: features/
+          key: v016-r4-features-${{ hashFiles('scripts/v016_r4_features.py', 'scripts/v016_r4_player_history.py', 'scripts/v016_r2_features.py', 'data/v016_r4_protocol.json') }}
+      - uses: actions/download-artifact@v4
+        if: steps.feature-cache.outputs.cache-hit != 'true'
+        with:
+          name: v016-r4-raw-2024
+          path: raw2024
+      - uses: actions/download-artifact@v4
+        if: steps.feature-cache.outputs.cache-hit != 'true'
+        with:
+          name: v016-r4-raw-2025
+          path: raw2025
+      - if: steps.feature-cache.outputs.cache-hit != 'true'
+        run: |
+          python -u scripts/v016_r4_player_history.py --seed raw2024/raw_2024.npz \
+            --raw raw2025/raw_2025.npz --output features
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r4-features
+          path: features/
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r4-metadata-features
+          path: features/feature_metadata.json
+          retention-days: 90
+
+  model:
+    needs: history-features
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [current, history, reaction]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-r4-features
+          path: features
+      - run: |
+          python -u scripts/v016_r4_model.py fit --variant ${{ matrix.variant }} --cache features/train.npz --output model
+          python -u scripts/v016_r4_model.py infer --cache features/development.npz --model model --output predictions/${{ matrix.variant }}.npz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r4-model-${{ matrix.variant }}
+          path: model/
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r4-prediction-${{ matrix.variant }}
+          path: predictions/
+          retention-days: 90
+
+  select:
+    needs: model
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      candidate: ${{ steps.pick.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-r4-features
+          path: features
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v016-r4-prediction-*
+          path: predictions
+          merge-multiple: true
+      - id: pick
+        run: |
+          python scripts/v016_r4_evaluate.py select --input predictions --cache features/development.npz \
+            --state features/history_state.json --output selection --run '${{ github.run_id }}' --github-output "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r4-selection
+          path: selection/
+          retention-days: 90
+
+  september:
+    needs: select
+    if: needs.select.outputs.candidate == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-r4-selection
+          path: selection
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-r4-features
+          path: previous
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-r4-model-reaction
+          path: model
+      - name: Frozen candidate verified before any September request; Q4 always forbidden
+        run: |
+          python -u scripts/v016_r4_features.py --year 2025 --start-month 9 --end-month 9 \
+            --lock selection/frozen_candidate.json --output raw/september_raw.npz
+          python -u scripts/v016_r4_player_history.py --raw raw/september_raw.npz --state previous/history_state.json \
+            --lock selection/frozen_candidate.json --output features
+          python -u scripts/v016_r4_model.py infer --cache features/september.npz --model model \
+            --lock selection/frozen_candidate.json --output confirmation/reaction.npz
+          python scripts/v016_r4_evaluate.py confirm --cache features/september.npz --lock selection/frozen_candidate.json \
+            --prediction confirmation/reaction.npz --output confirmation/september_result.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r4-september
+          path: confirmation/
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r4-september-features
+          path: features/
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r4-metadata-september
+          path: |
+            features/feature_metadata.json
+            raw/september_raw.json
+          retention-days: 90
+
+  publish:
+    needs: [select, september]
+    if: always() && needs.select.result == 'success' && (needs.september.result == 'success' || needs.september.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-r4-selection
+          path: results
+      - uses: actions/download-artifact@v4
+        if: needs.september.result == 'success'
+        with:
+          name: v016-r4-september
+          path: results
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v016-r4-metadata-*
+          path: metadata
+      - run: |
+          python scripts/v016_r4_evaluate.py publish --input results --metadata metadata \
+            --run '${{ github.run_id }}' --output data/v016_r4_result.json
+          cp results/frozen_candidate.json data/v016_r4_frozen_candidate.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-r4-final
+          path: |
+            data/v016_r4_result.json
+            data/v016_r4_feature_audit.json
+            data/v016_r4_frozen_candidate.json
+          retention-days: 90
+      - name: Commit research outputs while preserving concurrent app changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/v016_r4_result.json data/v016_r4_feature_audit.json data/v016_r4_frozen_candidate.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'Record v016 r4 player-course research results [skip ci]'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main || exit 1
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1
