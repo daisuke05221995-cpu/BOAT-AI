@@ -76,7 +76,8 @@ object BoatRaceJsonParser {
                 weather = it.optTextOrNull("weather_number_source")
                     ?: it.optIntOrNull("weather_number")?.toString(),
                 airTemperature = it.optDoubleOrNull("air_temperature"),
-                waterTemperature = it.optDoubleOrNull("water_temperature")
+                waterTemperature = it.optDoubleOrNull("water_temperature"),
+                windDirectionNumber = it.optIntOrNull("wind_direction_number")
             )
         }
 
