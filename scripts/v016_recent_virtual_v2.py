@@ -30,7 +30,7 @@ from v016_r4_player_history import PlayerHistory, enrich
 ROOT = Path(__file__).resolve().parents[1]
 STRATEGY_ID = "model-a-retro-flex-v2"
 WINDOW_DAYS = 30
-MIN_POINTS = 3
+MIN_POINTS = 4
 MAX_POINTS = 8
 MIN_BUDGET = 1_000
 MAX_BUDGET = 3_000
@@ -112,14 +112,14 @@ def ranking_score(prob: np.ndarray, odds: np.ndarray) -> np.ndarray:
 
 def target_conditional_coverage(first_probability: float) -> float:
     if first_probability >= 0.62:
-        return 0.44
+        return 0.49
     if first_probability >= 0.55:
-        return 0.48
+        return 0.54
     if first_probability >= 0.48:
-        return 0.52
+        return 0.59
     if first_probability >= 0.42:
-        return 0.56
-    return 0.60
+        return 0.64
+    return 0.68
 
 
 def choose_combinations(prob: np.ndarray, odds: np.ndarray) -> tuple[list[int], dict]:
