@@ -56,7 +56,9 @@ class ModelAConditionalPredictorTest {
 
         assertEquals(1.0, forecast.probabilities.sum(), 1e-12)
         assertEquals(1.0, marginals.sum(), 1e-12)
-        assertTrue(marginals.zipWithNext().all { (a, b) -> b > a })
+        for (index in 0 until marginals.lastIndex) {
+            assertTrue(marginals[index + 1] > marginals[index])
+        }
         assertTrue(forecast.probabilities.all { it.isFinite() && it > 0.0 })
     }
 
