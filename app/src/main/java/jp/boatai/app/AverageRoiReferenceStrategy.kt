@@ -5,24 +5,24 @@ import kotlin.math.exp
 import kotlin.math.max
 
 /**
- * Pure AI finish-order forecast used by v0.15.16.
+ * Forecast/purchase separation boundary.
  *
- * Prediction and purchase selection are intentionally separate. The v0.15.15
- * purchase-value ranking bought 99.5% of usable July-August 2025 races in the
- * sealed-safe diagnostic and returned 68.5% archived-odds ROI, so automatic BUY
- * recommendations are paused instead of being presented as prediction.
+ * v0.16 uses the independently validated, market-free Model A whenever its frozen
+ * assets and prior-day history are available. The v0.15.16 Plackett-Luce forecaster
+ * remains a fail-safe for missing/stale assets or historical-date views.
  *
- * Forecast probability uses only pre-race racer/form/course information. Odds never
- * change the ordering of forecast picks. A future purchase policy must be validated
- * separately before PURCHASE_RECOMMENDATION_ENABLED can be turned on.
+ * Automatic BUY remains disabled: the archived historical odds could not be proven
+ * to be a realizable pre-close snapshot, so forecast quality does not promote a
+ * purchase policy.
  */
 internal object AverageRoiReferenceStrategy {
     const val FORECAST_ENABLED = true
     const val PURCHASE_RECOMMENDATION_ENABLED = false
     const val ENABLED = PURCHASE_RECOMMENDATION_ENABLED
     const val RELEASE_QUALIFIED = false
+    const val MODEL_A_FORECAST_RELEASE_QUALIFIED = true
 
-    // Historical comparison only; neither number is a claim for the v0.15.16 forecast.
+    // Historical comparison only; neither number is a claim for the current forecast.
     const val HISTORICAL_ROI = 117.3
     const val HISTORICAL_PURCHASES = 2_407
     const val HISTORICAL_HITS = 45
@@ -76,11 +76,13 @@ internal object AverageRoiReferenceStrategy {
     }
 
     /**
-     * Top trifecta outcomes by the AI model probability only. Official odds are not an
-     * input, so favourite/longshot pricing cannot move a combination up or down here.
+     * Top trifecta outcomes by AI probability only. Odds never change ordering.
+     * Model A is preferred; the prior v0.15.16 formula is a fail-safe only.
      */
     internal fun forecast(race: RaceData, maxPicks: Int = FORECAST_POINTS): List<PredictionPick> {
         if (!FORECAST_ENABLED || race.racers.size != 6) return emptyList()
+        ModelAProduction.forecast(race, maxPicks)?.let { return it }
+
         val racers = race.racers.associateBy { it.lane }
         val rawScores = (1..6).associateWith { lane ->
             val racer = racers[lane] ?: return@associateWith Double.NEGATIVE_INFINITY
@@ -111,19 +113,19 @@ internal object AverageRoiReferenceStrategy {
             PredictionPick(
                 combination = combo,
                 score = probability,
-                reason = "AI着順確率 ${"%.1f".format(probability * 100.0)}%"
+                reason = "互換AI着順確率 ${"%.1f".format(probability * 100.0)}%"
             )
         }.sortedByDescending { it.score }
             .take(maxPicks.coerceIn(1, FORECAST_POINTS))
     }
 
-    /** Automatic purchase policy is deliberately paused after the v0.15.15 audit. */
+    /** Automatic purchase policy remains paused; forecast validation is not ROI validation. */
     internal fun evaluate(
         race: RaceData,
         officialOdds: Map<String, Double>,
         budget: Int = BUDGET
     ): ValueSelection = skip(
-        "v0.15.15購入ロジックは過去診断不合格のため自動推奨を停止中。AI予想と手動購入は利用できます"
+        "自動購入は停止中。履歴オッズの締切前時刻を証明できないため、Model A予想と手動購入のみ利用できます"
     )
 
     private fun skip(detail: String) = ValueSelection(
