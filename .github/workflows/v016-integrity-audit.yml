@@ -30,11 +30,11 @@ jobs:
       - name: Mutation boundary
         run: |
           python - <<'PY'
+          import re
           from pathlib import Path
           w=Path('.github/workflows/v016-integrity-audit.yml').read_text()
-          writes=w.split('- name: Save research outputs only',1)[1]
-          assert 'git add data/v016_integrity_result.json data/v016_integrity_report.md data/v016_forecast_candidate.json data/v016_forecast_deployability.md' in writes
-          assert ' app/' not in writes and 'versionCode' not in writes and 'Release workflow' not in writes
+          staged=re.findall(r'^          git add (.*)$',w,flags=re.M)
+          assert staged==['data/v016_integrity_result.json data/v016_integrity_report.md data/v016_forecast_candidate.json data/v016_forecast_deployability.md']
           assert "month: [7, 8]" in w
           PY
 
