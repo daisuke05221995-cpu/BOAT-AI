@@ -34,11 +34,17 @@ object PredictionEngine {
     }
 
     fun hasValueStrategyModel(): Boolean = valueStrategyModel != null
+    fun hasReferenceR3Strategy(): Boolean = ReferenceR3Strategy.ENABLED
+    fun referenceOddsCombinations(): List<String> = ReferenceR3Strategy.allCombinations()
+    internal fun hasReferenceSelection(race: RaceData): Boolean = ReferenceR3Strategy.cached(race) != null
+    internal fun applyReferenceOdds(race: RaceData, odds: Map<String, Double>, budget: Int): ValueSelection =
+        ReferenceR3Strategy.evaluateAndCache(race, odds, budget)
 
     fun valueOddsCombinations(): List<String> = valueStrategyModel?.allCombinations().orEmpty()
 
     fun clearValueSelections() {
         valueSelections.clear()
+        ReferenceR3Strategy.clear()
     }
 
     /** Restore only decisions recorded by this strategy; legacy records must not masquerade as value decisions. */
@@ -149,6 +155,11 @@ object PredictionEngine {
     }
 
     fun recommendation(race: RaceData): RecommendationDecision {
+        if (ReferenceR3Strategy.ENABLED) {
+            ReferenceR3Strategy.cached(race)?.let { selection ->
+                return RecommendationDecision(selection.recommendation, selection.reason)
+            }
+        }
         if (valueStrategyModel != null) {
             valueSelections[race.id]?.let { selection ->
                 return RecommendationDecision(selection.recommendation, selection.reason)
@@ -236,6 +247,13 @@ object PredictionEngine {
      * fall back to the legacy four-point strategy in automated/history paths.
      */
     fun predict(race: RaceData, maxPicks: Int = 4): List<PredictionPick> {
+        if (ReferenceR3Strategy.ENABLED) {
+            ReferenceR3Strategy.cached(race)?.let { selection ->
+                return if (selection.recommendation == RaceRecommendation.BUY) {
+                    selection.picks.take(maxPicks.coerceAtLeast(1))
+                } else emptyList()
+            }
+        }
         if (valueStrategyModel != null) {
             val selection = valueSelections[race.id] ?: return emptyList()
             return if (selection.recommendation == RaceRecommendation.BUY) {
@@ -293,6 +311,12 @@ object PredictionEngine {
         budget: Int = BetStrategy.DEFAULT_BUDGET,
         learningOverride: LearningProfile? = null
     ): List<PredictionPick> {
+        if (ReferenceR3Strategy.ENABLED) {
+            val selection = ReferenceR3Strategy.evaluateAndCache(race, odds, budget)
+            return if (selection.recommendation == RaceRecommendation.BUY) {
+                BetStrategy.allocate(race, selection.picks, budget)
+            } else emptyList()
+        }
         if (valueStrategyModel != null) {
             val valueSelection = applyValueOdds(race, odds, learningOverride) ?: return emptyList()
             return if (valueSelection.recommendation == RaceRecommendation.BUY) {

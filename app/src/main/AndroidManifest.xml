@@ -8,6 +8,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
+    <queries>
+        <package android:name="jp.boatrace.android.boatraceapp" />
+    </queries>
+
     <application
         android:name=".BoatAiApplication"
         android:allowBackup="true"

@@ -18,14 +18,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
 
 @Composable
 fun PendingPurchaseCard(session: PendingPurchaseSession, vm: BoatViewModel) {
-    val uriHandler = LocalUriHandler.current
     val selected = session.selectedRaces
 
     Card(
@@ -39,7 +37,7 @@ fun PendingPurchaseCard(session: PendingPurchaseSession, vm: BoatViewModel) {
                 fontWeight = FontWeight.Bold
             )
             Text(
-                "公式サイトで実際に投票できたレースだけチェックを残し、戻ってから実購入として確定してください。",
+                "買い目はクリップボードへ自動コピーします。公式側で内容を確認して投票し、戻ってから実購入として確定してください。",
                 style = androidx.compose.material3.MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(8.dp))
@@ -66,8 +64,8 @@ fun PendingPurchaseCard(session: PendingPurchaseSession, vm: BoatViewModel) {
 
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Button(onClick = { uriHandler.openUri(PendingPurchaseStore.OFFICIAL_SIMPLE_BET_URL) }) {
-                    Text("公式投票サイト")
+                Button(onClick = vm::openOfficialPurchase) {
+                    Text("公式アプリで入力")
                 }
                 OutlinedButton(onClick = vm::selectAllPendingPurchaseRaces) {
                     Text("全選択")

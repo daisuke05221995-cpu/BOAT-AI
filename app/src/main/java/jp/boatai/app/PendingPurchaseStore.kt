@@ -173,6 +173,6 @@ class PendingPurchaseStore(context: Context) {
 
     companion object {
         private const val KEY = "pending_session"
-        const val OFFICIAL_SIMPLE_BET_URL = "https://bu.tbbr.jp/"
+        const val OFFICIAL_SIMPLE_BET_URL = "https://spweb.brtb.jp/"
     }
 }

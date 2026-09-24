@@ -273,7 +273,7 @@ private fun BulkSelectionModeCard(vm: BoatViewModel) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             Text("一括購入の対象", fontWeight = FontWeight.Bold)
-            Text("AIの最終判断は「購入推奨 / 見送り」の2択です。", style = MaterialTheme.typography.bodySmall)
+            Text("現在はr3 place-smallの固定条件を参考運用中です。過去ROI258.5%は24購入・3的中で検証不合格のため、最終判断は必ずご自身で行ってください。", style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(onClick = vm::selectAllPurchasable) { Text("購入推奨のみ") }
@@ -324,7 +324,6 @@ private fun VenueTile(stadium: Int, races: List<RaceData>, modifier: Modifier = 
 @Composable
 private fun VenueDetailScreen(ui: BoatUiState, vm: BoatViewModel, stadium: Int) {
     val races = ui.races.filter { it.stadiumNumber == stadium }.sortedBy { it.raceNumber }
-    val uriHandler = LocalUriHandler.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
@@ -351,7 +350,7 @@ private fun VenueDetailScreen(ui: BoatUiState, vm: BoatViewModel, stadium: Int) 
                 onToggle = vm::toggleBulkRace,
                 onIndividualBuy = { race ->
                     if (vm.prepareRacePurchase(race)) {
-                        uriHandler.openUri(PendingPurchaseStore.OFFICIAL_SIMPLE_BET_URL)
+                        vm.openOfficialPurchase()
                     }
                 },
                 onDetail = vm::selectRace
@@ -381,7 +380,6 @@ private fun DateSelectorCard(ui: BoatUiState, vm: BoatViewModel) {
 
 @Composable
 private fun BulkPurchaseCard(ui: BoatUiState, vm: BoatViewModel) {
-    val uriHandler = LocalUriHandler.current
     val selectedRaces = ui.races.filter { it.id in ui.selectedForBulk && it.isPurchasable() }
     val recommendedCount = selectedRaces.count(PredictionEngine::isRecommended)
     val skippedCount = selectedRaces.size - recommendedCount
@@ -405,12 +403,12 @@ private fun BulkPurchaseCard(ui: BoatUiState, vm: BoatViewModel) {
             Spacer(Modifier.height(8.dp))
             ConfirmPurchaseButton(
                 label = "選択分を一括投票へ",
-                summary = "${selectedRaces.size}レース・${selectedTickets}点・合計${money(total)}を投票待ちに固定保存して、公式シンプル投票サイトを開きます。公式側で実際に投票後、BOAT AIへ戻って投票できたレースだけ実購入として確定してください。",
+                summary = "${selectedRaces.size}レース・${selectedTickets}点・合計${money(total)}を投票待ちに固定保存して、公式BOATRACEアプリを優先して開きます（未導入時は公式投票サイト）。買い目はクリップボードへコピーされるので、公式側で確認して入力・投票後、BOAT AIへ戻って実購入を確定してください。",
                 enabled = selectedRaces.isNotEmpty() && selectedTickets > 0,
                 modifier = Modifier.fillMaxWidth(),
                 onConfirm = {
                     if (vm.prepareSelectedPurchase()) {
-                        uriHandler.openUri(PendingPurchaseStore.OFFICIAL_SIMPLE_BET_URL)
+                        vm.openOfficialPurchase()
                     }
                 }
             )
