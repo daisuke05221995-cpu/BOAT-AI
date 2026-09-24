@@ -9,13 +9,16 @@ on:
       - 'app/src/main/java/jp/boatai/app/LightGbmTextModel.kt'
       - 'app/src/main/java/jp/boatai/app/ModelAConditionalPredictor.kt'
       - 'app/src/main/java/jp/boatai/app/ModelAPlayerHistory.kt'
+      - 'app/src/main/java/jp/boatai/app/ModelAHistoryStateCodec.kt'
       - 'app/src/test/java/jp/boatai/app/ModelARealParityTest.kt'
       - 'app/src/test/java/jp/boatai/app/ModelAChainRealParityTest.kt'
       - 'app/src/test/java/jp/boatai/app/ModelAConditionalPredictorTest.kt'
       - 'app/src/test/java/jp/boatai/app/ModelAPlayerHistoryParityTest.kt'
+      - 'app/src/test/java/jp/boatai/app/ModelAHistoryAssetParityTest.kt'
       - 'scripts/v016_android_parity_fixture.py'
       - 'scripts/v016_android_chain_fixture.py'
       - 'scripts/v016_android_history_fixture.py'
+      - 'scripts/v016_android_history_asset.py'
       - '.github/workflows/v016-android-parity.yml'
 
 permissions:
@@ -76,6 +79,7 @@ jobs:
           echo 'c862a002ab061c7c8e711d5a330bf0d36b02a8486bc60cd1c0be671ff604ce1c  /tmp/model-a-features.zip' | sha256sum -c -
           unzip -q /tmp/model-a-features.zip -d /tmp/model-a-features
           test -f /tmp/model-a-features/development.npz
+          test -f /tmp/model-a-features/history_state.json
 
       - name: Generate 3,072 raw-score fixture rows
         run: |
@@ -98,6 +102,14 @@ jobs:
       - name: Generate synthetic Python player-history fixture
         run: python scripts/v016_android_history_fixture.py --output /tmp/model-a-parity/history.txt
 
+      - name: Convert frozen history state to compact Android asset
+        run: |
+          python scripts/v016_android_history_asset.py \
+            --input /tmp/model-a-features/history_state.json \
+            --output /tmp/model-a-parity/history-state.bin
+          cat /tmp/model-a-parity/history-state.json
+          test $(stat -c%s /tmp/model-a-parity/history-state.bin) -lt 4194304
+
       - name: Compare Kotlin raw scores against LightGBM 4.6.0
         env:
           BOAT_AI_PARITY_DIR: /tmp/model-a-parity
@@ -113,6 +125,11 @@ jobs:
           BOAT_AI_PARITY_DIR: /tmp/model-a-parity
         run: ./gradlew testDebugUnitTest --tests jp.boatai.app.ModelAPlayerHistoryParityTest --stacktrace
 
+      - name: Verify Python Kotlin compact history asset byte parity
+        env:
+          BOAT_AI_PARITY_DIR: /tmp/model-a-parity
+        run: ./gradlew testDebugUnitTest --tests jp.boatai.app.ModelAHistoryAssetParityTest --stacktrace
+
       - name: Upload parity summaries
         uses: actions/upload-artifact@v4
         with:
@@ -120,4 +137,5 @@ jobs:
           path: |
             /tmp/model-a-parity/summary.json
             /tmp/model-a-parity/chain.json
+            /tmp/model-a-parity/history-state.json
           if-no-files-found: error
