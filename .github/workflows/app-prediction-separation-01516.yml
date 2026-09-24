@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/app_prediction_purchase_separation_patch_01516.py'
+      - 'scripts/app_prediction_purchase_separation_testfix_01516.py'
       - '.github/workflows/app-prediction-separation-01516.yml'
   workflow_dispatch:
 
@@ -40,7 +41,9 @@ jobs:
         run: gradle wrapper --gradle-version 8.10.2
 
       - name: Apply separation patch
-        run: python3 scripts/app_prediction_purchase_separation_patch_01516.py
+        run: |
+          python3 scripts/app_prediction_purchase_separation_patch_01516.py
+          python3 scripts/app_prediction_purchase_separation_testfix_01516.py
 
       - name: Verify forecast purchase separation
         shell: bash
@@ -51,6 +54,7 @@ jobs:
           grep -n 'AI着順確率' app/src/main/java/jp/boatai/app/AverageRoiReferenceStrategy.kt
           grep -n 'versionName = "0.15.16"' app/build.gradle.kts
           grep -n '99.5% BUY・ROI68.5%' app/src/main/java/jp/boatai/app/MainActivity.kt
+          grep -n 'strongRaceStillHasForecastWhileAutoPurchaseIsPaused' app/src/test/java/jp/boatai/app/RecommendationDecisionTest.kt
 
       - name: Unit test lint and debug build
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
@@ -61,7 +65,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git rm scripts/app_prediction_purchase_separation_patch_01516.py .github/workflows/app-prediction-separation-01516.yml
+          git rm scripts/app_prediction_purchase_separation_patch_01516.py scripts/app_prediction_purchase_separation_testfix_01516.py .github/workflows/app-prediction-separation-01516.yml
           git add app
           git commit -m 'Release v0.15.16 separate AI forecast from purchase recommendation'
           for attempt in 1 2 3; do
