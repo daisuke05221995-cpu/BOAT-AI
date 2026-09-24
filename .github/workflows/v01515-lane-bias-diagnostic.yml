@@ -1,0 +1,103 @@
+name: v0.15.15 lane bias diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/v01515_lane_bias_diagnostic.py'
+      - '.github/workflows/v01515-lane-bias-diagnostic.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: v01515-lane-bias-diagnostic
+  cancel-in-progress: true
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install numpy
+        run: pip install 'numpy>=2.0,<3.0'
+
+      - name: Reuse r4 sealed-safe feature cache
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35940833546
+          pattern: v016-r4-features
+          path: r4-features
+          merge-multiple: true
+
+      - name: Locate development cache
+        id: cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          CACHE=$(find r4-features -type f -name 'development.npz' | head -1)
+          test -n "$CACHE"
+          echo "path=$CACHE" >> "$GITHUB_OUTPUT"
+          echo "Using $CACHE"
+
+      - name: Audit production formula without tuning
+        run: |
+          python scripts/v01515_lane_bias_diagnostic.py \
+            --cache '${{ steps.cache.outputs.path }}' \
+            --output data/v01515_lane_bias_diagnostic.json \
+            --report data/v01515_lane_bias_report.md
+
+      - name: Verify holdout fences and no tuning
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('data/v01515_lane_bias_diagnostic.json', encoding='utf-8'))
+          assert x['period']=='2025-07-01..2025-08-31'
+          assert x['holdoutOpened'] is False
+          assert x['septemberOpened'] is False
+          assert x['tuningPerformed'] is False
+          assert x['population']['usableRaces'] > 5000
+          assert x['population']['buyRaces'] > 0
+          print(json.dumps({
+              'population': x['population'],
+              'laneOne': x['laneOne'],
+              'marketAgreement': x['marketAgreement'],
+              'accounting': x['accounting'],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Commit diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/v01515_lane_bias_diagnostic.json data/v01515_lane_bias_report.md
+          if git diff --cached --quiet; then
+            echo 'No diagnostic changes'
+            exit 0
+          fi
+          git commit -m 'Record v0.15.15 lane bias diagnostic'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if git rebase origin/main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort || true
+            sleep 2
+          done
+          exit 1
