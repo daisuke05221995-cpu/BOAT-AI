@@ -1,0 +1,84 @@
+name: Patch retrospective Model A UI v2
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/v0161-patch-ui-v2.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch UI
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          def apply(path, pairs):
+              p=Path(path); s=p.read_text()
+              for old,new in pairs:
+                  if old not in s:
+                      raise SystemExit(f'{path}: missing anchor {old[:120]!r}')
+                  s=s.replace(old,new,1)
+              p.write_text(s)
+
+          dash='app/src/main/java/jp/boatai/app/CompactDashboardScreens.kt'
+          apply(dash, [
+            ('import java.time.format.DateTimeFormatter\nimport java.util.Locale',
+             'import java.time.LocalDate\nimport java.time.ZoneId\nimport java.time.format.DateTimeFormatter\nimport java.util.Locale'),
+            ('val predictionByRace = ui.predictionHistory.associateBy { it.id }',
+             'val predictionByRace = ui.predictionHistory.associateBy { it.id } + ui.modelARecentVirtualRecords.associateBy { it.id }'),
+            ('DashboardMetric("事前予想", "$captured R", Modifier.weight(1f))',
+             'DashboardMetric("AI予想", "$captured R", Modifier.weight(1f))'),
+            ('                                        if (purchases.isNotEmpty()) {\n                                            Text("実購入 ${compactMoney(stake)} / 払戻 ${compactMoney(payout)} / ${signedCompactMoney(payout - stake)}", style = MaterialTheme.typography.labelSmall)\n                                        }',
+             '                                        if (prediction?.strategyId == ModelARecentVirtualRepository.STRATEGY_ID) {\n                                            Text("Model A仮想 ${compactMoney(prediction.simulatedStake)} → ${compactMoney(prediction.simulatedPayout)} / ${signedCompactMoney(prediction.simulatedProfit)}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)\n                                        }\n                                        if (purchases.isNotEmpty()) {\n                                            Text("実購入 ${compactMoney(stake)} / 払戻 ${compactMoney(payout)} / ${signedCompactMoney(payout - stake)}", style = MaterialTheme.typography.labelSmall)\n                                        }'),
+            ('    val settledPredictions = ui.predictionHistory.filter { it.settled && it.evaluationEligible }\n    val selectedPredictions = when (period) {',
+             '    val settledPredictions = ui.predictionHistory.filter { it.settled && it.evaluationEligible }\n    val retrospectivePredictions = ui.modelARecentVirtualRecords.filter { it.settled && it.evaluationEligible }\n    val selectedRetrospective = when (period) {\n        0 -> retrospectivePredictions.filter { it.date == dateText }\n        1 -> retrospectivePredictions.filter { it.date >= weekStart && it.date <= dateText }\n        2 -> retrospectivePredictions.filter { it.date.startsWith(monthPrefix) }\n        else -> retrospectivePredictions\n    }\n    val selectedPredictions = when (period) {'),
+            ('    val recommended = ProfitAnalytics.summarize(selectedPredictions.filter { it.recommended })\n    val all = ProfitAnalytics.summarize(selectedPredictions)',
+             '    val recommended = ProfitAnalytics.summarize(selectedPredictions.filter { it.recommended })\n    val all = ProfitAnalytics.summarize(selectedPredictions)\n    val retrospective = ProfitAnalytics.summarize(selectedRetrospective)'),
+            ('        item {\n            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                AnalyticsMiniCard("AI購入推奨", recommended, Modifier.weight(1f))',
+             '        item {\n            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {\n                Column(Modifier.padding(14.dp)) {\n                    Text("Model A 過去仮想損益（確定払戻）", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)\n                    Text(signedCompactMoney(retrospective.profit), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)\n                    Text("${retrospective.hits}/${retrospective.races}的中 / 購入 ${compactMoney(retrospective.stake)} / 払戻 ${compactMoney(retrospective.payout)} / 回収率 ${compactPercent(retrospective.roi)}")\n                    Text("対象日前日までの履歴だけでModel A上位4点を先に再現し、1点300円（1R 1,200円）をレース終了後の確定払戻で精算。締切前に同じ価格で買えたことを示すROIではありません。", style = MaterialTheme.typography.bodySmall)\n                    ui.modelARecentVirtualThroughDate?.let { Text("更新: $it まで / 表示は直近1か月", style = MaterialTheme.typography.labelSmall) }\n                    ui.modelARecentVirtualError?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }\n                }\n            }\n        }\n\n        item {\n            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                AnalyticsMiniCard("AI購入推奨", recommended, Modifier.weight(1f))'),
+            ('private fun CompactDateSelector(ui: BoatUiState, vm: BoatViewModel) {\n    val formatter = DateTimeFormatter.ofPattern("M月d日(E)", Locale.JAPANESE)',
+             'private fun CompactDateSelector(ui: BoatUiState, vm: BoatViewModel) {\n    val formatter = DateTimeFormatter.ofPattern("M月d日(E)", Locale.JAPANESE)\n    val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))\n    val earliest = today.minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())'),
+            ('TextButton(onClick = vm::previousDay) { Text("‹ 前日") }',
+             'TextButton(onClick = vm::previousDay, enabled = ui.date.isAfter(earliest)) { Text("‹ 前日") }'),
+            ('TextButton(onClick = vm::nextDay) { Text("翌日 ›") }',
+             'TextButton(onClick = vm::nextDay, enabled = ui.date.isBefore(today)) { Text("翌日 ›") }')
+          ])
+
+          main='app/src/main/java/jp/boatai/app/MainActivity.kt'
+          apply(main, [
+            ('import java.time.format.DateTimeFormatter\nimport java.util.Locale',
+             'import java.time.LocalDate\nimport java.time.ZoneId\nimport java.time.format.DateTimeFormatter\nimport java.util.Locale'),
+            ('private fun DateSelectorCard(ui: BoatUiState, vm: BoatViewModel) {\n    val formatter = DateTimeFormatter.ofPattern("yyyy年M月d日(E)", Locale.JAPANESE)',
+             'private fun DateSelectorCard(ui: BoatUiState, vm: BoatViewModel) {\n    val formatter = DateTimeFormatter.ofPattern("yyyy年M月d日(E)", Locale.JAPANESE)\n    val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))\n    val earliest = today.minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())'),
+            ('IconButton(onClick = vm::previousDay) { Icon(Icons.Default.ChevronLeft, contentDescription = "前日") }',
+             'IconButton(onClick = vm::previousDay, enabled = ui.date.isAfter(earliest)) { Icon(Icons.Default.ChevronLeft, contentDescription = "前日") }'),
+            ('IconButton(onClick = vm::nextDay) { Icon(Icons.Default.ChevronRight, contentDescription = "翌日") }',
+             'IconButton(onClick = vm::nextDay, enabled = ui.date.isBefore(today)) { Icon(Icons.Default.ChevronRight, contentDescription = "翌日") }'),
+            ('    val savedPrediction = ui.predictionHistory.firstOrNull { it.id == race.id }\n    val decision = savedPrediction?.let {',
+             '    val prospectivePrediction = ui.predictionHistory.firstOrNull { it.id == race.id }\n    val retrospectivePrediction = ui.modelARecentVirtualRecords.firstOrNull { it.id == race.id }\n    val savedPrediction = retrospectivePrediction ?: prospectivePrediction\n    val isRetrospective = savedPrediction?.strategyId == ModelARecentVirtualRepository.STRATEGY_ID\n    val decision = savedPrediction?.let {'),
+            ('Text("事前予想 ${prediction.combinations.joinToString(" / ").ifBlank { "買い目なし" }}")',
+             'Text((if (isRetrospective) "過去Model A再現 " else "事前予想 ") + prediction.combinations.joinToString(" / ").ifBlank { "買い目なし" })'),
+            ('                        } ?: Text("このレースは締切前の予想履歴が保存されていません", style = MaterialTheme.typography.bodySmall)',
+             '                            if (isRetrospective) {\n                                Text("仮想購入 ${money(prediction.simulatedStake)} / 払戻 ${money(prediction.simulatedPayout)} / 損益 ${signedMoney(prediction.simulatedProfit)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)\n                                Text("予想は対象日前日までの履歴だけで再現。精算は終了後の確定払戻です。", style = MaterialTheme.typography.bodySmall)\n                            }\n                        } ?: Text("このレースは保存済み予想がありません", style = MaterialTheme.typography.bodySmall)'),
+            ('Text("全国/当地・平均ST・モーター/ボート・展示・直前ST・進入を合成", style = MaterialTheme.typography.bodySmall)',
+             'Text(if (isRetrospective) "対象日前日までの履歴でModel Aを再現。オッズはレース終了後の公式値" else "全国/当地・平均ST・モーター/ボート・展示・直前ST・進入を合成", style = MaterialTheme.typography.bodySmall)')
+          ])
+          PY
+      - name: Commit UI
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/jp/boatai/app/CompactDashboardScreens.kt app/src/main/java/jp/boatai/app/MainActivity.kt
+          git commit -m 'Display retrospective Model A results and P&L [skip ci]'
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
