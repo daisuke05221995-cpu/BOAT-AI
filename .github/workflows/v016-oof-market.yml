@@ -1,0 +1,215 @@
+name: v016 forward OOF market study
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/v016_oof_*.py
+      - data/v016_oof_protocol.json
+      - data/v016_oof_split_manifest.json
+      - .github/workflows/v016-oof-market.yml
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: v016-oof-market
+  cancel-in-progress: false
+env:
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '2'
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0 scikit-learn==1.7.2
+      - run: python scripts/v016_oof_test.py
+
+  fold:
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      matrix:
+        month: ['2025-03', '2025-04', '2025-05', '2025-06']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35940833546'
+          name: v016-r4-features
+          path: features
+      - run: python -u scripts/v016_oof_study.py fold --cache features/train.npz --fold '${{ matrix.month }}' --output 'fold/${{ matrix.month }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-oof-${{ matrix.month }}
+          path: fold/${{ matrix.month }}/
+          retention-days: 90
+
+  development-prediction:
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35940833546'
+          name: v016-r4-features
+          path: features
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35940833546'
+          name: v016-r4-model-reaction
+          path: model
+      - run: python -u scripts/v016_oof_study.py development --cache features/development.npz --model model --output development/prediction.npz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-oof-development-prediction
+          path: development/
+          retention-days: 90
+
+  logistic:
+    needs: fold
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0 scikit-learn==1.7.2
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35940833546'
+          name: v016-r4-features
+          path: features
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v016-oof-2025-*
+          path: folds
+      - run: python -u scripts/v016_oof_study.py logistic --cache features/train.npz --folds folds --output selector/logistic.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-oof-logistic
+          path: selector/
+          retention-days: 90
+
+  candidate:
+    needs: [logistic, development-prediction]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        selector: [raw_ratio, log_residual_half, logistic_residual]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35940833546'
+          name: v016-r4-features
+          path: features
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-oof-development-prediction
+          path: development
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-oof-logistic
+          path: selector
+      - run: python scripts/v016_oof_study.py evaluate --cache features/development.npz --prediction development/prediction.npz --logistic selector/logistic.json --candidate '${{ matrix.selector }}' --output 'candidate/${{ matrix.selector }}.json'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-oof-candidate-${{ matrix.selector }}
+          path: candidate/
+          retention-days: 90
+
+  publish:
+    needs: candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35940833546'
+          name: v016-r4-features
+          path: features
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-oof-development-prediction
+          path: development
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-oof-logistic
+          path: selector
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: v016-oof-candidate-*
+          path: candidates
+          merge-multiple: true
+      - run: |
+          TRAIN_SHA=$(sha256sum features/train.npz | cut -d' ' -f1)
+          python scripts/v016_oof_study.py publish --cache features/development.npz --prediction development/prediction.npz \
+            --logistic selector/logistic.json --input candidates --output data --run '${{ github.run_id }}' --train-sha "$TRAIN_SHA"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-oof-final
+          path: |
+            data/v016_oof_result.json
+            data/v016_oof_feature_audit.json
+            data/v016_oof_report.md
+            data/v016_oof_frozen_candidate.json
+          retention-days: 90
+      - name: Commit research outputs while preserving concurrent app changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          cat >> WORK_HANDOFF.md <<EOF
+
+          ## v016 OOF研究チェックポイント — Run ${{ github.run_id }}
+
+          - 現在位置: protocol commit 5a9b333eeae78e2d100f0ca69251bec98e223c6a。4 forward folds、Model A OOF、市場差3候補、2025年7〜8月固定評価完了。
+          - Run: ${{ github.run_id }}。採否・Artifact・制約は data/v016_oof_report.md および data/v016_oof_result.json を確認。
+          - 2025年9月/Q4は未開封。Android・Release・本番ロジックは未変更。
+          - 次の1手: 結果と監査を確認。候補なしなら新仮説を別途事前登録。候補ありでも独立評価と年間/複数年監査が必要で、本番昇格しない。
+          EOF
+          git add data/v016_oof_result.json data/v016_oof_feature_audit.json data/v016_oof_report.md data/v016_oof_frozen_candidate.json WORK_HANDOFF.md
+          git commit -m 'Record v016 OOF market study result [skip ci]'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main || exit 1
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1
