@@ -76,9 +76,10 @@ class LightGbmTextModelTest {
         )
 
         assertEquals(0.1, model.predict(doubleArrayOf(-1.0)), 1e-12)
-        assertEquals(0.5, model.predict(doubleArrayOf(0.5)), 1e-12)
+        assertEquals(0.1, model.predict(doubleArrayOf(0.5)), 1e-12)
         // decision_type=8 means NaN-missing with default-right in LightGBM v4.
-        assertEquals(1.1, model.predict(doubleArrayOf(Double.NaN)), 1e-12)
+        // Tree 0 treats NaN as zero because its missing type is None, so the sum is 0.3 + 0.4.
+        assertEquals(0.7, model.predict(doubleArrayOf(Double.NaN)), 1e-12)
     }
 
     @Test
