@@ -136,9 +136,24 @@ internal class ModelAConditionalPredictor(
             mean = DoubleArray(boatDimension)
             spread = DoubleArray(boatDimension)
             for (feature in 0 until boatDimension) {
-                val finite = input.boat.map { it[feature] }.filter { it.isFinite() }
-                mean[feature] = if (finite.isEmpty()) Double.NaN else finite.average()
-                spread[feature] = if (finite.isEmpty()) Double.NaN else finite.maxOrNull()!! - finite.minOrNull()!!
+                // NumPy's np.nansum(float32) accumulates in float32, then divides by
+                // the integer finite-count. Reproduce that exact contract so b-mean
+                // cannot cross a serialized LightGBM threshold due to Double averaging.
+                var count = 0
+                var sum = 0.0f
+                var low = Double.POSITIVE_INFINITY
+                var high = Double.NEGATIVE_INFINITY
+                for (lane in 0..5) {
+                    val value = input.boat[lane][feature]
+                    if (value.isFinite()) {
+                        sum += value.toFloat()
+                        count += 1
+                        if (value < low) low = value
+                        if (value > high) high = value
+                    }
+                }
+                mean[feature] = if (count == 0) Double.NaN else sum.toDouble() / count.toDouble()
+                spread[feature] = if (count == 0) Double.NaN else high - low
             }
 
             raw = Array(6) { lane ->
