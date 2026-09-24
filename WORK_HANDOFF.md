@@ -307,3 +307,10 @@ v0.15.3で予想履歴保存とユーザー通知を分離した。
 - 14テスト成功（r4 8、確率エンジン6）。同日/未来ラベル改変、同日順序入れ替え、ID/オッズ/結果入力排除、実ST/実進入の未使用、NPZ結果読込前Q4拒否などを確認。
 - Run ID: このpushで起動後追記。実データcache/学習/採否はまだ未完。
 - 次の1手: v016-r4 Actionsのcheck→raw 2年並列→history-features→model 3並列→select→候補時のみseptember→publishを監視。失敗は研究専用ファイルのみ修正し、再計算はcacheを再利用する。
+
+### r4 Run起動済み
+
+- Run `35940538399`: 起動済み（起動直後QUEUED）。https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/35940538399
+- 実装commit `fdc32e27cf58ddcad69cffa497f6c1be79f2d5b0`。
+- 現在位置: check→年別raw準備待ち。実測成績/採否はまだ未確定。
+- 次: このRunのジョブを確認し、cache取得率・history chronology・3モデル比較・品質gateまで完走。成功/失敗と採否を追記する。Q4は未開封。
