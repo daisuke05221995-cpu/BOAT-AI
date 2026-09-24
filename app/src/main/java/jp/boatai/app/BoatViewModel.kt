@@ -37,6 +37,8 @@ data class BoatUiState(
     val predictionHistory: List<PredictionRecord> = emptyList(),
     val modelARecentVirtualRecords: List<PredictionRecord> = emptyList(),
     val modelARecentVirtualThroughDate: String? = null,
+    val modelARecentVirtualWindowStart: String? = null,
+    val modelARecentVirtualSummary: ModelARecentVirtualSummary? = null,
     val modelARecentVirtualError: String? = null,
     val performance: PredictionPerformanceProfile = PredictionPerformanceProfile(),
     val selectedForBulk: Set<String> = emptySet(),
@@ -115,7 +117,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadModelARecentVirtual() {
         viewModelScope.launch {
             val result = modelARecentVirtualRepository.load()
-            _ui.update { it.copy(modelARecentVirtualRecords = result.records, modelARecentVirtualThroughDate = result.throughDate, modelARecentVirtualError = result.error) }
+            _ui.update { it.copy(modelARecentVirtualRecords = result.records, modelARecentVirtualThroughDate = result.throughDate, modelARecentVirtualWindowStart = result.windowStart, modelARecentVirtualSummary = result.summary, modelARecentVirtualError = result.error) }
         }
     }
 
