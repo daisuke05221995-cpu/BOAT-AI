@@ -1,0 +1,13 @@
+{
+  "protocolCommitSha": "5a9b333eeae78e2d100f0ca69251bec98e223c6a",
+  "protocolSha256": "166ad751ec0e19193bcb1b5ab03e546a2c5da40010722283e59bec656d854046",
+  "splitManifestSha256": "830d75257b6536af14f543e1f68f1407c5cb6ac2d9195376cb87e5a3e343f253",
+  "runId": "35982657474",
+  "developmentPredictionSha256": "137c6a3666a314688f2600fe4540aa6d59ea4f1e0f44b0691f97c157d57f8326",
+  "selectorSha256": "00ef8428d96b5d19d92f16b75ea08c6a64c193210d0b028ca93712d68f6e4477",
+  "septemberOpened": false,
+  "q4Opened": false,
+  "annualQualified": false,
+  "productionPromotion": false,
+  "candidate": null
+}
