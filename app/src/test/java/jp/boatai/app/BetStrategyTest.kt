@@ -42,6 +42,39 @@ class BetStrategyTest {
     }
 
     @Test
+    fun preservesValidatedUnevenAllocationWhenBudgetUnchanged() {
+        val picks = listOf(
+            PredictionPick("1-2-3", 10.0, recommendedStake = 500),
+            PredictionPick("1-3-2", 9.0, recommendedStake = 400),
+            PredictionPick("1-2-4", 8.0, recommendedStake = 200),
+            PredictionPick("1-4-2", 7.0, recommendedStake = 100)
+        )
+
+        val result = BetStrategy.allocate(testRace(), picks, 1_200)
+
+        assertEquals(listOf(500, 400, 200, 100), result.map { it.recommendedStake })
+    }
+
+    @Test
+    fun manualBudgetChangeRebalancesAcrossAllPicks() {
+        val picks = listOf(
+            PredictionPick("1-2-3", 10.0, recommendedStake = 500),
+            PredictionPick("1-3-2", 9.0, recommendedStake = 400),
+            PredictionPick("1-2-4", 8.0, recommendedStake = 200),
+            PredictionPick("1-4-2", 7.0, recommendedStake = 100)
+        )
+
+        val at1300 = BetStrategy.allocate(testRace(), picks, 1_300)
+        assertEquals(listOf(400, 300, 300, 300), at1300.map { it.recommendedStake })
+
+        val at1400 = BetStrategy.allocate(testRace(), at1300, 1_400)
+        assertEquals(listOf(400, 400, 300, 300), at1400.map { it.recommendedStake })
+
+        val backTo1300 = BetStrategy.allocate(testRace(), at1400, 1_300)
+        assertEquals(listOf(400, 300, 300, 300), backTo1300.map { it.recommendedStake })
+    }
+
+    @Test
     fun clampsBudgetToUserLimit() {
         val result = BetStrategy.allocate(testRace(), listOf(PredictionPick("1-2-3", 10.0)), 9_999)
         assertEquals(3_000, result.single().recommendedStake)
