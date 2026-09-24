@@ -1,0 +1,169 @@
+{
+  "protocolCommitSha": "5a9b333eeae78e2d100f0ca69251bec98e223c6a",
+  "protocolSha256": "166ad751ec0e19193bcb1b5ab03e546a2c5da40010722283e59bec656d854046",
+  "splitManifestSha256": "830d75257b6536af14f543e1f68f1407c5cb6ac2d9195376cb87e5a3e343f253",
+  "runId": "35982657474",
+  "developmentPredictionSha256": "137c6a3666a314688f2600fe4540aa6d59ea4f1e0f44b0691f97c157d57f8326",
+  "selectorSha256": "00ef8428d96b5d19d92f16b75ea08c6a64c193210d0b028ca93712d68f6e4477",
+  "septemberOpened": false,
+  "q4Opened": false,
+  "annualQualified": false,
+  "productionPromotion": false,
+  "trainCacheSha256": "afe3b5c38bb737bfe6d7cd3d7a79a23e50a97648f37883b8b253a126c20cb18b",
+  "developmentCacheSha256": "f2ac44efb698a71893a6c952be05aa003324be30c4ba13c4a16db7914f1de9e0",
+  "developmentRaces": 9588,
+  "eligibleOddsRaces": 9583,
+  "historyLeakCount": 0,
+  "duplicateRaceKeys": 0,
+  "foldAudit": {
+    "2025-03": {
+      "fitMaxOrdinal": 739282,
+      "validationMaxOrdinal": 739310,
+      "predictionMinOrdinal": 739311,
+      "fitRaces": 4543,
+      "validationRaces": 4003,
+      "predictionRaces": 4197,
+      "temperature": 1.0,
+      "stages": {
+        "0": {
+          "sha256": "ea1c1f5967c1a04b2c57d092d9f363421caebf40028eeaabc8331d2d3372267f",
+          "iterations": 489,
+          "validationLoss": 1.1681275326530636
+        },
+        "1": {
+          "sha256": "24366b2e00d0d1c5c6840ec3b52556b1791f1f298b0675f5ff394e6c01f22108",
+          "iterations": 350,
+          "validationLoss": 1.374386029085173
+        },
+        "2": {
+          "sha256": "24ab35f67ef9e7e17315ddbece89430e3595d904087a7c7aa99030c2a06a7909",
+          "iterations": 333,
+          "validationLoss": 1.2592099894385038
+        }
+      },
+      "featureCacheSha256": "afe3b5c38bb737bfe6d7cd3d7a79a23e50a97648f37883b8b253a126c20cb18b",
+      "sourceCodeSha256": {
+        "scripts/v016_r4_features.py": "775c00fb16776070f9f92bee9012269e9dfe0d38df6c7ebdddbf3d220b0aedbe",
+        "scripts/v016_r4_player_history.py": "a6017fdc21762eb5e0202fd8e23a1d84f0c75a18397e1b252cebce3d1a23e9b0",
+        "scripts/v016_r4_model.py": "3c4e6f32d2562bf4257a38fdffdae441b1c3096413953fda33f02df527dfc18e",
+        "scripts/v016_r4_evaluate.py": "516e83048b88a069b1fc10a8f12fa16698f277aff90875b6f6196656f7ba08d3",
+        "scripts/v016_r2_model.py": "12303533562fb3dc71df916e94a6b86b747688f120336660e975924100a69086",
+        "scripts/v016_r2_features.py": "6824344b84f42be22ae100109c4f5700bb6dcb7df1d1dfa9b9d8e1276ef5145b",
+        "scripts/v016_core_research.py": "8d213f47fbbcbd5c5d67fff49c000439b1efd71eecb0ed2e9147966576fb4616",
+        "scripts/v016_oof_study.py": "a2695b348af3fe462a4ae142cd38c4605b4c4ab609f2c9f1cc1a9ef729a409e3"
+      }
+    },
+    "2025-04": {
+      "fitMaxOrdinal": 739310,
+      "validationMaxOrdinal": 739341,
+      "predictionMinOrdinal": 739342,
+      "fitRaces": 8546,
+      "validationRaces": 4193,
+      "predictionRaces": 3960,
+      "temperature": 1.0,
+      "stages": {
+        "0": {
+          "sha256": "3be55b3b4447e2673d7f86cabe38286a6b71dcf6692980f27a0b03b2e7390c50",
+          "iterations": 500,
+          "validationLoss": 1.1460067434902415
+        },
+        "1": {
+          "sha256": "283cfe0a59dbe4a53453805a3526b049e1c13fc3c9795b0e8e4bd6495df129e0",
+          "iterations": 412,
+          "validationLoss": 1.3606940861995578
+        },
+        "2": {
+          "sha256": "f0ee56a72c84d931149e85ad6b0cd99ffe9c797da310fa6380a0254c04385e37",
+          "iterations": 407,
+          "validationLoss": 1.2313083051209837
+        }
+      },
+      "featureCacheSha256": "afe3b5c38bb737bfe6d7cd3d7a79a23e50a97648f37883b8b253a126c20cb18b",
+      "sourceCodeSha256": {
+        "scripts/v016_r4_features.py": "775c00fb16776070f9f92bee9012269e9dfe0d38df6c7ebdddbf3d220b0aedbe",
+        "scripts/v016_r4_player_history.py": "a6017fdc21762eb5e0202fd8e23a1d84f0c75a18397e1b252cebce3d1a23e9b0",
+        "scripts/v016_r4_model.py": "3c4e6f32d2562bf4257a38fdffdae441b1c3096413953fda33f02df527dfc18e",
+        "scripts/v016_r4_evaluate.py": "516e83048b88a069b1fc10a8f12fa16698f277aff90875b6f6196656f7ba08d3",
+        "scripts/v016_r2_model.py": "12303533562fb3dc71df916e94a6b86b747688f120336660e975924100a69086",
+        "scripts/v016_r2_features.py": "6824344b84f42be22ae100109c4f5700bb6dcb7df1d1dfa9b9d8e1276ef5145b",
+        "scripts/v016_core_research.py": "8d213f47fbbcbd5c5d67fff49c000439b1efd71eecb0ed2e9147966576fb4616",
+        "scripts/v016_oof_study.py": "a2695b348af3fe462a4ae142cd38c4605b4c4ab609f2c9f1cc1a9ef729a409e3"
+      }
+    },
+    "2025-05": {
+      "fitMaxOrdinal": 739341,
+      "validationMaxOrdinal": 739371,
+      "predictionMinOrdinal": 739372,
+      "fitRaces": 12739,
+      "validationRaces": 3958,
+      "predictionRaces": 4697,
+      "temperature": 1.0,
+      "stages": {
+        "0": {
+          "sha256": "bc1294a178b95476f1b6f1861497b0315b82fb1741cfb6376325475555c4c9af",
+          "iterations": 500,
+          "validationLoss": 1.188773878699739
+        },
+        "1": {
+          "sha256": "86ff855191184da389db40046f36936512a37b9f984fedea4eb53b09224538f3",
+          "iterations": 499,
+          "validationLoss": 1.3496521459728068
+        },
+        "2": {
+          "sha256": "72c5b5464ca1991d2008fe575bf474dc9a377923e035b0cd5fa451cfe602f1f6",
+          "iterations": 491,
+          "validationLoss": 1.2356670109824646
+        }
+      },
+      "featureCacheSha256": "afe3b5c38bb737bfe6d7cd3d7a79a23e50a97648f37883b8b253a126c20cb18b",
+      "sourceCodeSha256": {
+        "scripts/v016_r4_features.py": "775c00fb16776070f9f92bee9012269e9dfe0d38df6c7ebdddbf3d220b0aedbe",
+        "scripts/v016_r4_player_history.py": "a6017fdc21762eb5e0202fd8e23a1d84f0c75a18397e1b252cebce3d1a23e9b0",
+        "scripts/v016_r4_model.py": "3c4e6f32d2562bf4257a38fdffdae441b1c3096413953fda33f02df527dfc18e",
+        "scripts/v016_r4_evaluate.py": "516e83048b88a069b1fc10a8f12fa16698f277aff90875b6f6196656f7ba08d3",
+        "scripts/v016_r2_model.py": "12303533562fb3dc71df916e94a6b86b747688f120336660e975924100a69086",
+        "scripts/v016_r2_features.py": "6824344b84f42be22ae100109c4f5700bb6dcb7df1d1dfa9b9d8e1276ef5145b",
+        "scripts/v016_core_research.py": "8d213f47fbbcbd5c5d67fff49c000439b1efd71eecb0ed2e9147966576fb4616",
+        "scripts/v016_oof_study.py": "a2695b348af3fe462a4ae142cd38c4605b4c4ab609f2c9f1cc1a9ef729a409e3"
+      }
+    },
+    "2025-06": {
+      "fitMaxOrdinal": 739371,
+      "validationMaxOrdinal": 739402,
+      "predictionMinOrdinal": 739403,
+      "fitRaces": 16697,
+      "validationRaces": 4694,
+      "predictionRaces": 4511,
+      "temperature": 1.0,
+      "stages": {
+        "0": {
+          "sha256": "9dc75d4fb9b4b527afa784e3d9b02314d0e9d951e2f171d159c57e967366c87b",
+          "iterations": 500,
+          "validationLoss": 1.1944527964719973
+        },
+        "1": {
+          "sha256": "0eb77c621b3f70ad126a34d9a5082f48340b0c33e2da48652c779736d6190fc2",
+          "iterations": 500,
+          "validationLoss": 1.328812214208338
+        },
+        "2": {
+          "sha256": "d7179b3af79e39c2ee9ca6c2b01409aa1a48a129eee73c07a850542634ae996e",
+          "iterations": 495,
+          "validationLoss": 1.2252241432196584
+        }
+      },
+      "featureCacheSha256": "afe3b5c38bb737bfe6d7cd3d7a79a23e50a97648f37883b8b253a126c20cb18b",
+      "sourceCodeSha256": {
+        "scripts/v016_r4_features.py": "775c00fb16776070f9f92bee9012269e9dfe0d38df6c7ebdddbf3d220b0aedbe",
+        "scripts/v016_r4_player_history.py": "a6017fdc21762eb5e0202fd8e23a1d84f0c75a18397e1b252cebce3d1a23e9b0",
+        "scripts/v016_r4_model.py": "3c4e6f32d2562bf4257a38fdffdae441b1c3096413953fda33f02df527dfc18e",
+        "scripts/v016_r4_evaluate.py": "516e83048b88a069b1fc10a8f12fa16698f277aff90875b6f6196656f7ba08d3",
+        "scripts/v016_r2_model.py": "12303533562fb3dc71df916e94a6b86b747688f120336660e975924100a69086",
+        "scripts/v016_r2_features.py": "6824344b84f42be22ae100109c4f5700bb6dcb7df1d1dfa9b9d8e1276ef5145b",
+        "scripts/v016_core_research.py": "8d213f47fbbcbd5c5d67fff49c000439b1efd71eecb0ed2e9147966576fb4616",
+        "scripts/v016_oof_study.py": "a2695b348af3fe462a4ae142cd38c4605b4c4ab609f2c9f1cc1a9ef729a409e3"
+      }
+    }
+  },
+  "firstMarginalMaxSumError": 2.1566847863141447e-08
+}
