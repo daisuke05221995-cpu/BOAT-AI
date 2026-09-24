@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 32
-        versionName = "0.15.14"
-        // v0.15.14: frozen average-ROI reference policy; signed release verification triggered.
+        versionCode = 33
+        versionName = "0.15.15"
+        // v0.15.15: AI-first prediction with market-edge gate to reduce automatic lane-1 following.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

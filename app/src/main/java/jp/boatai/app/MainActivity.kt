@@ -273,7 +273,7 @@ private fun BulkSelectionModeCard(vm: BoatViewModel) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             Text("一括購入の対象", fontWeight = FontWeight.Bold)
-            Text("現在は2026年5〜9月の平均ROI固定条件を参考運用中です。過去検証は2,407購入・ROI117.3%・5か月中4か月プラスですが、複数年検証は不合格のため最終判断は必ずご自身で行ってください。", style = MaterialTheme.typography.bodySmall)
+            Text("v0.15.15から着順予想はAI主体です。1号艇のコース有利と市場人気をそのまま本命化せず、選手力・当地・モーター・ST・展示で上積みがある艇を評価します。旧v0.15.14のROI117.3%は比較用の旧方式実績で、現ロジックの実績ではありません。", style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(onClick = vm::selectAllPurchasable) { Text("購入推奨のみ") }
