@@ -14,7 +14,7 @@ android {
         targetSdk = 35
         versionCode = 32
         versionName = "0.15.14"
-        // v0.15.14: replace tiny-sample r3 reference with frozen average-ROI reference policy.
+        // v0.15.14: frozen average-ROI reference policy; signed release verification triggered.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
