@@ -1,0 +1,6 @@
+{
+  "version": "0.16.0",
+  "forecastModel": "Model A",
+  "automaticBuy": false,
+  "execute": true
+}
