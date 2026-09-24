@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "strategy": "Android v0.15.15 AverageRoiReferenceStrategy exact-formula audit",
+  "period": "2025-07-01..2025-08-31",
+  "holdoutOpened": false,
+  "septemberOpened": false,
+  "tuningPerformed": false,
+  "thresholds": {
+    "budget": 1200,
+    "maxPoints": 2,
+    "modelWeight": 0.8,
+    "minEv": 1.05,
+    "minProbability": 0.005,
+    "maxOdds": 150.0,
+    "minMarketEdgeRatio": 1.08,
+    "maxFirstFormRank": 2,
+    "alternateFirstScoreRatio": 0.88,
+    "scoreTemperature": 14.0
+  },
+  "population": {
+    "cacheRaces": 9588,
+    "usableRaces": 9583,
+    "buyRaces": 9535,
+    "buyRate": 99.499
+  },
+  "accounting": {
+    "purchaseRaces": 9535,
+    "hits": 195,
+    "hitRate": 2.045,
+    "stake": 11442000,
+    "payout": 7839300,
+    "profit": -3602700,
+    "roi": 68.513
+  },
+  "primaryFirst": {
+    "accuracy": 21.038,
+    "distribution": {
+      "1": {
+        "primaryPredictions": 1038,
+        "primaryShare": 10.886,
+        "firstPlaceHits": 704,
+        "firstPlaceHitRate": 67.823,
+        "trifecta": {
+          "purchaseRaces": 1038,
+          "hits": 28,
+          "hitRate": 2.697,
+          "stake": 1245600,
+          "payout": 970800,
+          "profit": -274800,
+          "roi": 77.938
+        }
+      },
+      "2": {
+        "primaryPredictions": 1698,
+        "primaryShare": 17.808,
+        "firstPlaceHits": 334,
+        "firstPlaceHitRate": 19.67,
+        "trifecta": {
+          "purchaseRaces": 1698,
+          "hits": 32,
+          "hitRate": 1.885,
+          "stake": 2037600,
+          "payout": 1215900,
+          "profit": -821700,
+          "roi": 59.673
+        }
+      },
+      "3": {
+        "primaryPredictions": 1600,
+        "primaryShare": 16.78,
+        "firstPlaceHits": 296,
+        "firstPlaceHitRate": 18.5,
+        "trifecta": {
+          "purchaseRaces": 1600,
+          "hits": 39,
+          "hitRate": 2.438,
+          "stake": 1920000,
+          "payout": 1529640,
+          "profit": -390360,
+          "roi": 79.669
+        }
+      },
+      "4": {
+        "primaryPredictions": 1766,
+        "primaryShare": 18.521,
+        "firstPlaceHits": 300,
+        "firstPlaceHitRate": 16.988,
+        "trifecta": {
+          "purchaseRaces": 1766,
+          "hits": 36,
+          "hitRate": 2.039,
+          "stake": 2119200,
+          "payout": 1367220,
+          "profit": -751980,
+          "roi": 64.516
+        }
+      },
+      "5": {
+        "primaryPredictions": 1863,
+        "primaryShare": 19.539,
+        "firstPlaceHits": 207,
+        "firstPlaceHitRate": 11.111,
+        "trifecta": {
+          "purchaseRaces": 1863,
+          "hits": 30,
+          "hitRate": 1.61,
+          "stake": 2235600,
+          "payout": 1258380,
+          "profit": -977220,
+          "roi": 56.288
+        }
+      },
+      "6": {
+        "primaryPredictions": 1570,
+        "primaryShare": 16.466,
+        "firstPlaceHits": 165,
+        "firstPlaceHitRate": 10.51,
+        "trifecta": {
+          "purchaseRaces": 1570,
+          "hits": 30,
+          "hitRate": 1.911,
+          "stake": 1884000,
+          "payout": 1497360,
+          "profit": -386640,
+          "roi": 79.478
+        }
+      }
+    }
+  },
+  "ticketFirstDistribution": {
+    "1": {
+      "tickets": 2329,
+      "share": 12.283
+    },
+    "2": {
+      "tickets": 3479,
+      "share": 18.348
+    },
+    "3": {
+      "tickets": 3181,
+      "share": 16.777
+    },
+    "4": {
+      "tickets": 3495,
+      "share": 18.433
+    },
+    "5": {
+      "tickets": 3558,
+      "share": 18.765
+    },
+    "6": {
+      "tickets": 2919,
+      "share": 15.395
+    }
+  },
+  "actualWinnerDistribution": {
+    "usablePopulation": {
+      "1": 53.887,
+      "2": 13.242,
+      "3": 12.95,
+      "4": 10.602,
+      "5": 6.23,
+      "6": 3.089
+    },
+    "buyPopulation": {
+      "1": 53.917,
+      "2": 13.256,
+      "3": 12.921,
+      "4": 10.561,
+      "5": 6.24,
+      "6": 3.104
+    }
+  },
+  "laneOne": {
+    "primaryPredictionShare": 10.886,
+    "actualWinnerShareInBuyPopulation": 53.917,
+    "firstPlaceHitRateWhenPredicted": 67.823,
+    "firstPlaceHitRateWhenPredictingOther": 15.323,
+    "marketTopFirstLane1Share": 78.322,
+    "modelTopFirstLane1Share": 46.597,
+    "ticketFirstLane1Share": 12.283,
+    "accountingWhenPrimary1": {
+      "purchaseRaces": 1038,
+      "hits": 28,
+      "hitRate": 2.697,
+      "stake": 1245600,
+      "payout": 970800,
+      "profit": -274800,
+      "roi": 77.938
+    },
+    "accountingWhenPrimaryOther": {
+      "purchaseRaces": 8497,
+      "hits": 167,
+      "hitRate": 1.965,
+      "stake": 10196400,
+      "payout": 6868500,
+      "profit": -3327900,
+      "roi": 67.362
+    }
+  },
+  "marketAgreement": {
+    "primaryFirstEqualsMarketTop": 17.389,
+    "firstPlaceAccuracyWhenAgree": 58.323,
+    "firstPlaceAccuracyWhenDisagree": 13.19,
+    "racesAgree": 1658,
+    "racesDisagree": 7877
+  },
+  "firstFormRank": {
+    "rank1": 5637,
+    "rank2": 3898
+  },
+  "monthly": {
+    "2025-07": {
+      "accounting": {
+        "purchaseRaces": 4797,
+        "hits": 105,
+        "hitRate": 2.189,
+        "stake": 5756400,
+        "payout": 4115520,
+        "profit": -1640880,
+        "roi": 71.495
+      },
+      "primaryLane1Share": 11.486,
+      "primaryFirstHitRate": 21.18,
+      "marketAgreementRate": 17.761
+    },
+    "2025-08": {
+      "accounting": {
+        "purchaseRaces": 4738,
+        "hits": 90,
+        "hitRate": 1.9,
+        "stake": 5685600,
+        "payout": 3723780,
+        "profit": -1961820,
+        "roi": 65.495
+      },
+      "primaryLane1Share": 10.279,
+      "primaryFirstHitRate": 20.895,
+      "marketAgreementRate": 17.011
+    }
+  },
+  "notes": [
+    "No threshold or parameter was changed after observing these outcomes.",
+    "The diagnostic uses the r4 July-August development cache only; September and 2025 Q4 remain unopened.",
+    "Archived odds capture time is not verified as exactly five minutes before close, so ROI is diagnostic rather than live-execution proof."
+  ]
+}
