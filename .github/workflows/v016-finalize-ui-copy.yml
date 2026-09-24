@@ -1,0 +1,41 @@
+name: v0.16 finalize forecast UI copy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/v016_ui_copy_execute.json'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Replace stale v0.15.16 forecast explanation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path=Path('app/src/main/java/jp/boatai/app/MainActivity.kt')
+          text=path.read_text()
+          old='v0.15.16では予想と購入判定を分離しました。予想はオッズを見ず、選手力・当地・モーター・ST・展示・進入からAI着順確率上位4点を表示します。v0.15.15の購入判定は2025年7〜8月診断で99.5% BUY・ROI68.5%だったため、自動購入推奨は次の検証済み戦略まで停止中です。予想からの手動購入は利用できます。'
+          new='v0.16.0では、2025年9月の独立検証と2025年10〜12月の最終検証を通過した市場非入力Model Aで3連単確率上位4点を表示します。履歴オッズの締切前取得時刻を証明できないため自動購入推奨は停止中です。AI予想からの手動購入は利用できます。'
+          assert text.count(old)==1, 'stale UI copy occurrence must be exactly one'
+          path.write_text(text.replace(old,new))
+          PY
+      - name: Commit UI copy while preserving main
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/jp/boatai/app/MainActivity.kt
+          git commit -m 'Update UI copy for validated v0.16 Model A'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main || exit 1
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1
