@@ -1,0 +1,320 @@
+{
+  "v016-r4-metadata-raw-2024/raw_2024.json": {
+    "year": 2024,
+    "start": "2024-01-01",
+    "end": "2024-12-31",
+    "races": 52179,
+    "months": {
+      "2024-01": {
+        "sourceRaces": 4724,
+        "eligibleSettled": 4724,
+        "preRaceUsable": 4719,
+        "oddsUsable": 4724,
+        "jointUsable": 4719
+      },
+      "2024-02": {
+        "sourceRaces": 4155,
+        "eligibleSettled": 4155,
+        "preRaceUsable": 4149,
+        "oddsUsable": 4155,
+        "jointUsable": 4149
+      },
+      "2024-03": {
+        "sourceRaces": 4164,
+        "eligibleSettled": 4164,
+        "preRaceUsable": 4161,
+        "oddsUsable": 4164,
+        "jointUsable": 4161
+      },
+      "2024-04": {
+        "sourceRaces": 4211,
+        "eligibleSettled": 4211,
+        "preRaceUsable": 4211,
+        "oddsUsable": 4211,
+        "jointUsable": 4211
+      },
+      "2024-05": {
+        "sourceRaces": 4531,
+        "eligibleSettled": 4531,
+        "preRaceUsable": 4526,
+        "oddsUsable": 4531,
+        "jointUsable": 4526
+      },
+      "2024-06": {
+        "sourceRaces": 4398,
+        "eligibleSettled": 4398,
+        "preRaceUsable": 4395,
+        "oddsUsable": 4398,
+        "jointUsable": 4395
+      },
+      "2024-07": {
+        "sourceRaces": 4611,
+        "eligibleSettled": 4611,
+        "preRaceUsable": 4611,
+        "oddsUsable": 4611,
+        "jointUsable": 4611
+      },
+      "2024-08": {
+        "sourceRaces": 4606,
+        "eligibleSettled": 4606,
+        "preRaceUsable": 4603,
+        "oddsUsable": 4606,
+        "jointUsable": 4603
+      },
+      "2024-09": {
+        "sourceRaces": 4122,
+        "eligibleSettled": 4122,
+        "preRaceUsable": 4119,
+        "oddsUsable": 4122,
+        "jointUsable": 4119
+      },
+      "2024-10": {
+        "sourceRaces": 4102,
+        "eligibleSettled": 4102,
+        "preRaceUsable": 4098,
+        "oddsUsable": 4102,
+        "jointUsable": 4098
+      },
+      "2024-11": {
+        "sourceRaces": 3962,
+        "eligibleSettled": 3962,
+        "preRaceUsable": 3888,
+        "oddsUsable": 3962,
+        "jointUsable": 3888
+      },
+      "2024-12": {
+        "sourceRaces": 4593,
+        "eligibleSettled": 4593,
+        "preRaceUsable": 4528,
+        "oddsUsable": 4593,
+        "jointUsable": 4528
+      }
+    },
+    "sourceCommits": {
+      "programs": {
+        "repo": "BoatraceOpenAPI/programs",
+        "commit": "d3e37a2b5bce2bc10ac9d8154713cfe250aa5fa1"
+      },
+      "previews": {
+        "repo": "BoatraceOpenAPI/previews",
+        "commit": "5089ce91e150538a8adc8da86ca403f578343318"
+      },
+      "results": {
+        "repo": "BoatraceOpenAPI/results",
+        "commit": "04dfd55682c1f083963ca80b5bfce93ed43cb755"
+      },
+      "odds": {
+        "repo": "lamrongol/BoatraceOdds",
+        "commit": "ddd2f0c1011889779d04dfb802bee4e152b35b30"
+      }
+    },
+    "seedCacheSha256": "043dd8c992002f3f197ded9625170ce4e62109b178d68ba804985575da5583e3",
+    "holdoutOpened": false,
+    "oddsCaptureTimeVerified": false,
+    "protocolSha256": "240a66c66deb10fdb312091a027e540efc77888c96f3706600fc0485937fa2f1"
+  },
+  "v016-r4-metadata-features/feature_metadata.json": {
+    "protocolSha256": "240a66c66deb10fdb312091a027e540efc77888c96f3706600fc0485937fa2f1",
+    "rawSha256": "1eb40406738f70edf18e39a1a0daeaa70ab3852bebcbb36eec6be1dd49e2ddce",
+    "seedSha256": "607b8d944c0e693dfcc5fa88ed485c8ff8caf91cfdb3157b4d9a94d400241417",
+    "year": 2025,
+    "races": 35505,
+    "usableRaces": 35483,
+    "features": {
+      "current": [
+        "racer_national_top_1_percent",
+        "racer_local_top_1_percent",
+        "racer_national_top_2_percent",
+        "racer_local_top_2_percent",
+        "racer_national_top_3_percent",
+        "racer_local_top_3_percent",
+        "racer_assigned_motor_top_2_percent",
+        "racer_assigned_motor_top_3_percent",
+        "racer_assigned_boat_top_2_percent",
+        "racer_assigned_boat_top_3_percent",
+        "racer_average_start_timing",
+        "racer_flying_count",
+        "racer_late_count",
+        "racer_age",
+        "racer_weight",
+        "racer_exhibition_time",
+        "racer_start_timing",
+        "racer_course_number",
+        "racer_tilt_adjustment",
+        "racer_weight_adjustment",
+        "class_1",
+        "class_2",
+        "class_3",
+        "class_4",
+        "course_changed",
+        "ex_rank",
+        "preview_st_rank",
+        "ex_gap_best",
+        "ex_gap_worst",
+        "ex_gap_lane1"
+      ],
+      "history": [
+        "player_count",
+        "player_win",
+        "player_top2",
+        "player_top3",
+        "course_count",
+        "course_win",
+        "course_top2",
+        "course_top3",
+        "player_ex_mean",
+        "player_ex_sd",
+        "player_preview_st_mean",
+        "player_preview_st_sd",
+        "course_ex_mean",
+        "course_ex_sd",
+        "course_preview_st_mean",
+        "course_preview_st_sd",
+        "w30_count",
+        "w30_win",
+        "w30_top2",
+        "w30_top3",
+        "w60_count",
+        "w60_win",
+        "w60_top2",
+        "w60_top3",
+        "w90_count",
+        "w90_win",
+        "w90_top2",
+        "w90_top3",
+        "w180_count",
+        "w180_win",
+        "w180_top2",
+        "w180_top3"
+      ],
+      "reaction": [
+        "ex_delta_self",
+        "ex_z_self",
+        "st_delta_self",
+        "st_z_self",
+        "ex_delta_course",
+        "ex_z_course",
+        "st_delta_course",
+        "st_z_course",
+        "fast_count",
+        "fast_win",
+        "fast_top2",
+        "fast_top3",
+        "good_st_count",
+        "good_st_win",
+        "good_st_top2",
+        "good_st_top3",
+        "changed_count",
+        "changed_win",
+        "changed_top2",
+        "changed_top3"
+      ]
+    },
+    "registeredPlayers": 1670,
+    "historyRaces": 87491,
+    "sameDayHistoryLeakCount": 0,
+    "historyCountQuantiles": [
+      0.0,
+      181.0,
+      274.0,
+      366.0,
+      518.0
+    ],
+    "holdoutOpened": false,
+    "septemberOpened": false
+  },
+  "v016-r4-metadata-raw-2025/raw_2025.json": {
+    "year": 2025,
+    "start": "2025-01-01",
+    "end": "2025-08-31",
+    "races": 35505,
+    "months": {
+      "2025-01": {
+        "sourceRaces": 5124,
+        "eligibleSettled": 4546,
+        "preRaceUsable": 4543,
+        "oddsUsable": 4546,
+        "jointUsable": 4543,
+        "notEligibleSettledSixBoat": 578
+      },
+      "2025-02": {
+        "sourceRaces": 4500,
+        "eligibleSettled": 4006,
+        "preRaceUsable": 4003,
+        "oddsUsable": 4006,
+        "jointUsable": 4003,
+        "notEligibleSettledSixBoat": 494
+      },
+      "2025-03": {
+        "sourceRaces": 4668,
+        "eligibleSettled": 4197,
+        "preRaceUsable": 4193,
+        "oddsUsable": 4197,
+        "jointUsable": 4193,
+        "notEligibleSettledSixBoat": 471
+      },
+      "2025-04": {
+        "sourceRaces": 4248,
+        "eligibleSettled": 3960,
+        "preRaceUsable": 3958,
+        "oddsUsable": 3960,
+        "jointUsable": 3958,
+        "notEligibleSettledSixBoat": 288
+      },
+      "2025-05": {
+        "sourceRaces": 5112,
+        "eligibleSettled": 4697,
+        "preRaceUsable": 4694,
+        "oddsUsable": 4697,
+        "jointUsable": 4694,
+        "notEligibleSettledSixBoat": 415
+      },
+      "2025-06": {
+        "sourceRaces": 4800,
+        "eligibleSettled": 4511,
+        "preRaceUsable": 4509,
+        "oddsUsable": 4511,
+        "jointUsable": 4509,
+        "notEligibleSettledSixBoat": 289
+      },
+      "2025-07": {
+        "sourceRaces": 5196,
+        "eligibleSettled": 4820,
+        "preRaceUsable": 4820,
+        "oddsUsable": 4820,
+        "jointUsable": 4820,
+        "notEligibleSettledSixBoat": 376
+      },
+      "2025-08": {
+        "sourceRaces": 5088,
+        "eligibleSettled": 4768,
+        "preRaceUsable": 4763,
+        "oddsUsable": 4768,
+        "jointUsable": 4763,
+        "notEligibleSettledSixBoat": 320
+      }
+    },
+    "sourceCommits": {
+      "programs": {
+        "repo": "BoatraceOpenAPI/programs",
+        "commit": "d3e37a2b5bce2bc10ac9d8154713cfe250aa5fa1"
+      },
+      "previews": {
+        "repo": "BoatraceOpenAPI/previews",
+        "commit": "5089ce91e150538a8adc8da86ca403f578343318"
+      },
+      "results": {
+        "repo": "BoatraceOpenAPI/results",
+        "commit": "04dfd55682c1f083963ca80b5bfce93ed43cb755"
+      },
+      "odds": {
+        "repo": "lamrongol/BoatraceOdds",
+        "commit": "ddd2f0c1011889779d04dfb802bee4e152b35b30"
+      }
+    },
+    "seedCacheSha256": null,
+    "holdoutOpened": false,
+    "oddsCaptureTimeVerified": false,
+    "protocolSha256": "240a66c66deb10fdb312091a027e540efc77888c96f3706600fc0485937fa2f1"
+  }
+}

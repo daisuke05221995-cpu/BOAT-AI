@@ -1,0 +1,2580 @@
+{
+  "runId": "35940833546",
+  "development": {
+    "runId": "35940833546",
+    "protocolSha256": "240a66c66deb10fdb312091a027e540efc77888c96f3706600fc0485937fa2f1",
+    "period": "2025-07-01..2025-08-31",
+    "probability": {
+      "current": {
+        "variant": "current",
+        "modelManifestSha256": "f12f8b9dd07dc05153687d4df007698906c369e048fb5593298abd90a622b530",
+        "featureCacheSha256": "f2ac44efb698a71893a6c952be05aa003324be30c4ba13c4a16db7914f1de9e0",
+        "model": {
+          "races": 9583,
+          "logloss": 3.8090662956237793,
+          "brier": 0.9610331058502197,
+          "topChoiceEce": 0.008437659225632547,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 832,
+              "predicted": 0.04127165302634239,
+              "observed": 0.037259615384615384
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 4593,
+              "predicted": 0.07616324722766876,
+              "observed": 0.07097757456999783
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 3988,
+              "predicted": 0.13152317702770233,
+              "observed": 0.11835506519558676
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 169,
+              "predicted": 0.225627601146698,
+              "observed": 0.23076923076923078
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 1,
+              "predicted": 0.31891313195228577,
+              "observed": 0.0
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "market": {
+          "races": 9583,
+          "logloss": 3.7169792024521278,
+          "brier": 0.9561872762137003,
+          "topChoiceEce": 0.0038357607495642133,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 666,
+              "predicted": 0.04323575160379161,
+              "observed": 0.04504504504504504
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 4787,
+              "predicted": 0.07626984811035362,
+              "observed": 0.07959055776060163
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 3956,
+              "predicted": 0.1303047218280881,
+              "observed": 0.1352376137512639
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 171,
+              "predicted": 0.2217318920105071,
+              "observed": 0.2222222222222222
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 3,
+              "predicted": 0.31383272627494624,
+              "observed": 0.3333333333333333
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "manifest": {
+          "variant": "current",
+          "trainRaces": 21391,
+          "validationRaces": 4509,
+          "trainEndOrdinal": 739402,
+          "validationEndOrdinal": 739432,
+          "temperature": 1.0,
+          "temperatureValidationLoss": {
+            "0.8": 3.867425818809407,
+            "1.0": 3.8234454428678997,
+            "1.2": 3.841698727651039,
+            "1.5": 3.9074670566457606,
+            "2.0": 4.029174577855234
+          },
+          "stages": {
+            "0": {
+              "sha256": "606e901938351dc3aabfda525517054eb3fe46ae18c8003ea77245f2df45333e",
+              "iterations": 499,
+              "features": 231,
+              "validationLogloss": 1.222362206085501
+            },
+            "1": {
+              "sha256": "188e47188eba360d85485dc2a14ad04e395ccf510c2fd34b6690bf38f15904dd",
+              "iterations": 483,
+              "features": 297,
+              "validationLogloss": 1.36928555671861
+            },
+            "2": {
+              "sha256": "c0212c639ac2e5a61aa8514cd8e640ef53ec51f3b56d4eecd01391f54aa5dc5b",
+              "iterations": 500,
+              "features": 363,
+              "validationLogloss": 1.2317976804197108
+            }
+          },
+          "schemaSha256": "6b785480a44316381ae749f27f45243eacb32f1f6b93f7b9cdc3c43ed7826ee2",
+          "protocolSha256": "240a66c66deb10fdb312091a027e540efc77888c96f3706600fc0485937fa2f1",
+          "codeSha256": {
+            "scripts/v016_r4_features.py": "775c00fb16776070f9f92bee9012269e9dfe0d38df6c7ebdddbf3d220b0aedbe",
+            "scripts/v016_r4_player_history.py": "a6017fdc21762eb5e0202fd8e23a1d84f0c75a18397e1b252cebce3d1a23e9b0",
+            "scripts/v016_r4_model.py": "3c4e6f32d2562bf4257a38fdffdae441b1c3096413953fda33f02df527dfc18e",
+            "scripts/v016_r4_evaluate.py": "516e83048b88a069b1fc10a8f12fa16698f277aff90875b6f6196656f7ba08d3",
+            "scripts/v016_r2_model.py": "12303533562fb3dc71df916e94a6b86b747688f120336660e975924100a69086",
+            "scripts/v016_r2_features.py": "6824344b84f42be22ae100109c4f5700bb6dcb7df1d1dfa9b9d8e1276ef5145b",
+            "scripts/v016_core_research.py": "8d213f47fbbcbd5c5d67fff49c000439b1efd71eecb0ed2e9147966576fb4616"
+          },
+          "trainCacheSha256": "afe3b5c38bb737bfe6d7cd3d7a79a23e50a97648f37883b8b253a126c20cb18b",
+          "holdoutOpened": false,
+          "septemberOpened": false,
+          "racerIdInModel": false,
+          "marketInOutcomeModel": false
+        },
+        "months": {
+          "7": {
+            "races": 4820,
+            "logloss": 3.836397886276245,
+            "brier": 0.9626615047454834,
+            "topChoiceEce": 0.00839490580886479,
+            "calibration": [
+              {
+                "from": 0,
+                "to": 0.05,
+                "races": 423,
+                "predicted": 0.04123062640428543,
+                "observed": 0.04018912529550828
+              },
+              {
+                "from": 0.05,
+                "to": 0.1,
+                "races": 2352,
+                "predicted": 0.0762619897723198,
+                "observed": 0.070578231292517
+              },
+              {
+                "from": 0.1,
+                "to": 0.2,
+                "races": 1954,
+                "predicted": 0.13159482181072235,
+                "observed": 0.1187308085977482
+              },
+              {
+                "from": 0.2,
+                "to": 0.3,
+                "races": 91,
+                "predicted": 0.22547702491283417,
+                "observed": 0.2087912087912088
+              },
+              {
+                "from": 0.3,
+                "to": 0.4,
+                "races": 0,
+                "predicted": null,
+                "observed": null
+              },
+              {
+                "from": 0.4,
+                "to": 0.5,
+                "races": 0,
+                "predicted": null,
+                "observed": null
+              },
+              {
+                "from": 0.5,
+                "to": 1.0,
+                "races": 0,
+                "predicted": null,
+                "observed": null
+              }
+            ]
+          },
+          "8": {
+            "races": 4763,
+            "logloss": 3.7814066410064697,
+            "brier": 0.959385335445404,
+            "topChoiceEce": 0.009118502848937483,
+            "calibration": [
+              {
+                "from": 0,
+                "to": 0.05,
+                "races": 409,
+                "predicted": 0.04131409153342247,
+                "observed": 0.034229828850855744
+              },
+              {
+                "from": 0.05,
+                "to": 0.1,
+                "races": 2241,
+                "predicted": 0.07605962455272675,
+                "observed": 0.071396697902722
+              },
+              {
+                "from": 0.1,
+                "to": 0.2,
+                "races": 2034,
+                "predicted": 0.13145431876182556,
+                "observed": 0.11799410029498525
+              },
+              {
+                "from": 0.2,
+                "to": 0.3,
+                "races": 78,
+                "predicted": 0.2258032113313675,
+                "observed": 0.2564102564102564
+              },
+              {
+                "from": 0.3,
+                "to": 0.4,
+                "races": 1,
+                "predicted": 0.31891313195228577,
+                "observed": 0.0
+              },
+              {
+                "from": 0.4,
+                "to": 0.5,
+                "races": 0,
+                "predicted": null,
+                "observed": null
+              },
+              {
+                "from": 0.5,
+                "to": 1.0,
+                "races": 0,
+                "predicted": null,
+                "observed": null
+              }
+            ]
+          }
+        },
+        "holdoutOpened": false,
+        "septemberOpened": false
+      },
+      "history": {
+        "variant": "history",
+        "modelManifestSha256": "82b207ebc17182cc9baeb66e3d6ef9ff1a791eed1643e06a95b33cfec721cbab",
+        "featureCacheSha256": "f2ac44efb698a71893a6c952be05aa003324be30c4ba13c4a16db7914f1de9e0",
+        "model": {
+          "races": 9583,
+          "logloss": 3.7976486682891846,
+          "brier": 0.9603065252304077,
+          "topChoiceEce": 0.007141748354030176,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 764,
+              "predicted": 0.042086128145456314,
+              "observed": 0.03795811518324607
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 4344,
+              "predicted": 0.07622402906417847,
+              "observed": 0.07412523020257827
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 4191,
+              "predicted": 0.1332373172044754,
+              "observed": 0.12145072774994035
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 275,
+              "predicted": 0.22427204251289368,
+              "observed": 0.20727272727272728
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 9,
+              "predicted": 0.3226686418056488,
+              "observed": 0.5555555555555556
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "market": {
+          "races": 9583,
+          "logloss": 3.7169792024521278,
+          "brier": 0.9561872762137003,
+          "topChoiceEce": 0.0038357607495642133,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 666,
+              "predicted": 0.04323575160379161,
+              "observed": 0.04504504504504504
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 4787,
+              "predicted": 0.07626984811035362,
+              "observed": 0.07959055776060163
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 3956,
+              "predicted": 0.1303047218280881,
+              "observed": 0.1352376137512639
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 171,
+              "predicted": 0.2217318920105071,
+              "observed": 0.2222222222222222
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 3,
+              "predicted": 0.31383272627494624,
+              "observed": 0.3333333333333333
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "manifest": {
+          "variant": "history",
+          "trainRaces": 21391,
+          "validationRaces": 4509,
+          "trainEndOrdinal": 739402,
+          "validationEndOrdinal": 739432,
+          "temperature": 1.0,
+          "temperatureValidationLoss": {
+            "0.8": 3.8698345873690467,
+            "1.0": 3.815725486130223,
+            "1.2": 3.828714457161123,
+            "1.5": 3.891124160260458,
+            "2.0": 4.012030599562541
+          },
+          "stages": {
+            "0": {
+              "sha256": "9d1be121f63ed50ff740dd73b98a4c78e603fd06d2672ffa633c2a63624fbaaa",
+              "iterations": 496,
+              "features": 423,
+              "validationLogloss": 1.2208550722141926
+            },
+            "1": {
+              "sha256": "59ea243fcd0d594115303050867acdd9d89db67396a6d514250ba4146767036b",
+              "iterations": 493,
+              "features": 553,
+              "validationLogloss": 1.3637484651132286
+            },
+            "2": {
+              "sha256": "83c903455720aa3b7c3c4c4d97146aa9543bfe71a34883b7e609727d81073a19",
+              "iterations": 500,
+              "features": 683,
+              "validationLogloss": 1.231121948182261
+            }
+          },
+          "schemaSha256": "6b785480a44316381ae749f27f45243eacb32f1f6b93f7b9cdc3c43ed7826ee2",
+          "protocolSha256": "240a66c66deb10fdb312091a027e540efc77888c96f3706600fc0485937fa2f1",
+          "codeSha256": {
+            "scripts/v016_r4_features.py": "775c00fb16776070f9f92bee9012269e9dfe0d38df6c7ebdddbf3d220b0aedbe",
+            "scripts/v016_r4_player_history.py": "a6017fdc21762eb5e0202fd8e23a1d84f0c75a18397e1b252cebce3d1a23e9b0",
+            "scripts/v016_r4_model.py": "3c4e6f32d2562bf4257a38fdffdae441b1c3096413953fda33f02df527dfc18e",
+            "scripts/v016_r4_evaluate.py": "516e83048b88a069b1fc10a8f12fa16698f277aff90875b6f6196656f7ba08d3",
+            "scripts/v016_r2_model.py": "12303533562fb3dc71df916e94a6b86b747688f120336660e975924100a69086",
+            "scripts/v016_r2_features.py": "6824344b84f42be22ae100109c4f5700bb6dcb7df1d1dfa9b9d8e1276ef5145b",
+            "scripts/v016_core_research.py": "8d213f47fbbcbd5c5d67fff49c000439b1efd71eecb0ed2e9147966576fb4616"
+          },
+          "trainCacheSha256": "afe3b5c38bb737bfe6d7cd3d7a79a23e50a97648f37883b8b253a126c20cb18b",
+          "holdoutOpened": false,
+          "septemberOpened": false,
+          "racerIdInModel": false,
+          "marketInOutcomeModel": false
+        },
+        "months": {
+          "7": {
+            "races": 4820,
+            "logloss": 3.8257083892822266,
+            "brier": 0.9618419408798218,
+            "topChoiceEce": 0.009968250628205257,
+            "calibration": [
+              {
+                "from": 0,
+                "to": 0.05,
+                "races": 388,
+                "predicted": 0.042040906846523285,
+                "observed": 0.04381443298969072
+              },
+              {
+                "from": 0.05,
+                "to": 0.1,
+                "races": 2198,
+                "predicted": 0.07648568600416183,
+                "observed": 0.06733393994540492
+              },
+              {
+                "from": 0.1,
+                "to": 0.2,
+                "races": 2081,
+                "predicted": 0.1334214210510254,
+                "observed": 0.12445939452186448
+              },
+              {
+                "from": 0.2,
+                "to": 0.3,
+                "races": 148,
+                "predicted": 0.2243117243051529,
+                "observed": 0.16891891891891891
+              },
+              {
+                "from": 0.3,
+                "to": 0.4,
+                "races": 5,
+                "predicted": 0.3209620714187622,
+                "observed": 0.4
+              },
+              {
+                "from": 0.4,
+                "to": 0.5,
+                "races": 0,
+                "predicted": null,
+                "observed": null
+              },
+              {
+                "from": 0.5,
+                "to": 1.0,
+                "races": 0,
+                "predicted": null,
+                "observed": null
+              }
+            ]
+          },
+          "8": {
+            "races": 4763,
+            "logloss": 3.7692532539367676,
+            "brier": 0.9587525725364685,
+            "topChoiceEce": 0.010668071639555333,
+            "calibration": [
+              {
+                "from": 0,
+                "to": 0.05,
+                "races": 376,
+                "predicted": 0.04213278368115425,
+                "observed": 0.031914893617021274
+              },
+              {
+                "from": 0.05,
+                "to": 0.1,
+                "races": 2146,
+                "predicted": 0.07595603168010712,
+                "observed": 0.08108108108108109
+              },
+              {
+                "from": 0.1,
+                "to": 0.2,
+                "races": 2110,
+                "predicted": 0.13305574655532837,
+                "observed": 0.11848341232227488
+              },
+              {
+                "from": 0.2,
+                "to": 0.3,
+                "races": 127,
+                "predicted": 0.22422578930854797,
+                "observed": 0.25196850393700787
+              },
+              {
+                "from": 0.3,
+                "to": 0.4,
+                "races": 4,
+                "predicted": 0.32480186223983765,
+                "observed": 0.75
+              },
+              {
+                "from": 0.4,
+                "to": 0.5,
+                "races": 0,
+                "predicted": null,
+                "observed": null
+              },
+              {
+                "from": 0.5,
+                "to": 1.0,
+                "races": 0,
+                "predicted": null,
+                "observed": null
+              }
+            ]
+          }
+        },
+        "holdoutOpened": false,
+        "septemberOpened": false
+      },
+      "reaction": {
+        "variant": "reaction",
+        "modelManifestSha256": "d39ebab7549689d71f715daee174ec62257f9f9ddbe29f7667256eba8b148da2",
+        "featureCacheSha256": "f2ac44efb698a71893a6c952be05aa003324be30c4ba13c4a16db7914f1de9e0",
+        "model": {
+          "races": 9583,
+          "logloss": 3.796222448348999,
+          "brier": 0.9601908326148987,
+          "topChoiceEce": 0.006092972619622102,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 758,
+              "predicted": 0.041949059814214706,
+              "observed": 0.044854881266490766
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 4383,
+              "predicted": 0.07612724602222443,
+              "observed": 0.07483458818161078
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 4167,
+              "predicted": 0.1329827904701233,
+              "observed": 0.12119030477561796
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 266,
+              "predicted": 0.2245764285326004,
+              "observed": 0.22556390977443608
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 9,
+              "predicted": 0.32014814019203186,
+              "observed": 0.4444444444444444
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "market": {
+          "races": 9583,
+          "logloss": 3.7169792024521278,
+          "brier": 0.9561872762137003,
+          "topChoiceEce": 0.0038357607495642133,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 666,
+              "predicted": 0.04323575160379161,
+              "observed": 0.04504504504504504
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 4787,
+              "predicted": 0.07626984811035362,
+              "observed": 0.07959055776060163
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 3956,
+              "predicted": 0.1303047218280881,
+              "observed": 0.1352376137512639
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 171,
+              "predicted": 0.2217318920105071,
+              "observed": 0.2222222222222222
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 3,
+              "predicted": 0.31383272627494624,
+              "observed": 0.3333333333333333
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "manifest": {
+          "variant": "reaction",
+          "trainRaces": 21391,
+          "validationRaces": 4509,
+          "trainEndOrdinal": 739402,
+          "validationEndOrdinal": 739432,
+          "temperature": 1.0,
+          "temperatureValidationLoss": {
+            "0.8": 3.872221247832851,
+            "1.0": 3.81731055943425,
+            "1.2": 3.8295994654936667,
+            "1.5": 3.8912474806775394,
+            "2.0": 4.011467788994218
+          },
+          "stages": {
+            "0": {
+              "sha256": "ee67bc585ad4b19904d64ea8c77e25964ed41887b58e94a425bbd10c1d5a1a45",
+              "iterations": 498,
+              "features": 545,
+              "validationLogloss": 1.221133078073323
+            },
+            "1": {
+              "sha256": "ad8425277311dd7080b0a05f719a322632d5993ab4382cadc721f152ddcfb1e7",
+              "iterations": 499,
+              "features": 715,
+              "validationLogloss": 1.3643265430156701
+            },
+            "2": {
+              "sha256": "23e78898a8229794d5c1b819297d2cb77d23ec07edeb4ab6cb07a7d5758eac8a",
+              "iterations": 500,
+              "features": 885,
+              "validationLogloss": 1.2318509380399723
+            }
+          },
+          "schemaSha256": "6b785480a44316381ae749f27f45243eacb32f1f6b93f7b9cdc3c43ed7826ee2",
+          "protocolSha256": "240a66c66deb10fdb312091a027e540efc77888c96f3706600fc0485937fa2f1",
+          "codeSha256": {
+            "scripts/v016_r4_features.py": "775c00fb16776070f9f92bee9012269e9dfe0d38df6c7ebdddbf3d220b0aedbe",
+            "scripts/v016_r4_player_history.py": "a6017fdc21762eb5e0202fd8e23a1d84f0c75a18397e1b252cebce3d1a23e9b0",
+            "scripts/v016_r4_model.py": "3c4e6f32d2562bf4257a38fdffdae441b1c3096413953fda33f02df527dfc18e",
+            "scripts/v016_r4_evaluate.py": "516e83048b88a069b1fc10a8f12fa16698f277aff90875b6f6196656f7ba08d3",
+            "scripts/v016_r2_model.py": "12303533562fb3dc71df916e94a6b86b747688f120336660e975924100a69086",
+            "scripts/v016_r2_features.py": "6824344b84f42be22ae100109c4f5700bb6dcb7df1d1dfa9b9d8e1276ef5145b",
+            "scripts/v016_core_research.py": "8d213f47fbbcbd5c5d67fff49c000439b1efd71eecb0ed2e9147966576fb4616"
+          },
+          "trainCacheSha256": "afe3b5c38bb737bfe6d7cd3d7a79a23e50a97648f37883b8b253a126c20cb18b",
+          "holdoutOpened": false,
+          "septemberOpened": false,
+          "racerIdInModel": false,
+          "marketInOutcomeModel": false
+        },
+        "months": {
+          "7": {
+            "races": 4820,
+            "logloss": 3.822384834289551,
+            "brier": 0.9615970849990845,
+            "topChoiceEce": 0.008739707874002788,
+            "calibration": [
+              {
+                "from": 0,
+                "to": 0.05,
+                "races": 382,
+                "predicted": 0.041648175567388535,
+                "observed": 0.04712041884816754
+              },
+              {
+                "from": 0.05,
+                "to": 0.1,
+                "races": 2223,
+                "predicted": 0.0762312114238739,
+                "observed": 0.06972559604138552
+              },
+              {
+                "from": 0.1,
+                "to": 0.2,
+                "races": 2071,
+                "predicted": 0.1331809163093567,
+                "observed": 0.12264606470304201
+              },
+              {
+                "from": 0.2,
+                "to": 0.3,
+                "races": 139,
+                "predicted": 0.22423583269119263,
+                "observed": 0.2014388489208633
+              },
+              {
+                "from": 0.3,
+                "to": 0.4,
+                "races": 5,
+                "predicted": 0.31731072068214417,
+                "observed": 0.2
+              },
+              {
+                "from": 0.4,
+                "to": 0.5,
+                "races": 0,
+                "predicted": null,
+                "observed": null
+              },
+              {
+                "from": 0.5,
+                "to": 1.0,
+                "races": 0,
+                "predicted": null,
+                "observed": null
+              }
+            ]
+          },
+          "8": {
+            "races": 4763,
+            "logloss": 3.769747257232666,
+            "brier": 0.9587677717208862,
+            "topChoiceEce": 0.008685019429606498,
+            "calibration": [
+              {
+                "from": 0,
+                "to": 0.05,
+                "races": 376,
+                "predicted": 0.042254745960235596,
+                "observed": 0.0425531914893617
+              },
+              {
+                "from": 0.05,
+                "to": 0.1,
+                "races": 2160,
+                "predicted": 0.076020248234272,
+                "observed": 0.08009259259259259
+              },
+              {
+                "from": 0.1,
+                "to": 0.2,
+                "races": 2096,
+                "predicted": 0.13278701901435852,
+                "observed": 0.11975190839694656
+              },
+              {
+                "from": 0.2,
+                "to": 0.3,
+                "races": 127,
+                "predicted": 0.2249491661787033,
+                "observed": 0.25196850393700787
+              },
+              {
+                "from": 0.3,
+                "to": 0.4,
+                "races": 4,
+                "predicted": 0.3236948847770691,
+                "observed": 0.75
+              },
+              {
+                "from": 0.4,
+                "to": 0.5,
+                "races": 0,
+                "predicted": null,
+                "observed": null
+              },
+              {
+                "from": 0.5,
+                "to": 1.0,
+                "races": 0,
+                "predicted": null,
+                "observed": null
+              }
+            ]
+          }
+        },
+        "holdoutOpened": false,
+        "septemberOpened": false
+      }
+    },
+    "increment": {
+      "history": {
+        "loglossDifference": -0.011417029510530355,
+        "dailyBootstrap95": [
+          -0.017026098860412075,
+          -0.0065271349353166475
+        ]
+      },
+      "reaction": {
+        "loglossDifference": -0.012843299856633869,
+        "dailyBootstrap95": [
+          -0.018525968702225306,
+          -0.007704403214604783
+        ]
+      },
+      "reaction_vs_history": {
+        "loglossDifference": -0.0014262703461035142,
+        "dailyBootstrap95": [
+          -0.003192275708362558,
+          0.00038561915506892186
+        ]
+      }
+    },
+    "qualityPass": true,
+    "qualityRejectionReasons": [],
+    "probabilityBuckets": {
+      "month": {
+        "7": {
+          "races": 4820,
+          "logloss": 3.822384580886395,
+          "brier": 0.9615970681037399,
+          "topChoiceEce": 0.008739712524046168,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 382,
+              "predicted": 0.04164817580631422,
+              "observed": 0.04712041884816754
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 2223,
+              "predicted": 0.07623120749413673,
+              "observed": 0.06972559604138552
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 2071,
+              "predicted": 0.13318092980386553,
+              "observed": 0.12264606470304201
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 139,
+              "predicted": 0.2242358563829669,
+              "observed": 0.2014388489208633
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 5,
+              "predicted": 0.31731072068214417,
+              "observed": 0.2
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "8": {
+          "races": 4763,
+          "logloss": 3.769747335449395,
+          "brier": 0.9587677268053615,
+          "topChoiceEce": 0.008685015889681265,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 376,
+              "predicted": 0.04225474239346829,
+              "observed": 0.0425531914893617
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 2160,
+              "predicted": 0.07602024691317369,
+              "observed": 0.08009259259259259
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 2096,
+              "predicted": 0.13278701056847136,
+              "observed": 0.11975190839694656
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 127,
+              "predicted": 0.2249491923437344,
+              "observed": 0.25196850393700787
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 4,
+              "predicted": 0.3236948922276497,
+              "observed": 0.75
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        }
+      },
+      "predictedWinnerPreviewCourse": {
+        "1.0": {
+          "races": 8367,
+          "logloss": 3.762376464717991,
+          "brier": 0.9581765148456598,
+          "topChoiceEce": 0.007764061181371367,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 457,
+              "predicted": 0.042408004415341746,
+              "observed": 0.04814004376367615
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 3595,
+              "predicted": 0.07726769543179053,
+              "observed": 0.07343532684283727
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 4040,
+              "predicted": 0.13346130135699663,
+              "observed": 0.12178217821782178
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 266,
+              "predicted": 0.2245764340785213,
+              "observed": 0.22556390977443608
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 9,
+              "predicted": 0.3201481302579244,
+              "observed": 0.4444444444444444
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "2.0": {
+          "races": 571,
+          "logloss": 3.9799098308066134,
+          "brier": 0.9726862505081737,
+          "topChoiceEce": 0.008434090972103292,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 100,
+              "predicted": 0.04147221151739359,
+              "observed": 0.04
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 382,
+              "predicted": 0.07283062981295337,
+              "observed": 0.07591623036649214
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 89,
+              "predicted": 0.1178645548525821,
+              "observed": 0.07865168539325842
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "3.0": {
+          "races": 375,
+          "logloss": 3.980388514958758,
+          "brier": 0.9729512447384535,
+          "topChoiceEce": 0.018529658426841098,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 81,
+              "predicted": 0.041717607665944983,
+              "observed": 0.024691358024691357
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 266,
+              "predicted": 0.07046664552412983,
+              "observed": 0.09022556390977443
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 28,
+              "predicted": 0.11834369280508586,
+              "observed": 0.10714285714285714
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "4.0": {
+          "races": 199,
+          "logloss": 4.140065937174637,
+          "brier": 0.9762255360398889,
+          "topChoiceEce": 0.03152456998488112,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 76,
+              "predicted": 0.04128009897019518,
+              "observed": 0.07894736842105263
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 116,
+              "predicted": 0.06741046391684434,
+              "observed": 0.08620689655172414
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 7,
+              "predicted": 0.1099584624171257,
+              "observed": 0.2857142857142857
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "5.0": {
+          "races": 61,
+          "logloss": 4.295702194930969,
+          "brier": 0.9832924617039468,
+          "topChoiceEce": 0.040016713231557706,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 37,
+              "predicted": 0.04059456062276621,
+              "observed": 0.0
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 21,
+              "predicted": 0.0629221447521732,
+              "observed": 0.047619047619047616
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 3,
+              "predicted": 0.1274480919043223,
+              "observed": 0.3333333333333333
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "6.0": {
+          "races": 10,
+          "logloss": 4.831119643381675,
+          "brier": 0.993536366736134,
+          "topChoiceEce": 0.04332300052046775,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 7,
+              "predicted": 0.03589923466954913,
+              "observed": 0.0
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 3,
+              "predicted": 0.0606451208392779,
+              "observed": 0.0
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        }
+      },
+      "predictedWinnerHistoryCountBucket": {
+        "0-19": {
+          "races": 6,
+          "logloss": 4.293588616753683,
+          "brier": 0.9792170500918612,
+          "topChoiceEce": 0.09295832117398581,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 1,
+              "predicted": 0.047678351402282715,
+              "observed": 0.0
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 2,
+              "predicted": 0.07517879456281662,
+              "observed": 0.0
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 3,
+              "predicted": 0.11990466217199962,
+              "observed": 0.0
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "100-199": {
+          "races": 138,
+          "logloss": 3.949685434855767,
+          "brier": 0.964070668735914,
+          "topChoiceEce": 0.039208959963550616,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 27,
+              "predicted": 0.042170426428869916,
+              "observed": 0.037037037037037035
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 62,
+              "predicted": 0.07189229899837125,
+              "observed": 0.06451612903225806
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 43,
+              "predicted": 0.12802428353664486,
+              "observed": 0.20930232558139536
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 6,
+              "predicted": 0.21999276926120123,
+              "observed": 0.0
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "20-49": {
+          "races": 3,
+          "logloss": 4.038429511546396,
+          "brier": 0.8873764277967924,
+          "topChoiceEce": 0.29806969190637267,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 2,
+              "predicted": 0.057277949526906013,
+              "observed": 0.0
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 1,
+              "predicted": 0.2203468233346939,
+              "observed": 1.0
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "200+": {
+          "races": 9412,
+          "logloss": 3.79359529805477,
+          "brier": 0.9601258547772973,
+          "topChoiceEce": 0.006434694516737314,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 728,
+              "predicted": 0.041921714576636696,
+              "observed": 0.04532967032967033
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 4306,
+              "predicted": 0.07622580905909933,
+              "observed": 0.07524384579656293
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 4110,
+              "predicted": 0.13307357187181204,
+              "observed": 0.12043795620437957
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 259,
+              "predicted": 0.22469894990727707,
+              "observed": 0.2277992277992278
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 9,
+              "predicted": 0.3201481302579244,
+              "observed": 0.4444444444444444
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "50-99": {
+          "races": 24,
+          "logloss": 3.7894951283813456,
+          "brier": 0.9677009166892185,
+          "topChoiceEce": 0.04789071592191854,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 2,
+              "predicted": 0.04604911059141159,
+              "observed": 0.0
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 11,
+              "predicted": 0.06501252339644865,
+              "observed": 0.0
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 11,
+              "predicted": 0.1220128366892988,
+              "observed": 0.09090909090909091
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        }
+      },
+      "predictedWinnerExhibitionZBucket": {
+        "improved": {
+          "races": 2616,
+          "logloss": 3.7810648812044896,
+          "brier": 0.9605153995825795,
+          "topChoiceEce": 0.013144475788117272,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 180,
+              "predicted": 0.04164021667093039,
+              "observed": 0.027777777777777776
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 1124,
+              "predicted": 0.07670266392683855,
+              "observed": 0.07206405693950178
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 1194,
+              "predicted": 0.13456658327599466,
+              "observed": 0.11390284757118928
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 113,
+              "predicted": 0.22668140414541801,
+              "observed": 0.21238938053097345
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 5,
+              "predicted": 0.32211673855781553,
+              "observed": 0.4
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "usual": {
+          "races": 3679,
+          "logloss": 3.7973595529666646,
+          "brier": 0.9603383411507814,
+          "topChoiceEce": 0.007690039379550059,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 276,
+              "predicted": 0.0416896247399458,
+              "observed": 0.05434782608695652
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 1646,
+              "predicted": 0.0764246346929166,
+              "observed": 0.07290400972053462
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 1657,
+              "predicted": 0.13294018306373184,
+              "observed": 0.12311406155703078
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 99,
+              "predicted": 0.2217317387612179,
+              "observed": 0.24242424242424243
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 1,
+              "predicted": 0.3273985981941223,
+              "observed": 1.0
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "worse": {
+          "races": 3288,
+          "logloss": 3.8070099495202547,
+          "brier": 0.9597674904599179,
+          "topChoiceEce": 0.004549775025048212,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 302,
+              "predicted": 0.04237023466544238,
+              "observed": 0.046357615894039736
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 1613,
+              "predicted": 0.07542279270527825,
+              "observed": 0.07873527588344699
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 1316,
+              "predicted": 0.1315994650510488,
+              "observed": 0.12537993920972645
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 54,
+              "predicted": 0.22538686405729363,
+              "observed": 0.2222222222222222
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 3,
+              "predicted": 0.31445029377937317,
+              "observed": 0.3333333333333333
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        }
+      },
+      "laneOneWeaknessBucket": {
+        "high": {
+          "races": 2085,
+          "logloss": 3.798375588790755,
+          "brier": 0.9585316604644607,
+          "topChoiceEce": 0.0025737585540083685,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 201,
+              "predicted": 0.04161777652207002,
+              "observed": 0.03482587064676617
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 1010,
+              "predicted": 0.07543036218474407,
+              "observed": 0.07524752475247524
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 835,
+              "predicted": 0.1322766438840392,
+              "observed": 0.13532934131736526
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 39,
+              "predicted": 0.22391165792942047,
+              "observed": 0.2564102564102564
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "low": {
+          "races": 4073,
+          "logloss": 3.7608934436287242,
+          "brier": 0.9595049884325124,
+          "topChoiceEce": 0.01047364931636833,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 264,
+              "predicted": 0.04201098726921235,
+              "observed": 0.056818181818181816
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 1760,
+              "predicted": 0.07679629772478207,
+              "observed": 0.07272727272727272
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 1900,
+              "predicted": 0.13386291409793652,
+              "observed": 0.11894736842105263
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 144,
+              "predicted": 0.22320538417746624,
+              "observed": 0.2361111111111111
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 5,
+              "predicted": 0.3218742311000824,
+              "observed": 0.6
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        },
+        "medium": {
+          "races": 3425,
+          "logloss": 3.836925004405659,
+          "brier": 0.9620164149138509,
+          "topChoiceEce": 0.00832282149933115,
+          "calibration": [
+            {
+              "from": 0,
+              "to": 0.05,
+              "races": 293,
+              "predicted": 0.04212052074384974,
+              "observed": 0.040955631399317405
+            },
+            {
+              "from": 0.05,
+              "to": 0.1,
+              "races": 1613,
+              "predicted": 0.07583357581507325,
+              "observed": 0.07687538747675139
+            },
+            {
+              "from": 0.1,
+              "to": 0.2,
+              "races": 1432,
+              "predicted": 0.1322267774763054,
+              "observed": 0.11592178770949721
+            },
+            {
+              "from": 0.2,
+              "to": 0.3,
+              "races": 83,
+              "predicted": 0.22726748776004976,
+              "observed": 0.1927710843373494
+            },
+            {
+              "from": 0.3,
+              "to": 0.4,
+              "races": 4,
+              "predicted": 0.3179905042052269,
+              "observed": 0.25
+            },
+            {
+              "from": 0.4,
+              "to": 0.5,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            },
+            {
+              "from": 0.5,
+              "to": 1.0,
+              "races": 0,
+              "predicted": null,
+              "observed": null
+            }
+          ]
+        }
+      }
+    },
+    "policies": [
+      {
+        "policy": "core",
+        "phase": "development",
+        "total": {
+          "purchaseRaces": 7265,
+          "bets": 14798,
+          "hits": 581,
+          "stake": 8718000,
+          "payout": 7071820,
+          "profit": -1646180,
+          "roi": 81.11745813259922,
+          "largestHitShare": 0.6770534317898362,
+          "roiWithoutLargestHit": 80.56824959853178,
+          "maxDrawdown": 1684180,
+          "payoutMinus5PercentRoi": 77.06158522596925,
+          "expectedRoi": 134.24471360051794,
+          "calibrationGap": 53.127255467918715
+        },
+        "buckets": {
+          "month": {
+            "7": {
+              "purchaseRaces": 3671,
+              "bets": 7451,
+              "hits": 297,
+              "stake": 4405200,
+              "payout": 3728360,
+              "profit": -676840,
+              "roi": 84.63543085444475,
+              "largestHitShare": 1.2842107521805834,
+              "roiWithoutLargestHit": 83.5485335512576,
+              "maxDrawdown": 798280,
+              "payoutMinus5PercentRoi": 80.4036593117225
+            },
+            "8": {
+              "purchaseRaces": 3594,
+              "bets": 7347,
+              "hits": 284,
+              "stake": 4312800,
+              "payout": 3343460,
+              "profit": -969340,
+              "roi": 77.52411426451494,
+              "largestHitShare": 1.421282144843964,
+              "roiWithoutLargestHit": 76.42227787052495,
+              "maxDrawdown": 1003520,
+              "payoutMinus5PercentRoi": 73.64790855128919
+            }
+          },
+          "predictedWinnerPreviewCourse": {
+            "1.0": {
+              "purchaseRaces": 6408,
+              "bets": 13050,
+              "hits": 525,
+              "stake": 7689600,
+              "payout": 6310040,
+              "profit": -1379560,
+              "roi": 82.0594049105285,
+              "largestHitShare": 0.7587907525150396,
+              "roiWithoutLargestHit": 81.43674573449854,
+              "maxDrawdown": 1424980,
+              "payoutMinus5PercentRoi": 77.95643466500208
+            },
+            "2.0": {
+              "purchaseRaces": 400,
+              "bets": 802,
+              "hits": 23,
+              "stake": 480000,
+              "payout": 312120,
+              "profit": -167880,
+              "roi": 65.025,
+              "largestHitShare": 12.264513648596694,
+              "roiWithoutLargestHit": 57.05,
+              "maxDrawdown": 176160,
+              "payoutMinus5PercentRoi": 61.77375
+            },
+            "3.0": {
+              "purchaseRaces": 276,
+              "bets": 593,
+              "hits": 17,
+              "stake": 331200,
+              "payout": 197320,
+              "profit": -133880,
+              "roi": 59.57729468599034,
+              "largestHitShare": 8.757348469491182,
+              "roiWithoutLargestHit": 54.35990338164251,
+              "maxDrawdown": 193960,
+              "payoutMinus5PercentRoi": 56.59842995169082
+            },
+            "4.0": {
+              "purchaseRaces": 139,
+              "bets": 276,
+              "hits": 15,
+              "stake": 166800,
+              "payout": 233860,
+              "profit": 67060,
+              "roi": 140.20383693045562,
+              "largestHitShare": 18.5239031899427,
+              "roiWithoutLargestHit": 114.2326139088729,
+              "maxDrawdown": 31200,
+              "payoutMinus5PercentRoi": 133.19364508393286
+            },
+            "5.0": {
+              "purchaseRaces": 39,
+              "bets": 72,
+              "hits": 1,
+              "stake": 46800,
+              "payout": 18480,
+              "profit": -28320,
+              "roi": 39.48717948717949,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 37200,
+              "payoutMinus5PercentRoi": 37.51282051282051
+            },
+            "6.0": {
+              "purchaseRaces": 3,
+              "bets": 5,
+              "hits": 0,
+              "stake": 3600,
+              "payout": 0,
+              "profit": -3600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 3600,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "predictedWinnerHistoryCountBucket": {
+            "0-19": {
+              "purchaseRaces": 5,
+              "bets": 14,
+              "hits": 2,
+              "stake": 6000,
+              "payout": 27160,
+              "profit": 21160,
+              "roi": 452.6666666666667,
+              "largestHitShare": 55.08100147275405,
+              "roiWithoutLargestHit": 203.33333333333334,
+              "maxDrawdown": 3600,
+              "payoutMinus5PercentRoi": 430.03333333333336
+            },
+            "100-199": {
+              "purchaseRaces": 102,
+              "bets": 200,
+              "hits": 5,
+              "stake": 122400,
+              "payout": 38000,
+              "profit": -84400,
+              "roi": 31.045751633986928,
+              "largestHitShare": 28.31578947368421,
+              "roiWithoutLargestHit": 22.254901960784313,
+              "maxDrawdown": 91360,
+              "payoutMinus5PercentRoi": 29.49346405228758
+            },
+            "20-49": {
+              "purchaseRaces": 3,
+              "bets": 6,
+              "hits": 0,
+              "stake": 3600,
+              "payout": 0,
+              "profit": -3600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 3600,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "200+": {
+              "purchaseRaces": 7135,
+              "bets": 14544,
+              "hits": 574,
+              "stake": 8562000,
+              "payout": 7006660,
+              "profit": -1555340,
+              "roi": 81.83438448960523,
+              "largestHitShare": 0.6833498414365761,
+              "roiWithoutLargestHit": 81.27516935295492,
+              "maxDrawdown": 1586380,
+              "payoutMinus5PercentRoi": 77.74266526512497
+            },
+            "50-99": {
+              "purchaseRaces": 20,
+              "bets": 34,
+              "hits": 0,
+              "stake": 24000,
+              "payout": 0,
+              "profit": -24000,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 24000,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "predictedWinnerExhibitionZBucket": {
+            "improved": {
+              "purchaseRaces": 2076,
+              "bets": 4432,
+              "hits": 183,
+              "stake": 2491200,
+              "payout": 2159700,
+              "profit": -331500,
+              "roi": 86.69315992292871,
+              "largestHitShare": 2.116960688984581,
+              "roiWithoutLargestHit": 84.85789980732177,
+              "maxDrawdown": 364960,
+              "payoutMinus5PercentRoi": 82.35850192678227
+            },
+            "usual": {
+              "purchaseRaces": 2760,
+              "bets": 5608,
+              "hits": 215,
+              "stake": 3312000,
+              "payout": 2511400,
+              "profit": -800600,
+              "roi": 75.82729468599034,
+              "largestHitShare": 1.8921716970614,
+              "roiWithoutLargestHit": 74.39251207729468,
+              "maxDrawdown": 838800,
+              "payoutMinus5PercentRoi": 72.03592995169082
+            },
+            "worse": {
+              "purchaseRaces": 2429,
+              "bets": 4758,
+              "hits": 183,
+              "stake": 2914800,
+              "payout": 2400720,
+              "profit": -514080,
+              "roi": 82.36311239193084,
+              "largestHitShare": 1.9944016794961512,
+              "roiWithoutLargestHit": 80.72046109510086,
+              "maxDrawdown": 638880,
+              "payoutMinus5PercentRoi": 78.24495677233429
+            }
+          },
+          "laneOneWeaknessBucket": {
+            "high": {
+              "purchaseRaces": 1556,
+              "bets": 3199,
+              "hits": 136,
+              "stake": 1867200,
+              "payout": 1723760,
+              "profit": -143440,
+              "roi": 92.31790916880891,
+              "largestHitShare": 2.7776488606302503,
+              "roiWithoutLargestHit": 89.75364181662383,
+              "maxDrawdown": 308620,
+              "payoutMinus5PercentRoi": 87.70201371036846
+            },
+            "low": {
+              "purchaseRaces": 3111,
+              "bets": 6397,
+              "hits": 259,
+              "stake": 3733200,
+              "payout": 3035040,
+              "profit": -698160,
+              "roi": 81.29861780777885,
+              "largestHitShare": 1.5657124782539933,
+              "roiWithoutLargestHit": 80.02571520411443,
+              "maxDrawdown": 707000,
+              "payoutMinus5PercentRoi": 77.2336869173899
+            },
+            "medium": {
+              "purchaseRaces": 2598,
+              "bets": 5202,
+              "hits": 186,
+              "stake": 3117600,
+              "payout": 2313020,
+              "profit": -804580,
+              "roi": 74.19232743135746,
+              "largestHitShare": 1.8988162661801455,
+              "roiWithoutLargestHit": 72.78355144983321,
+              "maxDrawdown": 909340,
+              "payoutMinus5PercentRoi": 70.48271105978958
+            }
+          }
+        },
+        "partialPeriodPass": false,
+        "rejectionReasons": [
+          "roi < 105",
+          "ROI excluding largest hit < 100",
+          "expected/realized ROI calibration gap > 15pp or no purchases"
+        ],
+        "annualQualified": false
+      },
+      {
+        "policy": "reaction",
+        "phase": "development",
+        "total": {
+          "purchaseRaces": 2888,
+          "bets": 5720,
+          "hits": 230,
+          "stake": 3465600,
+          "payout": 2843440,
+          "profit": -622160,
+          "roi": 82.04755309325947,
+          "largestHitShare": 1.6712151478490842,
+          "roiWithoutLargestHit": 80.67636195752539,
+          "maxDrawdown": 644160,
+          "payoutMinus5PercentRoi": 77.9451754385965,
+          "expectedRoi": 134.62622145545086,
+          "calibrationGap": 52.578668362191394
+        },
+        "buckets": {
+          "month": {
+            "7": {
+              "purchaseRaces": 1353,
+              "bets": 2676,
+              "hits": 107,
+              "stake": 1623600,
+              "payout": 1350300,
+              "profit": -273300,
+              "roi": 83.16703621581671,
+              "largestHitShare": 3.492557209508998,
+              "roiWithoutLargestHit": 80.26237989652624,
+              "maxDrawdown": 316060,
+              "payoutMinus5PercentRoi": 79.00868440502587
+            },
+            "8": {
+              "purchaseRaces": 1535,
+              "bets": 3044,
+              "hits": 123,
+              "stake": 1842000,
+              "payout": 1493140,
+              "profit": -348860,
+              "roi": 81.06080347448426,
+              "largestHitShare": 3.1825548843377045,
+              "roiWithoutLargestHit": 78.48099891422368,
+              "maxDrawdown": 437620,
+              "payoutMinus5PercentRoi": 77.00776330076005
+            }
+          },
+          "predictedWinnerPreviewCourse": {
+            "1.0": {
+              "purchaseRaces": 2550,
+              "bets": 5103,
+              "hits": 217,
+              "stake": 3060000,
+              "payout": 2628140,
+              "profit": -431860,
+              "roi": 85.88692810457516,
+              "largestHitShare": 1.8081228549468444,
+              "roiWithoutLargestHit": 84.33398692810458,
+              "maxDrawdown": 473920,
+              "payoutMinus5PercentRoi": 81.59258169934641
+            },
+            "2.0": {
+              "purchaseRaces": 167,
+              "bets": 293,
+              "hits": 3,
+              "stake": 200400,
+              "payout": 75360,
+              "profit": -125040,
+              "roi": 37.604790419161674,
+              "largestHitShare": 45.06369426751592,
+              "roiWithoutLargestHit": 20.65868263473054,
+              "maxDrawdown": 125040,
+              "payoutMinus5PercentRoi": 35.724550898203596
+            },
+            "3.0": {
+              "purchaseRaces": 99,
+              "bets": 192,
+              "hits": 4,
+              "stake": 118800,
+              "payout": 43960,
+              "profit": -74840,
+              "roi": 37.003367003367,
+              "largestHitShare": 34.394904458598724,
+              "roiWithoutLargestHit": 24.276094276094277,
+              "maxDrawdown": 89360,
+              "payoutMinus5PercentRoi": 35.15319865319865
+            },
+            "4.0": {
+              "purchaseRaces": 55,
+              "bets": 99,
+              "hits": 6,
+              "stake": 66000,
+              "payout": 95980,
+              "profit": 29980,
+              "roi": 145.42424242424244,
+              "largestHitShare": 45.13440300062513,
+              "roiWithoutLargestHit": 79.78787878787878,
+              "maxDrawdown": 32800,
+              "payoutMinus5PercentRoi": 138.1530303030303
+            },
+            "5.0": {
+              "purchaseRaces": 16,
+              "bets": 30,
+              "hits": 0,
+              "stake": 19200,
+              "payout": 0,
+              "profit": -19200,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 19200,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "6.0": {
+              "purchaseRaces": 1,
+              "bets": 3,
+              "hits": 0,
+              "stake": 1200,
+              "payout": 0,
+              "profit": -1200,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 1200,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "predictedWinnerHistoryCountBucket": {
+            "0-19": {
+              "purchaseRaces": 1,
+              "bets": 3,
+              "hits": 1,
+              "stake": 1200,
+              "payout": 12200,
+              "profit": 11000,
+              "roi": 1016.6666666666666,
+              "largestHitShare": 100.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 0,
+              "payoutMinus5PercentRoi": 965.8333333333334
+            },
+            "100-199": {
+              "purchaseRaces": 37,
+              "bets": 72,
+              "hits": 0,
+              "stake": 44400,
+              "payout": 0,
+              "profit": -44400,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 44400,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "20-49": {
+              "purchaseRaces": 1,
+              "bets": 1,
+              "hits": 0,
+              "stake": 1200,
+              "payout": 0,
+              "profit": -1200,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 1200,
+              "payoutMinus5PercentRoi": 0.0
+            },
+            "200+": {
+              "purchaseRaces": 2841,
+              "bets": 5632,
+              "hits": 229,
+              "stake": 3409200,
+              "payout": 2831240,
+              "profit": -577960,
+              "roi": 83.04704916109351,
+              "largestHitShare": 1.678416524208474,
+              "roiWithoutLargestHit": 81.65317376510619,
+              "maxDrawdown": 602360,
+              "payoutMinus5PercentRoi": 78.89469670303883
+            },
+            "50-99": {
+              "purchaseRaces": 8,
+              "bets": 12,
+              "hits": 0,
+              "stake": 9600,
+              "payout": 0,
+              "profit": -9600,
+              "roi": 0.0,
+              "largestHitShare": 0.0,
+              "roiWithoutLargestHit": 0.0,
+              "maxDrawdown": 9600,
+              "payoutMinus5PercentRoi": 0.0
+            }
+          },
+          "predictedWinnerExhibitionZBucket": {
+            "improved": {
+              "purchaseRaces": 1719,
+              "bets": 3606,
+              "hits": 149,
+              "stake": 2062800,
+              "payout": 1736740,
+              "profit": -326060,
+              "roi": 84.19332945510956,
+              "largestHitShare": 2.6670658820548843,
+              "roiWithoutLargestHit": 81.94783789024626,
+              "maxDrawdown": 348660,
+              "payoutMinus5PercentRoi": 79.98366298235408
+            },
+            "usual": {
+              "purchaseRaces": 631,
+              "bets": 1155,
+              "hits": 46,
+              "stake": 757200,
+              "payout": 652960,
+              "profit": -104240,
+              "roi": 86.23349181193872,
+              "largestHitShare": 7.277628032345014,
+              "roiWithoutLargestHit": 79.95773903856313,
+              "maxDrawdown": 191240,
+              "payoutMinus5PercentRoi": 81.92181722134178
+            },
+            "worse": {
+              "purchaseRaces": 538,
+              "bets": 959,
+              "hits": 35,
+              "stake": 645600,
+              "payout": 453740,
+              "profit": -191860,
+              "roi": 70.2819083023544,
+              "largestHitShare": 9.335742936483449,
+              "roiWithoutLargestHit": 63.720570012391576,
+              "maxDrawdown": 250580,
+              "payoutMinus5PercentRoi": 66.76781288723667
+            }
+          },
+          "laneOneWeaknessBucket": {
+            "high": {
+              "purchaseRaces": 320,
+              "bets": 635,
+              "hits": 28,
+              "stake": 384000,
+              "payout": 365640,
+              "profit": -18360,
+              "roi": 95.21875,
+              "largestHitShare": 8.040695766327536,
+              "roiWithoutLargestHit": 87.5625,
+              "maxDrawdown": 120480,
+              "payoutMinus5PercentRoi": 90.4578125
+            },
+            "low": {
+              "purchaseRaces": 1734,
+              "bets": 3463,
+              "hits": 141,
+              "stake": 2080800,
+              "payout": 1722020,
+              "profit": -358780,
+              "roi": 82.75759323337178,
+              "largestHitShare": 2.7595498310124156,
+              "roiWithoutLargestHit": 80.47385620915033,
+              "maxDrawdown": 359180,
+              "payoutMinus5PercentRoi": 78.61971357170319
+            },
+            "medium": {
+              "purchaseRaces": 834,
+              "bets": 1622,
+              "hits": 61,
+              "stake": 1000800,
+              "payout": 755780,
+              "profit": -245020,
+              "roi": 75.517585931255,
+              "largestHitShare": 5.731826722061975,
+              "roiWithoutLargestHit": 71.18904876099121,
+              "maxDrawdown": 326060,
+              "payoutMinus5PercentRoi": 71.74170663469225
+            }
+          }
+        },
+        "partialPeriodPass": false,
+        "rejectionReasons": [
+          "roi < 105",
+          "ROI excluding largest hit < 100",
+          "expected/realized ROI calibration gap > 15pp or no purchases"
+        ],
+        "annualQualified": false
+      }
+    ],
+    "policyEvaluationStatus": "evaluated",
+    "candidate": null,
+    "freezeSha256": null,
+    "decision": "reject_r4_development",
+    "holdoutOpened": false,
+    "septemberOpened": false,
+    "annualGateStatus": "NOT_TESTED_Q4_SEALED",
+    "releaseQualified": false,
+    "longshotStarted": false
+  },
+  "confirmation": null,
+  "holdoutOpened": false,
+  "releaseQualified": false,
+  "annualGateStatus": "NOT_TESTED_Q4_SEALED",
+  "longshotStarted": false
+}
