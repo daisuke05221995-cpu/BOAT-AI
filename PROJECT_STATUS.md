@@ -6,27 +6,40 @@
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
 - Branch: `main`
-- 公開版: `v0.15.11`
-- versionCode: 29 / versionName: 0.15.11
-- Release commit: `ed72d4bc74e4aa95d722b95b96736dbbcd63861b`
-- Signed Release Run: `35934156174`
-- Release: `https://github.com/daisuke05221995-cpu/BOAT-AI/releases/tag/v0.15.11`
-- APK SHA-256: `d3e7f57450c67d80a0bd2ab322fabc886eb365e4899bf00576321062079727ae`
+- 公開版: `v0.15.12`
+- versionCode: 30 / versionName: 0.15.12
+- Release target commit: `107764f8df759c2b522ddec582b7d58d4c8120a8`
+- Debug validation Run: `35940412039` SUCCESS
+- Signed Release Run: `35940412081` SUCCESS
+- Release: `https://github.com/daisuke05221995-cpu/BOAT-AI/releases/tag/v0.15.12`
+- Direct APK: `https://github.com/daisuke05221995-cpu/BOAT-AI/releases/download/v0.15.12/BOAT-AI-v0.15.12.apk`
+- APK SHA-256: `a008e5aac7ae99bafa331693e5ed0dff1111d614f9c5fd630c0debcc86331f61`
 - 復旧モード / `CrashRecoveryStore` は維持。ユーザーデータ削除・アンインストールは禁止。
 
-## Android v0.15.11 完了内容
+## Android v0.15.12 変更
+
+購入画面でユーザーが購入総額を変更した時の金額配分を修正。
+
+- AI/上流が出した初期推奨金額は、総額を変更していない限りそのまま保持する。
+- ユーザーが +100円 / -100円などで総額を変更した時は、差額を本線だけへ加算・減算しない。
+- 変更後は選択中の全買い目へ100円単位でできるだけ均等に再配分する。
+- 100円単位で割り切れない余りだけ、予想順位の高い買い目から順に100円ずつ配る。
+- 4点の例: 1300円=`400/300/300/300`、1400円=`400/400/300/300`、再び1300円=`400/300/300/300`。
+- この挙動を `BetStrategyTest` に追加し、増額・減額の往復をテスト済み。
+- Debug Run `35940412039`: live API schema / Unit test / lint / Debug APK build / artifact upload 全SUCCESS。
+- Release Run `35940412081`: Release unit test / lint / signed APK / APK signature verify / GitHub Release publish 全SUCCESS。
+
+## v0.15.11から継続する安定化
 
 - 独立SettingsScreen追加。
 - 右上⚙から専用設定画面へ接続し、損益画面内の旧設定欄を分離。
-- Android戻るキー階層制御を追加。設定→元画面、レース詳細→場一覧、場一覧→予想ホーム、購入/結果/損益→予想ホーム。予想ホームでは戻るキーで終了しない。
+- Android戻るキー階層制御。設定→元画面、レース詳細→場一覧、場一覧→予想ホーム、購入/結果/損益→予想ホーム。予想ホームでは戻るキーで終了しない。
 - 全通知をvisual-only化。新しいchannel IDを使用し、`setSound(null,null)` / `enableVibration(false)` / notification builder `.setSilent(true)` を適用。
-- Background hardeningを追加。Receiver/ForegroundService/Alarm登録失敗を非致命ログへ隔離。
+- Background hardening。Receiver/ForegroundService/Alarm登録失敗を非致命ログへ隔離。
 - Android 15対策としてBOOT_COMPLETEDやExact Alarm許可変更BroadcastからdataSync FGSを直接起動しない。
-- purchase alert背景処理をhardening済み状態で再有効化。
-- PredictionTracking Service/Receiver/BootReceiverもhardening済み状態で再有効化。
+- purchase alert背景処理、PredictionTracking Service/Receiver/BootReceiverをhardening済み状態で有効化。
 - MainActivity通常起動時にPredictionTracking Alarmを安全に再予約。
-- 最終構成の Build and verify Run `35933816561` は Unit test / lint / Debug APK 全SUCCESS。
-- Signed Release workflowで testReleaseUnitTest / lintRelease / assembleRelease / APK署名検証 / GitHub Release公開までSUCCESS。
+- `RecoveryActivity` / `CrashRecoveryStore` を維持。
 
 ## 本番予想ロジック
 
@@ -50,7 +63,7 @@ r3 2024通年 place-small:
 
 ## 次の研究
 
-r1/r2/r3の同系統閾値調整は繰り返さない。次のCORE BUY仮説は別構造から設計する。候補は展示タイム差、展示ST、進入変化、1号艇信頼度低下、モーター/選手相対差などを組み合わせた別モデル。
+Work側でr4「2025年中心・選手ID×コース×展示反応」を研究中。Android本番/UI/Releaseとは分離する。最新状態・Run IDは `WORK_HANDOFF.md` と `data/v016_r4_*` を確認する。本番へ自動昇格しない。
 
 ## 再開時
 
