@@ -27,6 +27,7 @@ internal class ModelAHistoryDayUpdater(
         require(history.lastDay == day - 1) {
             "Model A history must be continuous through the previous day: last=${history.lastDay}, day=$day"
         }
+        require(races.isNotEmpty()) { "Refusing to advance Model A history with an empty day" }
         require(races.all { runCatching { LocalDate.parse(it.date.take(10)) }.getOrNull() == date }) {
             "History day batch contains another calendar date"
         }
@@ -72,6 +73,12 @@ internal class ModelAHistoryDayUpdater(
             }
         }
 
+        // A stale/partial previous-day response is worse than falling back to the
+        // stable v0.15.16 forecaster. Do not permanently advance the history clock
+        // unless most scheduled races have a complete six-boat result.
+        require(settledSixBoat * 5 >= races.size * 4) {
+            "Refusing incomplete Model A history day: settled=$settledSixBoat source=${races.size}"
+        }
         require(pending.size % 6 == 0)
         history.commitDay(day, pending)
         return Summary(
