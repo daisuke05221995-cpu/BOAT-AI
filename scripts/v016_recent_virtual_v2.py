@@ -348,6 +348,24 @@ def write_outputs(args, history: PlayerHistory, records: list[dict], target: dat
     budget_distribution = Counter(int(record["virtualStake"]) for record in records)
     avg_points = sum(k * v for k, v in point_distribution.items()) / max(len(records), 1)
     avg_stake = stake / max(len(records), 1)
+    point_breakdown = {}
+    for points in range(MIN_POINTS, MAX_POINTS + 1):
+        bucket = [record for record in records if len(record["combinations"]) == points]
+        bucket_stake = sum(int(record["virtualStake"]) for record in bucket)
+        bucket_payout = sum(int(record["virtualPayout"]) for record in bucket)
+        bucket_hits = sum(bool(record["hit"]) for record in bucket)
+        winning_payouts = [int(record["virtualPayout"]) for record in bucket if record["hit"]]
+        point_breakdown[str(points)] = {
+            "races": len(bucket),
+            "hits": bucket_hits,
+            "hitRate": bucket_hits * 100.0 / len(bucket) if bucket else 0.0,
+            "stake": bucket_stake,
+            "payout": bucket_payout,
+            "profit": bucket_payout - bucket_stake,
+            "roi": bucket_payout * 100.0 / bucket_stake if bucket_stake else 0.0,
+            "averageStake": bucket_stake / len(bucket) if bucket else 0.0,
+            "averageWinningPayout": sum(winning_payouts) / len(winning_payouts) if winning_payouts else 0.0,
+        }
 
     payload = {
         "schemaVersion": 2,
@@ -389,6 +407,7 @@ def write_outputs(args, history: PlayerHistory, records: list[dict], target: dat
             "averageStake": avg_stake,
             "pointDistribution": {str(k): point_distribution[k] for k in sorted(point_distribution)},
             "budgetDistribution": {str(k): budget_distribution[k] for k in sorted(budget_distribution)},
+            "pointBreakdown": point_breakdown,
         },
         "sourceCommits": {**source_commits, "oddsArchive": odds_commit},
         "records": records,
@@ -410,6 +429,7 @@ def write_outputs(args, history: PlayerHistory, records: list[dict], target: dat
         "averageStake": avg_stake,
         "pointDistribution": payload["summary"]["pointDistribution"],
         "budgetDistribution": payload["summary"]["budgetDistribution"],
+        "pointBreakdown": point_breakdown,
         "historyLastDay": int(history.state["lastDay"]),
         "historyUpdateRaces": int(history.state["updateRaces"]),
         "historyStateBytes": state_bytes,
