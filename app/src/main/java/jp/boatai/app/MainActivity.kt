@@ -273,7 +273,7 @@ private fun BulkSelectionModeCard(vm: BoatViewModel) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             Text("一括購入の対象", fontWeight = FontWeight.Bold)
-            Text("v0.15.15から着順予想はAI主体です。1号艇のコース有利と市場人気をそのまま本命化せず、選手力・当地・モーター・ST・展示で上積みがある艇を評価します。旧v0.15.14のROI117.3%は比較用の旧方式実績で、現ロジックの実績ではありません。", style = MaterialTheme.typography.bodySmall)
+            Text("v0.15.16では予想と購入判定を分離しました。予想はオッズを見ず、選手力・当地・モーター・ST・展示・進入からAI着順確率上位4点を表示します。v0.15.15の購入判定は2025年7〜8月診断で99.5% BUY・ROI68.5%だったため、自動購入推奨は次の検証済み戦略まで停止中です。予想からの手動購入は利用できます。", style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(onClick = vm::selectAllPurchasable) { Text("購入推奨のみ") }

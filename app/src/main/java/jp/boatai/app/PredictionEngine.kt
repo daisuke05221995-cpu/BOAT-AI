@@ -34,7 +34,8 @@ object PredictionEngine {
     }
 
     fun hasValueStrategyModel(): Boolean = valueStrategyModel != null
-    fun hasAverageRoiReferenceStrategy(): Boolean = AverageRoiReferenceStrategy.ENABLED
+    fun hasAiForecastMode(): Boolean = AverageRoiReferenceStrategy.FORECAST_ENABLED
+    fun hasAverageRoiReferenceStrategy(): Boolean = AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED
     fun averageRoiOddsCombinations(): List<String> = AverageRoiReferenceStrategy.allCombinations()
     internal fun hasAverageRoiSelection(race: RaceData): Boolean = AverageRoiReferenceStrategy.cached(race) != null
     internal fun applyAverageRoiOdds(race: RaceData, odds: Map<String, Double>, budget: Int): ValueSelection =
@@ -155,7 +156,15 @@ object PredictionEngine {
     }
 
     fun recommendation(race: RaceData): RecommendationDecision {
-        if (AverageRoiReferenceStrategy.ENABLED) {
+        if (AverageRoiReferenceStrategy.FORECAST_ENABLED &&
+            !AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED
+        ) {
+            return RecommendationDecision(
+                RaceRecommendation.SKIP,
+                "AI着順予想は表示中。v0.15.15購入ロジックの過去診断不合格を受け、自動購入推奨は再検証まで停止中"
+            )
+        }
+        if (AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED) {
             AverageRoiReferenceStrategy.cached(race)?.let { selection ->
                 return RecommendationDecision(selection.recommendation, selection.reason)
             }
@@ -247,12 +256,8 @@ object PredictionEngine {
      * fall back to the legacy four-point strategy in automated/history paths.
      */
     fun predict(race: RaceData, maxPicks: Int = 4): List<PredictionPick> {
-        if (AverageRoiReferenceStrategy.ENABLED) {
-            AverageRoiReferenceStrategy.cached(race)?.let { selection ->
-                return if (selection.recommendation == RaceRecommendation.BUY) {
-                    selection.picks.take(maxPicks.coerceAtLeast(1))
-                } else emptyList()
-            }
+        if (valueStrategyModel == null && AverageRoiReferenceStrategy.FORECAST_ENABLED) {
+            return AverageRoiReferenceStrategy.forecast(race, maxPicks)
         }
         if (valueStrategyModel != null) {
             val selection = valueSelections[race.id] ?: return emptyList()
@@ -311,11 +316,11 @@ object PredictionEngine {
         budget: Int = BetStrategy.DEFAULT_BUDGET,
         learningOverride: LearningProfile? = null
     ): List<PredictionPick> {
-        if (AverageRoiReferenceStrategy.ENABLED) {
-            val selection = AverageRoiReferenceStrategy.evaluateAndCache(race, odds, budget)
-            return if (selection.recommendation == RaceRecommendation.BUY) {
-                BetStrategy.allocate(race, selection.picks, budget)
-            } else emptyList()
+        if (valueStrategyModel == null && AverageRoiReferenceStrategy.FORECAST_ENABLED) {
+            val count = picks.size.coerceAtLeast(1)
+            val forecast = AverageRoiReferenceStrategy.forecast(race, count)
+                .map { pick -> pick.copy(odds = odds[pick.combination]) }
+            return BetStrategy.allocate(race, forecast, budget)
         }
         if (valueStrategyModel != null) {
             val valueSelection = applyValueOdds(race, odds, learningOverride) ?: return emptyList()

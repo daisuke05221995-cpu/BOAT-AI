@@ -280,7 +280,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             oddsUpdatedAt = result.fetchedAt,
                             oddsSource = result.source,
                             oddsDiagnostics = result.diagnostics,
-                            oddsDecision = if (PredictionEngine.hasValueStrategyModel() || PredictionEngine.hasAverageRoiReferenceStrategy()) {
+                            oddsDecision = if (PredictionEngine.hasValueStrategyModel() || PredictionEngine.hasAiForecastMode()) {
                                 decision.reason
                             } else {
                                 BetStrategy.oddsDecision(displayedPredictions)
@@ -489,8 +489,10 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             state.copy(
                 raceBudget = budget,
                 predictions = predictions,
-                oddsDecision = if (race != null && !PredictionEngine.hasValueStrategyModel()) {
+                oddsDecision = if (race != null && !PredictionEngine.hasValueStrategyModel() && !PredictionEngine.hasAiForecastMode()) {
                     BetStrategy.oddsDecision(predictions)
+                } else if (race != null && PredictionEngine.hasAiForecastMode()) {
+                    PredictionEngine.recommendation(race).reason
                 } else {
                     state.oddsDecision
                 }

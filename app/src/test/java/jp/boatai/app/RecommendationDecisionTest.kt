@@ -5,7 +5,7 @@ import org.junit.Test
 
 class RecommendationDecisionTest {
     @Test
-    fun strongRaceWithPreviewIsBuyRecommendation() {
+    fun strongRaceStillHasForecastWhileAutoPurchaseIsPaused() {
         resetProfiles()
         val race = race(
             racers = listOf(
@@ -18,7 +18,8 @@ class RecommendationDecisionTest {
             )
         )
 
-        assertEquals(RaceRecommendation.BUY, PredictionEngine.recommendation(race).recommendation)
+        assertEquals(RaceRecommendation.SKIP, PredictionEngine.recommendation(race).recommendation)
+        check(PredictionEngine.predict(race).isNotEmpty())
     }
 
     @Test

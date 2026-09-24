@@ -7,46 +7,39 @@ import org.junit.Test
 
 class AverageRoiReferenceStrategyTest {
     @Test
-    fun exposesAiFirstPolicyAndHistoricalRoiIsNotClaimedForCurrentLogic() {
-        assertEquals(120, AverageRoiReferenceStrategy.allCombinations().distinct().size)
-        assertEquals(1_200, AverageRoiReferenceStrategy.BUDGET)
-        assertEquals(2, AverageRoiReferenceStrategy.MAX_POINTS)
-        assertEquals(0.80, AverageRoiReferenceStrategy.MODEL_WEIGHT, 0.00001)
-        assertEquals(1.08, AverageRoiReferenceStrategy.MIN_MARKET_EDGE_RATIO, 0.00001)
-        assertEquals(2, AverageRoiReferenceStrategy.MAX_FIRST_FORM_RANK)
-        assertEquals(1.05, AverageRoiReferenceStrategy.MIN_EV, 0.00001)
-        assertEquals(150.0, AverageRoiReferenceStrategy.MAX_ODDS, 0.00001)
-        assertEquals(117.3, AverageRoiReferenceStrategy.HISTORICAL_ROI, 0.00001)
-        assertFalse(AverageRoiReferenceStrategy.HISTORICAL_ROI_APPLIES_TO_CURRENT)
+    fun forecastIsEnabledAndFailedPurchasePolicyIsPaused() {
+        assertTrue(AverageRoiReferenceStrategy.FORECAST_ENABLED)
+        assertFalse(AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED)
+        assertFalse(AverageRoiReferenceStrategy.ENABLED)
         assertFalse(AverageRoiReferenceStrategy.RELEASE_QUALIFIED)
+        assertFalse(AverageRoiReferenceStrategy.HISTORICAL_ROI_APPLIES_TO_CURRENT)
+        assertEquals(4, AverageRoiReferenceStrategy.FORECAST_POINTS)
     }
 
     @Test
-    fun weakLaneOneIsNotPromotedToFirstJustBecauseOfInsideLane() {
-        val odds = AverageRoiReferenceStrategy.allCombinations().associateWith { 40.0 }
+    fun forecastDoesNotNeedOddsAndWeakLaneOneIsNotForcedToFirst() {
         val race = weakLaneOneRace()
-        val result = AverageRoiReferenceStrategy.evaluate(race, odds, 1_200)
-
-        assertTrue(AverageRoiReferenceStrategy.formScore(race.racers.first { it.lane == 3 }) >
-            AverageRoiReferenceStrategy.formScore(race.racers.first { it.lane == 1 }))
-        if (result.recommendation == RaceRecommendation.BUY) {
-            assertTrue(result.picks.isNotEmpty())
-            assertTrue(result.picks.none { it.combination.startsWith("1-") })
-            assertEquals(1_200, result.picks.sumOf { it.recommendedStake })
-        }
+        val picks = AverageRoiReferenceStrategy.forecast(race, 4)
+        assertEquals(4, picks.size)
+        assertTrue(picks.first().combination.startsWith("3-"))
+        assertTrue(picks.first().reason.startsWith("AI着順確率"))
+        assertTrue(picks.zipWithNext().all { (a,b) -> a.score >= b.score })
     }
 
     @Test
-    fun evaluationNeverReturnsMoreThanTwoPicksAndKeepsBudget() {
-        val odds = AverageRoiReferenceStrategy.allCombinations().associateWith { 40.0 }
-        val result = AverageRoiReferenceStrategy.evaluate(strongMixedRace(), odds, 1_200)
-        assertTrue(result.picks.size <= 2)
-        if (result.recommendation == RaceRecommendation.BUY) {
-            assertEquals(1_200, result.picks.sumOf { it.recommendedStake })
-            assertTrue(result.picks.all { (it.odds ?: 999.0) <= 150.0 })
-            assertTrue(result.reason.contains("AI主体予想"))
-            assertFalse(result.reason.contains("ROI117.3%"))
-        }
+    fun genuinelyStrongLaneOneCanStillLeadForecast() {
+        val picks = AverageRoiReferenceStrategy.forecast(strongLaneOneRace(), 4)
+        assertEquals(4, picks.size)
+        assertTrue(picks.first().combination.startsWith("1-"))
+    }
+
+    @Test
+    fun automaticPurchaseEvaluationIsAlwaysPaused() {
+        val odds = AverageRoiReferenceStrategy.allCombinations().associateWith { 20.0 }
+        val result = AverageRoiReferenceStrategy.evaluate(strongLaneOneRace(), odds, 1_200)
+        assertEquals(RaceRecommendation.SKIP, result.recommendation)
+        assertTrue(result.picks.isEmpty())
+        assertTrue(result.reason.contains("自動推奨を停止中"))
     }
 
     private fun weakLaneOneRace() = baseRace { lane ->
@@ -58,12 +51,12 @@ class AverageRoiReferenceStrategyTest {
         }
     }
 
-    private fun strongMixedRace() = baseRace { lane ->
+    private fun strongLaneOneRace() = baseRace { lane ->
         when (lane) {
-            1 -> racer(lane, 7.2, 6.8, 38.0, 0.14, 6.72, 0.12)
-            2 -> racer(lane, 7.8, 7.4, 43.0, 0.12, 6.67, 0.10)
-            3 -> racer(lane, 7.6, 7.2, 42.0, 0.13, 6.68, 0.11)
-            else -> racer(lane, 6.1, 5.9, 34.0, 0.16, 6.80, 0.15)
+            1 -> racer(lane, 9.0, 8.7, 52.0, 0.10, 6.58, 0.07)
+            2 -> racer(lane, 7.0, 6.8, 38.0, 0.14, 6.72, 0.12)
+            3 -> racer(lane, 6.8, 6.5, 36.0, 0.15, 6.75, 0.13)
+            else -> racer(lane, 5.7, 5.4, 32.0, 0.17, 6.82, 0.16)
         }
     }
 
