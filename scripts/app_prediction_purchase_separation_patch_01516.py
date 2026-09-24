@@ -250,7 +250,7 @@ build=ROOT/'app/build.gradle.kts'
 replace_once(build,'versionCode = 33','versionCode = 34')
 replace_once(build,'versionName = "0.15.15"','versionName = "0.15.16"')
 replace_once(build,
-'// v0.15.15: AI-first prediction with market-edge gate to reduce automatic lane-1 following.',
+'// v0.15.15: AI-first prediction with market-edge gate; signed release trigger.',
 '// v0.15.16: separate pure AI forecast from purchase recommendation; pause failed auto-BUY policy.')
 
 test=ROOT/'app/src/test/java/jp/boatai/app/AverageRoiReferenceStrategyTest.kt'
