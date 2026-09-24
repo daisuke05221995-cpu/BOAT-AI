@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 35
-        versionName = "0.16.0"
-        // v0.16.0: validated market-free Model A forecast; automatic BUY remains disabled.
+        versionCode = 36
+        versionName = "0.16.1"
+        // v0.16.1: validated Model A forecast plus rolling 30-day retrospective virtual results; automatic BUY remains disabled.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
