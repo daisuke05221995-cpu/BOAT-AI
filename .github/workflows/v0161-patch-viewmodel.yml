@@ -1,0 +1,46 @@
+name: Patch recent virtual results view model
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/v0161-patch-viewmodel.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch BoatViewModel
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/jp/boatai/app/BoatViewModel.kt')
+          s=p.read_text()
+          def r(old,new):
+              global s
+              n=s.count(old)
+              if n!=1: raise SystemExit(f'anchor {n}: {old[:100]!r}')
+              s=s.replace(old,new,1)
+          r('    val predictionHistory: List<PredictionRecord> = emptyList(),\n    val performance: PredictionPerformanceProfile = PredictionPerformanceProfile(),','    val predictionHistory: List<PredictionRecord> = emptyList(),\n    val modelARecentVirtualRecords: List<PredictionRecord> = emptyList(),\n    val modelARecentVirtualThroughDate: String? = null,\n    val modelARecentVirtualError: String? = null,\n    val performance: PredictionPerformanceProfile = PredictionPerformanceProfile(),')
+          r('    private val predictionStore = PredictionHistoryStore(application)\n    private val appUpdateManager = AppUpdateManager(application)','    private val predictionStore = PredictionHistoryStore(application)\n    private val modelARecentVirtualRepository = ModelARecentVirtualRepository(application)\n    private val appUpdateManager = AppUpdateManager(application)')
+          r('    private val notificationScheduler = NotificationScheduler(application)\n    private val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))','    private val notificationScheduler = NotificationScheduler(application)\n    private fun currentToday(): LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo"))\n    private fun earliestBrowsableDate(): LocalDate = currentToday().minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())')
+          r('        loadDate(_ui.value.date)\n    }\n\n    fun loadDate(date: LocalDate) {\n        if (date.isAfter(today)) return','        loadModelARecentVirtual()\n        loadDate(_ui.value.date)\n    }\n\n    private fun loadModelARecentVirtual() {\n        viewModelScope.launch {\n            val result = modelARecentVirtualRepository.load()\n            _ui.update { it.copy(modelARecentVirtualRecords = result.records, modelARecentVirtualThroughDate = result.throughDate, modelARecentVirtualError = result.error) }\n        }\n    }\n\n    fun loadDate(date: LocalDate) {\n        if (date.isAfter(currentToday()) || date.isBefore(earliestBrowsableDate())) return')
+          r('    fun previousDay() = loadDate(_ui.value.date.minusDays(1))\n    fun nextDay() = loadDate(_ui.value.date.plusDays(1))\n    fun refresh() = loadDate(_ui.value.date)','    fun previousDay() { val target = _ui.value.date.minusDays(1); if (!target.isBefore(earliestBrowsableDate())) loadDate(target) }\n    fun nextDay() { val target = _ui.value.date.plusDays(1); if (!target.isAfter(currentToday())) loadDate(target) }\n    fun refresh() { loadModelARecentVirtual(); loadDate(_ui.value.date) }')
+          r('    fun selectRace(race: RaceData) {\n        val initial = if (PredictionEngine.hasValueStrategyModel()) {','    fun selectRace(race: RaceData) {\n        val retrospective = _ui.value.modelARecentVirtualRecords.firstOrNull { it.id == race.id }\n        val initial = if (retrospective != null) {\n            retrospective.combinations.mapIndexed { index, combination -> PredictionPick(combination = combination, score = 0.0, recommendedStake = retrospective.stakes.getOrNull(index) ?: retrospective.stakePerPick, reason = "対象日前日までの履歴だけで再現したModel A予想") }\n        } else if (PredictionEngine.hasValueStrategyModel()) {')
+          r('        viewModelScope.launch {\n            val requested = when {\n                PredictionEngine.hasAverageRoiReferenceStrategy()','        viewModelScope.launch {\n            val retrospective = _ui.value.modelARecentVirtualRecords.firstOrNull { it.id == race.id }\n            val requested = when {\n                retrospective != null -> initial.map { it.combination }\n                PredictionEngine.hasAverageRoiReferenceStrategy()')
+          r('val strategyPredictions = PredictionEngine.withOdds(\n                        race,\n                        initial,\n                        result.odds,\n                        _ui.value.raceBudget\n                    )\n                    val decision = PredictionEngine.recommendation(race)','val strategyPredictions = if (retrospective != null) {\n                        initial.map { pick -> pick.copy(odds = result.odds[pick.combination], reason = "過去Model A再現 / レース終了後の公式オッズ") }\n                    } else {\n                        PredictionEngine.withOdds(race, initial, result.odds, _ui.value.raceBudget)\n                    }\n                    val decision = PredictionEngine.recommendation(race)')
+          r('val displayedPredictions = if (\n                        PredictionEngine.hasValueStrategyModel() &&','val displayedPredictions = if (retrospective != null) {\n                        strategyPredictions\n                    } else if (\n                        PredictionEngine.hasValueStrategyModel() &&')
+          r('val history = predictionStore.captureOpenRaces(listOf(race))\n                    val performance = PredictionPerformanceProfile.from(history)\n                    PredictionEngine.installPerformanceProfile(performance)','val history = if (retrospective == null) predictionStore.captureOpenRaces(listOf(race)) else _ui.value.predictionHistory\n                    val performance = PredictionPerformanceProfile.from(history)\n                    if (retrospective == null) PredictionEngine.installPerformanceProfile(performance)')
+          r('oddsDecision = if (PredictionEngine.hasValueStrategyModel() || PredictionEngine.hasAiForecastMode()) {\n                                decision.reason','oddsDecision = if (retrospective != null) {\n                                "過去Model A再現。予想は対象日前日までの履歴のみ、表示オッズはレース終了後に取得した公式値"\n                            } else if (PredictionEngine.hasValueStrategyModel() || PredictionEngine.hasAiForecastMode()) {\n                                decision.reason')
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/jp/boatai/app/BoatViewModel.kt
+          git commit -m 'Wire retrospective Model A feed into view model [skip ci]'
+          git push
