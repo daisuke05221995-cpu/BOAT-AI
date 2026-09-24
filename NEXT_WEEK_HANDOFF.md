@@ -41,10 +41,32 @@
 
 ## v0.16研究
 
-r1/r2/r3は本番不採用。Work側ではr4「2025年中心・選手ID×コース×展示反応」を別系統で研究中。本番アプリ/UI/Releaseへは自動統合しない。
+r1/r2/r3/r4は本番不採用。研究結果はAndroidへ自動統合しない。
 
-最終2025 Q4 holdoutは候補完全固定まで未開封を維持する。最新の研究Run/進捗は `WORK_HANDOFF.md` と `data/v016_r4_*` を確認する。
+r4「2025年中心・選手ID×コース×展示反応」は検証完了:
+- Run `35940833546`: SUCCESS。
+- protocol事前登録→選手履歴→feature cache→3モデル比較→固定2policy検証まで完了。
+- core: 7,265購入 / 581的中 / ROI 81.12% / 損益 -1,646,180円。
+- reaction: 2,888購入 / 230的中 / ROI 82.05% / 損益 -622,160円。
+- 両policyともROI105%未達かつ最大1的中除外ROI100%未達。
+- 予測期待ROI約134%に対して実績は約81〜82%で、価値推定を約52〜53pt過大評価。
+- 個人履歴追加は確率品質の改善を確認したが、収益gateはFAIL。
+- 2025年9月は候補なしで未評価。
+- 2025年10〜12月final holdoutは未開封。
+- LONGSHOT未着手、本番変更なし。
+
+次のCORE研究はr1〜r4の閾値再調整ではなく、新仮説「選手履歴増分＋時系列out-of-fold予測による市場差の校正/選別」。
+
+開始時は:
+- 2025年1〜6月内のforward-only分割manifestを新protocolで事前登録。
+- Model A予測は対象レース以前の学習データだけで生成。
+- r4 train feature cache再利用。
+- 7〜8月を追加学習へ混ぜない。
+- 市場情報は最終選別器でのみ使用。
+- 結果を見て閾値を合わせない。
+- 候補完全固定まで9月/Q4を開かない。
+- CORE合格前にLONGSHOTへ進まない。
 
 ## 再開時
 
-`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、最新main、進行中Actionsを確認する。
+`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、`data/v016_r4_report.md`、最新main、進行中Actionsを確認する。
