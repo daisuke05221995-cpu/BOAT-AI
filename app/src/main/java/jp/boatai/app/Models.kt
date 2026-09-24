@@ -68,7 +68,8 @@ data class PreviewData(
 data class RaceResultData(
     val trifectaCombination: String?,
     val trifectaPayout: Int?,
-    val technique: String?
+    val technique: String?,
+    val finishOrder: List<Int> = emptyList()
 )
 
 data class RaceData(
