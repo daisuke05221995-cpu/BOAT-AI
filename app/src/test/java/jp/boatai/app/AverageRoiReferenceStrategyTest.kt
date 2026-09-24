@@ -9,6 +9,7 @@ class AverageRoiReferenceStrategyTest {
     @Test
     fun forecastIsEnabledAndFailedPurchasePolicyIsPaused() {
         assertTrue(AverageRoiReferenceStrategy.FORECAST_ENABLED)
+        assertTrue(AverageRoiReferenceStrategy.MODEL_A_FORECAST_RELEASE_QUALIFIED)
         assertFalse(AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED)
         assertFalse(AverageRoiReferenceStrategy.ENABLED)
         assertFalse(AverageRoiReferenceStrategy.RELEASE_QUALIFIED)
@@ -22,7 +23,9 @@ class AverageRoiReferenceStrategyTest {
         val picks = AverageRoiReferenceStrategy.forecast(race, 4)
         assertEquals(4, picks.size)
         assertTrue(picks.first().combination.startsWith("3-"))
-        assertTrue(picks.first().reason.startsWith("AI着順確率"))
+        // Unit tests do not install Android assets, so this exercises the v0.15.16
+        // compatibility fallback. It must still remain a market-free AI probability.
+        assertTrue(picks.first().reason.contains("AI着順確率"))
         assertTrue(picks.zipWithNext().all { (a,b) -> a.score >= b.score })
     }
 
@@ -39,7 +42,8 @@ class AverageRoiReferenceStrategyTest {
         val result = AverageRoiReferenceStrategy.evaluate(strongLaneOneRace(), odds, 1_200)
         assertEquals(RaceRecommendation.SKIP, result.recommendation)
         assertTrue(result.picks.isEmpty())
-        assertTrue(result.reason.contains("自動推奨を停止中"))
+        assertTrue(result.reason.contains("自動購入は停止中"))
+        assertTrue(result.reason.contains("締切前時刻"))
     }
 
     private fun weakLaneOneRace() = baseRace { lane ->
