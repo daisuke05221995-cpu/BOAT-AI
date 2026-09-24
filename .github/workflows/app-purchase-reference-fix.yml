@@ -1,0 +1,55 @@
+name: Apply v0.15.13 purchase and reference fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/app_purchase_reference_patch_01513.py'
+      - '.github/workflows/app-purchase-reference-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: app-purchase-reference-fix
+  cancel-in-progress: false
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Generate wrapper
+        run: gradle wrapper --gradle-version 8.10.2
+      - name: Apply patch
+        run: python3 scripts/app_purchase_reference_patch_01513.py
+      - name: Unit test, lint and build
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
+      - name: Commit verified patch and remove one-shot files
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm scripts/app_purchase_reference_patch_01513.py .github/workflows/app-purchase-reference-fix.yml
+          git add app
+          git commit -m 'Release v0.15.13 purchase handoff and reference mode'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if git rebase origin/main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort || true
+            sleep 2
+          done
+          exit 1
