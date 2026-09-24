@@ -34,26 +34,30 @@ object BetStrategy {
         if (picks.isEmpty() || picks.any { it.recommendedStake < 100 || it.recommendedStake % 100 != 0 }) {
             return null
         }
-        val sourceUnits = picks.map { it.recommendedStake / 100 }
-        val sourceTotal = sourceUnits.sum()
+        val sourceTotal = picks.sumOf { it.recommendedStake }
         if (sourceTotal <= 0) return null
-        val targetUnits = budget / 100
-        if (targetUnits < picks.size) return null
 
-        val raw = sourceUnits.map { source -> targetUnits * source.toDouble() / sourceTotal }
-        val units = raw.map { floor(it).toInt().coerceAtLeast(1) }.toMutableList()
-        while (units.sum() < targetUnits) {
-            val index = units.indices.maxByOrNull { idx -> raw[idx] - floor(raw[idx]) } ?: 0
-            units[index] += 1
+        // Keep the upstream/AI-recommended weighting while the total has not been changed.
+        if (sourceTotal == budget) {
+            return picks.map { it.recommendedStake }
         }
-        while (units.sum() > targetUnits) {
-            val index = units.indices
-                .filter { units[it] > 1 }
-                .minByOrNull { idx -> raw[idx] - floor(raw[idx]) }
-                ?: return null
-            units[index] -= 1
+
+        // Once the user changes the total purchase amount, move the whole ticket set
+        // together instead of repeatedly adding/removing the difference only from MAIN.
+        return allocateEvenly(picks.size, budget)
+    }
+
+    internal fun allocateEvenly(pointCount: Int, requestedBudget: Int): List<Int> {
+        val count = pointCount.coerceIn(1, MAX_PICKS)
+        val budget = requestedBudget.coerceIn(MIN_BUDGET, MAX_BUDGET).roundDown100()
+        val totalUnits = budget / 100
+        require(totalUnits >= count) { "100円未満の買い目は作成できません" }
+
+        val baseUnits = totalUnits / count
+        val remainder = totalUnits % count
+        return List(count) { index ->
+            (baseUnits + if (index < remainder) 1 else 0) * 100
         }
-        return units.map { it * 100 }
     }
 
     internal fun allocateByRank(pointCount: Int, requestedBudget: Int): List<Int> {
