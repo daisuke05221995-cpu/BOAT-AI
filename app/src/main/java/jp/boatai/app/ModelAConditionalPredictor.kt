@@ -183,7 +183,9 @@ internal class ModelAConditionalPredictor(
                 oneHot(selected).forEach(values::add)
             }
             require(values.size == expectedSize) { "stage ${prefix.size}: row width ${values.size} != $expectedSize" }
-            return values.toDoubleArray()
+            // Python rows() ends with .astype(np.float32). Preserve that exact
+            // inference contract before the serialized LightGBM thresholds are evaluated.
+            return DoubleArray(values.size) { index -> values[index].toFloat().toDouble() }
         }
 
         private fun oneHot(lane: Int): DoubleArray = DoubleArray(6) { index -> if (index == lane) 1.0 else 0.0 }
