@@ -4,6 +4,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/** Final Android release gate: forecast promotion must never imply purchase promotion. */
 class ModelAProductionReleaseGateTest {
     @Test
     fun forecastIsQualifiedButAutomaticPurchaseRemainsDisabled() {
