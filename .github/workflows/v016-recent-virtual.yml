@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/v016_recent_virtual.py'
+      - 'scripts/v016_recent_virtual_v2.py'
       - '.github/workflows/v016-recent-virtual.yml'
 
 permissions:
@@ -35,27 +36,33 @@ jobs:
           python-version: '3.12'
       - name: Install frozen forecast dependencies
         run: pip install numpy==2.3.5 lightgbm==4.6.0
-      - name: Download permanent first-run history seed from Q4 evidence
-        if: ${{ hashFiles('data/model_a_recent_history.bin') == '' }}
+      - name: Download permanent history seed when rebuilding
+        if: ${{ github.event_name == 'push' || hashFiles('data/model_a_recent_history.bin') == '' }}
         uses: actions/download-artifact@v4
         with:
           github-token: ${{ github.token }}
           run-id: '36004272796'
           name: v016-q4-final-forecast
           path: recent-seed
-      - name: Build rolling 30-day virtual results
+      - name: Build rolling 30-day flexible virtual results
         shell: bash
         run: |
           set -euo pipefail
           THROUGH=$(TZ=Asia/Tokyo date -d 'yesterday' +%F)
           SEED_ARGS=()
-          if [[ ! -f data/model_a_recent_history.bin ]]; then
+          REBUILD_ARGS=()
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            test -f recent-seed/history_state_2025-12-31.json
+            SEED_ARGS=(--seed-json recent-seed/history_state_2025-12-31.json)
+            REBUILD_ARGS=(--rebuild)
+          elif [[ ! -f data/model_a_recent_history.bin ]]; then
             test -f recent-seed/history_state_2025-12-31.json
             SEED_ARGS=(--seed-json recent-seed/history_state_2025-12-31.json)
           fi
-          python -u scripts/v016_recent_virtual.py \
+          python -u scripts/v016_recent_virtual_v2.py \
             --through "$THROUGH" \
             "${SEED_ARGS[@]}" \
+            "${REBUILD_ARGS[@]}" \
             --state-bin data/model_a_recent_history.bin \
             --output data/model_a_recent_virtual_results.json \
             --summary data/model_a_recent_virtual_summary.json
@@ -65,20 +72,28 @@ jobs:
           import json, pathlib
           p=json.loads(pathlib.Path('data/model_a_recent_virtual_results.json').read_text())
           s=json.loads(pathlib.Path('data/model_a_recent_virtual_summary.json').read_text())
-          assert p['strategyId']=='model-a-retro-final-v1'
+          assert p['schemaVersion']==2
+          assert p['strategyId']=='model-a-retro-flex-v2'
           assert p['windowDays']==30
           assert p['forecast']['marketInputs'] is False
+          assert p['allocation']['postRaceOddsInputs'] is True
+          assert p['allocation']['resultUsedForSelection'] is False
           assert p['settlement']['preCloseOddsClaim'] is False
           assert s['automaticBuy'] is False
-          assert s['marketInputs'] is False
+          assert s['forecastMarketInputs'] is False
+          assert s['postRaceOddsAllocation'] is True
+          assert s['resultUsedForSelection'] is False
           ids=[r['id'] for r in p['records']]
           assert len(ids)==len(set(ids))
           assert all(r['settled'] for r in p['records'])
-          assert all(len(r['combinations'])==4 for r in p['records'])
-          assert all(r['virtualStake']==1200 for r in p['records'])
-          assert all(r['strategyId']=='model-a-retro-final-v1' for r in p['records'])
+          assert all(3 <= len(r['combinations']) <= 8 for r in p['records'])
+          assert all(len(r['combinations']) == len(r['stakes']) == len(r['endedOdds']) for r in p['records'])
+          assert all(1000 <= r['virtualStake'] <= 3000 for r in p['records'])
+          assert all(r['virtualStake'] == sum(r['stakes']) for r in p['records'])
+          assert all(all(x >= 100 and x % 100 == 0 for x in r['stakes']) for r in p['records'])
+          assert all(r['strategyId']=='model-a-retro-flex-v2' for r in p['records'])
           assert all(r['date']>=p['windowStart'] and r['date']<=p['throughDate'] for r in p['records'])
-          print(p['summary'])
+          print(json.dumps(p['summary'], ensure_ascii=False, indent=2))
           PY
       - name: Commit refreshed feed and rolling history state
         run: |
@@ -86,7 +101,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add data/model_a_recent_history.bin data/model_a_recent_virtual_results.json data/model_a_recent_virtual_summary.json
-          git commit -m 'Update recent Model A virtual results [skip ci]' || exit 0
+          git commit -m 'Update flexible recent Model A virtual results [skip ci]' || exit 0
           for attempt in 1 2 3; do
             git fetch origin main
             git rebase origin/main
@@ -96,7 +111,7 @@ jobs:
       - name: Upload diagnostic copy
         uses: actions/upload-artifact@v4
         with:
-          name: model-a-recent-virtual
+          name: model-a-recent-virtual-flex
           path: |
             data/model_a_recent_virtual_results.json
             data/model_a_recent_virtual_summary.json
