@@ -1,0 +1,46 @@
+name: Adjust retrospective flexible point coverage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v016-flex-policy-adjust.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Broaden second-third coverage
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/v016_recent_virtual_v2.py')
+          s=p.read_text()
+          replacements={
+            'MIN_POINTS = 3':'MIN_POINTS = 4',
+            '        return 0.44':'        return 0.49',
+            '        return 0.48':'        return 0.54',
+            '        return 0.52':'        return 0.59',
+            '        return 0.56':'        return 0.64',
+            '    return 0.60':'    return 0.68',
+          }
+          for old,new in replacements.items():
+              if s.count(old)!=1:
+                  raise SystemExit(f'anchor count for {old!r}: {s.count(old)}')
+              s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Commit policy adjustment
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/v016_recent_virtual_v2.py
+          git commit -m 'Broaden flexible 2nd/3rd-place coverage'
+          git pull --rebase origin main
+          git push origin HEAD:main
