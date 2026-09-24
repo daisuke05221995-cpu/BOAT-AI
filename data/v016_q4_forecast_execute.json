@@ -1,0 +1,7 @@
+{
+  "protocolCommit": "3a56378244dd1f3621f862ac89cea3db8ccea6af",
+  "authorizedByUser": "release through final forecast gate",
+  "execute": true,
+  "forecastOnly": true,
+  "autoBuy": false
+}
