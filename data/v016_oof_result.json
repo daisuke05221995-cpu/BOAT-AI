@@ -1,0 +1,481 @@
+{
+  "protocolCommitSha": "5a9b333eeae78e2d100f0ca69251bec98e223c6a",
+  "protocolSha256": "166ad751ec0e19193bcb1b5ab03e546a2c5da40010722283e59bec656d854046",
+  "splitManifestSha256": "830d75257b6536af14f543e1f68f1407c5cb6ac2d9195376cb87e5a3e343f253",
+  "runId": "35982657474",
+  "developmentPredictionSha256": "137c6a3666a314688f2600fe4540aa6d59ea4f1e0f44b0691f97c157d57f8326",
+  "selectorSha256": "00ef8428d96b5d19d92f16b75ea08c6a64c193210d0b028ca93712d68f6e4477",
+  "septemberOpened": false,
+  "q4Opened": false,
+  "annualQualified": false,
+  "productionPromotion": false,
+  "modelA": {
+    "races": 9583,
+    "logloss": 3.796222502203683,
+    "brier": 0.9601908119622209,
+    "topChoiceEce": 0.0060929705136260415,
+    "calibration": [
+      {
+        "from": 0,
+        "to": 0.05,
+        "races": 758,
+        "predicted": 0.041949058440575344,
+        "observed": 0.044854881266490766
+      },
+      {
+        "from": 0.05,
+        "to": 0.1,
+        "races": 4383,
+        "predicted": 0.07612724334746089,
+        "observed": 0.07483458818161078
+      },
+      {
+        "from": 0.1,
+        "to": 0.2,
+        "races": 4167,
+        "predicted": 0.1329827885229953,
+        "observed": 0.12119030477561796
+      },
+      {
+        "from": 0.2,
+        "to": 0.3,
+        "races": 266,
+        "predicted": 0.2245764340785213,
+        "observed": 0.22556390977443608
+      },
+      {
+        "from": 0.3,
+        "to": 0.4,
+        "races": 9,
+        "predicted": 0.3201481302579244,
+        "observed": 0.4444444444444444
+      },
+      {
+        "from": 0.4,
+        "to": 0.5,
+        "races": 0,
+        "predicted": null,
+        "observed": null
+      },
+      {
+        "from": 0.5,
+        "to": 1.0,
+        "races": 0,
+        "predicted": null,
+        "observed": null
+      }
+    ],
+    "firstTop1": 0.560889074402588,
+    "firstTop2": 0.7581133256808933,
+    "trifectaTop1": 0.09715120525931337,
+    "trifectaTop2": 0.17531044558071585,
+    "trifectaTop4": 0.29343629343629346,
+    "trifectaTop8": 0.4542418866743191
+  },
+  "r4ReactionComparison": {
+    "logloss": 3.796222,
+    "brier": 0.960191
+  },
+  "modelQualityGatePass": true,
+  "candidates": [
+    {
+      "name": "raw_ratio",
+      "probability": {
+        "races": 9583,
+        "logloss": 3.796222502203683,
+        "brier": 0.9601908119622209,
+        "topChoiceEce": 0.0060929705136260415,
+        "calibration": [
+          {
+            "from": 0,
+            "to": 0.05,
+            "races": 758,
+            "predicted": 0.041949058440575344,
+            "observed": 0.044854881266490766
+          },
+          {
+            "from": 0.05,
+            "to": 0.1,
+            "races": 4383,
+            "predicted": 0.07612724334746089,
+            "observed": 0.07483458818161078
+          },
+          {
+            "from": 0.1,
+            "to": 0.2,
+            "races": 4167,
+            "predicted": 0.1329827885229953,
+            "observed": 0.12119030477561796
+          },
+          {
+            "from": 0.2,
+            "to": 0.3,
+            "races": 266,
+            "predicted": 0.2245764340785213,
+            "observed": 0.22556390977443608
+          },
+          {
+            "from": 0.3,
+            "to": 0.4,
+            "races": 9,
+            "predicted": 0.3201481302579244,
+            "observed": 0.4444444444444444
+          },
+          {
+            "from": 0.4,
+            "to": 0.5,
+            "races": 0,
+            "predicted": null,
+            "observed": null
+          },
+          {
+            "from": 0.5,
+            "to": 1.0,
+            "races": 0,
+            "predicted": null,
+            "observed": null
+          }
+        ],
+        "firstTop1": 0.560889074402588,
+        "firstTop2": 0.7581133256808933,
+        "trifectaTop1": 0.09715120525931337,
+        "trifectaTop2": 0.17531044558071585,
+        "trifectaTop4": 0.29343629343629346,
+        "trifectaTop8": 0.4542418866743191
+      },
+      "purchase": {
+        "purchaseRaces": 7265,
+        "bets": 14798,
+        "hits": 581,
+        "stake": 8718000,
+        "payout": 7071820,
+        "profit": -1646180,
+        "roi": 81.11745813259922,
+        "largestHitShare": 0.6770534317898362,
+        "roiWithoutLargestHit": 80.56824959853178,
+        "maxDrawdown": 1684180,
+        "payoutMinus5PercentRoi": 77.06158522596925,
+        "buyRate": 0.7581133256808933,
+        "expectedRoi": 134.24471360051794,
+        "calibrationGap": 53.127255467918715
+      },
+      "monthly": {
+        "7": {
+          "purchaseRaces": 3671,
+          "bets": 7451,
+          "hits": 297,
+          "stake": 4405200,
+          "payout": 3728360,
+          "profit": -676840,
+          "roi": 84.63543085444475,
+          "largestHitShare": 1.2842107521805834,
+          "roiWithoutLargestHit": 83.5485335512576,
+          "maxDrawdown": 798280,
+          "payoutMinus5PercentRoi": 80.4036593117225
+        },
+        "8": {
+          "purchaseRaces": 3594,
+          "bets": 7347,
+          "hits": 284,
+          "stake": 4312800,
+          "payout": 3343460,
+          "profit": -969340,
+          "roi": 77.52411426451494,
+          "largestHitShare": 1.421282144843964,
+          "roiWithoutLargestHit": 76.42227787052495,
+          "maxDrawdown": 1003520,
+          "payoutMinus5PercentRoi": 73.64790855128919
+        }
+      },
+      "dayBootstrap95": [
+        73.60144846662686,
+        88.57191487531439
+      ],
+      "checks": {
+        "roi": false,
+        "roiWithoutLargestHit": false,
+        "purchaseRaces": true,
+        "hits": true,
+        "largestHitShare": true,
+        "calibrationGap": false
+      },
+      "pass": false,
+      "protocolCommitSha": "5a9b333eeae78e2d100f0ca69251bec98e223c6a",
+      "protocolSha256": "166ad751ec0e19193bcb1b5ab03e546a2c5da40010722283e59bec656d854046",
+      "featureCacheSha256": "f2ac44efb698a71893a6c952be05aa003324be30c4ba13c4a16db7914f1de9e0",
+      "predictionSha256": "137c6a3666a314688f2600fe4540aa6d59ea4f1e0f44b0691f97c157d57f8326",
+      "selectorSha256": "00ef8428d96b5d19d92f16b75ea08c6a64c193210d0b028ca93712d68f6e4477",
+      "septemberOpened": false,
+      "q4Opened": false
+    },
+    {
+      "name": "log_residual_half",
+      "probability": {
+        "races": 9583,
+        "logloss": 3.7282229864663403,
+        "brier": 0.9567807496885276,
+        "topChoiceEce": 0.0028526115444077868,
+        "calibration": [
+          {
+            "from": 0,
+            "to": 0.05,
+            "races": 789,
+            "predicted": 0.042419108989757925,
+            "observed": 0.04055766793409379
+          },
+          {
+            "from": 0.05,
+            "to": 0.1,
+            "races": 4622,
+            "predicted": 0.07624873863354159,
+            "observed": 0.07767200346170489
+          },
+          {
+            "from": 0.1,
+            "to": 0.2,
+            "races": 3999,
+            "predicted": 0.13169443575211162,
+            "observed": 0.1350337584396099
+          },
+          {
+            "from": 0.2,
+            "to": 0.3,
+            "races": 170,
+            "predicted": 0.224135303226778,
+            "observed": 0.25882352941176473
+          },
+          {
+            "from": 0.3,
+            "to": 0.4,
+            "races": 3,
+            "predicted": 0.32046015912777603,
+            "observed": 0.3333333333333333
+          },
+          {
+            "from": 0.4,
+            "to": 0.5,
+            "races": 0,
+            "predicted": null,
+            "observed": null
+          },
+          {
+            "from": 0.5,
+            "to": 1.0,
+            "races": 0,
+            "predicted": null,
+            "observed": null
+          }
+        ],
+        "firstTop1": 0.5692371908588125,
+        "firstTop2": 0.7701137430867161,
+        "trifectaTop1": 0.10184702076593968,
+        "trifectaTop2": 0.18720651153083587,
+        "trifectaTop4": 0.31159344672858186,
+        "trifectaTop8": 0.47260774287801316
+      },
+      "purchase": {
+        "purchaseRaces": 2262,
+        "bets": 3332,
+        "hits": 112,
+        "stake": 2714400,
+        "payout": 2331920,
+        "profit": -382480,
+        "roi": 85.90922487474212,
+        "largestHitShare": 2.0583896531613433,
+        "roiWithoutLargestHit": 84.14087827880931,
+        "maxDrawdown": 488900,
+        "payoutMinus5PercentRoi": 81.61376363100501,
+        "buyRate": 0.23604299279974955,
+        "expectedRoi": 118.47478017777318,
+        "calibrationGap": 32.56555530303106
+      },
+      "monthly": {
+        "7": {
+          "purchaseRaces": 1136,
+          "bets": 1652,
+          "hits": 68,
+          "stake": 1363200,
+          "payout": 1363840,
+          "profit": 640,
+          "roi": 100.0469483568075,
+          "largestHitShare": 3.5194744251525107,
+          "roiWithoutLargestHit": 96.52582159624413,
+          "maxDrawdown": 128260,
+          "payoutMinus5PercentRoi": 95.04460093896714
+        },
+        "8": {
+          "purchaseRaces": 1126,
+          "bets": 1680,
+          "hits": 44,
+          "stake": 1351200,
+          "payout": 968080,
+          "profit": -383120,
+          "roi": 71.64594434576672,
+          "largestHitShare": 4.846706883728618,
+          "roiWithoutLargestHit": 68.17347542924807,
+          "maxDrawdown": 384800,
+          "payoutMinus5PercentRoi": 68.0636471284784
+        }
+      },
+      "dayBootstrap95": [
+        69.59809225714304,
+        101.80999962680997
+      ],
+      "checks": {
+        "roi": false,
+        "roiWithoutLargestHit": false,
+        "purchaseRaces": true,
+        "hits": true,
+        "largestHitShare": true,
+        "calibrationGap": false
+      },
+      "pass": false,
+      "protocolCommitSha": "5a9b333eeae78e2d100f0ca69251bec98e223c6a",
+      "protocolSha256": "166ad751ec0e19193bcb1b5ab03e546a2c5da40010722283e59bec656d854046",
+      "featureCacheSha256": "f2ac44efb698a71893a6c952be05aa003324be30c4ba13c4a16db7914f1de9e0",
+      "predictionSha256": "137c6a3666a314688f2600fe4540aa6d59ea4f1e0f44b0691f97c157d57f8326",
+      "selectorSha256": "00ef8428d96b5d19d92f16b75ea08c6a64c193210d0b028ca93712d68f6e4477",
+      "septemberOpened": false,
+      "q4Opened": false
+    },
+    {
+      "name": "logistic_residual",
+      "probability": {
+        "races": 9583,
+        "logloss": 3.7106759320681446,
+        "brier": 0.9559427555949342,
+        "topChoiceEce": 0.0024081301168635753,
+        "calibration": [
+          {
+            "from": 0,
+            "to": 0.05,
+            "races": 463,
+            "predicted": 0.043547103390568324,
+            "observed": 0.038876889848812095
+          },
+          {
+            "from": 0.05,
+            "to": 0.1,
+            "races": 4283,
+            "predicted": 0.07722063066081306,
+            "observed": 0.07588139154798039
+          },
+          {
+            "from": 0.1,
+            "to": 0.2,
+            "races": 4652,
+            "predicted": 0.13191505188540614,
+            "observed": 0.1298366294067068
+          },
+          {
+            "from": 0.2,
+            "to": 0.3,
+            "races": 184,
+            "predicted": 0.22174343720570278,
+            "observed": 0.25
+          },
+          {
+            "from": 0.3,
+            "to": 0.4,
+            "races": 1,
+            "predicted": 0.3108119947481138,
+            "observed": 0.0
+          },
+          {
+            "from": 0.4,
+            "to": 0.5,
+            "races": 0,
+            "predicted": null,
+            "observed": null
+          },
+          {
+            "from": 0.5,
+            "to": 1.0,
+            "races": 0,
+            "predicted": null,
+            "observed": null
+          }
+        ],
+        "firstTop1": 0.5730981947198164,
+        "firstTop2": 0.7724094751121778,
+        "trifectaTop1": 0.1036209955128874,
+        "trifectaTop2": 0.19106751539183972,
+        "trifectaTop4": 0.31597620786809977,
+        "trifectaTop8": 0.47866012730877594
+      },
+      "purchase": {
+        "purchaseRaces": 0,
+        "bets": 0,
+        "hits": 0,
+        "stake": 0,
+        "payout": 0,
+        "profit": 0,
+        "roi": 0.0,
+        "largestHitShare": 0.0,
+        "roiWithoutLargestHit": 0.0,
+        "maxDrawdown": 0,
+        "payoutMinus5PercentRoi": 0.0,
+        "buyRate": 0.0,
+        "expectedRoi": null,
+        "calibrationGap": null
+      },
+      "monthly": {
+        "7": {
+          "purchaseRaces": 0,
+          "bets": 0,
+          "hits": 0,
+          "stake": 0,
+          "payout": 0,
+          "profit": 0,
+          "roi": 0.0,
+          "largestHitShare": 0.0,
+          "roiWithoutLargestHit": 0.0,
+          "maxDrawdown": 0,
+          "payoutMinus5PercentRoi": 0.0
+        },
+        "8": {
+          "purchaseRaces": 0,
+          "bets": 0,
+          "hits": 0,
+          "stake": 0,
+          "payout": 0,
+          "profit": 0,
+          "roi": 0.0,
+          "largestHitShare": 0.0,
+          "roiWithoutLargestHit": 0.0,
+          "maxDrawdown": 0,
+          "payoutMinus5PercentRoi": 0.0
+        }
+      },
+      "dayBootstrap95": [
+        0.0,
+        0.0
+      ],
+      "checks": {
+        "roi": false,
+        "roiWithoutLargestHit": false,
+        "purchaseRaces": false,
+        "hits": false,
+        "largestHitShare": true,
+        "calibrationGap": false
+      },
+      "pass": false,
+      "protocolCommitSha": "5a9b333eeae78e2d100f0ca69251bec98e223c6a",
+      "protocolSha256": "166ad751ec0e19193bcb1b5ab03e546a2c5da40010722283e59bec656d854046",
+      "featureCacheSha256": "f2ac44efb698a71893a6c952be05aa003324be30c4ba13c4a16db7914f1de9e0",
+      "predictionSha256": "137c6a3666a314688f2600fe4540aa6d59ea4f1e0f44b0691f97c157d57f8326",
+      "selectorSha256": "00ef8428d96b5d19d92f16b75ea08c6a64c193210d0b028ca93712d68f6e4477",
+      "septemberOpened": false,
+      "q4Opened": false
+    }
+  ],
+  "decision": "REJECT",
+  "frozenCandidate": null,
+  "sourceRunId": 35940833546,
+  "limitations": [
+    "Historical odds timing not validated at five minutes before close",
+    "Only settled six-boat archived races",
+    "July-August previously examined in r4; cannot constitute independent final holdout",
+    "Annual ROI and multiyear reproducibility untested"
+  ]
+}
