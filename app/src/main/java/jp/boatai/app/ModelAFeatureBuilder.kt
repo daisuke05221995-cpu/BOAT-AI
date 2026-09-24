@@ -201,7 +201,7 @@ internal class ModelAFeatureBuilder(
         out[1] = f32(preview?.waveHeight?.toDouble())
         out[2] = f32(preview?.airTemperature)
         out[3] = f32(preview?.waterTemperature)
-        val direction = parseNumber(preview?.windDirection)
+        val direction = preview?.windDirectionNumber?.takeIf { it in 1..16 } ?: parseNumber(preview?.windDirection)
         for (i in 1..16) {
             out[3 + i] = if (direction == null) Double.NaN else f32(if (direction == i) 1.0 else 0.0)
         }
