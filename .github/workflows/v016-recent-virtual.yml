@@ -1,0 +1,103 @@
+name: Update recent Model A virtual results
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 22 * * *' # 07:30 JST
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/v016_recent_virtual.py'
+      - '.github/workflows/v016-recent-virtual.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: v016-recent-virtual
+  cancel-in-progress: false
+
+env:
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '2'
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install frozen forecast dependencies
+        run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - name: Download permanent first-run history seed from Q4 evidence
+        if: ${{ hashFiles('data/model_a_recent_history.bin') == '' }}
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '36004272796'
+          name: v016-q4-final-forecast
+          path: recent-seed
+      - name: Build rolling 30-day virtual results
+        shell: bash
+        run: |
+          set -euo pipefail
+          THROUGH=$(TZ=Asia/Tokyo date -d 'yesterday' +%F)
+          SEED_ARGS=()
+          if [[ ! -f data/model_a_recent_history.bin ]]; then
+            test -f recent-seed/history_state_2025-12-31.json
+            SEED_ARGS=(--seed-json recent-seed/history_state_2025-12-31.json)
+          fi
+          python -u scripts/v016_recent_virtual.py \
+            --through "$THROUGH" \
+            "${SEED_ARGS[@]}" \
+            --state-bin data/model_a_recent_history.bin \
+            --output data/model_a_recent_virtual_results.json \
+            --summary data/model_a_recent_virtual_summary.json
+      - name: Validate feed safety invariants
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=json.loads(pathlib.Path('data/model_a_recent_virtual_results.json').read_text())
+          s=json.loads(pathlib.Path('data/model_a_recent_virtual_summary.json').read_text())
+          assert p['strategyId']=='model-a-retro-final-v1'
+          assert p['windowDays']==30
+          assert p['forecast']['marketInputs'] is False
+          assert p['settlement']['preCloseOddsClaim'] is False
+          assert s['automaticBuy'] is False
+          assert s['marketInputs'] is False
+          ids=[r['id'] for r in p['records']]
+          assert len(ids)==len(set(ids))
+          assert all(r['settled'] for r in p['records'])
+          assert all(len(r['combinations'])==4 for r in p['records'])
+          assert all(r['virtualStake']==1200 for r in p['records'])
+          assert all(r['strategyId']=='model-a-retro-final-v1' for r in p['records'])
+          assert all(r['date']>=p['windowStart'] and r['date']<=p['throughDate'] for r in p['records'])
+          print(p['summary'])
+          PY
+      - name: Commit refreshed feed and rolling history state
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/model_a_recent_history.bin data/model_a_recent_virtual_results.json data/model_a_recent_virtual_summary.json
+          git commit -m 'Update recent Model A virtual results [skip ci]' || exit 0
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1
+      - name: Upload diagnostic copy
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-a-recent-virtual
+          path: |
+            data/model_a_recent_virtual_results.json
+            data/model_a_recent_virtual_summary.json
+          retention-days: 30
