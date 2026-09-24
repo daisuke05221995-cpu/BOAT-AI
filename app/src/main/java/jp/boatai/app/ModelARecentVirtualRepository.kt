@@ -15,7 +15,20 @@ data class ModelARecentVirtualLoadResult(
     val windowStart: String?,
     val generatedAt: String?,
     val error: String? = null,
-    val fromCache: Boolean = false
+    val fromCache: Boolean = false,
+    val summary: ModelARecentVirtualSummary? = null
+)
+
+data class ModelARecentPointBreakdown(
+    val points: Int, val races: Int, val hits: Int, val hitRate: Double,
+    val stake: Int, val payout: Int, val profit: Int, val roi: Double,
+    val averageStake: Double, val averageWinningPayout: Double
+)
+
+data class ModelARecentVirtualSummary(
+    val races: Int, val hits: Int, val stake: Int, val payout: Int, val profit: Int,
+    val roi: Double, val averagePoints: Double, val averageStake: Double,
+    val pointBreakdown: List<ModelARecentPointBreakdown>
 )
 
 /**
@@ -59,37 +72,36 @@ class ModelARecentVirtualRepository(context: Context) {
 
     internal fun parse(text: String): ModelARecentVirtualLoadResult {
         val root = JSONObject(text)
-        require(root.optInt("schemaVersion") == 1) { "過去AI仮想成績の形式が不正です" }
+        require(root.optInt("schemaVersion") == 2) { "過去AI仮想成績の形式が不正です" }
         require(root.optString("strategyId") == STRATEGY_ID) { "過去AI仮想成績のstrategyが不正です" }
         require(root.optInt("windowDays") == WINDOW_DAYS) { "過去AI仮想成績の期間が不正です" }
         val forecast = root.optJSONObject("forecast") ?: error("forecast がありません")
         require(!forecast.optBoolean("marketInputs", true)) { "市場入力を含む予想は表示しません" }
-        require(forecast.optInt("points") == 4) { "買い目点数が不正です" }
+        val allocation = root.optJSONObject("allocation") ?: error("allocation がありません")
+        require(allocation.optInt("pointsMin") == 4 && allocation.optInt("pointsMax") == 8) { "買い目点数が不正です" }
+        require(allocation.optInt("budgetMin") == 1000 && allocation.optInt("budgetMax") == 3000) { "投資額範囲が不正です" }
+        require(allocation.optInt("stakeStep") == 100) { "投資単位が不正です" }
+        require(allocation.optBoolean("postRaceOddsInputs", false)) { "終了後オッズ検証フラグがありません" }
+        require(!allocation.optBoolean("resultUsedForSelection", true)) { "結果利用データは表示しません" }
         val settlement = root.optJSONObject("settlement") ?: error("settlement がありません")
         require(!settlement.optBoolean("preCloseOddsClaim", true)) { "締切前ROIを名乗るデータは受け付けません" }
 
-        val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))
-        val earliest = today.minusDays(WINDOW_DAYS.toLong())
-        val latest = today.minusDays(1)
         val recordsJson = root.optJSONArray("records") ?: error("records がありません")
         val records = buildList {
             for (index in 0 until recordsJson.length()) {
                 val record = PredictionRecord.fromJson(recordsJson.getJSONObject(index))
-                val recordDate = runCatching { LocalDate.parse(record.date.take(10)) }.getOrNull() ?: continue
                 if (record.strategyId != STRATEGY_ID || !record.settled || !record.evaluationEligible) continue
-                if (record.combinations.size != 4 || record.simulatedStake != 1_200) continue
-                if (recordDate.isBefore(earliest) || recordDate.isAfter(latest)) continue
+                if (record.combinations.size !in 4..8 || record.simulatedStake !in 1000..3000 || record.simulatedStake % 100 != 0) continue
                 add(record)
             }
-        }.distinctBy { it.id }
-            .sortedWith(compareBy<PredictionRecord> { it.date }.thenBy { it.stadiumNumber }.thenBy { it.raceNumber })
-
-        return ModelARecentVirtualLoadResult(
-            records = records,
-            throughDate = root.optString("throughDate").takeIf { it.isNotBlank() },
-            windowStart = root.optString("windowStart").takeIf { it.isNotBlank() },
-            generatedAt = root.optString("generatedAt").takeIf { it.isNotBlank() }
-        )
+        }.distinctBy { it.id }.sortedWith(compareBy<PredictionRecord> { it.date }.thenBy { it.stadiumNumber }.thenBy { it.raceNumber })
+        val summaryJson = root.optJSONObject("summary")
+        val breakdownJson = summaryJson?.optJSONObject("pointBreakdown")
+        val breakdown = (4..8).mapNotNull { points -> breakdownJson?.optJSONObject(points.toString())?.let { b ->
+            ModelARecentPointBreakdown(points, b.optInt("races"), b.optInt("hits"), b.optDouble("hitRate"), b.optInt("stake"), b.optInt("payout"), b.optInt("profit"), b.optDouble("roi"), b.optDouble("averageStake"), b.optDouble("averageWinningPayout"))
+        }}
+        val summary = summaryJson?.let { s -> ModelARecentVirtualSummary(s.optInt("races"), s.optInt("hits"), s.optInt("stake"), s.optInt("payout"), s.optInt("profit"), s.optDouble("roi"), s.optDouble("averagePoints"), s.optDouble("averageStake"), breakdown) }
+        return ModelARecentVirtualLoadResult(records, root.optString("throughDate").takeIf { it.isNotBlank() }, root.optString("windowStart").takeIf { it.isNotBlank() }, root.optString("generatedAt").takeIf { it.isNotBlank() }, summary = summary)
     }
 
     private fun httpGet(url: String): String {
@@ -112,7 +124,7 @@ class ModelARecentVirtualRepository(context: Context) {
     }
 
     companion object {
-        const val STRATEGY_ID = "model-a-retro-final-v1"
+        const val STRATEGY_ID = "model-a-retro-flex-v2"
         const val WINDOW_DAYS = 30
         private const val KEY_CACHE = "latest_json"
         private const val REMOTE_URL =
