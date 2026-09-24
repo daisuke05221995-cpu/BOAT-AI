@@ -1,0 +1,121 @@
+name: v0.16 build Model A deployment assets
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/v016_deployment_execute.json'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: v016-deployment-assets
+  cancel-in-progress: false
+
+jobs:
+  build-assets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - name: Require final Q4 PASS
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('data/v016_q4_forecast_decision.json'))
+          assert d['decision']=='PASS_Q4_FINAL_FORECAST'
+          assert d['primaryPass'] is True and d['secondarySafetyPass'] is True
+          assert d['marketInputs'] is False and d['autoBuyPromotion'] is False
+          PY
+      - name: Download final Q4 end-state
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '36004272796'
+          name: v016-q4-final-forecast
+          path: q4
+      - name: Download frozen Model A files
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35940833546'
+          name: v016-r4-model-reaction
+          path: frozen-model
+      - name: Advance player history through 2026-09-23
+        run: |
+          python -u scripts/v016_deployment_history.py \
+            --state q4/history_state_2025-12-31.json \
+            --through 2026-09-23 \
+            --output deploy/history_state.json
+      - name: Encode compact Android history asset
+        run: |
+          python scripts/v016_android_history_asset.py \
+            --input deploy/history_state.json \
+            --output deploy/model_a_history.bin
+          cat deploy/model_a_history.json
+      - name: Assemble and verify frozen assets
+        run: |
+          cp frozen-model/stage0.txt deploy/model_a_stage0.txt
+          cp frozen-model/stage1.txt deploy/model_a_stage1.txt
+          cp frozen-model/stage2.txt deploy/model_a_stage2.txt
+          echo 'ee67bc585ad4b19904d64ea8c77e25964ed41887b58e94a425bbd10c1d5a1a45  deploy/model_a_stage0.txt' | sha256sum -c -
+          echo 'ad8425277311dd7080b0a05f719a322632d5993ab4382cadc721f152ddcfb1e7  deploy/model_a_stage1.txt' | sha256sum -c -
+          echo '23e78898a8229794d5c1b819297d2cb77d23ec07edeb4ab6cb07a7d5758eac8a  deploy/model_a_stage2.txt' | sha256sum -c -
+          python - <<'PY'
+          import hashlib,json,pathlib
+          root=pathlib.Path('deploy')
+          meta={
+            'forecastModel':'v0.16 Model A reaction',
+            'temperature':1.0,
+            'marketInputs':False,
+            'automaticBuy':False,
+            'q4Decision':'PASS_Q4_FINAL_FORECAST',
+            'q4RunId':36004272796,
+            'modelRunId':35940833546,
+            'modelArtifactId':10784912368,
+            'historyThrough':'2026-09-23',
+            'assets':{}
+          }
+          for name in ('model_a_stage0.txt','model_a_stage1.txt','model_a_stage2.txt','model_a_history.bin'):
+            b=(root/name).read_bytes(); meta['assets'][name]={'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest()}
+          (root/'model_a_deployment.json').write_text(json.dumps(meta,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(meta,ensure_ascii=False))
+          PY
+      - name: Upload immutable deployment bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: v016-model-a-deployment-assets
+          path: |
+            deploy/model_a_stage0.txt
+            deploy/model_a_stage1.txt
+            deploy/model_a_stage2.txt
+            deploy/model_a_history.bin
+            deploy/model_a_deployment.json
+            deploy/history_state.summary.json
+          retention-days: 90
+      - name: Commit assets into Android app
+        run: |
+          mkdir -p app/src/main/assets
+          cp deploy/model_a_stage0.txt app/src/main/assets/
+          cp deploy/model_a_stage1.txt app/src/main/assets/
+          cp deploy/model_a_stage2.txt app/src/main/assets/
+          cp deploy/model_a_history.bin app/src/main/assets/
+          cp deploy/model_a_deployment.json app/src/main/assets/
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/assets/model_a_stage0.txt app/src/main/assets/model_a_stage1.txt app/src/main/assets/model_a_stage2.txt app/src/main/assets/model_a_history.bin app/src/main/assets/model_a_deployment.json
+          git commit -m 'Install validated v0.16 Model A deployment assets [skip ci]'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main || exit 1
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1
