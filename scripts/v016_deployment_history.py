@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Advance frozen Model A player history after final holdout; no model retraining or odds."""
 from __future__ import annotations
-import argparse, hashlib, json, time, urllib.request
+import argparse, json, time, urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
@@ -67,7 +67,14 @@ def build_chunk(days,through):
                 program=src['programs'][venue,race]; label=finish_index(program,src['results'].get((venue,race)))
                 if label is None: counts['skippedUnsettledOrNonUnique']+=1; continue
                 counts['eligibleSettled']+=1
-                b,g,ids,classes,usable=extract_pre(program,src['previews'].get((venue,race)),day,venue,race)
+                try:
+                    preview=src['previews'].get((venue,race))
+                    if preview is not None and not isinstance(preview.get('boats',[]),list):
+                        raise TypeError('preview boats is not a list')
+                    b,g,ids,classes,usable=extract_pre(program,preview,day,venue,race)
+                except (TypeError,KeyError,IndexError,ValueError):
+                    counts['malformedPreRaceInput']+=1
+                    continue
                 if not usable: counts['missingRequiredInput']+=1
                 rows.append((day.toordinal(),day.month,venue,race,label,b,g,ids,classes,usable))
     rows.sort(key=lambda r:(r[0],r[2],r[3])); names=('day_ordinal','month','venue','race_number','actual_index','current','global_features','racer_id','racer_class','usable')
