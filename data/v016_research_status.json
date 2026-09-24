@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-09-23",
-  "phase": "CORE_R2_AND_CALIBRATION_AUDIT_FINISHED_REJECTED",
+  "updatedAt": "2026-09-24",
+  "phase": "CORE_R4_DEVELOPMENT_FINISHED_REJECTED",
   "goalCompleted": false,
   "researchOnly": true,
   "productionModified": false,
@@ -28,6 +28,22 @@
     "coreR2Audit": {
       "id": 35876699180,
       "status": "success"
+    },
+    "coreR3Annual": {
+      "id": 35933816549,
+      "status": "success",
+      "decision": "reject_r3_place_small",
+      "source": "PROJECT_STATUS.md and data/v016_r3_q1_result.json"
+    },
+    "coreR4Initial": {
+      "id": 35940538399,
+      "status": "failure",
+      "reason": "identity check ran before excluding non-complete results; fixed before model evaluation"
+    },
+    "coreR4": {
+      "id": 35940833546,
+      "status": "success",
+      "september": "skipped_no_candidate"
     }
   },
   "annual2024": {
@@ -230,9 +246,15 @@
       "features2023": "v016-r2-features-2023",
       "features2024": "v016-r2-features-2024",
       "expires": "2026-12-22"
+    },
+    "r4": {
+      "run": 35940833546,
+      "featuresArtifact": "v016-r4-features",
+      "featuresArtifactId": 10784104679,
+      "expires": "2026-12-23"
     }
   },
-  "next": "Preregister r3 temporal-update hypothesis; first implement quarterly 2024 train/validation/evaluation manifests and strict train-before-evaluation checks using existing sidecars. Do not retune r1/r2 thresholds or open 2025 Q4.",
+  "next": "Preregister a forward-only Jan-Jun 2025 OOF design for a history-aware market value selector; first create chronology manifests proving Model A predictions predate selector-training labels. Reuse r4 features; do not retune r1-r4 thresholds, contaminate Jul-Aug training, or open September/Q4 without a newly fixed candidate.",
   "limitations": [
     "2024 is development; multiyear release gate not passed",
     "Historical odds timing and eligible-settled-race denominator remain unverified for live deployment"
@@ -362,5 +384,91 @@
     ],
     "auditFile": "data/v016_r2_audit.json",
     "reportFile": "data/v016_r2_report.md"
+  },
+  "septemberOpenedByR4": false,
+  "coreR4": {
+    "period": "2025-07-01..2025-08-31",
+    "qualityPass": true,
+    "qualifiedPolicyCount": 0,
+    "decision": "reject_r4_development",
+    "increment": {
+      "history": {
+        "loglossDifference": -0.011417029510530355,
+        "dailyBootstrap95": [
+          -0.017026098860412075,
+          -0.0065271349353166475
+        ]
+      },
+      "reaction": {
+        "loglossDifference": -0.012843299856633869,
+        "dailyBootstrap95": [
+          -0.018525968702225306,
+          -0.007704403214604783
+        ]
+      },
+      "reaction_vs_history": {
+        "loglossDifference": -0.0014262703461035142,
+        "dailyBootstrap95": [
+          -0.003192275708362558,
+          0.00038561915506892186
+        ]
+      }
+    },
+    "policies": [
+      {
+        "policy": "core",
+        "total": {
+          "purchaseRaces": 7265,
+          "bets": 14798,
+          "hits": 581,
+          "stake": 8718000,
+          "payout": 7071820,
+          "profit": -1646180,
+          "roi": 81.11745813259922,
+          "largestHitShare": 0.6770534317898362,
+          "roiWithoutLargestHit": 80.56824959853178,
+          "maxDrawdown": 1684180,
+          "payoutMinus5PercentRoi": 77.06158522596925,
+          "expectedRoi": 134.24471360051794,
+          "calibrationGap": 53.127255467918715
+        },
+        "rejectionReasons": [
+          "roi < 105",
+          "ROI excluding largest hit < 100",
+          "expected/realized ROI calibration gap > 15pp or no purchases"
+        ]
+      },
+      {
+        "policy": "reaction",
+        "total": {
+          "purchaseRaces": 2888,
+          "bets": 5720,
+          "hits": 230,
+          "stake": 3465600,
+          "payout": 2843440,
+          "profit": -622160,
+          "roi": 82.04755309325947,
+          "largestHitShare": 1.6712151478490842,
+          "roiWithoutLargestHit": 80.67636195752539,
+          "maxDrawdown": 644160,
+          "payoutMinus5PercentRoi": 77.9451754385965,
+          "expectedRoi": 134.62622145545086,
+          "calibrationGap": 52.578668362191394
+        },
+        "rejectionReasons": [
+          "roi < 105",
+          "ROI excluding largest hit < 100",
+          "expected/realized ROI calibration gap > 15pp or no purchases"
+        ]
+      }
+    ],
+    "annualGateStatus": "NOT_TESTED_Q4_SEALED",
+    "files": [
+      "data/v016_r4_protocol.json",
+      "data/v016_r4_result.json",
+      "data/v016_r4_feature_audit.json",
+      "data/v016_r4_frozen_candidate.json",
+      "data/v016_r4_report.md"
+    ]
   }
 }
