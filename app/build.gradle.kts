@@ -14,7 +14,7 @@ android {
         targetSdk = 35
         versionCode = 34
         versionName = "0.15.16"
-        // v0.15.16: separate pure AI forecast from purchase recommendation; pause failed auto-BUY policy.
+        // v0.15.16: pure AI forecast / purchase separation; signed release trigger.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
