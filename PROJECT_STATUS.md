@@ -6,87 +6,114 @@
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
 - Branch: `main`
-- 公開版: `v0.15.12`
-- versionCode: 30 / versionName: 0.15.12
-- Release target commit: `107764f8df759c2b522ddec582b7d58d4c8120a8`
-- Debug validation Run: `35940412039` SUCCESS
-- Signed Release Run: `35940412081` SUCCESS
-- Release: `https://github.com/daisuke05221995-cpu/BOAT-AI/releases/tag/v0.15.12`
-- Direct APK: `https://github.com/daisuke05221995-cpu/BOAT-AI/releases/download/v0.15.12/BOAT-AI-v0.15.12.apk`
-- APK SHA-256: `a008e5aac7ae99bafa331693e5ed0dff1111d614f9c5fd630c0debcc86331f61`
+- 公開版: `v0.15.16`
+- versionCode: 34 / versionName: 0.15.16
+- Release target commit: `11338ffc426662f60e02803bf5ceb333bb048f61`
+- Debug validation Run: `35974408635` SUCCESS
+- Signed Release Run: `35974408547` SUCCESS
+- Release asset: `BOAT-AI-v0.15.16.apk`
+- APK SHA-256: `642fb50c605364a7c84f87b7dcd31419fe8aed6eff42613699c506e7d1cd5a98`
 - 復旧モード / `CrashRecoveryStore` は維持。ユーザーデータ削除・アンインストールは禁止。
 
-## Android v0.15.12 変更
+## Android v0.15.16
 
-購入画面でユーザーが購入総額を変更した時の金額配分を修正。
+予想と購入判定を分離した安定版。
 
-- AI/上流が出した初期推奨金額は、総額を変更していない限りそのまま保持する。
-- ユーザーが +100円 / -100円などで総額を変更した時は、差額を本線だけへ加算・減算しない。
-- 変更後は選択中の全買い目へ100円単位でできるだけ均等に再配分する。
-- 100円単位で割り切れない余りだけ、予想順位の高い買い目から順に100円ずつ配る。
-- 4点の例: 1300円=`400/300/300/300`、1400円=`400/400/300/300`、再び1300円=`400/300/300/300`。
-- この挙動を `BetStrategyTest` に追加し、増額・減額の往復をテスト済み。
-- Debug Run `35940412039`: live API schema / Unit test / lint / Debug APK build / artifact upload 全SUCCESS。
-- Release Run `35940412081`: Release unit test / lint / signed APK / APK signature verify / GitHub Release publish 全SUCCESS。
+- 純AIの着順予想はON。
+- 自動BUY推奨はOFF。
+- 予想順位はオッズを入力に使わない。
+- 現行は上位4点を表示し、手動購入導線は利用可能。
+- v0.15.15購入ロジックの2025年7〜8月診断はBUY率99.5%、ROI68.5%で不合格だったため自動購入を停止。
+- 過去ROIはv0.15.16 forecastには適用しない。
+- 既存の結果・損益・購入記録・更新・復旧機能は維持。
 
-## v0.15.11から継続する安定化
+## v0.16購入研究
 
-- 独立SettingsScreen追加。
-- 右上⚙から専用設定画面へ接続し、損益画面内の旧設定欄を分離。
-- Android戻るキー階層制御。設定→元画面、レース詳細→場一覧、場一覧→予想ホーム、購入/結果/損益→予想ホーム。予想ホームでは戻るキーで終了しない。
-- 全通知をvisual-only化。新しいchannel IDを使用し、`setSound(null,null)` / `enableVibration(false)` / notification builder `.setSilent(true)` を適用。
-- Background hardening。Receiver/ForegroundService/Alarm登録失敗を非致命ログへ隔離。
-- Android 15対策としてBOOT_COMPLETEDやExact Alarm許可変更BroadcastからdataSync FGSを直接起動しない。
-- purchase alert背景処理、PredictionTracking Service/Receiver/BootReceiverをhardening済み状態で有効化。
-- MainActivity通常起動時にPredictionTracking Alarmを安全に再予約。
-- `RecoveryActivity` / `CrashRecoveryStore` を維持。
+購入AIは現時点で本番昇格禁止。
 
-## 本番予想ロジック
+- r1〜r4の購入policyは不採用。
+- OOF市場差研究もREJECT。
+- 歴史3連単オッズ監査の最終判定: `ODDS_NOT_SUITABLE_FOR_REALIZABLE_BACKTEST`。
+- 使用アーカイブはレース別の取得時刻/T-5分を証明できず、払戻/100とほぼ一致するため、締切前に実現可能なROI検証値として扱わない。
+- このオッズを使ったROI、期待値、BUY/SKIP条件による本番昇格は停止。
+- 自動BUY推奨は引き続きOFF。
 
-研究用v0.16は本番未統合。現行安定ロジックを継続。
+## v0.16 forecast-only Model A
 
-- CORE r1旧144条件: 2024通年で合格0。再探索しない。
-- CORE r2: 6モデル全不採用。
-- CORE r3 walk-forwardも2024通年で不採用確定。
-- CORE r4「2025年中心・選手ID×コース×展示反応」も不採用確定。本番へ統合しない。
+市場入力なしのModel Aは予想モデルとして独立検証まで通過。
 
-r3 2024通年 place-small:
-- Q1 ROI 136.67%、9購入、1的中、Q1 calibration gate FAIL。
-- 年間 ROI 258.54%だが、24購入・3的中のみ。
-- 最大1的中依存 59.63%。
-- 最大1的中除外ROI 104.38%。
-- 年間gate FAIL。
-- Decision: `reject_r3_place_small`。
+固定候補:
+- 3段 conditional grouped-softmax LightGBM。
+- train through: 2025-05-31。
+- early stopping / temperature選択: 2025-06-30まで。
+- temperature=1.0。
+- 市場オッズ入力なし。
+- Model Artifact: Run `35940833546` / Artifact `10784912368`。
+- model digest: `sha256:58b845fa8d07efe258b08a23ac6caafab2e4854ce4b84618fb4af6ae3f3687fe`。
 
-r4 2025年7〜8月開発評価:
-- Run `35940833546`: SUCCESS。protocol事前登録→選手履歴→feature cache→3モデル比較→固定2policy検証まで完了。
-- core: 7,265購入 / 581的中 / ROI 81.12% / 損益 -1,646,180円 / 最大1的中除外ROI 80.57%。
-- reaction: 2,888購入 / 230的中 / ROI 82.05% / 損益 -622,160円 / 最大1的中除外ROI 80.68%。
-- 予測期待ROIは約134%だったが、実績ROIとの差が約52〜53ptあり、価値推定が大きく過大評価。
-- 履歴追加はlogloss上の増分改善を確認したが、購入収益gateは両policyともFAIL。
-- 2025年9月は候補なしで未評価、2025年10〜12月final holdoutは未開封。
-- LONGSHOT未着手、本番変更なし。
+### 2025年7〜8月 development
 
-見かけの高ROI・部分指標だけでは昇格させず、購入件数・的中数・最大1的中依存・校正・ROIをまとめて判断する。
+同9,583レースで:
+- Model A 1着Top1 56.09%、Top2 75.81%。
+- 3連単Top1 9.72%、Top4 29.34%、Top8 45.42%。
+- logloss 3.796223、Brier 0.960191。
+- 現行v0.15.16純AIは1着Top1 45.33%、Top2 66.94%、3連単Top4 19.20%、Top8 32.95%。
 
-**2025-10-01〜2025-12-31 final holdoutは未開封のまま維持。**
+### 2025年9月 forecast-only独立holdout
 
-## 次の研究
+Protocol commit `2fbf3239f8ac68e4d45775b353aa03217d9a517f` を9月初回アクセス前に固定。
+Run `35993900879` SUCCESS。
 
-r1〜r4のminEV・展示z・各閾値を後付けで微調整して救済しない。
+- source races 4,272。
+- 一意な6艇結果 3,959。
+- Model A必須入力欠損 3。
+- 同一比較集合 3,956レース、coverage 99.9242%。
+- 重複0、同日結果リーク0。
 
-次のCORE仮説は「選手履歴の増分を使う、時系列out-of-fold予測に基づく市場差の校正/選別」。
+Model A vs v0.15.16純AI:
+- 3連単logloss `3.844202 vs 4.225358`。
+- Brier `0.963136 vs 0.978731`。
+- 1着Top1 `55.308% vs 44.085%`。
+- 1着Top2 `75.126% vs 66.785%`。
+- 3連単Top1 `8.948% vs 5.789%`。
+- Top2 `16.102% vs 10.617%`。
+- Top4 `27.856% vs 18.579%`。
+- Top8 `43.453% vs 30.713%`。
+- Top-choice ECEはModel A 0.012950、baseline 0.002876でModel Aの方が悪い点を記録。
 
-- 最初に新protocolで2025年1〜6月内のforward-only分割manifestを事前登録する。
-- 選別器学習に使うModel A予測は、必ず対象レースより前のデータだけで作る。
-- r4のtrain feature cacheを再利用する。
-- 2025年7〜8月を追加学習へ混ぜない。
-- 市場情報は最終選別器でのみ利用する。
-- 結果を見て閾値を合わせる探索はしない。
-- 候補完全固定前に2025年9月/Q4を開かない。
-- COREが基準を満たすまでLONGSHOTへ進めない。
-- 採用候補でも通常チャット側の最終確認まで本番統合・Releaseしない。
+暦日30日を単位に2,000回paired block bootstrap:
+- logloss差 Model A-baseline = -0.381156、95% CI `[-0.404683,-0.357090]`。
+- Brier差 = -0.015595、95% CI `[-0.017337,-0.013903]`。
+
+最終判定: **`PASS_FORECAST_HOLDOUT`**。
+ただし `productionPromotion=false`。購入収益の合格を意味しない。
+
+## Android Model A統合準備
+
+- `LightGbmTextModel` のKotlin prototypeを追加。
+- 実Model AのLightGBM v4 numeric/non-linear treeをAndroid側で再現するための最小パーサ/推論器。
+- 実モデルの欠損分岐、threshold、leaf走査をLightGBM仕様に合わせる。
+- 研究用確認ではPython LightGBM raw scoreとKotlin prototypeのサンプル出力が一致。
+- まだ本番 `PredictionEngine` へModel Aを接続していない。
+- モデルasset、履歴state、日次履歴更新、120通り確率chain、端末速度/メモリ、Python parityは今後の統合gate。
+- 約46.9MBの研究用history stateをそのままasset採用するかは未決定。
+
+## 封印範囲
+
+**2025-10-01〜2025-12-31 Q4 final holdoutは未取得・未開封のまま維持。**
+
+9月結果を見た後にModel Aの再学習、temperature変更、特徴量追加、係数救済をしない。
+
+## 次の作業
+
+1. Kotlin LightGBM prototypeのUnit test / lint / Debug buildを全SUCCESSにする。
+2. Python固定Model AとAndroid側で、同一feature rowsのraw scoreを大量sampleでparity検証する。
+3. 3段conditional softmaxと120通り3連単確率をAndroid側に実装し、確率和=1とPython予測一致を確認する。
+4. player/course履歴stateと日次更新方式をAndroid向けに設計する。同日結果は当日全予想後にまとめて反映する。
+5. 端末メモリ/推論速度/起動時間を計測する。
+6. parity・性能・欠損処理が合格した後にのみ、v0.16 forecastとしてProduction統合/Releaseを判断する。
+7. 自動BUYはOFFのまま。締切前時刻が監査可能なオッズ基盤ができるまで購入AI昇格を再開しない。
 
 ## 再開時
 
-`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、`data/v016_r4_report.md`、最新main、進行中Actionsを確認する。
+`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、`data/v016_sept_forecast_decision.json`、`data/v016_forecast_candidate.json`、最新main、進行中Actionsを確認する。
