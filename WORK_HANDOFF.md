@@ -398,3 +398,10 @@ v0.15.3で予想履歴保存とユーザー通知を分離した。
 - Android設計監査: 3段LightGBMで1レース156行評価、モデル3ファイル合計約2.59MB、研究用履歴state約46.89MB（1,670選手・87,491レース、2025-08-31まで）。事前入力の完全性、日単位の同日結果混入防止、履歴更新、互換推論・端末性能・モデル/schema/stateハッシュ検証が必要。現行Androidに互換エンジンや現在時点の履歴は未導入。
 - 保存先: `data/v016_integrity_protocol.json`、`data/v016_integrity_result.json`、`data/v016_integrity_report.md`、`data/v016_forecast_candidate.json`、`data/v016_forecast_deployability.md`。境界テスト成功。2025年9月と10〜12月Q4は未取得・未開封。r1〜r4/OOFの閾値救済なし。Android `app/**`、versionCode/versionName、Release、PROJECT_STATUS.md、本番ロジック未変更。
 - **次の具体的1手**: 締切前のレース別取得時刻を監査可能なオッズソースを確保するまでROIによる購入候補昇格を止める。forecast候補は独立holdoutの対象期間・開封権限と評価規約を別途決め、2025年9月/Q4はこの引き継ぎから自動開封しない。並行して通常チャットでAndroid向けLightGBM互換推論と日次履歴更新の設計を検討できるが、搭載・Releaseは別判断。
+
+## 2025年9月 forecast-only holdout 実行中（2026-09-24）
+
+- 事前登録commit `2fbf3239f8ac68e4d45775b353aa03217d9a517f` を9月への初回アクセス前に単独作成。固定対象は市場非入力Model A、baselineはAndroid v0.15.16純AI。Q4は取得/閲覧禁止。
+- 実装commit `5b8bbd11b49ba5a3a1b8b929379e3d0aa55d03dd`、境界テスト `18b2f78c2611f2cb8b1adb596e6cab376c173b8d`、Actions workflow `4a6e18cd811a06846b0690f7d8f2caa2b34b3cae`。
+- Run [`35993900879`](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/35993900879): guard SUCCESS、9月fetchと7〜8月baseline parityを並行実行中。この時点で9月のpopulation/精度は未確定。オッズ・払戻・購入指標は取得/評価しない。
+- 次の1手: 同Runのfetch/parity→固定Model Aとbaseline並列推論→日単位ペアbootstrap/evaluateまで確認。失敗ならコード/データ整合性問題のみ修正し、9月の成績に応じてモデルや係数を変更しない。final Artifact IDと判定/指標を本ファイルに追記。Q4を開かず、app/とReleaseも変更しない。
