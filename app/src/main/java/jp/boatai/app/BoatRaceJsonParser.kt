@@ -89,7 +89,8 @@ object BoatRaceJsonParser {
                 trifectaCombination = trifecta?.optTextOrNull("combination"),
                 trifectaPayout = trifecta?.optIntOrNull("amount"),
                 technique = resultObj.optTextOrNull("technique_number_source")
-                    ?: resultObj.optIntOrNull("technique_number")?.toString()
+                    ?: resultObj.optIntOrNull("technique_number")?.toString(),
+                finishOrder = parseValidatedFinishOrder(resultObj.optJSONObject("racers"), racers)
             )
         } else null
 
@@ -127,6 +128,22 @@ object BoatRaceJsonParser {
                 )
             }
         }
+    }
+
+    private fun parseValidatedFinishOrder(resultRacers: JSONObject?, programRacers: List<Racer>): List<Int> {
+        if (resultRacers == null || programRacers.size != 6) return emptyList()
+        val programByLane = programRacers.associateBy { it.lane }
+        val laneByPlace = mutableMapOf<Int, Int>()
+        for (lane in 1..6) {
+            val result = resultRacers.optJSONObject(lane.toString()) ?: return emptyList()
+            val place = result.optIntOrNull("place_number") ?: return emptyList()
+            val player = result.optIntOrNull("number") ?: return emptyList()
+            if (place !in 1..6 || place in laneByPlace) return emptyList()
+            if (programByLane[lane]?.registrationNumber != player) return emptyList()
+            laneByPlace[place] = lane
+        }
+        if (laneByPlace.keys != (1..6).toSet()) return emptyList()
+        return (1..6).map { place -> requireNotNull(laneByPlace[place]) }
     }
 
     private fun classNumberFromText(value: String): Int? = when (value.trim().uppercase()) {
