@@ -298,7 +298,8 @@ def publish(args):
     candidate=json.loads((args.input/'forecast_candidate.json').read_text()); deploy=json.loads((args.input/'deployability.json').read_text())
     if p['decision']!='ODDS_NOT_SUITABLE_FOR_REALIZABLE_BACKTEST' or candidate['marketInputs'] or candidate['productionPromotion'] or candidate['status']!='PENDING_INDEPENDENT_HOLDOUT':
         raise ValueError('Decision or forecast guard violation')
-    if any(x['protocolCommitSha']!=PRECOMMIT for x in [p,*months,candidate,deploy]): raise ValueError('Protocol provenance mismatch')
+    if any(x.get('protocolCommitSha',x.get('integrityProtocolCommitSha'))!=PRECOMMIT for x in [p,*months,candidate,deploy]):
+        raise ValueError('Protocol provenance mismatch')
     counts=Counter(); pop=Counter(); excluded=Counter(); refunds=Counter(); examples=[]; samples=[]
     for x in months:
         samples+=x.pop('internalSamples')
@@ -325,14 +326,16 @@ def publish(args):
     dump(args.output/'v016_forecast_candidate.json',candidate)
     report=['# v0.16 オッズ整合性とforecast-only候補','',f'- Run: {args.run} / 事前登録commit `{PRECOMMIT}`',
             f"- オッズ判定: **{p['decision']}**。購入可能な締切前オッズとして扱えないため、このアーカイブによるROI基準の本番昇格を停止。",
-            '- 指定commitの `scraper.php` は東京時間の前日を取得し、`cron.yml` は毎日00:00 UTC起動。`get_past.yml` は過去日を遡る。`OddsSaver.php` は日付ごとに1配列を上書き保存。7月1日のJSONは144レース、取得時刻フィールドなし。READMEの「約30分間隔」は、この保存経路の時刻証明にならない。',
+            f"- [オッズソース固定commit](https://github.com/{p['sourceRepository']}/tree/{p['pinnedCommit']}) の `scraper.php` は東京時間の前日を取得し、`cron.yml` は毎日00:00 UTC起動。`get_past.yml` は過去日を遡る。`OddsSaver.php` は日付ごとに1配列を上書き保存。7月1日のJSONは144レース、取得時刻フィールドなし。READMEの「約30分間隔」は、この保存経路の時刻証明にならない。",
             '- 2025年7〜8月の既存cacheと、同一SHAのprogram/resultソースだけを照合。9月/Q4は未取得。','',
             '| 集計 | 7月 | 8月 | 合計 |','|---|---:|---:|---:|']
     for field in ('sourceRaces','eligibleSettled','preRaceFeatureUsable','all120OddsUsable','jointUsable'):
         report.append(f"| {field} | {months[0]['population'][field]:,} | {months[1]['population'][field]:,} | {pop[field]:,} |")
     for field in ('races','exactStoredValue','withinAbsolute0_1','withinAbsolute0_5','withinRelative1Pct','withinRelative3Pct','withinRelative5Pct'):
         report.append(f"| payout {field} | {months[0]['payoutComparison'][field]:,} | {months[1]['payoutComparison'][field]:,} | {counts[field]:,} |")
-    report+=['',f'対象外の分類: `{dict(excluded)}`。返還を示す明示フィールド: `{dict(refunds)}`。項目がない場合、返還が0件と断定しない。',
+    report+=['',f"差分(オッズ−払戻/100): 平均 {overall_diff['signedOddsMinusPayout']['mean']:.6f}、絶対差平均 {overall_diff['absoluteOddsMinusPayout']['mean']:.6f}、絶対差中央値 {overall_diff['absoluteOddsMinusPayout']['median']:.8f}、最大 {overall_diff['absoluteOddsMinusPayout']['max']:.1f} オッズ点。月別・場別の分位点と最大不一致20レースのキーは `data/v016_integrity_result.json`。",
+             '完全一致は保存数値の浮動小数点誤差を許容した判定（絶対差≤0.0001）。資料から高配当時の丸め・切捨て規則を確証できないため、別の換算規則による一致率は仮定しない。',
+             f'対象外の分類: `{dict(excluded)}`。返還を示す明示フィールド: `{dict(refunds)}`。項目がない場合、返還が0件と断定しない。中止・欠場・不成立の内訳も現行の除外理由だけでは確定しない。',
              '払戻との一致は事後・最終に近い値を示し得るが、事前取得の証明にはならない。除外に伴うROIバイアスの方向は、この母集団だけから確定できない。','',
              f"- forecast判定: **{deploy['readiness']}**。候補は市場入力なし、`PENDING_INDEPENDENT_HOLDOUT`、本番昇格なし。",
              f"- Model A 9,583レース: 1着Top1 {candidate['forecastMetrics']['firstTop1']*100:.2f}%、Top2 {candidate['forecastMetrics']['firstTop2']*100:.2f}%、3連単Top1 {candidate['forecastMetrics']['trifectaTop1']*100:.2f}%、Top4 {candidate['forecastMetrics']['trifectaTop4']*100:.2f}%、Top8 {candidate['forecastMetrics']['trifectaTop8']*100:.2f}%。Logloss {candidate['forecastMetrics']['logloss']:.6f}、Brier {candidate['forecastMetrics']['brier']:.6f}。",
