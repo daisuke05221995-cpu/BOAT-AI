@@ -1,0 +1,15 @@
+{
+  "revision": "v016-oof-forward-four-months-v1",
+  "protocolCommitSha": "5a9b333eeae78e2d100f0ca69251bec98e223c6a",
+  "folds": [
+    {"id":"2025-03","fitEnd":"2025-01-31","validationStart":"2025-02-01","validationEnd":"2025-02-28","predictionStart":"2025-03-01","predictionEnd":"2025-03-31"},
+    {"id":"2025-04","fitEnd":"2025-02-28","validationStart":"2025-03-01","validationEnd":"2025-03-31","predictionStart":"2025-04-01","predictionEnd":"2025-04-30"},
+    {"id":"2025-05","fitEnd":"2025-03-31","validationStart":"2025-04-01","validationEnd":"2025-04-30","predictionStart":"2025-05-01","predictionEnd":"2025-05-31"},
+    {"id":"2025-06","fitEnd":"2025-04-30","validationStart":"2025-05-01","validationEnd":"2025-05-31","predictionStart":"2025-06-01","predictionEnd":"2025-06-30"}
+  ],
+  "dateBoundary": "2025-01-01..2025-06-30 for OOF; July-August reserved for evaluation",
+  "labelRule": "fitEnd < validationStart <= validationEnd < predictionStart; same-day labels never used",
+  "artifactRule": "each fold writes actual observed max fit and validation date, predicted race key range, protocol commit, feature SHA and model SHA",
+  "septemberOpened": false,
+  "q4Opened": false
+}
