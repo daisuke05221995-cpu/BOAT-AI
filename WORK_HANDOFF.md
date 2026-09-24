@@ -285,3 +285,13 @@ v0.15.3で予想履歴保存とユーザー通知を分離した。
 4. 採用COREを固定できるまではLONGSHOTへ進めず、Q4は開かない。時刻監査・除外母集団の制約は継続。通常チャットの最終確認なしに本番統合しない。
 
 通常チャットへ戻ってBOAT AIの続きを依頼してください。
+
+
+## r4事前登録（2026-09-24）
+
+- 初回確認main `aa1fde295e94635fad64a9e57969b74c73a08b02`。最新v016 Run `35933816549` SUCCESS、進行中/queuedなし。Androidはv0.15.11、本番には触らない。
+- r1〜r3は不採用確定。r4「2025年中心・選手ID×コース×展示反応」を `data/v016_r4_protocol.json` にコード/履歴構築前に事前登録。
+- 2024既存通年cacheは履歴seedに再利用。2025 Jan-May学習、Jun logloss調整、Jul-Aug開発評価。Sepは候補モデル/買い方/SHA固定後だけ確認し、Q4は常にURL生成前に拒否。
+- 3モデルcurrent/history/reactionで増分価値を検証。候補はreactionのみ。登録番号はlookup専用、同日の特徴量を全て生成してからその日の履歴を更新。実ST/実進入は使わない。
+- 現在位置: protocolのみ登録、r4実装/Run/成績は未完。次: player history accumulatorとリーク防止テスト→年別raw cache→時系列feature cache→モデル別Actions matrix→品質gate→固定買い方→条件を満たせばfreeze後Sep確認。
+- 年次105%/360購入ゲートは維持。Jul-Aug/Sepだけで年間合格としない。Q4未開封、LONGSHOT未着手、本番変更なし。

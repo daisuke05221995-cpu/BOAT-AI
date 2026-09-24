@@ -1,0 +1,187 @@
+{
+  "revision": "v016-r4-player-course-reaction-v1",
+  "registeredBefore": "r4 history/model construction and development outcome evaluation",
+  "hypothesis": "Player-specific course performance and response to exhibition deviations add predictive value beyond current pre-race fields. Racer ID is a lookup key, never a continuous model feature.",
+  "periods": {
+    "seed": [
+      "2024-01-01",
+      "2024-12-31"
+    ],
+    "train": [
+      "2025-01-01",
+      "2025-05-31"
+    ],
+    "earlyStopping": [
+      "2025-06-01",
+      "2025-06-30"
+    ],
+    "development": [
+      "2025-07-01",
+      "2025-08-31"
+    ],
+    "frozenCheck": [
+      "2025-09-01",
+      "2025-09-30"
+    ],
+    "sealed": [
+      "2025-10-01",
+      "2025-12-31"
+    ]
+  },
+  "sources": {
+    "programs": {
+      "repo": "BoatraceOpenAPI/programs",
+      "commit": "d3e37a2b5bce2bc10ac9d8154713cfe250aa5fa1"
+    },
+    "previews": {
+      "repo": "BoatraceOpenAPI/previews",
+      "commit": "5089ce91e150538a8adc8da86ca403f578343318"
+    },
+    "results": {
+      "repo": "BoatraceOpenAPI/results",
+      "commit": "04dfd55682c1f083963ca80b5bfce93ed43cb755"
+    },
+    "odds": {
+      "repo": "lamrongol/BoatraceOdds",
+      "commit": "ddd2f0c1011889779d04dfb802bee4e152b35b30"
+    }
+  },
+  "seedCache": {
+    "run": 35870380669,
+    "artifact": "v016-annual-cache-2024",
+    "file": "annual_2024.npz",
+    "reuse": "2024 race keys/top-three outcomes from existing cache; only missing racer-ID/pre-race source fields fetched, no old model training or odds recomputation"
+  },
+  "history": {
+    "dayBatchUpdate": true,
+    "firstDay": "2024-01-01",
+    "shrinkStrength": 20,
+    "windowsDays": [
+      30,
+      60,
+      90,
+      180
+    ],
+    "ratePriors": [
+      0.16666666666666666,
+      0.3333333333333333,
+      0.5
+    ],
+    "hierarchy": "global/course/class -> player -> player-course -> player-course exhibition-response",
+    "numericMeans": "preview exhibition time/ST only; no actual ST/course/weather",
+    "fastExhibition": "today exhibition time < player historical shrunken mean; negative delta is faster",
+    "goodPreviewST": "today preview ST < player historical shrunken mean; negative delta is earlier, exhibition F remains a signed observation",
+    "identity": "registration ID used only for history lookup and audit",
+    "coverageLimitation": "Seed conditions on the existing eligible-settled-six-boat cache; missing seed races are disclosed, not silently treated as losses"
+  },
+  "models": [
+    "current",
+    "history",
+    "reaction"
+  ],
+  "modelRoles": {
+    "current": "ablation: current pre-race fields and race-relative differences",
+    "history": "ablation: current plus player and player-course rates/counts, rolling 30/60/90/180-day form and past preview mean/SD",
+    "reaction": "candidate: history plus self-relative exhibition/ST deltas/z, course x improved-exhibition/ST rates, relative preview ranks/gaps, lane-one weakness"
+  },
+  "estimator": {
+    "type": "conditional grouped-softmax LightGBM, no odds or market features/offset in outcome learner",
+    "num_leaves": 15,
+    "max_depth": 4,
+    "min_data_in_leaf": 300,
+    "learning_rate": 0.03,
+    "lambda_l2": 20,
+    "rounds": 500,
+    "early_stopping_rounds": 30,
+    "seed": 1604,
+    "lightgbm": "4.6.0",
+    "temperature": "one scalar on June conditional joint logloss; fixed candidates [0.8,1.0,1.2,1.5,2.0] chosen by logloss only"
+  },
+  "qualityGate": {
+    "candidate": "reaction only; current/history are ablations, not extra candidates",
+    "against": "current on identical usable July-August races",
+    "loglossDifferenceMax": -0.002,
+    "pairedDayBootstrap95UpperMax": 0,
+    "brierNotWorse": true,
+    "topChoiceEceTolerance": 0.005,
+    "bootstrapReplicates": 1000
+  },
+  "policies": {
+    "core": {
+      "budget": 1200,
+      "maxPoints": 3,
+      "minEv": 1.1,
+      "minProbability": 0.01,
+      "maxOdds": 40
+    },
+    "reaction": {
+      "inherits": "core",
+      "extra": "ticket first-place boat has player history>=20, course history>=5, and (exhibition z<=-0.5 with shrunken fast-preview top3>base course top3 OR preview-ST z<=-0.5 with shrunken good-ST win>base course win); model/normalized-market probability>=1.4"
+    }
+  },
+  "policyOrder": "Evaluate only after probability-increment gate passes. No new thresholds after seeing ROI.",
+  "developmentGate": {
+    "months": 2,
+    "roi": 105,
+    "purchaseRaces": 60,
+    "hits": 5,
+    "largestHitShareMax": 25,
+    "roiWithoutLargestHitMin": 100,
+    "maxAbsoluteExpectedVsActualRoiGap": 15
+  },
+  "frozenCheckGate": {
+    "months": 1,
+    "roi": 105,
+    "purchaseRaces": 30,
+    "hits": 3,
+    "largestHitShareMax": 25,
+    "roiWithoutLargestHitMin": 100,
+    "maxAbsoluteExpectedVsActualRoiGap": 15
+  },
+  "annualGate": {
+    "completeOutOfSample12MonthsRequired": true,
+    "roi": 105,
+    "purchaseRaces": 360,
+    "hits": 30,
+    "largestHitShareMax": 25,
+    "roiWithoutLargestHitMin": 100,
+    "monthlyLossAllowed": true,
+    "status": "NOT_TESTED_Q4_SEALED; partial-period gates are not annual qualification"
+  },
+  "selection": "At most one policy on reaction: among development passers maximize ROI excluding largest hit, then buys, then policy name; freeze protocol/model/schema/code/policy SHA256 before any September request/read.",
+  "historyDuringEvaluation": "Daily history updates from earlier days are permitted, model trees/temperature/policy never refit during development or frozen September.",
+  "coverage": {
+    "monthlyUsableOverEligibleSettledMin": 0.95,
+    "minimumTrainRaces": 1000,
+    "minimumValidationRaces": 500
+  },
+  "reports": [
+    "logloss",
+    "Brier",
+    "top-choice calibration",
+    "purchase races/hits/stake/payout/profit/ROI",
+    "expected ROI and calibration gap",
+    "largest-hit share",
+    "ROI without largest hit",
+    "monthly",
+    "preview-course bucket",
+    "player sample-size bucket",
+    "self-exhibition-improvement bucket",
+    "lane-one-weakness bucket"
+  ],
+  "safety": {
+    "q4RejectedBeforeUrl": true,
+    "sameDayLabelsNeverUsed": true,
+    "currentActualSTOrCourseUsed": false,
+    "marketUsedOnlyForComparisonAndSelection": true,
+    "septRequiresFrozenCandidate": true,
+    "productionPromotion": false,
+    "longshotStarted": false
+  },
+  "limitations": [
+    "Closing archive odds are not verified live five-minutes-before-close observations",
+    "Settled-six-boat archive population does not validate refunds/cancellations/live missing-data behavior",
+    "Prior research has already inspected portions of 2025; July-August is development, September is a frozen r4 check, only Q4 remains the final sealed holdout",
+    "2025 partial-period success cannot establish annual ROI or multiyear reproducibility"
+  ]
+}
