@@ -63,6 +63,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -362,18 +364,20 @@ private fun VenueDetailScreen(ui: BoatUiState, vm: BoatViewModel, stadium: Int) 
 @Composable
 private fun DateSelectorCard(ui: BoatUiState, vm: BoatViewModel) {
     val formatter = DateTimeFormatter.ofPattern("yyyy年M月d日(E)", Locale.JAPANESE)
+    val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))
+    val earliest = today.minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            IconButton(onClick = vm::previousDay) { Icon(Icons.Default.ChevronLeft, contentDescription = "前日") }
+            IconButton(onClick = vm::previousDay, enabled = ui.date.isAfter(earliest)) { Icon(Icons.Default.ChevronLeft, contentDescription = "前日") }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(ui.date.format(formatter), fontWeight = FontWeight.Bold)
                 Text(if (ui.loading) "データ更新中…" else "全国24場 / 実データ", style = MaterialTheme.typography.bodySmall)
             }
-            IconButton(onClick = vm::nextDay) { Icon(Icons.Default.ChevronRight, contentDescription = "翌日") }
+            IconButton(onClick = vm::nextDay, enabled = ui.date.isBefore(today)) { Icon(Icons.Default.ChevronRight, contentDescription = "翌日") }
         }
     }
 }
@@ -798,7 +802,10 @@ private fun AppUpdateCard(update: AppUpdateState, vm: BoatViewModel) {
 @Composable
 private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
     val race = ui.selectedRace ?: return
-    val savedPrediction = ui.predictionHistory.firstOrNull { it.id == race.id }
+    val prospectivePrediction = ui.predictionHistory.firstOrNull { it.id == race.id }
+    val retrospectivePrediction = ui.modelARecentVirtualRecords.firstOrNull { it.id == race.id }
+    val savedPrediction = retrospectivePrediction ?: prospectivePrediction
+    val isRetrospective = savedPrediction?.strategyId == ModelARecentVirtualRepository.STRATEGY_ID
     val decision = savedPrediction?.let {
         RecommendationDecision(
             it.recommendation,
@@ -857,13 +864,17 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
                         )
                         savedPrediction?.let { prediction ->
                             Spacer(Modifier.height(4.dp))
-                            Text("事前予想 ${prediction.combinations.joinToString(" / ").ifBlank { "買い目なし" }}")
+                            Text((if (isRetrospective) "過去Model A再現 " else "事前予想 ") + prediction.combinations.joinToString(" / ").ifBlank { "買い目なし" })
                             Text(
                                 if (prediction.hit) "予想的中　想定払戻 ${money(prediction.simulatedPayout)}" else "予想ハズレ",
                                 fontWeight = FontWeight.SemiBold,
                                 color = if (prediction.hit) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                             )
-                        } ?: Text("このレースは締切前の予想履歴が保存されていません", style = MaterialTheme.typography.bodySmall)
+                            if (isRetrospective) {
+                                Text("仮想購入 ${money(prediction.simulatedStake)} / 払戻 ${money(prediction.simulatedPayout)} / 損益 ${signedMoney(prediction.simulatedProfit)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                                Text("予想は対象日前日までの履歴だけで再現。精算は終了後の確定払戻です。", style = MaterialTheme.typography.bodySmall)
+                            }
+                        } ?: Text("このレースは保存済み予想がありません", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -876,7 +887,7 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
                     Text("AI予想 3連単", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text("全国/当地・平均ST・モーター/ボート・展示・直前ST・進入を合成", style = MaterialTheme.typography.bodySmall)
+                    Text(if (isRetrospective) "対象日前日までの履歴でModel Aを再現。オッズはレース終了後の公式値" else "全国/当地・平均ST・モーター/ボート・展示・直前ST・進入を合成", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(8.dp))
                     ui.predictions.forEachIndexed { index, pick ->
                         PredictionRow(index + 1, pick, ui.stakePerPick)

@@ -30,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -128,7 +130,7 @@ fun PurchaseDashboardScreen(ui: BoatUiState, vm: BoatViewModel) {
 @Composable
 fun CompactResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
     val results = ui.races.filter { it.hasResult }.sortedWith(compareBy<RaceData> { it.stadiumNumber }.thenBy { it.raceNumber })
-    val predictionByRace = ui.predictionHistory.associateBy { it.id }
+    val predictionByRace = ui.predictionHistory.associateBy { it.id } + ui.modelARecentVirtualRecords.associateBy { it.id }
     val venues = results.groupBy { it.stadiumNumber }.toSortedMap()
     val expanded = remember { mutableStateMapOf<Int, Boolean>() }
     val captured = results.count { predictionByRace[it.id] != null }
@@ -146,7 +148,7 @@ fun CompactResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DashboardMetric("確定", "${results.size}R", Modifier.weight(1f))
-                DashboardMetric("事前予想", "$captured R", Modifier.weight(1f))
+                DashboardMetric("AI予想", "$captured R", Modifier.weight(1f))
                 DashboardMetric("的中", "$hits R", Modifier.weight(1f))
                 DashboardMetric("実購入", "$boughtRaces R", Modifier.weight(1f))
             }
@@ -196,6 +198,9 @@ fun CompactResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
                                             overflow = TextOverflow.Ellipsis,
                                             style = MaterialTheme.typography.bodySmall
                                         )
+                                        if (prediction?.strategyId == ModelARecentVirtualRepository.STRATEGY_ID) {
+                                            Text("Model A仮想 ${compactMoney(prediction.simulatedStake)} → ${compactMoney(prediction.simulatedPayout)} / ${signedCompactMoney(prediction.simulatedProfit)}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                                        }
                                         if (purchases.isNotEmpty()) {
                                             Text("実購入 ${compactMoney(stake)} / 払戻 ${compactMoney(payout)} / ${signedCompactMoney(payout - stake)}", style = MaterialTheme.typography.labelSmall)
                                         }
@@ -221,6 +226,13 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
     val monthPrefix = String.format(Locale.US, "%04d-%02d", ui.date.year, ui.date.monthValue)
 
     val settledPredictions = ui.predictionHistory.filter { it.settled && it.evaluationEligible }
+    val retrospectivePredictions = ui.modelARecentVirtualRecords.filter { it.settled && it.evaluationEligible }
+    val selectedRetrospective = when (period) {
+        0 -> retrospectivePredictions.filter { it.date == dateText }
+        1 -> retrospectivePredictions.filter { it.date >= weekStart && it.date <= dateText }
+        2 -> retrospectivePredictions.filter { it.date.startsWith(monthPrefix) }
+        else -> retrospectivePredictions
+    }
     val selectedPredictions = when (period) {
         0 -> settledPredictions.filter { it.date == dateText }
         1 -> settledPredictions.filter { it.date >= weekStart && it.date <= dateText }
@@ -236,6 +248,7 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
 
     val recommended = ProfitAnalytics.summarize(selectedPredictions.filter { it.recommended })
     val all = ProfitAnalytics.summarize(selectedPredictions)
+    val retrospective = ProfitAnalytics.summarize(selectedRetrospective)
     val actualSettled = selectedActual.filter { it.settled }
     val actualStake = actualSettled.sumOf { it.stake }
     val actualPayout = actualSettled.sumOf { it.payout }
@@ -270,6 +283,19 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
                     Text(signedCompactMoney(actualPayout - actualStake), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
                     Text("購入 ${compactMoney(actualStake)} / 払戻 ${compactMoney(actualPayout)} / 回収率 ${compactPercent(actualRoi)}")
                     if (pendingStake > 0) Text("結果待ち ${compactMoney(pendingStake)}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                Column(Modifier.padding(14.dp)) {
+                    Text("Model A 過去仮想損益（確定払戻）", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(signedCompactMoney(retrospective.profit), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
+                    Text("${retrospective.hits}/${retrospective.races}的中 / 購入 ${compactMoney(retrospective.stake)} / 払戻 ${compactMoney(retrospective.payout)} / 回収率 ${compactPercent(retrospective.roi)}")
+                    Text("対象日前日までの履歴だけでModel A上位4点を先に再現し、1点300円（1R 1,200円）をレース終了後の確定払戻で精算。締切前に同じ価格で買えたことを示すROIではありません。", style = MaterialTheme.typography.bodySmall)
+                    ui.modelARecentVirtualThroughDate?.let { Text("更新: $it まで / 表示は直近1か月", style = MaterialTheme.typography.labelSmall) }
+                    ui.modelARecentVirtualError?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
                 }
             }
         }
@@ -310,15 +336,17 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
 @Composable
 private fun CompactDateSelector(ui: BoatUiState, vm: BoatViewModel) {
     val formatter = DateTimeFormatter.ofPattern("M月d日(E)", Locale.JAPANESE)
+    val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))
+    val earliest = today.minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            TextButton(onClick = vm::previousDay) { Text("‹ 前日") }
+            TextButton(onClick = vm::previousDay, enabled = ui.date.isAfter(earliest)) { Text("‹ 前日") }
             Text(ui.date.format(formatter), fontWeight = FontWeight.Bold)
-            TextButton(onClick = vm::nextDay) { Text("翌日 ›") }
+            TextButton(onClick = vm::nextDay, enabled = ui.date.isBefore(today)) { Text("翌日 ›") }
         }
     }
 }
