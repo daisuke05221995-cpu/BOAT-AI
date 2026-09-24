@@ -230,7 +230,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         if (showLoading) _ui.update { it.copy(oddsLoading = true, oddsError = null) }
         viewModelScope.launch {
             val requested = when {
-                PredictionEngine.hasReferenceR3Strategy() -> PredictionEngine.referenceOddsCombinations()
+                PredictionEngine.hasAverageRoiReferenceStrategy() -> PredictionEngine.averageRoiOddsCombinations()
                 PredictionEngine.hasValueStrategyModel() -> PredictionEngine.valueOddsCombinations()
                 else -> initial.map { it.combination }
             }
@@ -280,7 +280,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             oddsUpdatedAt = result.fetchedAt,
                             oddsSource = result.source,
                             oddsDiagnostics = result.diagnostics,
-                            oddsDecision = if (PredictionEngine.hasValueStrategyModel() || PredictionEngine.hasReferenceR3Strategy()) {
+                            oddsDecision = if (PredictionEngine.hasValueStrategyModel() || PredictionEngine.hasAverageRoiReferenceStrategy()) {
                                 decision.reason
                             } else {
                                 BetStrategy.oddsDecision(displayedPredictions)
@@ -315,9 +315,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
      * list/bulk BUY-SKIP decisions available without opening each detail screen.
      */
     private fun refreshValueSelections(races: List<RaceData>) {
-        val referenceMode = PredictionEngine.hasReferenceR3Strategy()
+        val averageRoiMode = PredictionEngine.hasAverageRoiReferenceStrategy()
         val combinations = when {
-            referenceMode -> PredictionEngine.referenceOddsCombinations()
+            averageRoiMode -> PredictionEngine.averageRoiOddsCombinations()
             PredictionEngine.hasValueStrategyModel() -> PredictionEngine.valueOddsCombinations()
             else -> return
         }
@@ -329,13 +329,13 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         valueRefreshJob = viewModelScope.launch {
             for (race in candidates) {
                 if (!race.isPurchasable()) continue
-                if (referenceMode && PredictionEngine.hasReferenceSelection(race)) continue
-                if (!referenceMode && PredictionEngine.cachedValueSelection(race) != null) continue
+                if (averageRoiMode && PredictionEngine.hasAverageRoiSelection(race)) continue
+                if (!averageRoiMode && PredictionEngine.cachedValueSelection(race) != null) continue
                 runCatching {
                     repository.loadOfficialTrifectaOddsDetailed(race, combinations)
                 }.onSuccess { result ->
-                    if (referenceMode) {
-                        PredictionEngine.applyReferenceOdds(race, result.odds, _ui.value.raceBudget)
+                    if (averageRoiMode) {
+                        PredictionEngine.applyAverageRoiOdds(race, result.odds, _ui.value.raceBudget)
                     } else {
                         PredictionEngine.applyValueOdds(race, result.odds)
                     }
@@ -502,7 +502,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         recommendedBulkScope = null
         val race = _ui.value.races.firstOrNull { it.id == raceId } ?: return
         if (!race.isPurchasable()) return
-        if ((PredictionEngine.hasReferenceR3Strategy() && !PredictionEngine.hasReferenceSelection(race)) ||
+        if ((PredictionEngine.hasAverageRoiReferenceStrategy() && !PredictionEngine.hasAverageRoiSelection(race)) ||
             (PredictionEngine.hasValueStrategyModel() && PredictionEngine.cachedValueSelection(race) == null)) {
             _ui.update { it.copy(actionMessage = "${race.venueName} ${race.raceNumber}Rは公式オッズ判定中です") }
             return
@@ -816,8 +816,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         _ui.value.races.filter { race ->
             if (stadiumNumber != null && race.stadiumNumber != stadiumNumber) return@filter false
             if (!race.isPurchasable()) return@filter false
-            if (PredictionEngine.hasReferenceR3Strategy()) {
-                PredictionEngine.isDecisionReady(race) && PredictionEngine.hasReferenceSelection(race)
+            if (PredictionEngine.hasAverageRoiReferenceStrategy()) {
+                PredictionEngine.isDecisionReady(race) && PredictionEngine.hasAverageRoiSelection(race)
             } else if (PredictionEngine.hasValueStrategyModel()) {
                 PredictionEngine.isDecisionReady(race) && PredictionEngine.cachedValueSelection(race) != null
             } else {

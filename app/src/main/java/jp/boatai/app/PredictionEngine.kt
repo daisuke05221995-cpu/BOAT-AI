@@ -34,17 +34,17 @@ object PredictionEngine {
     }
 
     fun hasValueStrategyModel(): Boolean = valueStrategyModel != null
-    fun hasReferenceR3Strategy(): Boolean = ReferenceR3Strategy.ENABLED
-    fun referenceOddsCombinations(): List<String> = ReferenceR3Strategy.allCombinations()
-    internal fun hasReferenceSelection(race: RaceData): Boolean = ReferenceR3Strategy.cached(race) != null
-    internal fun applyReferenceOdds(race: RaceData, odds: Map<String, Double>, budget: Int): ValueSelection =
-        ReferenceR3Strategy.evaluateAndCache(race, odds, budget)
+    fun hasAverageRoiReferenceStrategy(): Boolean = AverageRoiReferenceStrategy.ENABLED
+    fun averageRoiOddsCombinations(): List<String> = AverageRoiReferenceStrategy.allCombinations()
+    internal fun hasAverageRoiSelection(race: RaceData): Boolean = AverageRoiReferenceStrategy.cached(race) != null
+    internal fun applyAverageRoiOdds(race: RaceData, odds: Map<String, Double>, budget: Int): ValueSelection =
+        AverageRoiReferenceStrategy.evaluateAndCache(race, odds, budget)
 
     fun valueOddsCombinations(): List<String> = valueStrategyModel?.allCombinations().orEmpty()
 
     fun clearValueSelections() {
         valueSelections.clear()
-        ReferenceR3Strategy.clear()
+        AverageRoiReferenceStrategy.clear()
     }
 
     /** Restore only decisions recorded by this strategy; legacy records must not masquerade as value decisions. */
@@ -155,8 +155,8 @@ object PredictionEngine {
     }
 
     fun recommendation(race: RaceData): RecommendationDecision {
-        if (ReferenceR3Strategy.ENABLED) {
-            ReferenceR3Strategy.cached(race)?.let { selection ->
+        if (AverageRoiReferenceStrategy.ENABLED) {
+            AverageRoiReferenceStrategy.cached(race)?.let { selection ->
                 return RecommendationDecision(selection.recommendation, selection.reason)
             }
         }
@@ -247,8 +247,8 @@ object PredictionEngine {
      * fall back to the legacy four-point strategy in automated/history paths.
      */
     fun predict(race: RaceData, maxPicks: Int = 4): List<PredictionPick> {
-        if (ReferenceR3Strategy.ENABLED) {
-            ReferenceR3Strategy.cached(race)?.let { selection ->
+        if (AverageRoiReferenceStrategy.ENABLED) {
+            AverageRoiReferenceStrategy.cached(race)?.let { selection ->
                 return if (selection.recommendation == RaceRecommendation.BUY) {
                     selection.picks.take(maxPicks.coerceAtLeast(1))
                 } else emptyList()
@@ -311,8 +311,8 @@ object PredictionEngine {
         budget: Int = BetStrategy.DEFAULT_BUDGET,
         learningOverride: LearningProfile? = null
     ): List<PredictionPick> {
-        if (ReferenceR3Strategy.ENABLED) {
-            val selection = ReferenceR3Strategy.evaluateAndCache(race, odds, budget)
+        if (AverageRoiReferenceStrategy.ENABLED) {
+            val selection = AverageRoiReferenceStrategy.evaluateAndCache(race, odds, budget)
             return if (selection.recommendation == RaceRecommendation.BUY) {
                 BetStrategy.allocate(race, selection.picks, budget)
             } else emptyList()

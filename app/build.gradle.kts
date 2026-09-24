@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 31
-        versionName = "0.15.13"
-        // v0.15.13: official-app purchase handoff + temporary r3 reference mode.
+        versionCode = 32
+        versionName = "0.15.14"
+        // v0.15.14: replace tiny-sample r3 reference with frozen average-ROI reference policy.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
