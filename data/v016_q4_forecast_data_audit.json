@@ -1,0 +1,19 @@
+{
+  "protocolCommitSha": "3a56378244dd1f3621f862ac89cea3db8ccea6af",
+  "sourceDays": 92,
+  "population": {
+    "sourceRaces": 12900,
+    "resultWithoutProgram": 0,
+    "eligibleSettled": 11903,
+    "notSixBoatUniqueFinish": 997,
+    "modelMissingRequiredInput": 7
+  },
+  "comparisonRaces": 11896,
+  "coverage": 0.9994119129631185,
+  "sameDayHistoryLeakRows": 0,
+  "duplicateRaceKeys": 0,
+  "oddsRead": false,
+  "payoutRead": false,
+  "historyWarmupThrough": "2025-09-30",
+  "historyEndThrough": "2025-12-31"
+}

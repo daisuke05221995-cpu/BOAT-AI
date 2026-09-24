@@ -1,0 +1,162 @@
+{
+  "decision": "PASS_Q4_FINAL_FORECAST",
+  "protocolCommitSha": "3a56378244dd1f3621f862ac89cea3db8ccea6af",
+  "protocolSha256": "8e7a100ed1a154ea64bbd1b58448851b431923b1cb62fff2a6dd99d051659fa3",
+  "comparisonRaces": 11896,
+  "coverage": 0.9994119129631185,
+  "population": {
+    "sourceRaces": 12900,
+    "resultWithoutProgram": 0,
+    "eligibleSettled": 11903,
+    "notSixBoatUniqueFinish": 997,
+    "modelMissingRequiredInput": 7
+  },
+  "modelMetrics": {
+    "races": 11896,
+    "trifectaLogloss": 3.7611253714877235,
+    "trifectaBrier": 0.9577274405734347,
+    "topChoiceEce": 0.0067621062197892965,
+    "firstTop1": 0.578093476798924,
+    "firstTop2": 0.76546738399462,
+    "trifectaTop1": 0.1062542030934768,
+    "trifectaTop2": 0.18417955615332884,
+    "trifectaTop4": 0.3061533288500336,
+    "trifectaTop8": 0.4673839946200404
+  },
+  "baselineMetrics": {
+    "races": 11896,
+    "trifectaLogloss": 4.181624273951378,
+    "trifectaBrier": 0.9767972202255224,
+    "topChoiceEce": 0.004553203842197822,
+    "firstTop1": 0.4614996637525219,
+    "firstTop2": 0.6762777404169469,
+    "trifectaTop1": 0.059011432414256895,
+    "trifectaTop2": 0.11281102891728312,
+    "trifectaTop4": 0.1937626092804304,
+    "trifectaTop8": 0.3195191661062542
+  },
+  "pairedDayBlockBootstrap95": {
+    "trifectaLogloss": {
+      "point": -0.4204989024636553,
+      "ci95": [
+        -0.44004084209313427,
+        -0.4028417702079884
+      ]
+    },
+    "trifectaBrier": {
+      "point": -0.01906977965208746,
+      "ci95": [
+        -0.02021242697116057,
+        -0.018039848045498776
+      ]
+    }
+  },
+  "primaryPass": true,
+  "secondarySafetyPass": true,
+  "validityIssues": [],
+  "months": {
+    "10": {
+      "races": 3861,
+      "model": {
+        "races": 3861,
+        "trifectaLogloss": 3.7945558074237806,
+        "trifectaBrier": 0.9595049862997109,
+        "topChoiceEce": 0.005002593049479715,
+        "firstTop1": 0.5674695674695674,
+        "firstTop2": 0.7601657601657602,
+        "trifectaTop1": 0.09816109816109816,
+        "trifectaTop2": 0.1743071743071743,
+        "trifectaTop4": 0.29836829836829837,
+        "trifectaTop8": 0.4633514633514634
+      },
+      "baseline": {
+        "races": 3861,
+        "trifectaLogloss": 4.2105596566346675,
+        "trifectaBrier": 0.9777197591432132,
+        "topChoiceEce": 0.004117167432629925,
+        "firstTop1": 0.4509194509194509,
+        "firstTop2": 0.6687386687386687,
+        "trifectaTop1": 0.059052059052059055,
+        "trifectaTop2": 0.10696710696710697,
+        "trifectaTop4": 0.18777518777518779,
+        "trifectaTop8": 0.30691530691530694
+      }
+    },
+    "11": {
+      "races": 3650,
+      "model": {
+        "races": 3650,
+        "trifectaLogloss": 3.742769221583965,
+        "trifectaBrier": 0.9570414111668059,
+        "topChoiceEce": 0.010345015401856342,
+        "firstTop1": 0.5909589041095891,
+        "firstTop2": 0.7665753424657534,
+        "trifectaTop1": 0.10821917808219178,
+        "trifectaTop2": 0.18958904109589042,
+        "trifectaTop4": 0.30794520547945203,
+        "trifectaTop8": 0.4745205479452055
+      },
+      "baseline": {
+        "races": 3650,
+        "trifectaLogloss": 4.174407313823355,
+        "trifectaBrier": 0.9767244743206437,
+        "topChoiceEce": 0.0043817754771844864,
+        "firstTop1": 0.4723287671232877,
+        "firstTop2": 0.6846575342465754,
+        "trifectaTop1": 0.056438356164383564,
+        "trifectaTop2": 0.11397260273972602,
+        "trifectaTop4": 0.19342465753424656,
+        "trifectaTop8": 0.32136986301369863
+      }
+    },
+    "12": {
+      "races": 4385,
+      "model": {
+        "races": 4385,
+        "trifectaLogloss": 3.7469691648741765,
+        "trifectaBrier": 0.9567333478220195,
+        "topChoiceEce": 0.008333514807871263,
+        "firstTop1": 0.576738882554162,
+        "firstTop2": 0.7692132269099202,
+        "trifectaTop1": 0.11174458380843785,
+        "trifectaTop2": 0.18836944127708097,
+        "trifectaTop4": 0.31151653363740023,
+        "trifectaTop8": 0.46499429874572407
+      },
+      "baseline": {
+        "races": 4385,
+        "trifectaLogloss": 4.16215389582757,
+        "trifectaBrier": 0.9760454755941889,
+        "topChoiceEce": 0.005427970845359684,
+        "firstTop1": 0.4618015963511973,
+        "firstTop2": 0.6759407069555302,
+        "trifectaTop1": 0.06111744583808438,
+        "trifectaTop2": 0.11698973774230331,
+        "trifectaTop4": 0.1993158494868871,
+        "trifectaTop8": 0.3290763968072976
+      }
+    }
+  },
+  "sourceDays": 92,
+  "sameDayHistoryLeakRows": 0,
+  "duplicateRaceKeys": 0,
+  "historyWarmupThrough": "2025-09-30",
+  "historyEndThrough": "2025-12-31",
+  "historyUpdateRacesEnd": 103343,
+  "modelRunId": 35940833546,
+  "modelArtifactId": 10784912368,
+  "modelArtifactDigest": "sha256:58b845fa8d07efe258b08a23ac6caafab2e4854ce4b84618fb4af6ae3f3687fe",
+  "marketInputs": false,
+  "oddsRead": false,
+  "payoutRead": false,
+  "q4Opened": true,
+  "autoBuyPromotion": false,
+  "productionPromotion": false,
+  "septemberWarmupPopulation": {
+    "sourceRaces": 4272,
+    "resultWithoutProgram": 0,
+    "notSixBoatUniqueFinish": 313,
+    "eligibleSettled": 3959,
+    "modelMissingRequiredInput": 3
+  }
+}
