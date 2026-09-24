@@ -10,6 +10,7 @@ on:
       - 'app/src/main/java/jp/boatai/app/ModelAConditionalPredictor.kt'
       - 'app/src/test/java/jp/boatai/app/ModelARealParityTest.kt'
       - 'app/src/test/java/jp/boatai/app/ModelAChainRealParityTest.kt'
+      - 'app/src/test/java/jp/boatai/app/ModelAConditionalPredictorTest.kt'
       - 'scripts/v016_android_parity_fixture.py'
       - 'scripts/v016_android_chain_fixture.py'
       - '.github/workflows/v016-android-parity.yml'
