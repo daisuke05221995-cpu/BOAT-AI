@@ -48,6 +48,7 @@
 - CORE r1旧144条件: 2024通年で合格0。再探索しない。
 - CORE r2: 6モデル全不採用。
 - CORE r3 walk-forwardも2024通年で不採用確定。
+- CORE r4「2025年中心・選手ID×コース×展示反応」も不採用確定。本番へ統合しない。
 
 r3 2024通年 place-small:
 - Q1 ROI 136.67%、9購入、1的中、Q1 calibration gate FAIL。
@@ -57,14 +58,35 @@ r3 2024通年 place-small:
 - 年間gate FAIL。
 - Decision: `reject_r3_place_small`。
 
-見かけの高ROIでも購入件数・的中数・最大1的中依存・校正条件を満たさないため、本番昇格しない。
+r4 2025年7〜8月開発評価:
+- Run `35940833546`: SUCCESS。protocol事前登録→選手履歴→feature cache→3モデル比較→固定2policy検証まで完了。
+- core: 7,265購入 / 581的中 / ROI 81.12% / 損益 -1,646,180円 / 最大1的中除外ROI 80.57%。
+- reaction: 2,888購入 / 230的中 / ROI 82.05% / 損益 -622,160円 / 最大1的中除外ROI 80.68%。
+- 予測期待ROIは約134%だったが、実績ROIとの差が約52〜53ptあり、価値推定が大きく過大評価。
+- 履歴追加はlogloss上の増分改善を確認したが、購入収益gateは両policyともFAIL。
+- 2025年9月は候補なしで未評価、2025年10〜12月final holdoutは未開封。
+- LONGSHOT未着手、本番変更なし。
+
+見かけの高ROI・部分指標だけでは昇格させず、購入件数・的中数・最大1的中依存・校正・ROIをまとめて判断する。
 
 **2025-10-01〜2025-12-31 final holdoutは未開封のまま維持。**
 
 ## 次の研究
 
-Work側でr4「2025年中心・選手ID×コース×展示反応」を研究中。Android本番/UI/Releaseとは分離する。最新状態・Run IDは `WORK_HANDOFF.md` と `data/v016_r4_*` を確認する。本番へ自動昇格しない。
+r1〜r4のminEV・展示z・各閾値を後付けで微調整して救済しない。
+
+次のCORE仮説は「選手履歴の増分を使う、時系列out-of-fold予測に基づく市場差の校正/選別」。
+
+- 最初に新protocolで2025年1〜6月内のforward-only分割manifestを事前登録する。
+- 選別器学習に使うModel A予測は、必ず対象レースより前のデータだけで作る。
+- r4のtrain feature cacheを再利用する。
+- 2025年7〜8月を追加学習へ混ぜない。
+- 市場情報は最終選別器でのみ利用する。
+- 結果を見て閾値を合わせる探索はしない。
+- 候補完全固定前に2025年9月/Q4を開かない。
+- COREが基準を満たすまでLONGSHOTへ進めない。
+- 採用候補でも通常チャット側の最終確認まで本番統合・Releaseしない。
 
 ## 再開時
 
-`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、最新main、進行中Actionsを確認する。
+`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、`data/v016_r4_report.md`、最新main、進行中Actionsを確認する。
