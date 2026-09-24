@@ -364,3 +364,10 @@ v0.15.3で予想履歴保存とユーザー通知を分離した。
 4. 新候補も完全固定前にSep/Q4を開かない。Q4は今回のコードに許可経路なし。COREが基準を満たすまでLONGSHOTを進めない。
 
 通常チャットへ戻ってBOAT AIの続きを依頼してください。
+
+## v016 OOF研究・進行中チェックポイント（2026-09-24）
+
+- 現在位置: protocol事前登録 commit `5a9b333eeae78e2d100f0ca69251bec98e223c6a`、forward-only manifest commit `1c9998b6664d0d93158f4fcb65f2e9fbe5c22dec`、実装workflow commit `a06d8e91af7ecdbb10dee6b51465fb508bd12fd3`。
+- Actions Run `35982657474`: 実行中。guard SUCCESS、2025-03 fold と7〜8月固定Model A予測 SUCCESS、残り3fold実行中（この記録時点）。
+- 次の1手: Runのfold→logistic→3候補matrix→publishを追跡し、失敗時はv016_oof_*専用ファイルで修正。成功時は data/v016_oof_result.json、feature_audit、report、frozen_candidateを検証する。
+- r1〜r4閾値救済なし。2025年9月/Q4未取得。Android/app/Release/本番ロジック未変更。
