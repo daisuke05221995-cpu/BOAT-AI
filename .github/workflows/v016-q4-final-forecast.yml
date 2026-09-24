@@ -1,0 +1,82 @@
+name: v0.16 Q4 final forecast holdout
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/v016_q4_forecast_execute.json'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: v016-q4-final-forecast
+  cancel-in-progress: false
+
+env:
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '2'
+
+jobs:
+  final-holdout:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned forecast dependencies
+        run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - name: Verify preregistration and fences before Q4 access
+        run: python scripts/v016_q4_forecast_test.py
+      - name: Download frozen Aug-31 history seed
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35940833546'
+          name: v016-r4-features
+          path: frozen
+      - name: Download frozen Model A
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35940833546'
+          name: v016-r4-model-reaction
+          path: frozen-model
+      - name: Execute final Q4 forecast-only holdout
+        id: holdout
+        continue-on-error: true
+        run: python -u scripts/v016_q4_forecast_holdout.py --state frozen/history_state.json --model frozen-model --output q4-output
+      - name: Upload Q4 final evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v016-q4-final-forecast
+          path: q4-output/
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Commit final holdout report without deployment assets
+        if: always()
+        run: |
+          test -f q4-output/v016_q4_forecast_decision.json || exit 0
+          cp q4-output/v016_q4_forecast_data_audit.json data/
+          cp q4-output/v016_q4_forecast_result.json data/
+          cp q4-output/v016_q4_forecast_report.md data/
+          cp q4-output/v016_q4_forecast_decision.json data/
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/v016_q4_forecast_data_audit.json data/v016_q4_forecast_result.json data/v016_q4_forecast_report.md data/v016_q4_forecast_decision.json
+          git commit -m 'Record v0.16 Q4 final forecast holdout [skip ci]' || exit 0
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main || exit 1
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1
+      - name: Enforce PASS before release work
+        if: always()
+        run: test '${{ steps.holdout.outcome }}' = 'success'
