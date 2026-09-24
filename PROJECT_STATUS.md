@@ -94,8 +94,9 @@ Model A vs v0.15.16純AI:
 - 実Model AのLightGBM v4 numeric/non-linear treeをAndroid側で再現するための最小パーサ/推論器。
 - 実モデルの欠損分岐、threshold、leaf走査をLightGBM仕様に合わせる。
 - 研究用確認ではPython LightGBM raw scoreとKotlin prototypeのサンプル出力が一致。
+- prototype検証Run `35995823959`: live API schema / Unit test / Android lint / Debug APK build / artifact upload 全SUCCESS。
 - まだ本番 `PredictionEngine` へModel Aを接続していない。
-- モデルasset、履歴state、日次履歴更新、120通り確率chain、端末速度/メモリ、Python parityは今後の統合gate。
+- モデルasset、履歴state、日次履歴更新、120通り確率chain、端末速度/メモリ、Python大量sample parityは今後の統合gate。
 - 約46.9MBの研究用history stateをそのままasset採用するかは未決定。
 
 ## 封印範囲
@@ -106,13 +107,12 @@ Model A vs v0.15.16純AI:
 
 ## 次の作業
 
-1. Kotlin LightGBM prototypeのUnit test / lint / Debug buildを全SUCCESSにする。
-2. Python固定Model AとAndroid側で、同一feature rowsのraw scoreを大量sampleでparity検証する。
-3. 3段conditional softmaxと120通り3連単確率をAndroid側に実装し、確率和=1とPython予測一致を確認する。
-4. player/course履歴stateと日次更新方式をAndroid向けに設計する。同日結果は当日全予想後にまとめて反映する。
-5. 端末メモリ/推論速度/起動時間を計測する。
-6. parity・性能・欠損処理が合格した後にのみ、v0.16 forecastとしてProduction統合/Releaseを判断する。
-7. 自動BUYはOFFのまま。締切前時刻が監査可能なオッズ基盤ができるまで購入AI昇格を再開しない。
+1. Python固定Model AとAndroid側で、同一feature rowsのraw scoreを大量sampleでparity検証する。
+2. 3段conditional softmaxと120通り3連単確率をAndroid側に実装し、確率和=1とPython予測一致を確認する。
+3. player/course履歴stateと日次更新方式をAndroid向けに設計する。同日結果は当日全予想後にまとめて反映する。
+4. 端末メモリ/推論速度/起動時間を計測する。
+5. parity・性能・欠損処理が合格した後にのみ、v0.16 forecastとしてProduction統合/Releaseを判断する。
+6. 自動BUYはOFFのまま。締切前時刻が監査可能なオッズ基盤ができるまで購入AI昇格を再開しない。
 
 ## 再開時
 
