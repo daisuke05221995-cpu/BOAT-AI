@@ -1,0 +1,194 @@
+name: v016 September forecast-only holdout
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/v016_sept_forecast_*.py
+      - .github/workflows/v016-sept-forecast-*.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v016-sept-forecast-holdout
+  cancel-in-progress: false
+env:
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '2'
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - run: python scripts/v016_sept_forecast_test.py
+      - name: Check preregistered commit and output mutation boundary
+        run: |
+          python - <<'PY'
+          import pathlib,re
+          w=pathlib.Path('.github/workflows/v016-sept-forecast-holdout.yml').read_text()
+          assert re.findall(r'^          git add (.*)$',w,flags=re.M)==['data/v016_sept_forecast_data_audit.json data/v016_sept_forecast_result.json data/v016_sept_forecast_report.md data/v016_sept_forecast_decision.json']
+          assert '2fbf3239f8ac68e4d45775b353aa03217d9a517f' in pathlib.Path('scripts/v016_sept_forecast_holdout.py').read_text()
+          PY
+
+  fetch:
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35940833546'
+          name: v016-r4-features
+          path: frozen
+      - run: python -u scripts/v016_sept_forecast_holdout.py build --state frozen/history_state.json --output cache/september.npz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-sept-forecast-data
+          path: cache/
+          retention-days: 90
+
+  parity:
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35940833546'
+          name: v016-r4-features
+          path: frozen
+      - run: mkdir -p parity && python scripts/v016_sept_forecast_holdout.py parity --development frozen/development.npz --output parity/baseline_parity.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-sept-forecast-parity
+          path: parity/
+          retention-days: 90
+
+  model:
+    needs: fetch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 lightgbm==4.6.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-sept-forecast-data
+          path: cache
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '35940833546'
+          name: v016-r4-model-reaction
+          path: frozen-model
+      - run: mkdir -p predictions && python -u scripts/v016_sept_forecast_holdout.py model --features cache/september.npz --model frozen-model --output predictions/model.npz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-sept-forecast-model
+          path: predictions/model.npz
+          retention-days: 90
+
+  baseline:
+    needs: [fetch, parity]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-sept-forecast-data
+          path: cache
+      - run: mkdir -p predictions && python scripts/v016_sept_forecast_holdout.py baseline --features cache/september.npz --output predictions/baseline.npz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-sept-forecast-baseline
+          path: predictions/baseline.npz
+          retention-days: 90
+
+  evaluate:
+    needs: [model, baseline]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-sept-forecast-data
+          path: cache
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-sept-forecast-model
+          path: predictions
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-sept-forecast-baseline
+          path: predictions
+      - uses: actions/download-artifact@v4
+        with:
+          name: v016-sept-forecast-parity
+          path: parity
+      - run: python -u scripts/v016_sept_forecast_holdout.py evaluate --features cache/september.npz --audit cache/september.json --model predictions/model.npz --baseline predictions/baseline.npz --parity parity/baseline_parity.json --output data
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v016-sept-forecast-final
+          path: |
+            data/v016_sept_forecast_data_audit.json
+            data/v016_sept_forecast_result.json
+            data/v016_sept_forecast_report.md
+            data/v016_sept_forecast_decision.json
+          retention-days: 90
+      - name: Commit research outputs only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/v016_sept_forecast_data_audit.json data/v016_sept_forecast_result.json data/v016_sept_forecast_report.md data/v016_sept_forecast_decision.json
+          git commit -m 'Record fixed September forecast holdout [skip ci]'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main || exit 1
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1
+    permissions:
+      actions: read
+      contents: write
