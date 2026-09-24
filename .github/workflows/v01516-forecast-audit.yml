@@ -1,0 +1,113 @@
+name: v0.15.16 pure AI forecast audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/v01516_forecast_audit.py'
+      - 'data/v01516_forecast_audit_protocol.json'
+      - '.github/workflows/v01516-forecast-audit.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: v01516-forecast-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install numpy
+        run: pip install 'numpy>=2.0,<3.0'
+
+      - name: Reuse r4 sealed-safe feature cache
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35940833546
+          pattern: v016-r4-features
+          path: r4-features
+          merge-multiple: true
+
+      - name: Locate development cache
+        id: cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          CACHE=$(find r4-features -type f -name 'development.npz' | head -1)
+          test -n "$CACHE"
+          echo "path=$CACHE" >> "$GITHUB_OUTPUT"
+          python - <<PY
+          import numpy as np
+          p='$CACHE'
+          with np.load(p, allow_pickle=False) as z:
+              print('CACHE_KEYS', z.files)
+              print('CURRENT_SHAPE', z['current'].shape)
+          PY
+
+      - name: Run preregistered pure AI audit
+        run: |
+          python scripts/v01516_forecast_audit.py \
+            --cache '${{ steps.cache.outputs.path }}' \
+            --protocol data/v01516_forecast_audit_protocol.json \
+            --output data/v01516_forecast_audit.json \
+            --report data/v01516_forecast_audit_report.md
+
+      - name: Verify fences and audit outputs
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('data/v01516_forecast_audit.json', encoding='utf-8'))
+          assert x['period']=='2025-07-01..2025-08-31'
+          assert x['holdoutOpened'] is False
+          assert x['septemberOpened'] is False
+          assert x['tuningPerformed'] is False
+          assert x['population']['usableRaces'] > 5000
+          assert x['overall']['trifectaTop4HitRate'] >= x['overall']['trifectaTop2HitRate']
+          assert x['overall']['trifectaTop8HitRate'] >= x['overall']['trifectaTop4HitRate']
+          print(json.dumps({
+            'population': x['population'],
+            'overall': x['overall'],
+            'predictedFirstLane': x['predictedFirstLane'],
+            'previewCourseChange': x['previewCourseChange'],
+            'marketBenchmark': x['marketBenchmark'],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Commit audit results
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/v01516_forecast_audit.json data/v01516_forecast_audit_report.md
+          if git diff --cached --quiet; then
+            echo 'No audit changes'
+            exit 0
+          fi
+          git commit -m 'Record v0.15.16 pure AI forecast audit'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if git rebase origin/main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort || true
+            sleep 2
+          done
+          exit 1
