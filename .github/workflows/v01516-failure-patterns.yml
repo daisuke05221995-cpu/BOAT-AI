@@ -1,0 +1,100 @@
+name: v0.15.16 pure AI failure patterns
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'data/v01516_failure_patterns_protocol.json'
+      - 'scripts/v01516_failure_patterns.py'
+      - '.github/workflows/v01516-failure-patterns.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: v01516-failure-patterns
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install numpy
+        run: pip install 'numpy>=2.0,<3.0'
+
+      - name: Reuse r4 sealed-safe feature cache
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35940833546
+          pattern: v016-r4-features
+          path: r4-features
+          merge-multiple: true
+
+      - name: Locate development cache
+        id: cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          CACHE=$(find r4-features -type f -name 'development.npz' | head -1)
+          test -n "$CACHE"
+          echo "path=$CACHE" >> "$GITHUB_OUTPUT"
+
+      - name: Run preregistered failure diagnostic
+        run: |
+          python scripts/v01516_failure_patterns.py \
+            --cache '${{ steps.cache.outputs.path }}' \
+            --protocol data/v01516_failure_patterns_protocol.json \
+            --output data/v01516_failure_patterns.json \
+            --report data/v01516_failure_patterns_report.md
+
+      - name: Verify fences and invariants
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('data/v01516_failure_patterns.json', encoding='utf-8'))
+          assert x['period']=='2025-07-01..2025-08-31'
+          assert x['holdoutOpened'] is False
+          assert x['septemberOpened'] is False
+          assert x['tuningPerformed'] is False
+          assert x['productionChanged'] is False
+          assert x['population']['usableRaces']==9583
+          assert sum(v['races'] for v in x['failureClasses'].values())==9583
+          print(json.dumps(x['failureClasses'], ensure_ascii=False, indent=2))
+          PY
+
+      - name: Commit diagnostic results
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/v01516_failure_patterns.json data/v01516_failure_patterns_report.md
+          if git diff --cached --quiet; then
+            echo 'No changes'
+            exit 0
+          fi
+          git commit -m 'Record v0.15.16 failure pattern diagnostic'
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            if git rebase origin/main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort || true
+            sleep $((attempt*2))
+          done
+          exit 1
