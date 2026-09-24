@@ -35,6 +35,9 @@ data class BoatUiState(
     val oddsChange: String? = null,
     val records: List<BetRecord> = emptyList(),
     val predictionHistory: List<PredictionRecord> = emptyList(),
+    val modelARecentVirtualRecords: List<PredictionRecord> = emptyList(),
+    val modelARecentVirtualThroughDate: String? = null,
+    val modelARecentVirtualError: String? = null,
     val performance: PredictionPerformanceProfile = PredictionPerformanceProfile(),
     val selectedForBulk: Set<String> = emptySet(),
     val pendingPurchase: PendingPurchaseSession? = null,
@@ -53,11 +56,13 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val betStore = BetStore(application)
     private val pendingPurchaseStore = PendingPurchaseStore(application)
     private val predictionStore = PredictionHistoryStore(application)
+    private val modelARecentVirtualRepository = ModelARecentVirtualRepository(application)
     private val appUpdateManager = AppUpdateManager(application)
     private val learningStore = LearningStore(application)
     private val performanceMemoryStore = PerformanceMemoryStore(application)
     private val notificationScheduler = NotificationScheduler(application)
-    private val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))
+    private fun currentToday(): LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo"))
+    private fun earliestBrowsableDate(): LocalDate = currentToday().minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
     private var oddsRefreshJob: Job? = null
     private var valueRefreshJob: Job? = null
     // 0 = nationwide, 1..24 = venue. A single tap on recommended-only stays active
@@ -103,11 +108,19 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             appUpdateManager.checkForUpdates()
         }
+        loadModelARecentVirtual()
         loadDate(_ui.value.date)
     }
 
+    private fun loadModelARecentVirtual() {
+        viewModelScope.launch {
+            val result = modelARecentVirtualRepository.load()
+            _ui.update { it.copy(modelARecentVirtualRecords = result.records, modelARecentVirtualThroughDate = result.throughDate, modelARecentVirtualError = result.error) }
+        }
+    }
+
     fun loadDate(date: LocalDate) {
-        if (date.isAfter(today)) return
+        if (date.isAfter(currentToday()) || date.isBefore(earliestBrowsableDate())) return
         val changingDate = date != _ui.value.date
         if (changingDate) {
             valueRefreshJob?.cancel()
@@ -185,12 +198,15 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun previousDay() = loadDate(_ui.value.date.minusDays(1))
-    fun nextDay() = loadDate(_ui.value.date.plusDays(1))
-    fun refresh() = loadDate(_ui.value.date)
+    fun previousDay() { val target = _ui.value.date.minusDays(1); if (!target.isBefore(earliestBrowsableDate())) loadDate(target) }
+    fun nextDay() { val target = _ui.value.date.plusDays(1); if (!target.isAfter(currentToday())) loadDate(target) }
+    fun refresh() { loadModelARecentVirtual(); loadDate(_ui.value.date) }
 
     fun selectRace(race: RaceData) {
-        val initial = if (PredictionEngine.hasValueStrategyModel()) {
+        val retrospective = _ui.value.modelARecentVirtualRecords.firstOrNull { it.id == race.id }
+        val initial = if (retrospective != null) {
+            retrospective.combinations.mapIndexed { index, combination -> PredictionPick(combination = combination, score = 0.0, recommendedStake = retrospective.stakes.getOrNull(index) ?: retrospective.stakePerPick, reason = "対象日前日までの履歴だけで再現したModel A予想") }
+        } else if (PredictionEngine.hasValueStrategyModel()) {
             val selection = PredictionEngine.cachedValueSelection(race)
             if (selection?.recommendation == RaceRecommendation.BUY) {
                 BetStrategy.allocate(race, selection.picks, _ui.value.raceBudget)
@@ -229,7 +245,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadOdds(race: RaceData, initial: List<PredictionPick>, showLoading: Boolean = true) {
         if (showLoading) _ui.update { it.copy(oddsLoading = true, oddsError = null) }
         viewModelScope.launch {
+            val retrospective = _ui.value.modelARecentVirtualRecords.firstOrNull { it.id == race.id }
             val requested = when {
+                retrospective != null -> initial.map { it.combination }
                 PredictionEngine.hasAverageRoiReferenceStrategy() -> PredictionEngine.averageRoiOddsCombinations()
                 PredictionEngine.hasValueStrategyModel() -> PredictionEngine.valueOddsCombinations()
                 else -> initial.map { it.combination }
@@ -242,17 +260,18 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 repository.loadOfficialTrifectaOddsDetailed(race, requested)
             }
                 .onSuccess { result ->
-                    val strategyPredictions = PredictionEngine.withOdds(
-                        race,
-                        initial,
-                        result.odds,
-                        _ui.value.raceBudget
-                    )
+                    val strategyPredictions = if (retrospective != null) {
+                        initial.map { pick -> pick.copy(odds = result.odds[pick.combination], reason = "過去Model A再現 / レース終了後の公式オッズ") }
+                    } else {
+                        PredictionEngine.withOdds(race, initial, result.odds, _ui.value.raceBudget)
+                    }
                     val decision = PredictionEngine.recommendation(race)
                     // Detail screen keeps an explicit manual-override candidate list for a
                     // user who deliberately buys a SKIP race. Those candidates are never
                     // used for AI virtual P/L or recommendation-only bulk purchase.
-                    val displayedPredictions = if (
+                    val displayedPredictions = if (retrospective != null) {
+                        strategyPredictions
+                    } else if (
                         PredictionEngine.hasValueStrategyModel() &&
                         decision.recommendation == RaceRecommendation.SKIP
                     ) {
@@ -267,9 +286,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                         strategyPredictions
                     }
 
-                    val history = predictionStore.captureOpenRaces(listOf(race))
+                    val history = if (retrospective == null) predictionStore.captureOpenRaces(listOf(race)) else _ui.value.predictionHistory
                     val performance = PredictionPerformanceProfile.from(history)
-                    PredictionEngine.installPerformanceProfile(performance)
+                    if (retrospective == null) PredictionEngine.installPerformanceProfile(performance)
 
                     _ui.update { state ->
                         state.copy(
@@ -280,7 +299,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             oddsUpdatedAt = result.fetchedAt,
                             oddsSource = result.source,
                             oddsDiagnostics = result.diagnostics,
-                            oddsDecision = if (PredictionEngine.hasValueStrategyModel() || PredictionEngine.hasAiForecastMode()) {
+                            oddsDecision = if (retrospective != null) {
+                                "過去Model A再現。予想は対象日前日までの履歴のみ、表示オッズはレース終了後に取得した公式値"
+                            } else if (PredictionEngine.hasValueStrategyModel() || PredictionEngine.hasAiForecastMode()) {
                                 decision.reason
                             } else {
                                 BetStrategy.oddsDecision(displayedPredictions)
