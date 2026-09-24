@@ -1,0 +1,47 @@
+{
+  "revision": "v016-integrity-forecast-readiness-v1",
+  "registeredBefore": "historical odds provenance/payout comparison and forecast artifact deployability evaluation",
+  "boundary": {
+    "allowedRaceDates": ["2025-01-01", "2025-08-31"],
+    "payoutComparison": ["2025-07-01", "2025-08-31"],
+    "sealedFrom": "2025-09-01",
+    "sourceSnapshots": "only r4/OOF pinned and already-opened data; no September/Q4 URLs, files, results or inference",
+    "purchaseSearch": false,
+    "productionPromotion": false
+  },
+  "oddsProvenance": {
+    "sourceRepository": "lamrongol/BoatraceOdds",
+    "pinnedCommit": "ddd2f0c1011889779d04dfb802bee4e152b35b30",
+    "inspect": ["source README", "scraper/workflow and schedule", "per-day JSON schema and generation logic", "raw artifact metadata and source SHA"],
+    "verify": ["single or multiple snapshots per race", "collection timing relative to close/start", "snapshot timestamp persisted", "whether a fixed T-minus-5-minute horizon is provable"]
+  },
+  "payoutComparison": {
+    "source": "r4 run 35940833546 v016-r4-raw-2025 or v016-r4-features/development.npz, identical race keys and source hashes",
+    "selection": "all July-August eligible settled six-boat races with valid winning trifecta, positive payout and positive finite archived winning odds; report every exclusion from broader population separately",
+    "oddsUnits": "payout amount in yen per 100 yen divided by 100 to odds; preserve source numeric odds; report exact equality at stored precision and separately source-documented rounding convention if any",
+    "thresholds": {"absoluteOddsPoints": [0.1, 0.5], "relativeFractions": [0.01, 0.03, 0.05]},
+    "distribution": "signed odds minus payout/100, absolute difference; count, mean, median, p90, p95, p99, minimum, maximum; monthly and venue grouping; top 20 absolute mismatches with race key only",
+    "interpretation": "close agreement can suggest near-final values but cannot establish pre-close collection"
+  },
+  "population": {
+    "groups": ["source program race count", "eligible settled six-boat count", "pre-race feature usable", "all-120-odds usable", "joint usable", "cancelled/aborted/incomplete", "refund/return", "multiple payout/dead heat"],
+    "method": "reuse source raw metadata and existing July-August raw artifact; classify source fields where present, otherwise report unobservable separately; do not infer direction of selection bias without matched evidence"
+  },
+  "oddsDecision": {
+    "ODDS_PRE_CLOSE_VERIFIED": "direct durable per-race timing/process proof that the consumed snapshot predates that race's close by the claimed horizon",
+    "ODDS_NOT_SUITABLE_FOR_REALIZABLE_BACKTEST": "direct evidence snapshot is captured after close/start, is final-postrace, or otherwise cannot represent a purchasable quote",
+    "ODDS_PRE_CLOSE_NOT_VERIFIED": "otherwise, including a timestamp-free archive or uncertain update/retention path",
+    "roiPromotionWhenUnverified": "suspend ROI-based purchase-model promotion on this archive; do not change thresholds"
+  },
+  "forecast": {
+    "candidate": "r4 market-free reaction Model A, run 35940833546 artifact 10784912368, development 2025 July-August; OOF run 35982657474 reproduces Model A quality",
+    "compare": "verify Model A and Android v0.15.16 pure AI metrics from existing repository results; disclose population/key differences rather than claiming paired gain",
+    "manifest": ["source run/artifact and SHA256", "r4 protocol and schema hashes", "three conditional LightGBM stages and temperature", "fit/validation date maxima", "2024 player-history seed and state", "marketInputs=false", "PENDING_INDEPENDENT_HOLDOUT", "productionPromotion=false"],
+    "readiness": {
+      "FORECAST_READY_FOR_INTEGRATION_DESIGN_PENDING_HOLDOUT": "artifacts and hashes verified, market-free model confirmed, and concrete Android inference/history implementation contract can be specified without modifying production",
+      "FORECAST_NOT_DEPLOYABLE_YET": "missing or unverifiable model/state/schema/source or unresolved inference/history compatibility blocker",
+      "FORECAST_REJECTED_ON_EXISTING_EVIDENCE": "forecast quality itself fails the existing same-window evidence; no ROI-based judgment"
+    }
+  },
+  "guards": ["reject any cache record dated September 2025 or later before feature/result access", "no CLI date input can allow September/Q4", "duplicate race key is fatal", "workflow only checks out, reads, and writes scripts/v016_integrity_* and data/v016_integrity_* / data/v016_forecast_* plus WORK_HANDOFF.md", "no app/ or release path mutation", "model and state hashes must match cited artifact", "forecast manifest marketInputs=false and productionPromotion=false"]
+}
