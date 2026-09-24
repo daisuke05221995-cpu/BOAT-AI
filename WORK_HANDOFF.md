@@ -371,3 +371,11 @@ v0.15.3で予想履歴保存とユーザー通知を分離した。
 - Actions Run `35982657474`: 実行中。guard SUCCESS、2025-03 fold と7〜8月固定Model A予測 SUCCESS、残り3fold実行中（この記録時点）。
 - 次の1手: Runのfold→logistic→3候補matrix→publishを追跡し、失敗時はv016_oof_*専用ファイルで修正。成功時は data/v016_oof_result.json、feature_audit、report、frozen_candidateを検証する。
 - r1〜r4閾値救済なし。2025年9月/Q4未取得。Android/app/Release/本番ロジック未変更。
+
+## v016 OOF市場差研究 — 結果確定（2026-09-24）
+
+- protocol commit `5a9b333eeae78e2d100f0ca69251bec98e223c6a`、forward manifest commit `1c9998b6664d0d93158f4fcb65f2e9fbe5c22dec`、実装commit `a06d8e91af7ecdbb10dee6b51465fb508bd12fd3`。
+- Run `35982657474`: guard、4 OOF fold、固定Model A予測、logistic、3 selector matrix、成果物生成はSUCCESS。final Artifact `v016-oof-final` ID `10800503335`。publish jobのみ当handoffとのrebase競合でFAIL。Artifact内容をGitHub連携で直接保存し、報告commit `3b502c674fd1a2781555b53b637d87d8ec9e40a6`。実測数値は `data/v016_oof_report.md` と `data/v016_oof_result.json`。
+- 7〜8月固定評価: raw_ratio ROI81.12%（7,265購入、581的中）、log_residual_half ROI85.91%（2,262購入、112的中）、logistic_residual購入0件。どれもROI105%/最大1的中除外ROI100%等のgateに届かず、candidate=null。不採用。
+- 日付監査: fold全件forward、履歴同日混入0、重複キー0。2025年9月・Q4未開封。r1〜r4閾値救済なし。Android/app/Release/本番ロジック未変更。LONGSHOT未着手。
+- 次の1手: 別の新仮説なら新protocolを事前登録。歴史オッズの締切時刻と未決済/返還の母集団差を監査し、年間/複数年の独立評価が可能になるまでは本番採用不可。同じ3候補の閾値再調整をしない。
