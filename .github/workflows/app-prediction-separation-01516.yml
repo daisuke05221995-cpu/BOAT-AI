@@ -1,0 +1,75 @@
+name: Apply v0.15.16 prediction purchase separation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/app_prediction_purchase_separation_patch_01516.py'
+      - '.github/workflows/app-prediction-separation-01516.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: app-prediction-separation-01516
+  cancel-in-progress: false
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Generate wrapper
+        run: gradle wrapper --gradle-version 8.10.2
+
+      - name: Apply separation patch
+        run: python3 scripts/app_prediction_purchase_separation_patch_01516.py
+
+      - name: Verify forecast purchase separation
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -n 'FORECAST_ENABLED = true' app/src/main/java/jp/boatai/app/AverageRoiReferenceStrategy.kt
+          grep -n 'PURCHASE_RECOMMENDATION_ENABLED = false' app/src/main/java/jp/boatai/app/AverageRoiReferenceStrategy.kt
+          grep -n 'AI着順確率' app/src/main/java/jp/boatai/app/AverageRoiReferenceStrategy.kt
+          grep -n 'versionName = "0.15.16"' app/build.gradle.kts
+          grep -n '99.5% BUY・ROI68.5%' app/src/main/java/jp/boatai/app/MainActivity.kt
+
+      - name: Unit test lint and debug build
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
+
+      - name: Commit verified app and remove one-shot files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm scripts/app_prediction_purchase_separation_patch_01516.py .github/workflows/app-prediction-separation-01516.yml
+          git add app
+          git commit -m 'Release v0.15.16 separate AI forecast from purchase recommendation'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if git rebase origin/main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort || true
+            sleep 2
+          done
+          exit 1
