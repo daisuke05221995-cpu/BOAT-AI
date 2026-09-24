@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "name": "v0.15.16 pure AI failure-pattern diagnostic",
+  "registeredAt": "2026-09-24",
+  "period": {
+    "developmentStart": "2025-07-01",
+    "developmentEnd": "2025-08-31",
+    "septemberAllowed": false,
+    "finalHoldoutAllowed": false
+  },
+  "productionFormula": {
+    "version": "0.15.16",
+    "scoreTemperature": 14.0,
+    "coursePrior": [8.0, 4.0, 2.0, 0.0, -1.5, -3.0],
+    "oddsAffectForecast": false
+  },
+  "failureClasses": [
+    "lane1_correct",
+    "lane1_false_positive",
+    "lane1_missed",
+    "outside_correct",
+    "outside_wrong"
+  ],
+  "fixedBins": {
+    "top1FirstProbabilityMargin": [0.0, 0.02, 0.05, 0.10, 0.20, 1.01],
+    "lane1ProbabilityAdvantage": [-1.01, -0.15, -0.08, -0.03, 0.0, 0.03, 0.08, 0.15, 1.01],
+    "windSpeed": [-0.01, 2.0, 4.0, 6.0, 100.0],
+    "waveHeight": [-0.01, 3.0, 6.0, 10.0, 1000.0]
+  },
+  "metrics": [
+    "race_count",
+    "share",
+    "first_place_accuracy",
+    "trifecta_top4_hit_rate",
+    "mean_top1_first_probability",
+    "mean_top1_vs_top2_margin",
+    "mean_lane1_probability",
+    "mean_lane1_raw_score_advantage",
+    "mean_lane1_exhibition_time_delta_to_best_other",
+    "mean_lane1_preview_start_delta_to_best_other",
+    "mean_lane1_national_win_rate_delta_to_best_other"
+  ],
+  "segments": [
+    "failure_class",
+    "predicted_first_lane",
+    "top1_first_probability_margin_bin",
+    "lane1_probability_advantage_bin",
+    "preview_course_change",
+    "wind_speed_bin",
+    "wave_height_bin",
+    "market_first_agreement_benchmark"
+  ],
+  "rules": {
+    "tuningPerformed": false,
+    "changeProductionFormula": false,
+    "searchThresholds": false,
+    "selectWinningSubgroupAsPolicy": false,
+    "openSeptember": false,
+    "openFinalHoldout": false,
+    "marketIsBenchmarkOnly": true
+  }
+}
