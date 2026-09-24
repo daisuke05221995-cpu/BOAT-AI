@@ -1,0 +1,72 @@
+name: Apply v0.15.14 average ROI reference
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/app_average_roi_reference_patch_01514.py'
+      - '.github/workflows/app-average-roi-reference-01514.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: app-average-roi-reference-01514
+  cancel-in-progress: false
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Generate wrapper
+        run: gradle wrapper --gradle-version 8.10.2
+
+      - name: Apply average ROI reference patch
+        run: python3 scripts/app_average_roi_reference_patch_01514.py
+
+      - name: Verify old tiny-sample reference is gone
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R -n -E 'ReferenceR3Strategy|hasReferenceR3Strategy|r3 place-small' app/src/main app/src/test
+          grep -R -n 'HISTORICAL_ROI = 117.3' app/src/main/java/jp/boatai/app/AverageRoiReferenceStrategy.kt
+          grep -R -n 'MAX_POINTS = 2' app/src/main/java/jp/boatai/app/AverageRoiReferenceStrategy.kt
+
+      - name: Unit test, lint and debug build
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
+
+      - name: Commit verified app and remove one-shot files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm scripts/app_average_roi_reference_patch_01514.py .github/workflows/app-average-roi-reference-01514.yml
+          git add app
+          git commit -m 'Release v0.15.14 average ROI reference mode'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if git rebase origin/main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort || true
+            sleep 2
+          done
+          exit 1
