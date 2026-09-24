@@ -405,3 +405,15 @@ v0.15.3で予想履歴保存とユーザー通知を分離した。
 - 実装commit `5b8bbd11b49ba5a3a1b8b929379e3d0aa55d03dd`、境界テスト `18b2f78c2611f2cb8b1adb596e6cab376c173b8d`、Actions workflow `4a6e18cd811a06846b0690f7d8f2caa2b34b3cae`。
 - Run [`35993900879`](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/35993900879): guard SUCCESS、9月fetchと7〜8月baseline parityを並行実行中。この時点で9月のpopulation/精度は未確定。オッズ・払戻・購入指標は取得/評価しない。
 - 次の1手: 同Runのfetch/parity→固定Model Aとbaseline並列推論→日単位ペアbootstrap/evaluateまで確認。失敗ならコード/データ整合性問題のみ修正し、9月の成績に応じてモデルや係数を変更しない。final Artifact IDと判定/指標を本ファイルに追記。Q4を開かず、app/とReleaseも変更しない。
+
+## 2025年9月 forecast-only独立holdout 完了（2026-09-24、上の「実行中」を更新）
+
+- **現在位置/commit**: protocol単独事前登録 `2fbf3239f8ac68e4d45775b353aa03217d9a517f` を9月への初回アクセス前に完了。実装 `5b8bbd11b49ba5a3a1b8b929379e3d0aa55d03dd`、workflow `4a6e18cd811a06846b0690f7d8f2caa2b34b3cae`、成果物自動保存後main `3fa27ceedfb7b69abcd15d3b5801bf92e7267601`、診断追記 `822fa35800bdc6676fc21c36a0b3069760f2c95b`。
+- [Actions Run `35993900879`](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/35993900879): **SUCCESS**。guard、9月取得/履歴再生と7〜8月baseline完全再現の並列処理、Model A/baseline並列推論、日単位ペア評価、publishすべて成功。baseline既存7〜8月9,583レースの報告指標は全項目一致。
+- Artifact: 9月data `10805337633`、baseline parity `10804384379`、Model A予測 `10805820091`、Android baseline予測 `10804924817`、最終結果 `10805342686`。固定Model A出典Run `35940833546` / model Artifact `10784912368` / ZIP digest `sha256:58b845fa8d07efe258b08a23ac6caafab2e4854ce4b84618fb4af6ae3f3687fe`。
+- 9月母集団: 出走表 `4,272`、一意な6艇結果 `3,959`、必要事前入力欠損 `3`、**同一キー集合3,956レース**（coverage `99.9242%`）。30日全日、重複0、同日結果混入0。履歴stateは2025-08-31までを開始点として9月各日終了後に更新。
+- Model A vs Android v0.15.16純AI（同3,956レース）: 3連単logloss `3.844202 vs 4.225358`、Brier `0.963136 vs 0.978731`。1着Top1 `55.308% vs 44.085%`、Top2 `75.126% vs 66.785%`。3連単Top1 `8.948% vs 5.789%`、Top2 `16.102% vs 10.617%`、Top4 `27.856% vs 18.579%`、Top8 `43.453% vs 30.713%`。Top-choice ECEは `0.012950 vs 0.002876` でAが大きいことも記録。
+- 対応する暦日30日を2,000回再標本化したModel A−baselineの95%区間: **logloss `[-0.404683,-0.357090]`**（点差 `-0.381156`）、**Brier `[-0.017337,-0.013903]`**（点差 `-0.015595`）。すべての暦日と22場でlogloss改善。ただし場2のBrierが小幅悪化、9月8日のTop4も小幅悪化。これらは診断であり採否/閾値変更に使用しない。
+- **最終decision: `PASS_FORECAST_HOLDOUT`**。事前登録のprimaryとsecondary safetyを満たした。これは予想品質の独立検証であり、購入収益・オッズ・期待値・BUY/SKIPの採用を意味しない。`productionPromotion=false`。r1〜r4/OOF閾値救済、Model A再学習、temperature/特徴量/ハイパーパラメータ変更なし。
+- 保存先: `data/v016_sept_forecast_protocol.json`、`data/v016_sept_forecast_data_audit.json`、`data/v016_sept_forecast_result.json`、`data/v016_sept_forecast_report.md`、`data/v016_sept_forecast_decision.json`。**2025年10〜12月Q4は未取得・未開封**。Android `app/**`、versionCode/versionName、Release、本番ロジック、`PROJECT_STATUS.md` は未変更。
+- **次の具体的1手**: 通常チャット側でAndroid互換LightGBM推論・日単位履歴更新のprototypeを研究用に設計し、固定Python予測との120通り確率/周辺確率parity、端末メモリ・速度、欠損時の扱いを検証する。実装/統合/Releaseは別判断。Q4は引き続き封印し、9月を見た後の救済調整をしない。
