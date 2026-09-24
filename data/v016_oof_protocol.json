@@ -1,0 +1,81 @@
+{
+  "revision": "v016-oof-market-residual-v1",
+  "preregisteredBefore": "OOF prediction generation, selector training, and July-August evaluation",
+  "source": "r4 run 35940833546 artifacts, unchanged pre-race feature cache and original pinned sources",
+  "periods": {
+    "historySeed": ["2024-01-01", "2024-12-31"],
+    "oofFitAndValidation": ["2025-01-01", "2025-06-30"],
+    "oofPredictions": ["2025-03-01", "2025-06-30"],
+    "developmentOnly": ["2025-07-01", "2025-08-31"],
+    "prohibited": ["2025-09-01", "2025-12-31"]
+  },
+  "split": {
+    "granularity": "calendar month, four forward folds",
+    "folds": [
+      {"id": "2025-03", "fit": ["2025-01-01", "2025-01-31"], "earlyStopping": ["2025-02-01", "2025-02-28"], "predict": ["2025-03-01", "2025-03-31"]},
+      {"id": "2025-04", "fit": ["2025-01-01", "2025-02-28"], "earlyStopping": ["2025-03-01", "2025-03-31"], "predict": ["2025-04-01", "2025-04-30"]},
+      {"id": "2025-05", "fit": ["2025-01-01", "2025-03-31"], "earlyStopping": ["2025-04-01", "2025-04-30"], "predict": ["2025-05-01", "2025-05-31"]},
+      {"id": "2025-06", "fit": ["2025-01-01", "2025-04-30"], "earlyStopping": ["2025-05-01", "2025-05-31"], "predict": ["2025-06-01", "2025-06-30"]}
+    ],
+    "require": "max(fit day) < min(validation day) and max(validation day) < min(predict day); no same-day label exposure"
+  },
+  "modelA": {
+    "features": ["r4 current pre-race", "r4 player/course history", "r4 player-relative exhibition reaction"],
+    "racerId": "history lookup only",
+    "marketInputs": false,
+    "estimator": "r4 reaction three-stage conditional grouped-softmax LightGBM with r4 hyperparameters and June-like fold validation/temperature choice; no new hyperparameter search",
+    "temperatureCandidates": [0.8, 1.0, 1.2, 1.5, 2.0],
+    "developmentModel": "reuse frozen r4 reaction model from run 35940833546; Jan-May fit, June early stopping and temperature; no July-August labels in training",
+    "save": ["120 trifecta probabilities", "six first-place marginal probabilities", "day/venue/race key", "fit and validation maximum dates", "model and feature hashes"]
+  },
+  "market": {
+    "definition": "normalize reciprocal of all 120 positive finite historical trifecta odds within a race",
+    "invalid": "exclude entire race if any of 120 odds is absent, nonfinite or nonpositive; never impute odds",
+    "limitation": "archive odds timestamp is not proven five minutes before close"
+  },
+  "selector": {
+    "candidates": ["raw_ratio", "log_residual_half", "logistic_residual"],
+    "maxCandidates": 3,
+    "raw_ratio": "use unaltered Model A probability; additionally require model/market >= 1.2 per ticket",
+    "log_residual_half": "normalize exp(log(market) + 0.5*(log(model)-log(market))) within race",
+    "logistic_residual": "L2 logistic regression C=0.01, fit_intercept=true, random_state=1604, max_iter=200 on March-June OOF ticket labels; inputs log(market) and clipped log(model/market) [-4,4]; normalize predicted ticket probability across each race",
+    "features": ["Model A trifecta probability", "normalized market probability", "log model/market residual"],
+    "fit": "only March-June forward OOF predictions and outcomes; July-August is evaluation only",
+    "choice": "among passing candidates maximize July-August ROI without largest hit; tie-break larger buys then fixed alphabetical name; otherwise candidate null"
+  },
+  "buying": {
+    "budgetYenPerRace": 1200,
+    "maxTickets": 3,
+    "minTicketExpectedReturn": 1.10,
+    "minTicketProbability": 0.01,
+    "maxTrifectaOdds": 40,
+    "ticketSelection": "reuse r4/core tickets algorithm exactly, with chosen selector probability and additionally raw ratio eligibility where applicable",
+    "accounting": "100 yen units; exactly 1200 yen per purchased race; use actual trifecta return per 100 yen on winning ticket; no purchase means zero stake and payout; exclude ineligible races"
+  },
+  "metrics": {
+    "probability": ["logloss", "Brier", "top-ticket ECE", "first-place top1", "first-place top2", "trifecta top1", "trifecta top2", "trifecta top4", "trifecta top8"],
+    "purchase": ["BUY rate", "purchase races", "hits", "stake", "payout", "profit", "ROI", "monthly ROI", "ROI excluding largest hit", "largest hit share", "absolute predicted expected vs realized ROI gap"],
+    "dailyBootstrap": {"replicates": 1000, "seed": 1604, "interval": [0.025, 0.975], "unit": "calendar day; resample complete day stake and payout together"}
+  },
+  "developmentGate": {
+    "roiMinPercent": 105,
+    "roiExcludingLargestHitMinPercent": 100,
+    "purchaseRacesMin": 60,
+    "hitsMin": 5,
+    "largestHitShareMaxPercent": 25,
+    "absoluteExpectedVsRealizedRoiGapMaxPoints": 15,
+    "modelLoglossMaxIncreaseVsR4Reaction": 0.01,
+    "modelBrierMaxIncreaseVsR4Reaction": 0.002,
+    "monthlyLossAllowed": true,
+    "annualGate": "NOT_EVALUATED: two development months cannot establish annual 105% ROI or multiyear reproducibility"
+  },
+  "leakageGuards": [
+    "reject any dates after August 2025 before reading any cache or artifact",
+    "never request September 2025 or Q4 2025",
+    "cache history_through strictly earlier than race day",
+    "all fold train/validation days strictly precede prediction day",
+    "reject duplicate day/venue/race keys, NaN probabilities, probability sum not one, missing 120 combinations",
+    "verify artifact SHA and preregistration commit SHA in every output manifest",
+    "no re-search of r1-r4 thresholds, no longshot, no production promotion"
+  ]
+}
