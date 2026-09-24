@@ -14,7 +14,7 @@ android {
         targetSdk = 35
         versionCode = 33
         versionName = "0.15.15"
-        // v0.15.15: AI-first prediction with market-edge gate to reduce automatic lane-1 following.
+        // v0.15.15: AI-first prediction with market-edge gate; signed release trigger.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
