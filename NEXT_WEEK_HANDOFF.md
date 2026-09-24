@@ -68,19 +68,20 @@ Model Aはforecast品質で独立holdoutを通過したが、まだ `productionP
 
 - `LightGbmTextModel.kt` prototype追加。
 - numeric/non-linear LightGBM v4 treeのthreshold、default missing、leaf走査をKotlinで評価。
-- Python LightGBMとのraw score parity確認を進行中。
-- 初回prototype Build `35993666586` はUnit test期待値の誤り1件でFAIL。推論器自体の分岐ではなくテスト期待値を修正済み。
-- 修正commit `aa2caab3813017b1a603841c5c893eac45549a2f`。Build Run `35995595338` を確認する。
+- synthetic unit testの期待値ミスを2段階で修正。推論器本体の分岐ロジック変更ではない。
+- 最終修正commit `533f426e82365ab731f5ca089af048ad21b4f956`。
+- prototype検証Run `35995823959`: live API schema / Unit test / Android lint / Debug APK build / artifact upload **全SUCCESS**。
+- 研究用の実Model A確認ではPython LightGBM raw scoreとKotlin prototypeのsample出力が一致しているが、実モデル大量sampleのCI parity testはまだ未実装。
 - まだ `PredictionEngine` へModel Aを接続しない。
 
 次のgate:
-1. Unit test/lint/Debug build全SUCCESS。
-2. 実Model A 3段の大量sample Python parity。
-3. 120通り確率chainと周辺確率の一致。
-4. 約46.9MB history stateのAndroid運用設計と日次更新。
-5. 同日結果混入防止。
-6. 端末速度/メモリ/起動時間。
-7. すべて合格後のみv0.16 forecast統合・Release判断。
+1. 実Model A 3段の大量sample Python/Kotlin raw-score parityをCIで固定する。
+2. 3段conditional softmaxと120通り確率chainをAndroid側に実装し、確率和=1・1着周辺確率和=1・Python予測一致を確認する。
+3. 約46.9MBの研究用history stateをAndroid向けにどう保持/圧縮するか決め、player/course履歴と30/60/90/180日窓を再現する。
+4. 当日全レースの予想snapshot生成後にのみ当日結果をまとめて履歴へ反映し、同日結果混入を防ぐ。
+5. 端末速度/メモリ/起動時間を計測する。
+6. parity・性能・欠損処理が合格した後にのみv0.16 forecast統合・Release判断。
+7. 自動BUYはOFFのまま。締切前時刻が監査可能なオッズ基盤ができるまで購入AI昇格を再開しない。
 
 ## 封印
 
