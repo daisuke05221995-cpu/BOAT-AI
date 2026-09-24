@@ -1,0 +1,29 @@
+{
+  "forecastModel": "v0.16 Model A reaction",
+  "temperature": 1.0,
+  "marketInputs": false,
+  "automaticBuy": false,
+  "q4Decision": "PASS_Q4_FINAL_FORECAST",
+  "q4RunId": 36004272796,
+  "modelRunId": 35940833546,
+  "modelArtifactId": 10784912368,
+  "historyThrough": "2026-09-23",
+  "assets": {
+    "model_a_stage0.txt": {
+      "bytes": 870836,
+      "sha256": "ee67bc585ad4b19904d64ea8c77e25964ed41887b58e94a425bbd10c1d5a1a45"
+    },
+    "model_a_stage1.txt": {
+      "bytes": 866899,
+      "sha256": "ad8425277311dd7080b0a05f719a322632d5993ab4382cadc721f152ddcfb1e7"
+    },
+    "model_a_stage2.txt": {
+      "bytes": 847788,
+      "sha256": "23e78898a8229794d5c1b819297d2cb77d23ec07edeb4ab6cb07a7d5758eac8a"
+    },
+    "model_a_history.bin": {
+      "bytes": 4222646,
+      "sha256": "a180aa722ad0520b5d86705bac742ff588309e72a49bed373eabf102f257acc3"
+    }
+  }
+}
