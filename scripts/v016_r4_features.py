@@ -86,9 +86,11 @@ def result_label(result,program):
     pb={x['racer_boat_number']:x for x in program.get('boats',[])}
     rb={x['racer_boat_number']:x for x in result.get('boats',[])}
     if len(rb)!=6 or set(rb)!=set(range(1,7)) or set(pb)!=set(rb): return None
-    if any(rb[i].get('racer_number')!=pb[i].get('racer_number') for i in rb): raise ValueError('Result/program racer-ID mismatch')
     places=[rb[i].get('racer_place_number') for i in range(1,7)]
     if set(places)!=set(range(1,7)): return None
+    if any(rb[i].get('racer_number')!=pb[i].get('racer_number') for i in rb):
+        mismatch=[(i,pb[i].get('racer_number'),rb[i].get('racer_number')) for i in rb if rb[i].get('racer_number')!=pb[i].get('racer_number')]
+        raise ValueError(f"Settled result/program racer-ID mismatch {program.get('date')}/{program.get('stadium_number')}/{program.get('number')}: {mismatch}")
     payouts=result.get('payouts',{}).get('trifecta',[])
     if len(payouts)!=1: return None
     text=payouts[0].get('combination'); amount=payouts[0].get('amount')

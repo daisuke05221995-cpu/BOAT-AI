@@ -57,11 +57,9 @@ jobs:
         if: matrix.year == 2024 && steps.raw-cache.outputs.cache-hit != 'true'
         with:
           github-token: ${{ github.token }}
-          run-id: '35870380669'
-          name: v016-annual-cache-2024
-          path: seed
-      - if: matrix.year == 2024 && steps.raw-cache.outputs.cache-hit != 'true'
-        run: python -u scripts/v016_r4_features.py --year 2024 --end-month 12 --seed-cache seed/annual_2024.npz --output raw/raw_2024.npz
+          run-id: '35940538399'
+          name: v016-r4-raw-2024
+          path: raw
       - if: matrix.year == 2025 && steps.raw-cache.outputs.cache-hit != 'true'
         run: python -u scripts/v016_r4_features.py --year 2025 --end-month 8 --output raw/raw_2025.npz
       - uses: actions/upload-artifact@v4

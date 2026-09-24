@@ -83,5 +83,9 @@ class Tests(unittest.TestCase):
         self.assertEqual(result_label(result,program),(0,1000))
         for row in result['boats']: row['racer_start_timing']=-999; row['racer_course_number']=-99
         self.assertEqual(result_label(result,program),(0,1000))
+        result['boats'][0]['racer_number']=9999
+        with self.assertRaisesRegex(ValueError,'racer-ID mismatch'): result_label(result,program)
+        result['boats'][0]['racer_place_number']=None
+        self.assertIsNone(result_label(result,program))
 
 if __name__=='__main__': unittest.main()
