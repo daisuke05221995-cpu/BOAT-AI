@@ -379,3 +379,10 @@ v0.15.3で予想履歴保存とユーザー通知を分離した。
 - 7〜8月固定評価: raw_ratio ROI81.12%（7,265購入、581的中）、log_residual_half ROI85.91%（2,262購入、112的中）、logistic_residual購入0件。どれもROI105%/最大1的中除外ROI100%等のgateに届かず、candidate=null。不採用。
 - 日付監査: fold全件forward、履歴同日混入0、重複キー0。2025年9月・Q4未開封。r1〜r4閾値救済なし。Android/app/Release/本番ロジック未変更。LONGSHOT未着手。
 - 次の1手: 別の新仮説なら新protocolを事前登録。歴史オッズの締切時刻と未決済/返還の母集団差を監査し、年間/複数年の独立評価が可能になるまでは本番採用不可。同じ3候補の閾値再調整をしない。
+
+## v016 integrity監査・実行中（2026-09-24）
+
+- protocol事前登録commit `44c617f78f25baeb19aff9d5fdd466c51cfd6c95`。実装commit `3ab3d64abd44ddce040f8684d0984091d316541e`、guard修正 `128cd99fcf390eb36c659dfe2a2dd1ff58e9ac82`。
+- Run `35986088143`: guardのworkflow自己検査に誤記がありFAIL（データ処理未開始）。修正Run `35986196670`: 実行中。7月/8月のオッズ・除外母集団はmatrix、source provenanceとforecastは別job。publish成果物待ち。
+- 途中証拠: pinned `lamrongol/BoatraceOdds` commit `ddd2f0c1011889779d04dfb802bee4e152b35b30` の `scraper.php` は前日データ取得、日次cronは00:00 UTC、過去日backfillあり、`OddsSaver`は日別JSONを上書き。判定はActionsのハッシュ・払戻照合後に確定する。
+- 次の1手: Run `35986196670` のguard→month2並列/provenance/forecast→publishを追跡。失敗ならv016_integrity_*専用ファイルのみ修正。9月/Q4未開封。Android/app/Release未変更。
