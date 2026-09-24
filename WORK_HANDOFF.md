@@ -327,3 +327,12 @@ v0.15.3で予想履歴保存とユーザー通知を分離した。
 - 修正Run `35940833546`: IN_PROGRESS。https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/35940833546
 - commit `da8248a2692e611f50cdf0affc8e1b7731065228`。checkと2024Artifact復元はSUCCESS、2025raw実行中。初回Run `35940538399` はFAILEDとして保持。
 - 次: raw2025のログを確認し、通常完走のID不一致なら元race keyで原因確認。通過したら履歴/特徴量→3モデル比較へ続行。まだr4モデル成績なし、Q4未開封。
+
+### r4データ準備・履歴構築完了
+
+- Run `35940833546`: check/raw2024/raw2025/history-featuresすべてSUCCESS、3モデル学習中。
+- 2025 Jan-Augは35,505 eligible settled six-boat races、事前特徴量有効35,483（22欠損）。各月95%coverage gate通過。sourcePrograms 38,736、対象外の中止/非完走等3,231は月別ledgerに記録。
+- 履歴更新は2024 seedから2025 Augまで、登録番号1,670人。同日更新なし・全raceのhistory_through < dayを検証。
+- `v016-r4-features` Artifact ID `10784104679`（Run `35940833546`）。train/development NPZ、history_state、feature_metadataを再利用可能。モデル不具合等の再実行でも年次source取得/履歴計算はcacheから復元。
+- 初回のID不一致は通常6艇完走ではなく対象外結果の照合順で発生。修正後、通常完走のID照合を維持して全期間を通過。無視/強制変換は行っていない。
+- 次: current/history/reactionの3モデルを完了させ、Jul-Aug増分価値gate→通過時だけ2固定policyを評価。9月/Q4は未参照。
