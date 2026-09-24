@@ -1,0 +1,79 @@
+name: v0.16 Android Model A parity
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/src/main/java/jp/boatai/app/LightGbmTextModel.kt'
+      - 'app/src/test/java/jp/boatai/app/ModelARealParityTest.kt'
+      - 'scripts/v016_android_parity_fixture.py'
+      - '.github/workflows/v016-android-parity.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  raw-score-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Generate Gradle Wrapper
+        run: gradle wrapper --gradle-version 8.10.2
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned parity dependencies
+        run: python -m pip install --disable-pip-version-check 'lightgbm==4.6.0' 'numpy==2.1.3'
+
+      - name: Download frozen Model A artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/model-a
+          gh api repos/${{ github.repository }}/actions/artifacts/10784912368/zip > /tmp/model-a.zip
+          echo '58b845fa8d07efe258b08a23ac6caafab2e4854ce4b84618fb4af6ae3f3687fe  /tmp/model-a.zip' | sha256sum -c -
+          unzip -q /tmp/model-a.zip -d /tmp/model-a
+          test -f /tmp/model-a/manifest.json
+          test -f /tmp/model-a/stage0.txt
+          test -f /tmp/model-a/stage1.txt
+          test -f /tmp/model-a/stage2.txt
+
+      - name: Generate 3,072 pinned-LightGBM fixture rows
+        run: |
+          rm -rf /tmp/model-a-parity
+          python scripts/v016_android_parity_fixture.py \
+            --model-dir /tmp/model-a \
+            --output-dir /tmp/model-a-parity \
+            --rows 1024
+          cat /tmp/model-a-parity/summary.json
+
+      - name: Compare Kotlin evaluator against LightGBM 4.6.0
+        env:
+          BOAT_AI_PARITY_DIR: /tmp/model-a-parity
+        run: ./gradlew testDebugUnitTest --tests jp.boatai.app.ModelARealParityTest --stacktrace
+
+      - name: Upload parity summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: v016-android-model-a-parity
+          path: /tmp/model-a-parity/summary.json
+          if-no-files-found: error
