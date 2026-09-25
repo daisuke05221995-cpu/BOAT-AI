@@ -2,6 +2,7 @@ package jp.boatai.app
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -17,6 +18,29 @@ class AverageRoiReferenceStrategyTest {
         assertEquals(4, AverageRoiReferenceStrategy.FORECAST_POINTS)
         assertEquals(4, AverageRoiReferenceStrategy.MIN_PURCHASE_POINTS)
         assertEquals(8, AverageRoiReferenceStrategy.MAX_PURCHASE_POINTS)
+    }
+
+    @Test
+    fun genericValueOddsFacadeExposesAll120ForLiveModelA() {
+        PredictionEngine.installValueStrategyModel(null)
+        val combinations = PredictionEngine.valueOddsCombinations()
+        assertEquals(120, combinations.size)
+        assertEquals(120, combinations.toSet().size)
+    }
+
+    @Test
+    fun genericValueOddsFacadeEvaluatesAndCachesLiveModelA() {
+        PredictionEngine.installValueStrategyModel(null)
+        PredictionEngine.clearValueSelections()
+        val race = strongLaneOneRace()
+        val odds = AverageRoiReferenceStrategy.allCombinations().associateWith { 200.0 }
+
+        val selection = PredictionEngine.applyValueOdds(race, odds)
+
+        assertNotNull(selection)
+        assertNotNull(PredictionEngine.cachedValueSelection(race))
+        assertEquals(selection?.recommendation, PredictionEngine.cachedValueSelection(race)?.recommendation)
+        PredictionEngine.clearValueSelections()
     }
 
     @Test
