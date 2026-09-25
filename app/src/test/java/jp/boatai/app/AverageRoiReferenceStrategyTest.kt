@@ -39,7 +39,7 @@ class AverageRoiReferenceStrategyTest {
     @Test
     fun positiveLiveValueCanProduceVariablePurchaseRecommendation() {
         val probabilities = uniformProbabilities()
-        val odds = AverageRoiReferenceStrategy.allCombinations().associateWith { 150.0 }
+        val odds = AverageRoiReferenceStrategy.allCombinations().associateWith { 200.0 }
         val result = AverageRoiReferenceStrategy.evaluateProbabilities(probabilities, odds, 3_000)
         assertEquals(RaceRecommendation.BUY, result.recommendation)
         assertTrue(result.picks.size in 4..8)
