@@ -7,14 +7,16 @@ import org.junit.Test
 
 class AverageRoiReferenceStrategyTest {
     @Test
-    fun forecastIsEnabledAndFailedPurchasePolicyIsPaused() {
+    fun forecastAndLivePurchaseRecommendationAreEnabled() {
         assertTrue(AverageRoiReferenceStrategy.FORECAST_ENABLED)
         assertTrue(AverageRoiReferenceStrategy.MODEL_A_FORECAST_RELEASE_QUALIFIED)
-        assertFalse(AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED)
-        assertFalse(AverageRoiReferenceStrategy.ENABLED)
+        assertTrue(AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED)
+        assertTrue(AverageRoiReferenceStrategy.ENABLED)
         assertFalse(AverageRoiReferenceStrategy.RELEASE_QUALIFIED)
         assertFalse(AverageRoiReferenceStrategy.HISTORICAL_ROI_APPLIES_TO_CURRENT)
         assertEquals(4, AverageRoiReferenceStrategy.FORECAST_POINTS)
+        assertEquals(4, AverageRoiReferenceStrategy.MIN_PURCHASE_POINTS)
+        assertEquals(8, AverageRoiReferenceStrategy.MAX_PURCHASE_POINTS)
     }
 
     @Test
@@ -23,8 +25,6 @@ class AverageRoiReferenceStrategyTest {
         val picks = AverageRoiReferenceStrategy.forecast(race, 4)
         assertEquals(4, picks.size)
         assertTrue(picks.first().combination.startsWith("3-"))
-        // Unit tests do not install Android assets, so this exercises the v0.15.16
-        // compatibility fallback. It must still remain a market-free AI probability.
         assertTrue(picks.first().reason.contains("AI着順確率"))
         assertTrue(picks.zipWithNext().all { (a,b) -> a.score >= b.score })
     }
@@ -37,14 +37,39 @@ class AverageRoiReferenceStrategyTest {
     }
 
     @Test
-    fun automaticPurchaseEvaluationIsAlwaysPaused() {
-        val odds = AverageRoiReferenceStrategy.allCombinations().associateWith { 20.0 }
-        val result = AverageRoiReferenceStrategy.evaluate(strongLaneOneRace(), odds, 1_200)
+    fun positiveLiveValueCanProduceVariablePurchaseRecommendation() {
+        val probabilities = uniformProbabilities()
+        val odds = AverageRoiReferenceStrategy.allCombinations().associateWith { 150.0 }
+        val result = AverageRoiReferenceStrategy.evaluateProbabilities(probabilities, odds, 3_000)
+        assertEquals(RaceRecommendation.BUY, result.recommendation)
+        assertTrue(result.picks.size in 4..8)
+        assertTrue(result.picks.all { it.recommendedStake >= 100 && it.recommendedStake % 100 == 0 })
+        assertTrue(result.picks.sumOf { it.recommendedStake } in 1_000..3_000)
+        assertTrue(result.reason.contains("期待対数効用がプラス"))
+    }
+
+    @Test
+    fun poorLiveValueIsSkipped() {
+        val probabilities = uniformProbabilities()
+        val odds = AverageRoiReferenceStrategy.allCombinations().associateWith { 50.0 }
+        val result = AverageRoiReferenceStrategy.evaluateProbabilities(probabilities, odds, 3_000)
         assertEquals(RaceRecommendation.SKIP, result.recommendation)
         assertTrue(result.picks.isEmpty())
-        assertTrue(result.reason.contains("自動購入は停止中"))
-        assertTrue(result.reason.contains("締切前時刻"))
+        assertTrue(result.reason.contains("見送り"))
     }
+
+    @Test
+    fun incompleteOddsAreSkipped() {
+        val probabilities = uniformProbabilities()
+        val odds = AverageRoiReferenceStrategy.allCombinations().take(119).associateWith { 150.0 }
+        val result = AverageRoiReferenceStrategy.evaluateProbabilities(probabilities, odds, 3_000)
+        assertEquals(RaceRecommendation.SKIP, result.recommendation)
+        assertTrue(result.picks.isEmpty())
+        assertTrue(result.reason.contains("120通り"))
+    }
+
+    private fun uniformProbabilities(): Map<String, Double> =
+        AverageRoiReferenceStrategy.allCombinations().associateWith { 1.0 / 120.0 }
 
     private fun weakLaneOneRace() = baseRace { lane ->
         when (lane) {
@@ -65,7 +90,7 @@ class AverageRoiReferenceStrategyTest {
     }
 
     private fun baseRace(factory: (Int) -> Racer) = RaceData(
-        date = "2026-09-24", stadiumNumber = 1, raceNumber = 1, closedAt = "23:59",
+        date = "2026-09-25", stadiumNumber = 1, raceNumber = 1, closedAt = "23:59",
         gradeNumber = null, title = "test", subtitle = "", distance = 1800, dayNumber = 1,
         racers = (1..6).map(factory),
         preview = PreviewData(2, null, 2, null, null, null), result = null
