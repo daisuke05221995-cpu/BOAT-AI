@@ -37,13 +37,16 @@ object BetStrategy {
         val sourceTotal = picks.sumOf { it.recommendedStake }
         if (sourceTotal <= 0) return null
 
-        // Keep the upstream/AI-recommended weighting while the total has not been changed.
-        if (sourceTotal == budget) {
+        // Live Model A purchase recommendations choose their own 1,000-3,000 yen total.
+        // Preserve that allocation all the way through purchase preview/recording rather
+        // than silently forcing it back to the UI's legacy default budget.
+        val isLiveModelAAllocation = picks.all { it.reason.contains("ライブオッズ") }
+        if (sourceTotal == budget || (isLiveModelAAllocation && sourceTotal in MIN_BUDGET..MAX_BUDGET)) {
             return picks.map { it.recommendedStake }
         }
 
-        // Once the user changes the total purchase amount, move the whole ticket set
-        // together instead of repeatedly adding/removing the difference only from MAIN.
+        // For ordinary/manual tickets, an explicit user budget change still moves the
+        // whole ticket set together.
         return allocateEvenly(picks.size, budget)
     }
 
