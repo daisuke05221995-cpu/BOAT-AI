@@ -3,7 +3,7 @@ package jp.boatai.app
 import android.content.Context
 import java.time.LocalDate
 
-/** Coordinates the released forecast-only Model A without enabling any purchase policy. */
+/** Coordinates the released Model A forecast and its live recommendation probability source. */
 internal object ModelAProduction {
     @Volatile private var runtime: ModelAAssetRuntime? = null
 
@@ -14,18 +14,26 @@ internal object ModelAProduction {
     fun installed(): Boolean = runtime != null
     fun historyLastDate(): LocalDate? = runtime?.historyLastDate
 
-    fun forecast(race: RaceData, maxPicks: Int): List<PredictionPick>? {
+    /** Full frozen Model A 120-way probabilities. Market odds are never inputs here. */
+    fun probabilities(race: RaceData): Map<String, Double>? {
         val result = runtime?.forecast(race) ?: return null
         val forecast = result.forecast ?: return null
+        if (forecast.combinations.size != 120 || forecast.probabilities.size != 120) return null
+        return forecast.combinations.indices.associate { index ->
+            forecast.combinations[index].text to forecast.probabilities[index]
+        }
+    }
+
+    fun forecast(race: RaceData, maxPicks: Int): List<PredictionPick>? {
+        val probabilities = probabilities(race) ?: return null
         val count = maxPicks.coerceIn(1, AverageRoiReferenceStrategy.FORECAST_POINTS)
-        return forecast.combinations.indices
+        return probabilities.entries
             .asSequence()
-            .map { index -> index to forecast.probabilities[index] }
-            .sortedWith(compareByDescending<Pair<Int, Double>> { it.second }.thenBy { it.first })
+            .sortedWith(compareByDescending<Map.Entry<String, Double>> { it.value }.thenBy { it.key })
             .take(count)
-            .map { (index, probability) ->
+            .map { (combination, probability) ->
                 PredictionPick(
-                    combination = forecast.combinations[index].text,
+                    combination = combination,
                     score = probability,
                     reason = "Model A 3連単確率 ${"%.1f".format(probability * 100.0)}%"
                 )
