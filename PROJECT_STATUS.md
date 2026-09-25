@@ -6,41 +6,56 @@
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
 - Branch: `main`
-- 公開版: **v0.16.2**
-- versionCode: **37** / versionName: **0.16.2**
-- Release target commit: `256659979f3c4433eb077d534426a7871eb1f69d`
-- Build Run: `36080778668` SUCCESS
-- Signed Release Run: `36080778686` SUCCESS
-- Release ID: `396199078`
-- Release asset: `BOAT-AI-v0.16.2.apk` (13,662,586 bytes)
-- APK SHA-256: `5230d5b61e1d9227a554834ef73018a40e76013588acc0dafd7061d674562622`
-- 復旧モード / `CrashRecoveryStore` は維持。ユーザーデータ削除・アンインストールは禁止。
+- 公開版: **v0.16.3**
+- versionCode: **38** / versionName: **0.16.3**
+- Release target commit: `7a3ffe365707c7a1a99b790b3c8eb0aabb45c4de`
+- Build Run: `36101879628` SUCCESS
+- Signed Release Run: `36101879634` SUCCESS
+- Release ID: `396356442`
+- Release asset: `BOAT-AI-v0.16.3.apk` (13,678,970 bytes)
+- APK SHA-256: `f054736d1e83a6abb7f50cfb2e5a58f5ac6c41507d1adaad0b9efe1be6316c51`
+- 復旧モード / `CrashRecoveryStore` は維持。ユーザーデータ削除・アンインストールは禁止。既存アプリへ上書き更新する。
 
-## Android v0.16.2
+## Android v0.16.3
 
-市場非入力のforecast-only **Model A** を本番予想へ統合したv0.16系を継続。
+市場非入力の **Model A forecast** を本番予想に継続使用し、現在の公式3連単ライブオッズを別レイヤーで組み合わせる **購入推奨 / 見送り判定** を追加した。
 
 - 3段 conditional grouped-softmax LightGBM / temperature 1.0。
-- 本番予想順位はオッズを入力に使わない。
-- 120通り3連単確率を生成。
-- 手動購入導線は利用可能。
-- **自動BUY推奨はOFFのまま。**
-- Model A asset/historyが欠損・古い場合はfail-closedし、v0.15.16純AIforecastへfallback。
+- Model Aの予想順位・120通り確率はオッズを入力に使わない。
+- 購入判定時だけ現在の公式3連単120通りオッズを取得する。
+- 4〜8点、1レース総額1,000〜3,000円、100円単位で配分する。
+- BUY条件は、Model A確率×現在オッズを使った期待対数効用が「買わない」より高く、かつモデル上の期待回収率が100%を超えること。
+- 条件を満たさない場合はSKIP。
+- 120通りオッズ未取得、展示・進入など直前情報不足、締切後/購入時間外は安全側でSKIP。
+- ライブ購入判定が有効な間は旧confidence BUYへフォールバックしない。
+- 詳細画面で選択中かつ購入可能なレースは60秒ごとにライブオッズを再取得して再判定する。
+- 一覧/一括選択用には、購入可能かつ直前情報が揃ったレースを順次120通りオッズ評価する。
+- AIがSKIPしたレースでも手動購入用候補の表示は可能だが、AI仮想損益や「購入推奨のみ」一括選択には混ぜない。
+- **外部投票の自動実行はしない。** 最終購入操作はユーザーが行う。
+- Model A asset/historyが欠損・古い場合はfail-closedし、forecast側は既存fallbackを維持する。
 
-### v0.16.2の主変更: 過去30日Model A仮想成績の可変化
+### v0.16.3で修正した重要な安全経路
 
-固定4点×300円を廃止し、過去レースの参考表示を以下へ変更。
+購入推奨をONにした直後、ライブオッズ評価前のレースが旧ロジックのBUYへ落ちる経路が残っていたため修正した。
+
+- `PredictionEngine.recommendation()` はライブModel A購入モード中、キャッシュ済みライブ判定がない場合に旧BUYロジックへ進まない。
+- ライブオッズ評価待ちはSKIPとして扱う。
+- `ModelAProductionReleaseGateTest` を現仕様へ更新。
+- `RecommendationDecisionTest` に「強いレースでもライブオッズ未評価なら旧BUYしない」回帰テストを追加。
+- 修正後CI Run `36101624563` は live API / Unit test / lint / Debug APK / upload 全SUCCESS。
+
+## 過去30日Model A参考表示
+
+v0.16.2で導入した回顧表示はv0.16.3でも継続。
 
 - strategy: `model-a-retro-flex-v2`
 - 4〜8点で可変。
 - 1レース総額1,000〜3,000円。
 - 100円単位。
-- 2・3着候補を広げる設計を優先し、6〜8点パターンも明確に増加。
 - 対象日の予想は対象日前日までの履歴だけで再現。同日/未来結果リークなし。
 - 結果は買い目/金額決定に使用しない (`resultUsedForSelection=false`)。
 - 終了後オッズは可変配分の**回顧分析**にのみ使用 (`postRaceOddsAllocation=true`)。
 - `preCloseOddsClaim=false`。締切前に同価格で買えたことを示すROIではない。
-- 過去表示は直近約1か月。
 
 2026-08-26〜2026-09-24の30日集計:
 - races: 4,189
@@ -55,9 +70,9 @@
 - 点数分布: 4点 1,538 / 5点 1,029 / 6点 661 / 7点 437 / 8点 524。
 - 点数別ROI: 4点 78.50% / 5点 93.49% / 6点 90.99% / 7点 61.01% / 8点 83.24%。
 
-点数別ROIは診断値。30日結果を見て点数を後付け選択する用途には使わない。
+この30日ROI・点数別ROIは回顧診断値で、v0.16.3のライブ購入判定の実現ROIを示すものではない。
 
-## Model A検証
+## Model A forecast検証
 
 固定Model A:
 - train through 2025-05-31。
@@ -97,26 +112,31 @@ Dedicated parity Run `36001980730` SUCCESS。
 - compact history byte parity PASS。
 - CI JVM smoke: forecast median 6.212ms / P95 7.806ms。
 
-## 購入AI
+## 購入判定の検証上の位置付け
 
-本番昇格禁止を継続。
+v0.16.3ではライブの購入推奨機能を提供するが、**過去ROIで本番性能を保証したものではない**。
 
 - 歴史オッズ監査: `ODDS_NOT_SUITABLE_FOR_REALIZABLE_BACKTEST`。
-- 締切前/T-5取得時刻を証明できない。
-- v0.16.2の過去可変損益は回顧診断であり、実現可能な購入ROIではない。
-- r1〜r4 / OOF購入policyは不採用。
-- **自動BUYはOFF。**
+- 過去データでは締切前/T-5取得時刻を証明できない。
+- したがって過去の最終-likeオッズを使ったROIをライブ政策の実現可能ROIとして扱わない。
+- `RELEASE_QUALIFIED=false` / `HISTORICAL_ROI_APPLIES_TO_CURRENT=false` を維持。
+- r1〜r4 / OOFの過去購入policyをそのまま本番採用したわけではない。
+- v0.16.3の購入推奨は、実運用時点で取得した現在の公式オッズを用いる独立したライブ判定レイヤー。
 
 ## Release検証
 
-Release target `256659979f3c4433eb077d534426a7871eb1f69d`。
+Release target `7a3ffe365707c7a1a99b790b3c8eb0aabb45c4de`。
 
-- Build `36080778668`: live API schema / Unit test / lint / Debug APK / upload 全SUCCESS。
-- Signed Release `36080778686`: Release test / lint / signed APK / signature verify / GitHub Release publish 全SUCCESS。
+- Build `36101879628`: live API schema / Unit test / lint / Debug APK / upload 全SUCCESS。
+- Signed Release `36101879634`: version check / signing secrets / Release test / lint / signed APK / signature verify / GitHub Release publish 全SUCCESS。
+- Release `v0.16.3`: ID `396356442`。
+- APK `BOAT-AI-v0.16.3.apk`: 13,678,970 bytes。
+- SHA-256: `f054736d1e83a6abb7f50cfb2e5a58f5ac6c41507d1adaad0b9efe1be6316c51`。
 
 ## 次の作業
 
-1. v0.16.2を実機へ上書き更新し、過去レースの可変4〜8点・金額表示・損益カード・点数別診断を確認する。
-2. 次の未使用期間で5〜6点が高ROIという傾向を再検証し、30日結果への後付け最適化を避ける。
-3. 実運用forecast結果、history catch-up、fallbackを監視する。
-4. 購入AIは監査可能な締切前オッズ基盤を新設してから別研究として再開する。
+1. v0.16.3を実機へ**上書き更新**する。アンインストール・データ消去はしない。
+2. 当日レースでModel A予想が従来どおり市場非入力で表示されることを確認する。
+3. 展示・進入が揃った購入可能レースで、公式120通りオッズ取得後に購入推奨 / 見送りと4〜8点・各金額が表示されることを確認する。
+4. 詳細を開いた購入可能レースで60秒再評価が行われることを確認する。
+5. ライブ運用データを蓄積し、購入推奨の実績は回顧ROIと分離して評価する。
