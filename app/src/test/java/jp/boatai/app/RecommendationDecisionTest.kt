@@ -5,7 +5,7 @@ import org.junit.Test
 
 class RecommendationDecisionTest {
     @Test
-    fun strongRaceStillHasForecastWhileAutoPurchaseIsPaused() {
+    fun strongRaceWithoutCachedLiveOddsDoesNotFallBackToLegacyBuy() {
         resetProfiles()
         val race = race(
             racers = listOf(
