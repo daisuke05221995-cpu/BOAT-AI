@@ -160,12 +160,28 @@ object PredictionEngine {
             AverageRoiReferenceStrategy.cached(race)?.let { selection ->
                 return RecommendationDecision(selection.recommendation, selection.reason)
             }
-            if (isDecisionReady(race) && race.isPurchasable()) {
+            if (race.racers.size < 6) {
                 return RecommendationDecision(
                     RaceRecommendation.SKIP,
-                    "公式3連単ライブオッズを取得してModel A期待値を判定中"
+                    "6艇分の出走データが揃っていないためライブ購入判定を見送り"
                 )
             }
+            if (!isDecisionReady(race)) {
+                return RecommendationDecision(
+                    RaceRecommendation.SKIP,
+                    "展示・進入など直前情報が揃うまでライブ購入判定を待機"
+                )
+            }
+            if (!race.isPurchasable()) {
+                return RecommendationDecision(
+                    RaceRecommendation.SKIP,
+                    "購入受付時間外のためライブ購入判定の対象外"
+                )
+            }
+            return RecommendationDecision(
+                RaceRecommendation.SKIP,
+                "公式3連単ライブオッズを取得してModel A期待値を判定中"
+            )
         }
         if (valueStrategyModel != null) {
             valueSelections[race.id]?.let { selection ->
