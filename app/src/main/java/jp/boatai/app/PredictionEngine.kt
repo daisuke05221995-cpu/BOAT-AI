@@ -24,22 +24,19 @@ object PredictionEngine {
         performanceProfile = persistentPerformanceProfile.mergedWith(profile)
     }
 
-    /**
-     * The independently validated value model is optional. Stable releases without the
-     * promoted asset continue to use the legacy engine unchanged.
-     */
     internal fun installValueStrategyModel(model: ValueStrategyModel?) {
         valueStrategyModel = model
         valueSelections.clear()
     }
 
-    fun hasValueStrategyModel(): Boolean = valueStrategyModel != null
+    fun hasValueStrategyModel(): Boolean =
+        valueStrategyModel != null || AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED
     fun hasAiForecastMode(): Boolean = AverageRoiReferenceStrategy.FORECAST_ENABLED
     fun hasAverageRoiReferenceStrategy(): Boolean = AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED
     fun averageRoiOddsCombinations(): List<String> = AverageRoiReferenceStrategy.allCombinations()
     internal fun hasAverageRoiSelection(race: RaceData): Boolean = AverageRoiReferenceStrategy.cached(race) != null
     internal fun applyAverageRoiOdds(race: RaceData, odds: Map<String, Double>, budget: Int): ValueSelection =
-        AverageRoiReferenceStrategy.evaluateAndCache(race, odds, budget)
+        AverageRoiReferenceStrategy.evaluateAndCache(race, odds, AverageRoiReferenceStrategy.BUDGET)
 
     fun valueOddsCombinations(): List<String> = valueStrategyModel?.allCombinations().orEmpty()
 
@@ -48,7 +45,6 @@ object PredictionEngine {
         AverageRoiReferenceStrategy.clear()
     }
 
-    /** Restore only decisions recorded by this strategy; legacy records must not masquerade as value decisions. */
     internal fun restoreValueSelections(records: List<PredictionRecord>) {
         if (valueStrategyModel == null) return
         records.filter { it.strategyId == "value-v1" && it.evaluationEligible }.forEach { record ->
@@ -73,7 +69,8 @@ object PredictionEngine {
         }
     }
 
-    internal fun cachedValueSelection(race: RaceData): ValueSelection? = valueSelections[race.id]
+    internal fun cachedValueSelection(race: RaceData): ValueSelection? =
+        AverageRoiReferenceStrategy.cached(race) ?: valueSelections[race.id]
 
     internal fun applyValueOdds(
         race: RaceData,
@@ -89,7 +86,6 @@ object PredictionEngine {
         }
     }
 
-    /** 内部判定用の0〜100スコア。画面には直接出さず、購入推奨/見送りへ丸める。 */
     fun confidence(race: RaceData): Int {
         val raw = rawConfidence(race)
         if (raw == 0) return 0
@@ -132,10 +128,6 @@ object PredictionEngine {
         return performanceProfile.autoSkipReason(race.stadiumNumber, raw, leadingLane(race))
     }
 
-    /**
-     * 購入推奨を固定保存してよいだけの直前情報が揃っているか。
-     * 展示前に「見送り」を固定してしまわないため、事前予想履歴の保存側でも利用する。
-     */
     fun isDecisionReady(race: RaceData): Boolean {
         if (race.racers.size != 6 || race.preview == null) return false
         val previewReady = race.racers.count { racer ->
@@ -161,12 +153,18 @@ object PredictionEngine {
         ) {
             return RecommendationDecision(
                 RaceRecommendation.SKIP,
-                "AI着順予想は表示中。v0.15.15購入ロジックの過去診断不合格を受け、自動購入推奨は再検証まで停止中"
+                "AI着順予想は表示中。購入推奨は停止中"
             )
         }
         if (AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED) {
             AverageRoiReferenceStrategy.cached(race)?.let { selection ->
                 return RecommendationDecision(selection.recommendation, selection.reason)
+            }
+            if (isDecisionReady(race) && race.isPurchasable()) {
+                return RecommendationDecision(
+                    RaceRecommendation.SKIP,
+                    "公式3連単ライブオッズを取得してModel A期待値を判定中"
+                )
             }
         }
         if (valueStrategyModel != null) {
@@ -250,11 +248,6 @@ object PredictionEngine {
         return laneBase + national + local + motor + boat + start + exhibition + previewStart + course
     }
 
-    /**
-     * AI strategy picks. Once the promoted value model is installed, a SKIP or an
-     * as-yet unevaluated race intentionally returns no picks. It must never silently
-     * fall back to the legacy four-point strategy in automated/history paths.
-     */
     fun predict(race: RaceData, maxPicks: Int = 4): List<PredictionPick> {
         if (valueStrategyModel == null && AverageRoiReferenceStrategy.FORECAST_ENABLED) {
             return AverageRoiReferenceStrategy.forecast(race, maxPicks)
@@ -270,15 +263,16 @@ object PredictionEngine {
         return legacyPrediction(race, maxPicks, BetStrategy.DEFAULT_BUDGET)
     }
 
-    /**
-     * Explicit manual override for a user who chooses to buy a race the validated
-     * value strategy marked SKIP. This is never used for AI recommendation/history.
-     */
     fun manualOverridePicks(
         race: RaceData,
         budget: Int = BetStrategy.DEFAULT_BUDGET,
         maxPicks: Int = 4
-    ): List<PredictionPick> = legacyPrediction(race, maxPicks, budget)
+    ): List<PredictionPick> {
+        if (AverageRoiReferenceStrategy.FORECAST_ENABLED) {
+            return BetStrategy.allocate(race, AverageRoiReferenceStrategy.forecast(race, maxPicks), budget)
+        }
+        return legacyPrediction(race, maxPicks, budget)
+    }
 
     private fun legacyPrediction(race: RaceData, maxPicks: Int, budget: Int): List<PredictionPick> {
         if (race.racers.size < 3) return emptyList()
@@ -317,6 +311,10 @@ object PredictionEngine {
         learningOverride: LearningProfile? = null
     ): List<PredictionPick> {
         if (valueStrategyModel == null && AverageRoiReferenceStrategy.FORECAST_ENABLED) {
+            if (AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED) {
+                val selection = applyAverageRoiOdds(race, odds, AverageRoiReferenceStrategy.BUDGET)
+                if (selection.recommendation == RaceRecommendation.BUY) return selection.picks
+            }
             val count = picks.size.coerceAtLeast(1)
             val forecast = AverageRoiReferenceStrategy.forecast(race, count)
                 .map { pick -> pick.copy(odds = odds[pick.combination]) }
