@@ -4,13 +4,13 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Final Android release gate: forecast promotion must never imply purchase promotion. */
+/** Release gate: forecast is validated; live purchase recommendation is enabled without claiming historical ROI validation. */
 class ModelAProductionReleaseGateTest {
     @Test
-    fun forecastIsQualifiedButAutomaticPurchaseRemainsDisabled() {
+    fun forecastIsQualifiedAndLivePurchaseRecommendationIsEnabledWithoutHistoricalRoiClaim() {
         assertTrue(AverageRoiReferenceStrategy.FORECAST_ENABLED)
         assertTrue(AverageRoiReferenceStrategy.MODEL_A_FORECAST_RELEASE_QUALIFIED)
-        assertFalse(AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED)
+        assertTrue(AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED)
         assertFalse(AverageRoiReferenceStrategy.RELEASE_QUALIFIED)
         assertFalse(AverageRoiReferenceStrategy.HISTORICAL_ROI_APPLIES_TO_CURRENT)
     }
