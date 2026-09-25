@@ -38,7 +38,12 @@ object PredictionEngine {
     internal fun applyAverageRoiOdds(race: RaceData, odds: Map<String, Double>, budget: Int): ValueSelection =
         AverageRoiReferenceStrategy.evaluateAndCache(race, odds, AverageRoiReferenceStrategy.BUDGET)
 
-    fun valueOddsCombinations(): List<String> = valueStrategyModel?.allCombinations().orEmpty()
+    fun valueOddsCombinations(): List<String> =
+        if (valueStrategyModel == null && AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED) {
+            AverageRoiReferenceStrategy.allCombinations()
+        } else {
+            valueStrategyModel?.allCombinations().orEmpty()
+        }
 
     fun clearValueSelections() {
         valueSelections.clear()
@@ -77,6 +82,13 @@ object PredictionEngine {
         odds: Map<String, Double>,
         learningOverride: LearningProfile? = null
     ): ValueSelection? {
+        if (valueStrategyModel == null && AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED) {
+            return AverageRoiReferenceStrategy.evaluateAndCache(
+                race,
+                odds,
+                AverageRoiReferenceStrategy.BUDGET
+            )
+        }
         val model = valueStrategyModel ?: return null
         if (odds.count { it.value > 0.0 } < 100) {
             return model.select(race, learningOverride ?: learningProfile, odds)
