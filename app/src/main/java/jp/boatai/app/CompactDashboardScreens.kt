@@ -241,33 +241,25 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
     var showAiDetails by remember { mutableStateOf(false) }
 
     val dateText = ui.date.toString()
-    val weekStart = ui.date.minusDays(6).toString()
-    val monthPrefix = String.format(Locale.US, "%04d-%02d", ui.date.year, ui.date.monthValue)
+    val periods = ProfitPeriod.entries
+    val selectedPeriod = periods.getOrElse(period) { ProfitPeriod.TODAY }
 
     val settledPredictions = ui.predictionHistory.filter { it.settled && it.evaluationEligible }
     val retrospectivePredictions = ui.modelARecentVirtualRecords.filter { it.settled && it.evaluationEligible }
-    val selectedRetrospective = when (period) {
-        0 -> retrospectivePredictions.filter { it.date == dateText }
-        1 -> retrospectivePredictions.filter { it.date >= weekStart && it.date <= dateText }
-        2 -> retrospectivePredictions.filter { it.date.startsWith(monthPrefix) }
-        else -> retrospectivePredictions
+    val selectedRetrospective = retrospectivePredictions.filter {
+        ProfitPeriodFilter.includes(selectedPeriod, it.date, ui.date)
     }
-    val selectedPredictions = when (period) {
-        0 -> settledPredictions.filter { it.date == dateText }
-        1 -> settledPredictions.filter { it.date >= weekStart && it.date <= dateText }
-        2 -> settledPredictions.filter { it.date.startsWith(monthPrefix) }
-        else -> settledPredictions
+    val selectedPredictions = settledPredictions.filter {
+        ProfitPeriodFilter.includes(selectedPeriod, it.date, ui.date)
     }
-    val selectedActual = when (period) {
-        0 -> ui.records.filter { it.date == dateText }
-        1 -> ui.records.filter { it.date >= weekStart && it.date <= dateText }
-        2 -> ui.records.filter { it.date.startsWith(monthPrefix) }
-        else -> ui.records
+    val selectedActual = ui.records.filter {
+        ProfitPeriodFilter.includes(selectedPeriod, it.date, ui.date)
     }
 
     val recommended = ProfitAnalytics.summarize(selectedPredictions.filter { it.recommended })
     val all = ProfitAnalytics.summarize(selectedPredictions)
     val liveAuditCoverage = LiveAuditedPerformance.coverage(selectedPredictions)
+    val liveAuditFailureCounts = LiveAuditedPerformance.failureCounts(selectedPredictions)
     val auditedLiveRecords = LiveAuditedPerformance.eligible(selectedPredictions)
     val auditedLive = ProfitAnalytics.summarize(auditedLiveRecords)
     val retrospective = ProfitAnalytics.summarize(selectedRetrospective)
@@ -285,10 +277,18 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
         item { CompactDateSelector(ui, vm) }
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    listOf("今日", "7日", "月", "全期間").forEachIndexed { index, label ->
-                        TextButton(onClick = { period = index }) {
-                            Text(label, fontWeight = if (period == index) FontWeight.Bold else FontWeight.Normal)
+                Column(Modifier.fillMaxWidth().padding(4.dp)) {
+                    periods.chunked(3).forEach { rowPeriods ->
+                        Row(Modifier.fillMaxWidth()) {
+                            rowPeriods.forEach { option ->
+                                val index = periods.indexOf(option)
+                                TextButton(
+                                    onClick = { period = index },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(option.label, fontWeight = if (selectedPeriod == option) FontWeight.Bold else FontWeight.Normal)
+                                }
+                            }
                         }
                     }
                 }
@@ -301,7 +301,7 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             ) {
                 Column(Modifier.padding(14.dp)) {
-                    Text("実購入", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("実購入累計", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     Text(signedCompactMoney(actualPayout - actualStake), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
                     Text("購入 ${compactMoney(actualStake)} / 払戻 ${compactMoney(actualPayout)} / 回収率 ${compactPercent(actualRoi)}")
                     if (pendingStake > 0) Text("結果待ち ${compactMoney(pendingStake)}", style = MaterialTheme.typography.bodySmall)
@@ -312,7 +312,7 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
                 Column(Modifier.padding(14.dp)) {
-                    Text("ライブ監査済みAI購入推奨", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("AIライブ累計", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     if (auditedLive.races > 0) {
                         Text(signedCompactMoney(auditedLive.profit), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
                         Text("${auditedLive.hits}/${auditedLive.races}的中 / 購入 ${compactMoney(auditedLive.stake)} / 払戻 ${compactMoney(auditedLive.payout)} / 回収率 ${compactPercent(auditedLive.roi)}")
@@ -326,6 +326,12 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
                     )
                     if (liveAuditCoverage.missingAuditCount > 0) {
                         Text("監査情報不足 ${liveAuditCoverage.missingAuditCount}R はこの成績から除外しています。", style = MaterialTheme.typography.bodySmall)
+                        if (liveAuditFailureCounts.isNotEmpty()) {
+                            val reasonText = LiveAuditFailure.entries.mapNotNull { reason ->
+                                liveAuditFailureCounts[reason]?.takeIf { it > 0 }?.let { count -> "${reason.label} $count" }
+                            }.joinToString(" / ")
+                            Text("不足内訳: $reasonText", style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                     Text(
                         "購入可能時間中の取得時刻・取得元・公式3連単120通り・選択買い目オッズ・実際の配分が揃ったvalue-v1の確定BUYだけを集計します。過去仮想損益とは混ぜません。",
@@ -335,45 +341,6 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
             }
         }
 
-        item {
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
-                Column(Modifier.padding(14.dp)) {
-                    Text("Model A 過去仮想損益（確定払戻）", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text(signedCompactMoney(retrospective.profit), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
-                    Text("${retrospective.hits}/${retrospective.races}的中 / 購入 ${compactMoney(retrospective.stake)} / 払戻 ${compactMoney(retrospective.payout)} / 回収率 ${compactPercent(retrospective.roi)}")
-                    Text("対象日前日までの履歴だけで市場非入力Model Aを再現。4〜8点・1R 1,000〜3,000円（100円単位）の配分は終了後オッズを使う研究用仮想配分です。締切前に同じ価格で買えたことを示すROIではなく、自動BUYには使用しません。", style = MaterialTheme.typography.bodySmall)
-                    ui.modelARecentVirtualThroughDate?.let { through ->
-                        Text("期間: ${ui.modelARecentVirtualWindowStart ?: "-"} 〜 $through / 直近30日", style = MaterialTheme.typography.labelSmall)
-                    }
-                    ui.modelARecentVirtualError?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
-                }
-            }
-        }
-
-        ui.modelARecentVirtualSummary?.let { summary ->
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text("Model A 点数別30日診断", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        Text("全体 ${summary.hits}/${summary.races}的中 / 回収率 ${compactPercent(summary.roi)} / ${signedCompactMoney(summary.profit)}", fontWeight = FontWeight.SemiBold)
-                        Text("平均 ${String.format(Locale.US, "%.2f", summary.averagePoints)}点 / ${compactMoney(summary.averageStake.toInt())}", style = MaterialTheme.typography.bodySmall)
-                        Spacer(Modifier.height(6.dp))
-                        summary.pointBreakdown.forEach { row ->
-                            Text("${row.points}点　${row.hits}/${row.races}的中（${compactPercent(row.hitRate)}）　ROI ${compactPercent(row.roi)}　${signedCompactMoney(row.profit)}", style = MaterialTheme.typography.bodySmall)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text("点数別数値は診断用です。結果を見て点数を後付け選択する用途には使いません。", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-        }
-
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AnalyticsMiniCard("AI購入推奨", recommended, Modifier.weight(1f))
-                AnalyticsMiniCard("全予想", all, Modifier.weight(1f))
-            }
-        }
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
