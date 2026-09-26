@@ -266,13 +266,47 @@ class PredictionTrackingService : Service() {
 
     private suspend fun bootstrapToday() {
         val today = LocalDate.now(PredictionTrackingScheduler.TOKYO)
+        val predictionStore = PredictionHistoryStore(this)
+        val betStore = BetStore(this)
+
+        reconcileRecentPending(today, predictionStore, betStore)
+
         val races = runCatching { BoatRaceRepository().loadDate(today) }.getOrNull()
         if (races != null) {
-            PredictionHistoryStore(this).settle(races)
-            BetStore(this).settle(races)
+            predictionStore.settle(races)
+            betStore.settle(races)
             PredictionTrackingScheduler(this).scheduleRaces(races)
         }
         PredictionTrackingScheduler(this).scheduleDailyBootstrap()
+    }
+
+    private suspend fun reconcileRecentPending(
+        today: LocalDate,
+        predictionStore: PredictionHistoryStore,
+        betStore: BetStore
+    ) {
+        val pendingDateTexts = buildList {
+            predictionStore.load()
+                .asSequence()
+                .filter { !it.settled }
+                .map { it.date }
+                .forEach(::add)
+            betStore.load()
+                .asSequence()
+                .filter { !it.settled }
+                .map { it.date }
+                .forEach(::add)
+        }
+        val dates = SettlementRecoveryPlanner.selectDates(pendingDateTexts, today)
+            .filter { it != today }
+        if (dates.isEmpty()) return
+
+        val repository = BoatRaceRepository()
+        dates.forEach { pendingDate ->
+            val races = runCatching { repository.loadDate(pendingDate) }.getOrNull() ?: return@forEach
+            predictionStore.settle(races)
+            betStore.settle(races)
+        }
     }
 
     private suspend fun settleDate(dateText: String?, raceId: String?, attempt: Int) {
