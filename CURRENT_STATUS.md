@@ -82,6 +82,34 @@ Model A remains the current production forecast baseline.
 
 Future Model B / Model C / LONGSHOT research should be evaluated mainly by whether it improves realizable cumulative money performance while maintaining enough sample size and audit quality. The app does not need to explain every model feature to the user.
 
+## Latest implementation progress — 2026-09-27
+
+Money-first cumulative accounting work has started on top of v0.16.5.
+
+Completed on `main`:
+
+- Added reusable Profit periods: **Today / 7 days / 30 days / Month / Year / All time**.
+- Added unit tests for all period boundaries.
+- Changed the normal Profit screen emphasis to **Actual purchase cumulative** and **AI live cumulative**.
+- Removed retrospective Model A and point-count diagnostic cards from the always-visible main Profit flow; research remains behind the AI analysis/validation section.
+- Added explicit live-audit failure reasons: missing fetch time, missing source, fewer than 120 official trifecta odds, missing combinations, invalid stake allocation, or missing selected-pick odds.
+- Added aggregated audit-failure counts to the AI live cumulative card when incomplete live BUY records exist.
+- Confirmed the prediction-history update paths preserve the original `createdAt` when an unsettled record is refreshed.
+- Confirmed actual confirmed-purchase storage rejects the same date/venue/race/combination from being registered twice.
+- Removed temporary one-shot patch helpers after validation.
+
+Validation:
+
+- Money-first UI validation: unit test / lint / Debug APK all SUCCESS before commit.
+- Clean-main official Build and verify Run `36256708015`: live API schema / unit tests / lint / Debug APK / artifact upload all SUCCESS.
+
+Still requires real-device/live-race evidence:
+
+- lifecycle/background persistence across real app process conditions
+- Result-screen audit rows vs Profit-screen audited counts
+- automatic settlement after actual race results
+- real live BUY/SKIP accumulation on the installed app
+
 ## Planned phases
 
 ### Phase 1 — Stabilize v0.16.5 live operation
