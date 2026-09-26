@@ -85,12 +85,28 @@ class PredictionTrackingScheduler(private val context: Context) {
         }
     }
 
+    fun scheduleSettleRetry(dateText: String, raceId: String, currentAttempt: Int) {
+        if (!SettlementRetryPolicy.shouldRetry(currentAttempt, true)) return
+        val nextAttempt = SettlementRetryPolicy.nextAttempt(currentAttempt)
+        schedule(
+            System.currentTimeMillis() + SettlementRetryPolicy.RETRY_DELAY_MINUTES * 60_000L,
+            raceId.hashCode() xor SETTLE_RETRY_REQUEST_XOR xor nextAttempt,
+            ACTION_SETTLE,
+            dateText = dateText.take(10),
+            raceId = raceId,
+            settleAttempt = nextAttempt
+        )
+    }
+
     @SuppressLint("ScheduleExactAlarm")
     private fun schedule(
         triggerAtMillis: Long,
         requestCode: Int,
         action: String,
-        race: RaceData? = null
+        race: RaceData? = null,
+        dateText: String? = null,
+        raceId: String? = null,
+        settleAttempt: Int = 0
     ) {
         val intent = Intent(context, PredictionTrackingReceiver::class.java).apply {
             this.action = action
@@ -98,6 +114,9 @@ class PredictionTrackingScheduler(private val context: Context) {
                 putExtra(EXTRA_RACE_ID, it.id)
                 putExtra(EXTRA_DATE, it.date.take(10))
             }
+            dateText?.takeIf { it.isNotBlank() }?.let { putExtra(EXTRA_DATE, it.take(10)) }
+            raceId?.takeIf { it.isNotBlank() }?.let { putExtra(EXTRA_RACE_ID, it) }
+            if (action == ACTION_SETTLE) putExtra(EXTRA_SETTLE_ATTEMPT, settleAttempt)
         }
         val pending = PendingIntent.getBroadcast(
             context,
@@ -132,6 +151,7 @@ class PredictionTrackingScheduler(private val context: Context) {
         const val ACTION_SETTLE = "jp.boatai.app.action.TRACK_PREDICTION_SETTLE"
         const val EXTRA_RACE_ID = "tracking_race_id"
         const val EXTRA_DATE = "tracking_date"
+        const val EXTRA_SETTLE_ATTEMPT = "tracking_settle_attempt"
         const val SERVICE_CHANNEL = "boat_ai_prediction_tracking_visual_only_v4"
         const val SERVICE_NOTIFICATION_ID = 9_911
         private const val ALERT_LEAD_MINUTES = 5
@@ -141,6 +161,7 @@ class PredictionTrackingScheduler(private val context: Context) {
         private const val BOOTSTRAP_SOON_REQUEST_CODE = 9_912
         private const val EVALUATE_REQUEST_XOR = 0x36B1
         private const val SETTLE_REQUEST_XOR = 0x51A7
+        private const val SETTLE_RETRY_REQUEST_XOR = 0x6C2D
     }
 }
 
@@ -150,6 +171,10 @@ class PredictionTrackingReceiver : BroadcastReceiver() {
             action = intent.action
             putExtra(PredictionTrackingScheduler.EXTRA_RACE_ID, intent.getStringExtra(PredictionTrackingScheduler.EXTRA_RACE_ID))
             putExtra(PredictionTrackingScheduler.EXTRA_DATE, intent.getStringExtra(PredictionTrackingScheduler.EXTRA_DATE))
+            putExtra(
+                PredictionTrackingScheduler.EXTRA_SETTLE_ATTEMPT,
+                intent.getIntExtra(PredictionTrackingScheduler.EXTRA_SETTLE_ATTEMPT, 0)
+            )
         }
         runCatching { ContextCompat.startForegroundService(context, serviceIntent) }
             .onFailure { CrashRecoveryStore(context).recordNonFatal("PredictionTrackingReceiver.${intent.action}", it) }
@@ -190,7 +215,9 @@ class PredictionTrackingService : Service() {
                         intent.getStringExtra(PredictionTrackingScheduler.EXTRA_RACE_ID)
                     )
                     PredictionTrackingScheduler.ACTION_SETTLE -> settleDate(
-                        intent.getStringExtra(PredictionTrackingScheduler.EXTRA_DATE)
+                        intent.getStringExtra(PredictionTrackingScheduler.EXTRA_DATE),
+                        intent.getStringExtra(PredictionTrackingScheduler.EXTRA_RACE_ID),
+                        intent.getIntExtra(PredictionTrackingScheduler.EXTRA_SETTLE_ATTEMPT, 0)
                     )
                 }
             } catch (error: Throwable) {
@@ -248,12 +275,40 @@ class PredictionTrackingService : Service() {
         PredictionTrackingScheduler(this).scheduleDailyBootstrap()
     }
 
-    private suspend fun settleDate(dateText: String?) {
+    private suspend fun settleDate(dateText: String?, raceId: String?, attempt: Int) {
         if (dateText.isNullOrBlank()) return
-        val date = runCatching { LocalDate.parse(dateText.take(10)) }.getOrNull() ?: return
-        val races = runCatching { BoatRaceRepository().loadDate(date) }.getOrNull() ?: return
-        PredictionHistoryStore(this).settle(races)
-        BetStore(this).settle(races)
+        val normalizedDate = dateText.take(10)
+        val date = runCatching { LocalDate.parse(normalizedDate) }.getOrNull() ?: return
+        val predictionStore = PredictionHistoryStore(this)
+        val betStore = BetStore(this)
+
+        fun hasPendingTarget(): Boolean {
+            if (raceId.isNullOrBlank()) return false
+            val predictionPending = predictionStore.load().any { record ->
+                !record.settled && record.id == raceId
+            }
+            val purchasePending = betStore.load().any { bet ->
+                !bet.settled &&
+                    "${bet.date.take(10)}-${Venues.code(bet.stadiumNumber)}-${bet.raceNumber}" == raceId
+            }
+            return predictionPending || purchasePending
+        }
+
+        val pendingBeforeFetch = hasPendingTarget()
+        val races = runCatching { BoatRaceRepository().loadDate(date) }.getOrNull()
+        if (races == null) {
+            if (pendingBeforeFetch && !raceId.isNullOrBlank()) {
+                PredictionTrackingScheduler(this).scheduleSettleRetry(normalizedDate, raceId, attempt)
+            }
+            return
+        }
+
+        predictionStore.settle(races)
+        betStore.settle(races)
+
+        if (hasPendingTarget() && !raceId.isNullOrBlank()) {
+            PredictionTrackingScheduler(this).scheduleSettleRetry(normalizedDate, raceId, attempt)
+        }
     }
 
     private suspend fun evaluateRace(dateText: String?, raceId: String?) {
