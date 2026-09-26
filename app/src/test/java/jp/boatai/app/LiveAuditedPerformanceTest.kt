@@ -42,6 +42,7 @@ class LiveAuditedPerformanceTest {
     @Test
     fun completeSettledValueBuyIsAccepted() {
         assertTrue(LiveAuditedPerformance.isAuditedBuy(record()))
+        assertEquals(emptyList<LiveAuditFailure>(), LiveAuditedPerformance.auditFailures(record()))
     }
 
     @Test
@@ -58,6 +59,36 @@ class LiveAuditedPerformanceTest {
     }
 
     @Test
+    fun auditFailuresExplainMissingEvidence() {
+        val failures = LiveAuditedPerformance.auditFailures(
+            record(
+                liveOddsFetchedAt = null,
+                liveOddsSource = null,
+                liveOddsCount = 119,
+                stakes = listOf(1000),
+                livePickOdds = listOf(12.4)
+            )
+        )
+
+        assertEquals(
+            listOf(
+                LiveAuditFailure.FETCH_TIME,
+                LiveAuditFailure.SOURCE,
+                LiveAuditFailure.ODDS_COUNT,
+                LiveAuditFailure.STAKES,
+                LiveAuditFailure.PICK_ODDS
+            ),
+            failures
+        )
+    }
+
+    @Test
+    fun nonCandidateDoesNotProduceAuditFailureNoise() {
+        assertEquals(emptyList<LiveAuditFailure>(), LiveAuditedPerformance.auditFailures(record(recommended = false)))
+        assertEquals(emptyList<LiveAuditFailure>(), LiveAuditedPerformance.auditFailures(record(strategyId = "model-a-retro-flex-v2")))
+    }
+
+    @Test
     fun coverageCountsOnlySettledEligibleValueBuysAsCandidates() {
         val audited = record(id = "audited")
         val missingAudit = record(id = "missing", liveOddsCount = 0, livePickOdds = emptyList())
@@ -71,5 +102,18 @@ class LiveAuditedPerformanceTest {
         assertEquals(1, coverage.missingAuditCount)
         assertEquals(50.0, coverage.coveragePercent, 0.0001)
         assertEquals(listOf(audited), LiveAuditedPerformance.eligible(listOf(audited, missingAudit, skip, retrospective)))
+    }
+
+    @Test
+    fun failureCountsAggregateReasonsAcrossLiveBuys() {
+        val missingSource = record(id = "source", liveOddsSource = null)
+        val missingOdds = record(id = "odds", liveOddsCount = 100, livePickOdds = emptyList())
+        val audited = record(id = "ok")
+
+        val counts = LiveAuditedPerformance.failureCounts(listOf(missingSource, missingOdds, audited))
+
+        assertEquals(1, counts[LiveAuditFailure.SOURCE])
+        assertEquals(1, counts[LiveAuditFailure.ODDS_COUNT])
+        assertEquals(1, counts[LiveAuditFailure.PICK_ODDS])
     }
 }
