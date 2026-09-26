@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 39
-        versionName = "0.16.4"
-        // v0.16.4: Persist and show auditable live odds snapshots for production BUY/SKIP decisions.
+        versionCode = 40
+        versionName = "0.16.5"
+        // v0.16.5: Keep audited live BUY performance separate from retrospective simulation metrics.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
