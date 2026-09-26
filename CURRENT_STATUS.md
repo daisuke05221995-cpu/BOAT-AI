@@ -15,13 +15,15 @@ Detailed model explanations, feature importance, and race-theory commentary are 
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
 - Branch: `main`
-- Current public version: **v0.16.5**
-- versionCode: **40**
-- Release target: `a401530f1e697c0ae86adac95dcc5b320cdf4ce1`
-- Build Run: `36238671361` SUCCESS
-- Signed Release Run: `36238671351` SUCCESS
-- Release ID: `397209702`
-- APK: `BOAT-AI-v0.16.5.apk`
+- Current public version: **v0.16.6**
+- versionCode: **41**
+- Release target: `80f7800eaac984c549ccdd67dcf63b7f71158687`
+- Build Run: `36257301807` SUCCESS
+- Signed Release Run: `36257301835` SUCCESS
+- Release ID: `397321639`
+- APK: `BOAT-AI-v0.16.6.apk`
+- APK SHA-256: `9abf8fcdedf175035a09698e9ee591a7a9f104f0b70df21c4fc50b4730dc78ec`
+- Detailed handoff: `data/V0166_MONEY_FIRST_PROFIT_HANDOFF_20260927.md`
 
 ## Development priority
 
@@ -82,15 +84,15 @@ Model A remains the current production forecast baseline.
 
 Future Model B / Model C / LONGSHOT research should be evaluated mainly by whether it improves realizable cumulative money performance while maintaining enough sample size and audit quality. The app does not need to explain every model feature to the user.
 
-## Latest implementation progress — 2026-09-27
+## Latest implementation progress — v0.16.6
 
-Money-first cumulative accounting work has started on top of v0.16.5.
-
-Completed on `main`:
+Completed and released:
 
 - Added reusable Profit periods: **Today / 7 days / 30 days / Month / Year / All time**.
+- Profit now defaults to **All time** because cumulative performance is the primary user need.
 - Added unit tests for all period boundaries.
 - Changed the normal Profit screen emphasis to **Actual purchase cumulative** and **AI live cumulative**.
+- Actual purchase cumulative now shows purchased race count, hit race count, and hit rate; multiple tickets in one race count as one race.
 - Removed retrospective Model A and point-count diagnostic cards from the always-visible main Profit flow; research remains behind the AI analysis/validation section.
 - Added explicit live-audit failure reasons: missing fetch time, missing source, fewer than 120 official trifecta odds, missing combinations, invalid stake allocation, or missing selected-pick odds.
 - Added aggregated audit-failure counts to the AI live cumulative card when incomplete live BUY records exist.
@@ -100,11 +102,15 @@ Completed on `main`:
 
 Validation:
 
-- Money-first UI validation: unit test / lint / Debug APK all SUCCESS before commit.
-- Clean-main official Build and verify Run `36256708015`: live API schema / unit tests / lint / Debug APK / artifact upload all SUCCESS.
+- Money-first UI validation: Unit test / lint / Debug APK SUCCESS.
+- Cumulative all-time UI validation: Unit test / lint / Debug APK SUCCESS.
+- Official v0.16.6 Build Run `36257301807`: live API schema / Unit tests / lint / Debug APK / artifact upload all SUCCESS.
+- Signed Release Run `36257301835`: release tests / lint / signed APK / signature verification / GitHub Release publication all SUCCESS.
 
 Still requires real-device/live-race evidence:
 
+- overwrite install v0.16.6 without deleting app data
+- existing actual-purchase totals remain intact after update
 - lifecycle/background persistence across real app process conditions
 - Result-screen audit rows vs Profit-screen audited counts
 - automatic settlement after actual race results
@@ -112,18 +118,17 @@ Still requires real-device/live-race evidence:
 
 ## Planned phases
 
-### Phase 1 — Stabilize v0.16.5 live operation
+### Phase 1 — Stabilize v0.16.6 live operation
 - real-device overwrite update only; do not clear app data
 - verify live BUY/SKIP persistence
 - verify live audited Profit totals
-- improve audit-failure diagnosis
 - verify lifecycle/background reliability
+- verify automatic settlement and no duplicate cumulative accounting
 
-### Phase 2 — Make cumulative profit the center of the app
-- strengthen Profit screen
-- today / 7d / 30d / month / year / all-time switching
-- prominently show stake / payout / profit / ROI
-- compare AI-live vs actual-user cumulative performance
+### Phase 2 — Finish cumulative-money UX
+- keep stake / payout / profit / ROI immediately visible
+- compare AI-live vs actual-user cumulative performance cleanly
+- improve cumulative trend visibility only where it helps money tracking
 
 ### Phase 3 — Simplify purchase workflow
 - improve bulk selection
