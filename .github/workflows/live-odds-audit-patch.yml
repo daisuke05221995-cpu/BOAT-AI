@@ -1,0 +1,432 @@
+name: Apply live odds audit persistence patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/live-odds-audit-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply focused source changes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected exactly one match, got {count}")
+              p.write_text(text.replace(old, new, 1))
+
+          models = Path('app/src/main/java/jp/boatai/app/Models.kt')
+          text = models.read_text()
+          old = '''    val recommendationReason: String? = null,
+    val stakes: List<Int> = emptyList(),
+    val strategyId: String? = null
+) {'''
+          new = '''    val recommendationReason: String? = null,
+    val stakes: List<Int> = emptyList(),
+    val strategyId: String? = null,
+    val liveOddsFetchedAt: Long? = null,
+    val liveOddsSource: String? = null,
+    val liveOddsCount: Int = 0,
+    val livePickOdds: List<Double> = emptyList()
+) {'''
+          if text.count(old) != 1:
+              raise SystemExit('Models.kt: PredictionRecord field anchor mismatch')
+          text = text.replace(old, new, 1)
+
+          old = '''        if (stakes.isNotEmpty()) put("stakes", JSONArray().apply { stakes.forEach { put(it) } })
+        if (strategyId != null) put("strategyId", strategyId)
+        put("resultCombination", resultCombination)'''
+          new = '''        if (stakes.isNotEmpty()) put("stakes", JSONArray().apply { stakes.forEach { put(it) } })
+        if (strategyId != null) put("strategyId", strategyId)
+        if (liveOddsFetchedAt != null) put("liveOddsFetchedAt", liveOddsFetchedAt)
+        if (!liveOddsSource.isNullOrBlank()) put("liveOddsSource", liveOddsSource)
+        if (liveOddsCount > 0) put("liveOddsCount", liveOddsCount)
+        if (livePickOdds.isNotEmpty()) put("livePickOdds", JSONArray().apply { livePickOdds.forEach { put(it) } })
+        put("resultCombination", resultCombination)'''
+          if text.count(old) != 1:
+              raise SystemExit('Models.kt: toJson anchor mismatch')
+          text = text.replace(old, new, 1)
+
+          old = '''            val stakes = obj.optJSONArray("stakes")?.let { array ->
+                List(array.length()) { index -> array.optInt(index) }
+                    .takeIf { it.size == combinations.size && it.all { stake -> stake >= 100 && stake % 100 == 0 } }
+            }.orEmpty()
+            return PredictionRecord('''
+          new = '''            val stakes = obj.optJSONArray("stakes")?.let { array ->
+                List(array.length()) { index -> array.optInt(index) }
+                    .takeIf { it.size == combinations.size && it.all { stake -> stake >= 100 && stake % 100 == 0 } }
+            }.orEmpty()
+            val livePickOdds = obj.optJSONArray("livePickOdds")?.let { array ->
+                List(array.length()) { index -> array.optDouble(index) }
+                    .takeIf { it.size == combinations.size && it.all { odds -> odds.isFinite() && odds > 0.0 } }
+            }.orEmpty()
+            return PredictionRecord('''
+          if text.count(old) != 1:
+              raise SystemExit('Models.kt: fromJson parse anchor mismatch')
+          text = text.replace(old, new, 1)
+
+          old = '''                recommendationReason = obj.optString("recommendationReason").takeIf { it.isNotBlank() },
+                stakes = stakes,
+                strategyId = obj.optString("strategyId").takeIf { it.isNotBlank() }
+            )'''
+          new = '''                recommendationReason = obj.optString("recommendationReason").takeIf { it.isNotBlank() },
+                stakes = stakes,
+                strategyId = obj.optString("strategyId").takeIf { it.isNotBlank() },
+                liveOddsFetchedAt = if (obj.has("liveOddsFetchedAt") && !obj.isNull("liveOddsFetchedAt")) obj.optLong("liveOddsFetchedAt") else null,
+                liveOddsSource = obj.optString("liveOddsSource").takeIf { it.isNotBlank() },
+                liveOddsCount = obj.optInt("liveOddsCount", 0).coerceAtLeast(0),
+                livePickOdds = livePickOdds
+            )'''
+          if text.count(old) != 1:
+              raise SystemExit('Models.kt: constructor anchor mismatch')
+          models.write_text(text.replace(old, new, 1))
+
+          registry = Path('app/src/main/java/jp/boatai/app/LiveOddsAuditRegistry.kt')
+          if registry.exists():
+              raise SystemExit('LiveOddsAuditRegistry.kt already exists')
+          registry.write_text('''package jp.boatai.app
+
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * Short-lived bridge from the official odds fetch layer to prediction persistence.
+ * The durable copy lives in PredictionRecord; this registry only carries the most
+ * recent successful snapshot until the corresponding pre-race record is written.
+ */
+internal object LiveOddsAuditRegistry {
+    private const val MAX_ENTRIES = 256
+    private val snapshots = ConcurrentHashMap<String, OddsFetchResult>()
+
+    fun record(raceId: String, result: OddsFetchResult) {
+        if (raceId.isBlank()) return
+        snapshots[raceId] = result
+        if (snapshots.size > MAX_ENTRIES) {
+            snapshots.entries.minByOrNull { it.value.fetchedAt }?.key
+                ?.takeIf { it != raceId }
+                ?.let(snapshots::remove)
+        }
+    }
+
+    fun latest(raceId: String): OddsFetchResult? = snapshots[raceId]
+
+    fun clear(raceId: String) {
+        snapshots.remove(raceId)
+    }
+
+    internal fun clearAllForTest() {
+        snapshots.clear()
+    }
+}
+''')
+
+          replace_once(
+              'app/src/main/java/jp/boatai/app/BoatRaceRepository.kt',
+              '''                return@withContext OddsFetchResult(odds, source, diagnostics)''',
+              '''                val result = OddsFetchResult(odds, source, diagnostics)
+                LiveOddsAuditRegistry.record(race.id, result)
+                return@withContext result'''
+          )
+
+          history = Path('app/src/main/java/jp/boatai/app/PredictionHistoryStore.kt')
+          text = history.read_text()
+          start = text.index('    fun captureOpenRaces(')
+          end = text.index('    /**\n     * 締切直前', start)
+          replacement = '''    fun captureOpenRaces(
+        races: List<RaceData>,
+        stakePerPick: Int = DEFAULT_SIMULATION_STAKE
+    ): List<PredictionRecord> {
+        if (races.isEmpty()) return load()
+        val current = load().toMutableList()
+        var changed = false
+        val now = System.currentTimeMillis()
+
+        races.forEach { race ->
+            // 成績検証へ残すのは、締切前に実際に取得できたレースだけ。
+            // 終了済み・過去日を後から開いた際の後付け予想は作成しない。
+            if (race.racers.size < 3 || !race.isPurchasable()) return@forEach
+
+            // 展示・進入が揃う前に購入判断を固定しない。
+            if (!PredictionEngine.isDecisionReady(race)) return@forEach
+
+            val index = current.indexOfFirst { it.id == race.id }
+            val previous = current.getOrNull(index)
+            if (previous?.settled == true) return@forEach
+
+            val valueSelection = if (PredictionEngine.hasValueStrategyModel()) {
+                // Promoted/live value decisions are only valid after the full official
+                // trifecta market has been fetched. Never persist the temporary WAIT/SKIP
+                // state or legacy picks while official odds are still pending.
+                PredictionEngine.cachedValueSelection(race) ?: return@forEach
+            } else {
+                null
+            }
+
+            val decision = valueSelection?.let {
+                RecommendationDecision(it.recommendation, it.reason)
+            } ?: PredictionEngine.recommendation(race)
+            val picks = if (valueSelection != null) {
+                if (valueSelection.recommendation == RaceRecommendation.BUY) valueSelection.picks else emptyList()
+            } else {
+                PredictionEngine.predict(race)
+            }
+
+            // Legacy engine always has prediction combinations. A validated value SKIP is
+            // intentionally stored with zero hypothetical stake rather than inventing old
+            // four-point bets that the new strategy explicitly rejected.
+            if (valueSelection == null && picks.isEmpty()) return@forEach
+
+            val audit = LiveOddsAuditRegistry.latest(race.id)
+            if (previous != null) {
+                val previousFetchedAt = previous.liveOddsFetchedAt ?: Long.MIN_VALUE
+                if (audit == null || audit.fetchedAt <= previousFetchedAt) return@forEach
+            }
+
+            val confidence = PredictionEngine.confidence(race)
+            val rawConfidence = PredictionEngine.rawConfidence(race)
+            val strategyStakePerPick = picks.map { it.recommendedStake }
+                .filter { it >= 100 && it % 100 == 0 }
+                .distinct()
+                .singleOrNull()
+            val simulationStake = when {
+                valueSelection != null && !decision.recommended -> 0
+                strategyStakePerPick != null -> strategyStakePerPick
+                else -> stakePerPick
+            }
+            val livePickOdds = audit?.let { snapshot ->
+                val values = picks.map { pick -> snapshot.odds[pick.combination] }
+                if (values.all { it != null && it.isFinite() && it > 0.0 }) values.map { it!! } else emptyList()
+            }.orEmpty()
+            val record = PredictionRecord(
+                id = race.id,
+                date = race.date,
+                stadiumNumber = race.stadiumNumber,
+                raceNumber = race.raceNumber,
+                combinations = picks.map { it.combination },
+                stakePerPick = simulationStake,
+                resultCombination = null,
+                trifectaPayout = 0,
+                settled = false,
+                createdAt = previous?.createdAt ?: now,
+                confidence = confidence,
+                rank = PredictionPerformanceProfile.rankFor(rawConfidence),
+                firstLane = picks.firstOrNull()?.combination?.substringBefore("-")?.toIntOrNull(),
+                evaluationEligible = true,
+                autoSkipped = !decision.recommended,
+                autoSkipReason = decision.reason.takeIf { !decision.recommended },
+                recommended = decision.recommended,
+                recommendationReason = decision.reason,
+                stakes = if (valueSelection?.recommendation == RaceRecommendation.BUY) {
+                    picks.map { it.recommendedStake }
+                } else {
+                    emptyList()
+                },
+                strategyId = if (valueSelection != null) "value-v1" else null,
+                liveOddsFetchedAt = audit?.fetchedAt,
+                liveOddsSource = audit?.source,
+                liveOddsCount = audit?.odds?.values?.count { it.isFinite() && it > 0.0 } ?: 0,
+                livePickOdds = livePickOdds
+            )
+            if (index >= 0) current[index] = record else current += record
+            changed = true
+        }
+
+        if (changed) save(current)
+        return current.sortedByDescending { it.createdAt }
+    }
+
+'''
+          text = text[:start] + replacement + text[end:]
+
+          text = text.replace(
+              '''        strategyId: String? = null,
+        stakePerPick: Int = DEFAULT_SIMULATION_STAKE
+    ): List<PredictionRecord> {
+        if (!race.isPurchasable() || !PredictionEngine.isDecisionReady(race) || picks.isEmpty()) return load()
+
+        val current = load().toMutableList()''',
+              '''        strategyId: String? = null,
+        stakePerPick: Int = DEFAULT_SIMULATION_STAKE,
+        oddsResult: OddsFetchResult? = null
+    ): List<PredictionRecord> {
+        if (!race.isPurchasable() || !PredictionEngine.isDecisionReady(race)) return load()
+        val storedPicks = if (!decision.recommended && strategyId == "value-v1") emptyList() else picks
+        if (decision.recommended && storedPicks.isEmpty()) return load()
+
+        val current = load().toMutableList()''',
+              1
+          )
+          if 'val storedPicks = if (!decision.recommended' not in text:
+              raise SystemExit('PredictionHistoryStore.kt: upsert signature anchor mismatch')
+
+          text = text.replace(
+              '''            picks.all { it.recommendedStake >= 100 && it.recommendedStake % 100 == 0 }
+        ) {
+            picks.map { it.recommendedStake }''',
+              '''            storedPicks.all { it.recommendedStake >= 100 && it.recommendedStake % 100 == 0 }
+        ) {
+            storedPicks.map { it.recommendedStake }''',
+              1
+          )
+          text = text.replace('''            combinations = picks.map { it.combination },
+            stakePerPick = stakePerPick,''', '''            combinations = storedPicks.map { it.combination },
+            stakePerPick = if (!decision.recommended && strategyId == "value-v1") 0 else stakePerPick,''', 1)
+          text = text.replace('''            firstLane = picks.firstOrNull()?.combination?.substringBefore("-")?.toIntOrNull(),''', '''            firstLane = storedPicks.firstOrNull()?.combination?.substringBefore("-")?.toIntOrNull(),''', 1)
+          text = text.replace(
+              '''            stakes = validStakes,
+            strategyId = strategyId
+        )''',
+              '''            stakes = validStakes,
+            strategyId = strategyId,
+            liveOddsFetchedAt = oddsResult?.fetchedAt,
+            liveOddsSource = oddsResult?.source,
+            liveOddsCount = oddsResult?.odds?.values?.count { it.isFinite() && it > 0.0 } ?: 0,
+            livePickOdds = oddsResult?.let { snapshot ->
+                val values = storedPicks.map { pick -> snapshot.odds[pick.combination] }
+                if (values.all { it != null && it.isFinite() && it > 0.0 }) values.map { it!! } else emptyList()
+            }.orEmpty()
+        )''',
+              1
+          )
+          history.write_text(text)
+
+          scheduler = Path('app/src/main/java/jp/boatai/app/PredictionTrackingScheduler.kt')
+          text = scheduler.read_text()
+          old = '''            predictionStore.upsertEvaluatedRace(race, picks, decision, "value-v1")'''
+          new = '''            predictionStore.upsertEvaluatedRace(
+                race,
+                if (decision.recommended) picks else emptyList(),
+                decision,
+                "value-v1",
+                oddsResult = oddsResult
+            )'''
+          if text.count(old) != 1:
+              raise SystemExit('PredictionTrackingScheduler.kt: value upsert anchor mismatch')
+          text = text.replace(old, new, 1)
+          old = '''        predictionStore.upsertEvaluatedRace(
+            race,
+            picks.ifEmpty { basePicks },
+            finalDecision,
+            "legacy-final-v1"
+        )'''
+          new = '''        predictionStore.upsertEvaluatedRace(
+            race,
+            picks.ifEmpty { basePicks },
+            finalDecision,
+            "legacy-final-v1",
+            oddsResult = oddsResult
+        )'''
+          if text.count(old) != 1:
+              raise SystemExit('PredictionTrackingScheduler.kt: legacy upsert anchor mismatch')
+          scheduler.write_text(text.replace(old, new, 1))
+
+          test = Path('app/src/test/java/jp/boatai/app/PredictionRecordTest.kt')
+          text = test.read_text()
+          marker = '\n}\n'
+          if not text.endswith(marker):
+              raise SystemExit('PredictionRecordTest.kt: class closing anchor mismatch')
+          extra = '''
+    @Test
+    fun jsonRoundTripKeepsLiveOddsAuditSnapshot() {
+        val record = PredictionRecord(
+            id = "2026-09-26-01-8",
+            date = "2026-09-26",
+            stadiumNumber = 1,
+            raceNumber = 8,
+            combinations = listOf("1-2-3", "1-3-2"),
+            stakePerPick = 500,
+            resultCombination = null,
+            trifectaPayout = 0,
+            settled = false,
+            createdAt = 99L,
+            recommended = true,
+            stakes = listOf(600, 400),
+            strategyId = "value-v1",
+            liveOddsFetchedAt = 1_797_000_000_000L,
+            liveOddsSource = "公式PC版",
+            liveOddsCount = 120,
+            livePickOdds = listOf(12.4, 18.7)
+        )
+
+        val restored = PredictionRecord.fromJson(record.toJson())
+        assertEquals(record, restored)
+    }
+
+    @Test
+    fun legacyJsonKeepsLiveOddsAuditDefaultsEmpty() {
+        val original = PredictionRecord(
+            id = "2026-09-20-02-4",
+            date = "2026-09-20",
+            stadiumNumber = 2,
+            raceNumber = 4,
+            combinations = listOf("1-2-3"),
+            stakePerPick = 300,
+            resultCombination = null,
+            trifectaPayout = 0,
+            settled = false,
+            createdAt = 1L
+        )
+        val json = original.toJson().apply {
+            remove("liveOddsFetchedAt")
+            remove("liveOddsSource")
+            remove("liveOddsCount")
+            remove("livePickOdds")
+        }
+
+        val restored = PredictionRecord.fromJson(json)
+        assertEquals(null, restored.liveOddsFetchedAt)
+        assertEquals(null, restored.liveOddsSource)
+        assertEquals(0, restored.liveOddsCount)
+        assertTrue(restored.livePickOdds.isEmpty())
+    }
+'''
+          test.write_text(text[:-len(marker)] + extra + marker)
+          PY
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Generate Gradle wrapper
+        run: gradle wrapper --gradle-version 8.10.2
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/jp/boatai/app/Models.kt \
+                  app/src/main/java/jp/boatai/app/LiveOddsAuditRegistry.kt \
+                  app/src/main/java/jp/boatai/app/BoatRaceRepository.kt \
+                  app/src/main/java/jp/boatai/app/PredictionHistoryStore.kt \
+                  app/src/main/java/jp/boatai/app/PredictionTrackingScheduler.kt \
+                  app/src/test/java/jp/boatai/app/PredictionRecordTest.kt
+          git diff --cached --check
+          git commit -m "Persist live odds audit snapshots [live-odds-audit]"
+          git push origin HEAD:main
