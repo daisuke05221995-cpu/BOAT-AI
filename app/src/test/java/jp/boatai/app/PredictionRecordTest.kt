@@ -80,4 +80,58 @@ class PredictionRecordTest {
         assertEquals(13_500, record.simulatedProfit)
         assertEquals(record, PredictionRecord.fromJson(record.toJson()))
     }
+    @Test
+    fun jsonRoundTripKeepsLiveOddsAuditSnapshot() {
+        val record = PredictionRecord(
+            id = "2026-09-26-01-8",
+            date = "2026-09-26",
+            stadiumNumber = 1,
+            raceNumber = 8,
+            combinations = listOf("1-2-3", "1-3-2"),
+            stakePerPick = 500,
+            resultCombination = null,
+            trifectaPayout = 0,
+            settled = false,
+            createdAt = 99L,
+            recommended = true,
+            stakes = listOf(600, 400),
+            strategyId = "value-v1",
+            liveOddsFetchedAt = 1_797_000_000_000L,
+            liveOddsSource = "公式PC版",
+            liveOddsCount = 120,
+            livePickOdds = listOf(12.4, 18.7)
+        )
+
+        val restored = PredictionRecord.fromJson(record.toJson())
+        assertEquals(record, restored)
+    }
+
+    @Test
+    fun legacyJsonKeepsLiveOddsAuditDefaultsEmpty() {
+        val original = PredictionRecord(
+            id = "2026-09-20-02-4",
+            date = "2026-09-20",
+            stadiumNumber = 2,
+            raceNumber = 4,
+            combinations = listOf("1-2-3"),
+            stakePerPick = 300,
+            resultCombination = null,
+            trifectaPayout = 0,
+            settled = false,
+            createdAt = 1L
+        )
+        val json = original.toJson().apply {
+            remove("liveOddsFetchedAt")
+            remove("liveOddsSource")
+            remove("liveOddsCount")
+            remove("livePickOdds")
+        }
+
+        val restored = PredictionRecord.fromJson(json)
+        assertEquals(null, restored.liveOddsFetchedAt)
+        assertEquals(null, restored.liveOddsSource)
+        assertEquals(0, restored.liveOddsCount)
+        assertTrue(restored.livePickOdds.isEmpty())
+    }
+
 }

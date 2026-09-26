@@ -25,27 +25,22 @@ class PredictionHistoryStore(context: Context) {
     ): List<PredictionRecord> {
         if (races.isEmpty()) return load()
         val current = load().toMutableList()
-        val existing = current.mapTo(mutableSetOf()) { it.id }
         var changed = false
         val now = System.currentTimeMillis()
 
         races.forEach { race ->
-            // 成績検証へ残すのは、締切前に実際に取得できたレースだけ。
-            // 終了済み・過去日を後から開いた際の後付け予想は作成しない。
-            if (race.racers.size < 3 || race.id in existing || !race.isPurchasable()) return@forEach
-
-            // 展示・進入が揃う前に購入判断を固定しない。
+            if (race.racers.size < 3 || !race.isPurchasable()) return@forEach
             if (!PredictionEngine.isDecisionReady(race)) return@forEach
 
+            val index = current.indexOfFirst { it.id == race.id }
+            val previous = current.getOrNull(index)
+            if (previous?.settled == true) return@forEach
+
             val valueSelection = if (PredictionEngine.hasValueStrategyModel()) {
-                // Promoted value strategy decisions are only valid after the full official
-                // trifecta market has been fetched. Never persist the temporary WAIT/SKIP
-                // state or legacy picks while official odds are still pending.
                 PredictionEngine.cachedValueSelection(race) ?: return@forEach
             } else {
                 null
             }
-
             val decision = valueSelection?.let {
                 RecommendationDecision(it.recommendation, it.reason)
             } ?: PredictionEngine.recommendation(race)
@@ -54,11 +49,13 @@ class PredictionHistoryStore(context: Context) {
             } else {
                 PredictionEngine.predict(race)
             }
-
-            // Legacy engine always has prediction combinations. A validated value SKIP is
-            // intentionally stored with zero hypothetical stake rather than inventing old
-            // four-point bets that the new strategy explicitly rejected.
             if (valueSelection == null && picks.isEmpty()) return@forEach
+
+            val audit = LiveOddsAuditRegistry.latest(race.id)
+            if (previous != null) {
+                val previousFetchedAt = previous.liveOddsFetchedAt ?: Long.MIN_VALUE
+                if (audit == null || audit.fetchedAt <= previousFetchedAt) return@forEach
+            }
 
             val confidence = PredictionEngine.confidence(race)
             val rawConfidence = PredictionEngine.rawConfidence(race)
@@ -71,7 +68,11 @@ class PredictionHistoryStore(context: Context) {
                 strategyStakePerPick != null -> strategyStakePerPick
                 else -> stakePerPick
             }
-            current += PredictionRecord(
+            val livePickOdds = audit?.let { snapshot ->
+                val values = picks.map { pick -> snapshot.odds[pick.combination] }
+                if (values.all { it != null && it.isFinite() && it > 0.0 }) values.map { it!! } else emptyList()
+            }.orEmpty()
+            val record = PredictionRecord(
                 id = race.id,
                 date = race.date,
                 stadiumNumber = race.stadiumNumber,
@@ -81,7 +82,7 @@ class PredictionHistoryStore(context: Context) {
                 resultCombination = null,
                 trifectaPayout = 0,
                 settled = false,
-                createdAt = now,
+                createdAt = previous?.createdAt ?: now,
                 confidence = confidence,
                 rank = PredictionPerformanceProfile.rankFor(rawConfidence),
                 firstLane = picks.firstOrNull()?.combination?.substringBefore("-")?.toIntOrNull(),
@@ -95,9 +96,13 @@ class PredictionHistoryStore(context: Context) {
                 } else {
                     emptyList()
                 },
-                strategyId = if (valueSelection != null) "value-v1" else null
+                strategyId = if (valueSelection != null) "value-v1" else null,
+                liveOddsFetchedAt = audit?.fetchedAt,
+                liveOddsSource = audit?.source,
+                liveOddsCount = audit?.odds?.values?.count { it.isFinite() && it > 0.0 } ?: 0,
+                livePickOdds = livePickOdds
             )
-            existing += race.id
+            if (index >= 0) current[index] = record else current += record
             changed = true
         }
 
@@ -115,9 +120,12 @@ class PredictionHistoryStore(context: Context) {
         picks: List<PredictionPick>,
         decision: RecommendationDecision,
         strategyId: String? = null,
-        stakePerPick: Int = DEFAULT_SIMULATION_STAKE
+        stakePerPick: Int = DEFAULT_SIMULATION_STAKE,
+        oddsResult: OddsFetchResult? = null
     ): List<PredictionRecord> {
-        if (!race.isPurchasable() || !PredictionEngine.isDecisionReady(race) || picks.isEmpty()) return load()
+        if (!race.isPurchasable() || !PredictionEngine.isDecisionReady(race)) return load()
+        val storedPicks = if (!decision.recommended && strategyId == "value-v1") emptyList() else picks
+        if (decision.recommended && storedPicks.isEmpty()) return load()
 
         val current = load().toMutableList()
         val index = current.indexOfFirst { it.id == race.id }
@@ -127,34 +135,43 @@ class PredictionHistoryStore(context: Context) {
         val rawConfidence = PredictionEngine.rawConfidence(race)
         val validStakes = if (
             decision.recommended &&
-            picks.all { it.recommendedStake >= 100 && it.recommendedStake % 100 == 0 }
+            storedPicks.isNotEmpty() &&
+            storedPicks.all { it.recommendedStake >= 100 && it.recommendedStake % 100 == 0 }
         ) {
-            picks.map { it.recommendedStake }
+            storedPicks.map { it.recommendedStake }
         } else {
             emptyList()
         }
+        val livePickOdds = oddsResult?.let { snapshot ->
+            val values = storedPicks.map { pick -> snapshot.odds[pick.combination] }
+            if (values.all { it != null && it.isFinite() && it > 0.0 }) values.map { it!! } else emptyList()
+        }.orEmpty()
 
         val record = PredictionRecord(
             id = race.id,
             date = race.date,
             stadiumNumber = race.stadiumNumber,
             raceNumber = race.raceNumber,
-            combinations = picks.map { it.combination },
-            stakePerPick = stakePerPick,
+            combinations = storedPicks.map { it.combination },
+            stakePerPick = if (!decision.recommended && strategyId == "value-v1") 0 else stakePerPick,
             resultCombination = null,
             trifectaPayout = 0,
             settled = false,
             createdAt = previous?.createdAt ?: System.currentTimeMillis(),
             confidence = PredictionEngine.confidence(race),
             rank = PredictionPerformanceProfile.rankFor(rawConfidence),
-            firstLane = picks.firstOrNull()?.combination?.substringBefore("-")?.toIntOrNull(),
+            firstLane = storedPicks.firstOrNull()?.combination?.substringBefore("-")?.toIntOrNull(),
             evaluationEligible = true,
             autoSkipped = !decision.recommended,
             autoSkipReason = decision.reason.takeIf { !decision.recommended },
             recommended = decision.recommended,
             recommendationReason = decision.reason,
             stakes = validStakes,
-            strategyId = strategyId
+            strategyId = strategyId,
+            liveOddsFetchedAt = oddsResult?.fetchedAt,
+            liveOddsSource = oddsResult?.source,
+            liveOddsCount = oddsResult?.odds?.values?.count { it.isFinite() && it > 0.0 } ?: 0,
+            livePickOdds = livePickOdds
         )
 
         if (index >= 0) current[index] = record else current += record

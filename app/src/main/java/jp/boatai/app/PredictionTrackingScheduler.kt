@@ -304,7 +304,13 @@ class PredictionTrackingService : Service() {
                 BetStrategy.DEFAULT_BUDGET,
                 learning
             ).ifEmpty { basePicks }
-            predictionStore.upsertEvaluatedRace(race, picks, decision, "value-v1")
+            predictionStore.upsertEvaluatedRace(
+                race,
+                if (decision.recommended) picks else emptyList(),
+                decision,
+                "value-v1",
+                oddsResult = oddsResult
+            )
             return
         }
 
@@ -344,7 +350,8 @@ class PredictionTrackingService : Service() {
             race,
             picks.ifEmpty { basePicks },
             finalDecision,
-            "legacy-final-v1"
+            "legacy-final-v1",
+            oddsResult = oddsResult
         )
     }
 

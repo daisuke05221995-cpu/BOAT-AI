@@ -139,7 +139,9 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
                     DiagnosticStatus.OK,
                     "${odds.size}/${combinations.size}点取得 / ${fetched.attempts}回目 / ${System.currentTimeMillis() - startedAt}ms"
                 )
-                return@withContext OddsFetchResult(odds, source, diagnostics)
+                val result = OddsFetchResult(odds, source, diagnostics)
+                LiveOddsAuditRegistry.record(race.id, result)
+                return@withContext result
             }.onFailure { error ->
                 lastError = error
                 diagnostics += DataSourceDiagnostic(
