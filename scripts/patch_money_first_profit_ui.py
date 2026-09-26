@@ -138,3 +138,4 @@ text = text[:research_start] + '\n' + text[research_end:]
 
 path.write_text(text, encoding='utf-8')
 print('Patched CompactProfitScreen for cumulative money-first UI.')
+# Validation retry after aligning the workflow with the repository Gradle setup.
