@@ -237,7 +237,7 @@ fun CompactResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
 
 @Composable
 fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
-    var period by remember { mutableIntStateOf(0) }
+    var period by remember { mutableIntStateOf(ProfitPeriod.entries.indexOf(ProfitPeriod.ALL)) }
     var showAiDetails by remember { mutableStateOf(false) }
 
     val dateText = ui.date.toString()
@@ -267,6 +267,10 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
     val actualStake = actualSettled.sumOf { it.stake }
     val actualPayout = actualSettled.sumOf { it.payout }
     val actualRoi = if (actualStake > 0) actualPayout * 100.0 / actualStake else 0.0
+    val actualRaceGroups = actualSettled.groupBy { "${it.date}-${it.stadiumNumber}-${it.raceNumber}" }
+    val actualRaceCount = actualRaceGroups.size
+    val actualHitRaceCount = actualRaceGroups.count { (_, tickets) -> tickets.any { it.payout > 0 } }
+    val actualHitRate = if (actualRaceCount > 0) actualHitRaceCount * 100.0 / actualRaceCount else 0.0
     val pendingStake = selectedActual.filterNot { it.settled }.sumOf { it.stake }
 
     LazyColumn(
@@ -301,9 +305,10 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             ) {
                 Column(Modifier.padding(14.dp)) {
-                    Text("実購入累計", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("実購入累計（${selectedPeriod.label}）", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     Text(signedCompactMoney(actualPayout - actualStake), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
                     Text("購入 ${compactMoney(actualStake)} / 払戻 ${compactMoney(actualPayout)} / 回収率 ${compactPercent(actualRoi)}")
+                    Text("的中 ${actualHitRaceCount}/${actualRaceCount}R / 的中率 ${compactPercent(actualHitRate)}", style = MaterialTheme.typography.bodySmall)
                     if (pendingStake > 0) Text("結果待ち ${compactMoney(pendingStake)}", style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -312,7 +317,7 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
                 Column(Modifier.padding(14.dp)) {
-                    Text("AIライブ累計", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("AIライブ累計（${selectedPeriod.label}）", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     if (auditedLive.races > 0) {
                         Text(signedCompactMoney(auditedLive.profit), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
                         Text("${auditedLive.hits}/${auditedLive.races}的中 / 購入 ${compactMoney(auditedLive.stake)} / 払戻 ${compactMoney(auditedLive.payout)} / 回収率 ${compactPercent(auditedLive.roi)}")
