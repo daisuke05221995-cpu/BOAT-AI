@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 40
-        versionName = "0.16.5"
-        // v0.16.5: Keep audited live BUY performance separate from retrospective simulation metrics.
+        versionCode = 41
+        versionName = "0.16.6"
+        // v0.16.6: Make cumulative actual/live money performance the center of the Profit screen.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
