@@ -192,6 +192,7 @@ fun CompactResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
                                             when {
                                                 prediction == null -> "事前予想：記録なし"
                                                 prediction.hit -> "✓ 的中  ${prediction.combinations.joinToString(" / ")}"
+                                                !prediction.recommended && prediction.combinations.isEmpty() -> "AI見送り：${prediction.recommendationReason ?: prediction.autoSkipReason ?: "購入条件を満たさず"}"
                                                 else -> "予想  ${prediction.combinations.joinToString(" / ")}"
                                             },
                                             maxLines = 1,
@@ -200,6 +201,24 @@ fun CompactResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
                                         )
                                         if (prediction?.strategyId == ModelARecentVirtualRepository.STRATEGY_ID) {
                                             Text("Model A仮想 ${compactMoney(prediction.simulatedStake)} → ${compactMoney(prediction.simulatedPayout)} / ${signedCompactMoney(prediction.simulatedProfit)}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                                        }
+                                        prediction?.liveOddsFetchedAt?.let { fetchedAt ->
+                                            val fetchedTime = java.time.Instant.ofEpochMilli(fetchedAt)
+                                                .atZone(ZoneId.of("Asia/Tokyo"))
+                                                .format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+                                            val source = prediction.liveOddsSource ?: "取得元不明"
+                                            val countText = if (prediction.liveOddsCount > 0) " / ${prediction.liveOddsCount}点" else ""
+                                            Text("ライブ判定 $fetchedTime / $source$countText", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                                            if (prediction.livePickOdds.size == prediction.combinations.size && prediction.livePickOdds.isNotEmpty()) {
+                                                Text(
+                                                    prediction.combinations.zip(prediction.livePickOdds).joinToString(" / ") { (combination, odds) ->
+                                                        "$combination @${String.format(Locale.US, "%.1f", odds)}倍"
+                                                    },
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
                                         }
                                         if (purchases.isNotEmpty()) {
                                             Text("実購入 ${compactMoney(stake)} / 払戻 ${compactMoney(payout)} / ${signedCompactMoney(payout - stake)}", style = MaterialTheme.typography.labelSmall)

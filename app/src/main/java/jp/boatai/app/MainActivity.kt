@@ -275,7 +275,7 @@ private fun BulkSelectionModeCard(vm: BoatViewModel) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             Text("一括購入の対象", fontWeight = FontWeight.Bold)
-            Text("v0.16.0では、2025年9月の独立検証と2025年10〜12月の最終検証を通過した市場非入力Model Aで3連単確率上位4点を表示します。履歴オッズの締切前取得時刻を証明できないため自動購入推奨は停止中です。AI予想からの手動購入は利用できます。", style = MaterialTheme.typography.bodySmall)
+            Text("市場非入力Model Aの予想と、現在の公式3連単オッズを別レイヤーで評価します。120通りオッズと展示・進入などの直前情報が揃った購入可能レースだけAI購入推奨を出し、条件不足は安全側で見送ります。外部投票の自動実行はせず、最終購入は公式画面で行います。", style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(onClick = vm::selectAllPurchasable) { Text("購入推奨のみ") }
