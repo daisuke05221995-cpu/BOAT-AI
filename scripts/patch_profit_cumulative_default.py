@@ -52,3 +52,4 @@ text = text.replace(
 
 path.write_text(text, encoding='utf-8')
 print('Patched Profit screen to default to all-time and show actual race hit totals.')
+# One-shot trigger for CI validation.
