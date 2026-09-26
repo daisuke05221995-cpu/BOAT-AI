@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 38
-        versionName = "0.16.3"
-        // v0.16.3: Model A forecast plus live official trifecta-odds BUY/SKIP recommendations; no automatic wagering execution.
+        versionCode = 39
+        versionName = "0.16.4"
+        // v0.16.4: Persist and show auditable live odds snapshots for production BUY/SKIP decisions.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
