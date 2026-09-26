@@ -1,0 +1,50 @@
+name: Cumulative Profit default patch
+
+on:
+  push:
+    paths:
+      - 'scripts/patch_profit_cumulative_default.py'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Generate Gradle Wrapper
+        run: gradle wrapper --gradle-version 8.10.2
+
+      - name: Apply cumulative-first Profit patch
+        run: python scripts/patch_profit_cumulative_default.py
+
+      - name: Validate tests lint and debug APK
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
+
+      - name: Commit validated Profit patch
+        run: |
+          if git diff --quiet; then
+            echo 'No Profit UI changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/jp/boatai/app/CompactDashboardScreens.kt
+          git commit -m 'Default Profit view to cumulative all-time'
+          git push
