@@ -1,0 +1,50 @@
+name: Pending settlement recovery patch
+
+on:
+  push:
+    paths:
+      - 'scripts/patch_pending_settlement_recovery.py'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Generate Gradle Wrapper
+        run: gradle wrapper --gradle-version 8.10.2
+
+      - name: Apply pending settlement recovery patch
+        run: python scripts/patch_pending_settlement_recovery.py
+
+      - name: Validate tests lint and debug APK
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
+
+      - name: Commit validated recovery patch
+        run: |
+          if git diff --quiet; then
+            echo 'No recovery changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/jp/boatai/app/PredictionTrackingScheduler.kt
+          git commit -m 'Recover recent unsettled results on bootstrap'
+          git push
