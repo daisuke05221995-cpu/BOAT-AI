@@ -2,6 +2,7 @@ package jp.boatai.app
 
 import android.app.Activity
 import android.app.Application
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -28,6 +29,7 @@ data class AppUpdateState(
     val downloadProgress: Int? = null,
     val releaseNotes: String? = null,
     val downloadUrl: String? = null,
+    val expectedApkSha256: String? = null,
     val statusMessage: String? = null,
     val error: String? = null
 )
@@ -59,6 +61,7 @@ internal object VersionComparator {
 class AppUpdateManager(private val application: Application) {
     private val _state = MutableStateFlow(AppUpdateState())
     val state: StateFlow<AppUpdateState> = _state.asStateFlow()
+    private val installState = application.getSharedPreferences(INSTALL_STATE_PREFS, Context.MODE_PRIVATE)
 
     @Volatile
     private var pendingApk: File? = null
@@ -82,6 +85,7 @@ class AppUpdateManager(private val application: Application) {
                         checking = false,
                         releaseNotes = release.notes,
                         downloadUrl = release.apkUrl,
+                        expectedApkSha256 = release.apkSha256,
                         statusMessage = when {
                             available -> "v${release.version} の更新があります"
                             userInitiated -> "最新版です（v${BuildConfig.VERSION_NAME}）"
@@ -107,7 +111,8 @@ class AppUpdateManager(private val application: Application) {
     }
 
     suspend fun downloadAndInstall(activity: Activity) {
-        val url = state.value.downloadUrl ?: return
+        val snapshot = state.value
+        val url = snapshot.downloadUrl ?: return
         _state.update {
             it.copy(
                 downloading = true,
@@ -117,24 +122,31 @@ class AppUpdateManager(private val application: Application) {
             )
         }
 
-        runCatching { downloadApk(url) }
+        runCatching {
+            val file = downloadApk(url)
+            DownloadedApkVerifier.verify(application, file, snapshot.expectedApkSha256)
+            file
+        }
             .onSuccess { file ->
                 pendingApk = file
                 _state.update {
                     it.copy(
                         downloading = false,
                         downloadProgress = 100,
-                        statusMessage = "APKを取得しました"
+                        statusMessage = "APKの署名・バージョンを確認しました"
                     )
                 }
                 requestInstall(activity)
             }
             .onFailure { error ->
+                pendingApk = null
+                installState.edit().putBoolean(KEY_AWAITING_UNKNOWN_SOURCE_PERMISSION, false).apply()
+                updateTargetFile().delete()
                 _state.update {
                     it.copy(
                         downloading = false,
                         downloadProgress = null,
-                        error = error.message ?: "APKのダウンロードに失敗しました",
+                        error = error.message ?: "APKのダウンロードまたは検証に失敗しました",
                         statusMessage = null
                     )
                 }
@@ -142,11 +154,29 @@ class AppUpdateManager(private val application: Application) {
     }
 
     fun resumePendingInstall(activity: Activity) {
-        if (pendingApk == null) return
+        val awaitingPermission = installState.getBoolean(KEY_AWAITING_UNKNOWN_SOURCE_PERMISSION, false)
+        val file = pendingApk ?: if (awaitingPermission) updateTargetFile().takeIf { it.exists() } else null
+        if (file == null) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
             return
         }
-        requestInstall(activity)
+
+        runCatching {
+            DownloadedApkVerifier.verify(application, file, state.value.expectedApkSha256)
+        }.onSuccess {
+            pendingApk = file
+            requestInstall(activity)
+        }.onFailure { error ->
+            pendingApk = null
+            installState.edit().putBoolean(KEY_AWAITING_UNKNOWN_SOURCE_PERMISSION, false).apply()
+            file.delete()
+            _state.update {
+                it.copy(
+                    statusMessage = null,
+                    error = error.message ?: "更新APKの再検証に失敗しました"
+                )
+            }
+        }
     }
 
     private suspend fun fetchLatestRelease(): LatestRelease = withContext(Dispatchers.IO) {
@@ -172,18 +202,24 @@ class AppUpdateManager(private val application: Application) {
             val assets = json.optJSONArray("assets")
                 ?: throw IllegalStateException("更新APKが公開されていません")
             var apkUrl: String? = null
+            var apkSha256: String? = null
             for (index in 0 until assets.length()) {
                 val asset = assets.getJSONObject(index)
                 val name = asset.optString("name")
                 if (name.endsWith(".apk", ignoreCase = true)) {
                     apkUrl = asset.optString("browser_download_url").takeIf { it.isNotBlank() }
+                    apkSha256 = asset.optString("digest")
+                        .removePrefix("sha256:")
+                        .lowercase()
+                        .takeIf { it.matches(Regex("[0-9a-f]{64}")) }
                     if (apkUrl != null) break
                 }
             }
             LatestRelease(
                 version = tag.removePrefix("v").removePrefix("V"),
                 notes = json.optString("body").takeIf { it.isNotBlank() },
-                apkUrl = apkUrl ?: throw IllegalStateException("ReleaseにAPKが見つかりません")
+                apkUrl = apkUrl ?: throw IllegalStateException("ReleaseにAPKが見つかりません"),
+                apkSha256 = apkSha256
             )
         } finally {
             connection.disconnect()
@@ -191,8 +227,8 @@ class AppUpdateManager(private val application: Application) {
     }
 
     private suspend fun downloadApk(downloadUrl: String): File = withContext(Dispatchers.IO) {
-        val updateDir = File(application.cacheDir, "updates").apply { mkdirs() }
-        val target = File(updateDir, "BOAT-AI-update.apk")
+        val target = updateTargetFile()
+        target.parentFile?.mkdirs()
         if (target.exists()) target.delete()
 
         val connection = (URL(downloadUrl).openConnection() as HttpURLConnection).apply {
@@ -233,11 +269,13 @@ class AppUpdateManager(private val application: Application) {
         val file = pendingApk ?: return
         if (!file.exists()) {
             pendingApk = null
+            installState.edit().putBoolean(KEY_AWAITING_UNKNOWN_SOURCE_PERMISSION, false).apply()
             _state.update { it.copy(error = "更新APKが見つかりません", statusMessage = null) }
             return
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
+            installState.edit().putBoolean(KEY_AWAITING_UNKNOWN_SOURCE_PERMISSION, true).apply()
             _state.update {
                 it.copy(statusMessage = "「この提供元のアプリを許可」をONにして、BOAT AIへ戻ってください")
             }
@@ -259,16 +297,25 @@ class AppUpdateManager(private val application: Application) {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
+        installState.edit().putBoolean(KEY_AWAITING_UNKNOWN_SOURCE_PERMISSION, false).apply()
         pendingApk = null
         _state.update {
-            it.copy(statusMessage = "Androidの確認画面で「インストール」を押してください")
+            it.copy(statusMessage = "Androidの確認画面で「更新」を押してください")
         }
         activity.startActivity(installIntent)
     }
 
+    private fun updateTargetFile(): File = File(File(application.cacheDir, "updates"), "BOAT-AI-update.apk")
+
     private data class LatestRelease(
         val version: String,
         val notes: String?,
-        val apkUrl: String
+        val apkUrl: String,
+        val apkSha256: String?
     )
+
+    companion object {
+        private const val INSTALL_STATE_PREFS = "boat_ai_update_install_state"
+        private const val KEY_AWAITING_UNKNOWN_SOURCE_PERMISSION = "awaiting_unknown_source_permission"
+    }
 }
