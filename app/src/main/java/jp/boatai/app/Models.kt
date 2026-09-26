@@ -171,7 +171,11 @@ data class PredictionRecord(
     val recommended: Boolean = false,
     val recommendationReason: String? = null,
     val stakes: List<Int> = emptyList(),
-    val strategyId: String? = null
+    val strategyId: String? = null,
+    val liveOddsFetchedAt: Long? = null,
+    val liveOddsSource: String? = null,
+    val liveOddsCount: Int = 0,
+    val selectedLiveOdds: Map<String, Double> = emptyMap()
 ) {
     val venueName: String get() = Venues.name(stadiumNumber)
     val recommendation: RaceRecommendation get() = if (recommended) RaceRecommendation.BUY else RaceRecommendation.SKIP
@@ -195,6 +199,12 @@ data class PredictionRecord(
         put("stakePerPick", stakePerPick)
         if (stakes.isNotEmpty()) put("stakes", JSONArray().apply { stakes.forEach { put(it) } })
         if (strategyId != null) put("strategyId", strategyId)
+        if (liveOddsFetchedAt != null) put("liveOddsFetchedAt", liveOddsFetchedAt)
+        if (liveOddsSource != null) put("liveOddsSource", liveOddsSource)
+        if (liveOddsCount > 0) put("liveOddsCount", liveOddsCount)
+        if (selectedLiveOdds.isNotEmpty()) put("selectedLiveOdds", JSONObject().apply {
+            selectedLiveOdds.forEach { (combination, odds) -> put(combination, odds) }
+        })
         put("resultCombination", resultCombination)
         put("trifectaPayout", trifectaPayout)
         put("settled", settled)
@@ -225,6 +235,16 @@ data class PredictionRecord(
                 List(array.length()) { index -> array.optInt(index) }
                     .takeIf { it.size == combinations.size && it.all { stake -> stake >= 100 && stake % 100 == 0 } }
             }.orEmpty()
+            val selectedLiveOdds = obj.optJSONObject("selectedLiveOdds")?.let { oddsObject ->
+                buildMap {
+                    val keys = oddsObject.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        val odds = oddsObject.optDouble(key, Double.NaN)
+                        if (odds.isFinite() && odds > 0.0) put(key, odds)
+                    }
+                }
+            }.orEmpty()
             return PredictionRecord(
                 id = obj.optString("id"),
                 date = obj.optString("date"),
@@ -245,7 +265,11 @@ data class PredictionRecord(
                 recommended = if (obj.has("recommended")) obj.optBoolean("recommended") else !autoSkipped && confidence >= 70,
                 recommendationReason = obj.optString("recommendationReason").takeIf { it.isNotBlank() },
                 stakes = stakes,
-                strategyId = obj.optString("strategyId").takeIf { it.isNotBlank() }
+                strategyId = obj.optString("strategyId").takeIf { it.isNotBlank() },
+                liveOddsFetchedAt = if (obj.has("liveOddsFetchedAt") && !obj.isNull("liveOddsFetchedAt")) obj.optLong("liveOddsFetchedAt") else null,
+                liveOddsSource = obj.optString("liveOddsSource").takeIf { it.isNotBlank() },
+                liveOddsCount = obj.optInt("liveOddsCount", 0).coerceAtLeast(0),
+                selectedLiveOdds = selectedLiveOdds
             )
         }
     }
