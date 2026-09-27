@@ -27,13 +27,8 @@ class FocusPredictionHistoryStore(context: Context) {
         if (picks.isEmpty()) return load(mode)
 
         val current = load(mode).toMutableList()
-        val index = current.indexOfFirst { it.id == race.id }
-        val previous = current.getOrNull(index)
-        if (previous?.settled == true) return current
-
-        // Freeze the first valid pre-close focus selection. Unlike value-v1 this strategy
-        // does not consume odds, so refreshing it later would only create avoidable drift.
-        if (previous != null) return current
+        val previous = current.firstOrNull { it.id == race.id }
+        if (previous != null) return current.sortedByDescending { it.createdAt }
 
         val record = PredictionRecord(
             id = race.id,
@@ -62,7 +57,7 @@ class FocusPredictionHistoryStore(context: Context) {
     }
 
     fun settle(races: List<RaceData>): Map<FocusMode, List<PredictionRecord>> {
-        if (races.isEmpty()) return FocusMode.values().associateWith(::load)
+        if (races.isEmpty()) return FocusMode.values().associateWith { mode -> load(mode) }
         val resultMap = races.filter { it.hasResult }.associateBy { it.id }
         return FocusMode.values().associateWith { mode ->
             val current = load(mode)
@@ -89,7 +84,7 @@ class FocusPredictionHistoryStore(context: Context) {
                 .filterNot { it.settled }
                 .map { it.date.take(10) }
                 .filter { it.isNotBlank() }
-                .forEach(::add)
+                .forEach { add(it) }
         }
     }
 
@@ -108,7 +103,8 @@ class FocusPredictionHistoryStore(context: Context) {
             val array = JSONArray(raw)
             buildList {
                 for (i in 0 until array.length()) {
-                    array.optJSONObject(i)?.let(PredictionRecord::fromJson)?.let(::add)
+                    val obj = array.optJSONObject(i) ?: continue
+                    add(PredictionRecord.fromJson(obj))
                 }
             }
         }.getOrNull()
