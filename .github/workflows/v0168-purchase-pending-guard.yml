@@ -1,0 +1,103 @@
+name: v0.16.8 purchase pending guard
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/v0168-purchase-pending-guard.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Generate Gradle Wrapper
+        run: gradle wrapper --gradle-version 8.10.2
+
+      - name: Patch pending purchase safety
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          vm_path = Path('app/src/main/java/jp/boatai/app/BoatViewModel.kt')
+          vm = vm_path.read_text()
+          old = '''    private fun savePendingPurchase(
+              entries: List<Pair<RaceData, List<PredictionPick>>>,
+              message: String
+          ): Boolean {
+              if (entries.isEmpty()) {
+          '''
+          new = '''    private fun savePendingPurchase(
+              entries: List<Pair<RaceData, List<PredictionPick>>>,
+              message: String
+          ): Boolean {
+              val existing = _ui.value.pendingPurchase ?: pendingPurchaseStore.load()
+              if (existing != null) {
+                  _ui.update {
+                      it.copy(
+                          pendingPurchase = existing,
+                          actionMessage = "未確定の投票待ちがあります。先に実購入として確定するか、購入しなかった場合は破棄してください"
+                      )
+                  }
+                  return false
+              }
+              if (entries.isEmpty()) {
+          '''
+          if vm.count(old) != 1:
+              raise SystemExit('BoatViewModel savePendingPurchase anchor mismatch')
+          vm_path.write_text(vm.replace(old, new, 1))
+
+          ui_path = Path('app/src/main/java/jp/boatai/app/MainActivity.kt')
+          ui = ui_path.read_text()
+          old_ui = '''        item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }
+              item { PredictionModeBar(sortMode) { sortMode = it } }
+          '''
+          new_ui = '''        item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }
+              ui.pendingPurchase?.let { pending ->
+                  item { PendingPurchaseCard(pending, vm) }
+              }
+              item { PredictionModeBar(sortMode) { sortMode = it } }
+          '''
+          if ui.count(old_ui) != 1:
+              raise SystemExit('MainActivity PredictionScreen anchor mismatch')
+          ui_path.write_text(ui.replace(old_ui, new_ui, 1))
+          PY
+
+      - name: Verify patch
+        run: |
+          grep -n "未確定の投票待ちがあります" app/src/main/java/jp/boatai/app/BoatViewModel.kt
+          grep -n "PendingPurchaseCard(pending, vm)" app/src/main/java/jp/boatai/app/MainActivity.kt
+
+      - name: Test lint and build
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
+
+      - name: Commit safety patch
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/jp/boatai/app/BoatViewModel.kt app/src/main/java/jp/boatai/app/MainActivity.kt
+          git commit -m "Prevent pending purchase overwrite [skip ci]"
+          git push origin HEAD:main
