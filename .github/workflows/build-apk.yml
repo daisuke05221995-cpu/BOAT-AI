@@ -26,9 +26,6 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Generate Gradle Wrapper
-        run: gradle wrapper --gradle-version 8.10.2
-
       - name: Verify live race API schema
         run: |
           python3 - <<'PY'
@@ -61,16 +58,16 @@ jobs:
           PY
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: gradle testDebugUnitTest --stacktrace
 
       - name: Android lint
-        run: ./gradlew lintDebug --stacktrace
+        run: gradle lintDebug --stacktrace
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: BOAT-AI-v0.3.0-debug
+          name: BOAT-AI-debug-${{ github.sha }}
           path: app/build/outputs/apk/debug/app-debug.apk
