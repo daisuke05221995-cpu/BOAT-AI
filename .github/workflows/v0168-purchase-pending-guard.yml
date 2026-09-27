@@ -40,12 +40,16 @@ jobs:
 
           vm_path = Path('app/src/main/java/jp/boatai/app/BoatViewModel.kt')
           vm = vm_path.read_text()
-          vm_anchor = '''    private fun savePendingPurchase(
-              entries: List<Pair<RaceData, List<PredictionPick>>>,
-              message: String
-          ): Boolean {
-          '''
-          vm_insert = vm_anchor + '''        val existing = _ui.value.pendingPurchase ?: pendingPurchaseStore.load()
+          function_marker = '    private fun savePendingPurchase('
+          guard_marker = '未確定の投票待ちがあります。先に実購入として確定するか、購入しなかった場合は破棄してください'
+          if vm.count(function_marker) != 1:
+              raise SystemExit(f'BoatViewModel function marker mismatch: {vm.count(function_marker)}')
+          if guard_marker not in vm:
+              function_start = vm.index(function_marker)
+              body_marker = '    ): Boolean {'
+              body_pos = vm.index(body_marker, function_start) + len(body_marker)
+              guard = '''
+              val existing = _ui.value.pendingPurchase ?: pendingPurchaseStore.load()
               if (existing != null) {
                   _ui.update {
                       it.copy(
@@ -56,34 +60,25 @@ jobs:
                   return false
               }
           '''
-          if vm.count(vm_anchor) != 1:
-              raise SystemExit(f'BoatViewModel savePendingPurchase anchor mismatch: {vm.count(vm_anchor)}')
-          vm_path.write_text(vm.replace(vm_anchor, vm_insert, 1))
+              vm = vm[:body_pos] + guard + vm[body_pos:]
+              vm_path.write_text(vm)
 
           ui_path = Path('app/src/main/java/jp/boatai/app/MainActivity.kt')
           ui = ui_path.read_text()
-          ui_anchor = '''        item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }
-              item { PredictionModeBar(sortMode) { sortMode = it } }
-          '''
-          ui_insert = '''        item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }
-              ui.pendingPurchase?.let { pending ->
-                  item { PendingPurchaseCard(pending, vm) }
-              }
-              item { PredictionModeBar(sortMode) { sortMode = it } }
-          '''
-          if ui.count(ui_anchor) != 1:
-              # Normalize against the real Kotlin indentation if YAML block indentation was stripped.
-              ui_anchor = '        item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }\n        item { PredictionModeBar(sortMode) { sortMode = it } }\n'
-              ui_insert = '        item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }\n        ui.pendingPurchase?.let { pending ->\n            item { PendingPurchaseCard(pending, vm) }\n        }\n        item { PredictionModeBar(sortMode) { sortMode = it } }\n'
-          if ui.count(ui_anchor) != 1:
-              raise SystemExit(f'MainActivity PredictionScreen anchor mismatch: {ui.count(ui_anchor)}')
-          ui_path.write_text(ui.replace(ui_anchor, ui_insert, 1))
+          diagnostics_marker = '        item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }\n'
+          pending_marker = '        ui.pendingPurchase?.let { pending ->\n            item { PendingPurchaseCard(pending, vm) }\n        }\n'
+          if ui.count(diagnostics_marker) != 1:
+              raise SystemExit(f'MainActivity diagnostics marker mismatch: {ui.count(diagnostics_marker)}')
+          if pending_marker not in ui:
+              pos = ui.index(diagnostics_marker) + len(diagnostics_marker)
+              ui = ui[:pos] + pending_marker + ui[pos:]
+              ui_path.write_text(ui)
           PY
 
       - name: Verify patch
         run: |
           grep -n "未確定の投票待ちがあります" app/src/main/java/jp/boatai/app/BoatViewModel.kt
-          grep -n "PendingPurchaseCard(pending, vm)" app/src/main/java/jp/boatai/app/MainActivity.kt
+          grep -n "ui.pendingPurchase?.let" app/src/main/java/jp/boatai/app/MainActivity.kt
 
       - name: Test lint and build
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
@@ -98,4 +93,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/java/jp/boatai/app/BoatViewModel.kt app/src/main/java/jp/boatai/app/MainActivity.kt
           git commit -m "Prevent pending purchase overwrite [skip ci]"
+          git pull --rebase origin main
           git push origin HEAD:main
