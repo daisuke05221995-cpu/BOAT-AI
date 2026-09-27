@@ -85,7 +85,8 @@ class BetStore(context: Context) {
                         stake = ticket.amount,
                         payout = 0,
                         settled = false,
-                        createdAt = now + sequence++
+                        createdAt = now + sequence++,
+                        strategyId = race.strategyId
                     )
                     changed = true
                 }

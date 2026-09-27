@@ -276,7 +276,8 @@ data class BetRecord(
     val stake: Int,
     val payout: Int,
     val settled: Boolean,
-    val createdAt: Long
+    val createdAt: Long,
+    val strategyId: String? = null
 ) {
     val venueName: String get() = Venues.name(stadiumNumber)
     val profit: Int get() = payout - stake
@@ -291,6 +292,7 @@ data class BetRecord(
         put("payout", payout)
         put("settled", settled)
         put("createdAt", createdAt)
+        if (!strategyId.isNullOrBlank()) put("strategyId", strategyId)
     }
 
     companion object {
@@ -303,7 +305,8 @@ data class BetRecord(
             stake = obj.optInt("stake"),
             payout = obj.optInt("payout"),
             settled = obj.optBoolean("settled"),
-            createdAt = obj.optLong("createdAt")
+            createdAt = obj.optLong("createdAt"),
+            strategyId = obj.optString("strategyId").takeIf { it.isNotBlank() }
         )
     }
 }

@@ -268,6 +268,7 @@ class PredictionTrackingService : Service() {
         val today = LocalDate.now(PredictionTrackingScheduler.TOKYO)
         val predictionStore = PredictionHistoryStore(this)
         val betStore = BetStore(this)
+        val focusStore = FocusPredictionHistoryStore(this)
 
         reconcileRecentPending(today, predictionStore, betStore)
 
@@ -275,6 +276,7 @@ class PredictionTrackingService : Service() {
         if (races != null) {
             predictionStore.settle(races)
             betStore.settle(races)
+            focusStore.settle(races)
             PredictionTrackingScheduler(this).scheduleRaces(races)
         }
         PredictionTrackingScheduler(this).scheduleDailyBootstrap()
@@ -285,6 +287,7 @@ class PredictionTrackingService : Service() {
         predictionStore: PredictionHistoryStore,
         betStore: BetStore
     ) {
+        val focusStore = FocusPredictionHistoryStore(this)
         val pendingDateTexts = buildList {
             predictionStore.load()
                 .asSequence()
@@ -296,6 +299,7 @@ class PredictionTrackingService : Service() {
                 .filter { !it.settled }
                 .map { it.date }
                 .forEach(::add)
+            focusStore.pendingDates().forEach(::add)
         }
         val dates = SettlementRecoveryPlanner.selectDates(pendingDateTexts, today)
             .filter { it != today }
@@ -306,6 +310,7 @@ class PredictionTrackingService : Service() {
             val races = runCatching { repository.loadDate(pendingDate) }.getOrNull() ?: return@forEach
             predictionStore.settle(races)
             betStore.settle(races)
+            focusStore.settle(races)
         }
     }
 
@@ -315,6 +320,7 @@ class PredictionTrackingService : Service() {
         val date = runCatching { LocalDate.parse(normalizedDate) }.getOrNull() ?: return
         val predictionStore = PredictionHistoryStore(this)
         val betStore = BetStore(this)
+        val focusStore = FocusPredictionHistoryStore(this)
 
         fun hasPendingTarget(): Boolean {
             if (raceId.isNullOrBlank()) return false
@@ -325,7 +331,10 @@ class PredictionTrackingService : Service() {
                 !bet.settled &&
                     "${bet.date.take(10)}-${Venues.code(bet.stadiumNumber)}-${bet.raceNumber}" == raceId
             }
-            return predictionPending || purchasePending
+            val focusPending = FocusMode.values().any { mode ->
+                focusStore.load(mode).any { record -> !record.settled && record.id == raceId }
+            }
+            return predictionPending || purchasePending || focusPending
         }
 
         val pendingBeforeFetch = hasPendingTarget()
@@ -339,6 +348,7 @@ class PredictionTrackingService : Service() {
 
         predictionStore.settle(races)
         betStore.settle(races)
+        focusStore.settle(races)
 
         if (hasPendingTarget() && !raceId.isNullOrBlank()) {
             PredictionTrackingScheduler(this).scheduleSettleRetry(normalizedDate, raceId, attempt)
@@ -353,14 +363,12 @@ class PredictionTrackingService : Service() {
 
         PredictionHistoryStore(this).settle(races)
         BetStore(this).settle(races)
+        FocusPredictionHistoryStore(this).settle(races)
 
         val race = races.firstOrNull { it.id == raceId } ?: return
         if (!race.isPurchasable() || !PredictionEngine.isDecisionReady(race)) return
 
         val predictionStore = PredictionHistoryStore(this)
-        val existing = predictionStore.load().firstOrNull { it.id == race.id }
-        if (existing?.strategyId == "value-v1" || existing?.strategyId == "legacy-final-v1") return
-
         val learning = LearningStore(this).load()
         val history = predictionStore.load()
         PredictionEngine.installLearningProfile(learning)
@@ -368,6 +376,14 @@ class PredictionTrackingService : Service() {
         PredictionEngine.installPerformanceProfile(PredictionPerformanceProfile.from(history))
         PredictionEngine.installValueStrategyModel(ValueStrategyModel.load(this))
         PredictionEngine.restoreValueSelections(history)
+
+        val focusStore = FocusPredictionHistoryStore(this)
+        FocusMode.values().forEach { mode ->
+            focusStore.captureRace(race, mode, BetStrategy.DEFAULT_BUDGET)
+        }
+
+        val existing = predictionStore.load().firstOrNull { it.id == race.id }
+        if (existing?.strategyId == "value-v1" || existing?.strategyId == "legacy-final-v1") return
 
         val basePicks = PredictionEngine.predict(race, maxPicks = 4)
         if (basePicks.isEmpty()) return
