@@ -11,6 +11,7 @@ data class OneTwoLockSelection(
     val pairProbability: Double,
     val thirdLanes: List<Int>,
     val combinations: List<String>,
+    val combinationProbabilities: Map<String, Double>,
     val ticketProbability: Double
 ) {
     val conditionalThirdCoverage: Double
@@ -54,11 +55,13 @@ object OneTwoLockStrategy {
             .sortedByDescending { third -> probabilities.getValue("1-2-$third") }
             .take(THIRD_COUNT)
         val combinations = thirdLanes.map { third -> "1-2-$third" }
-        val ticketProbability = combinations.sumOf { probabilities.getValue(it) }
+        val selectedProbabilities = combinations.associateWith { probabilities.getValue(it) }
+        val ticketProbability = selectedProbabilities.values.sum()
         return OneTwoLockSelection(
             pairProbability = pairProbability.coerceIn(0.0, 1.0),
             thirdLanes = thirdLanes,
             combinations = combinations,
+            combinationProbabilities = selectedProbabilities,
             ticketProbability = ticketProbability.coerceIn(0.0, 1.0)
         )
     }
@@ -83,25 +86,14 @@ object OneTwoLockStrategy {
         if (stakeEach < 100) return emptyList()
 
         return quote.selection.combinations.map { combination ->
-            val probability = ModelProbability.safe(quote.selection, combination)
             PredictionPick(
                 combination = combination,
-                score = probability,
+                score = quote.selection.combinationProbabilities[combination] ?: 0.0,
                 odds = quote.odds[combination],
                 recommendedStake = stakeEach,
                 tier = BetTier.MAIN,
                 reason = "1→2鉄板候補 / 3点均等 / 最低3.1倍ゲート"
             )
-        }
-    }
-
-    private object ModelProbability {
-        fun safe(selection: OneTwoLockSelection, combination: String): Double {
-            val index = selection.combinations.indexOf(combination)
-            if (index < 0 || selection.ticketProbability <= 0.0) return 0.0
-            // The selection stores aggregate masses only; score is used for display/order,
-            // so keep it conservative rather than inventing an individual probability.
-            return selection.ticketProbability / selection.combinations.size
         }
     }
 }
