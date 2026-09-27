@@ -16,7 +16,13 @@ from zoneinfo import ZoneInfo
 
 PROTOCOL = Path(__file__).resolve().parents[1] / "data/v016_live_money_protocol.json"
 JST = ZoneInfo("Asia/Tokyo")
-COMBINATION = re.compile(r"^[1-6]{3}$")
+COMBINATION = re.compile(r"^[1-6]-[1-6]-[1-6]$")
+
+
+def valid_combination(value):
+    return (isinstance(value, str)
+            and COMBINATION.fullmatch(value) is not None
+            and len(set(value.split("-"))) == 3)
 
 
 def parse_date(value):
@@ -85,12 +91,12 @@ def validate(record):
     for key in ("combinations", "stakes", "livePickOdds"):
         if not isinstance(record[key], list):
             raise ValueError(f"Invalid {key}")
-    if any(not isinstance(p, str) or not COMBINATION.fullmatch(p) or len(set(p)) != 3 for p in record["combinations"]):
+    if any(not valid_combination(p) for p in record["combinations"]):
         raise ValueError("Invalid combination")
     if len(set(record["combinations"])) != len(record["combinations"]):
         raise ValueError("Repeated combination in one race")
     result = record["resultCombination"]
-    if result is not None and (not isinstance(result, str) or not COMBINATION.fullmatch(result) or len(set(result)) != 3):
+    if result is not None and not valid_combination(result):
         raise ValueError("Invalid resultCombination")
     integer(record["trifectaPayout"], "trifectaPayout", 0)
     if (result is None) != (record["trifectaPayout"] == 0):
@@ -192,7 +198,7 @@ def validate_bet(row):
     integer(row["raceNumber"], "bet raceNumber", 1)
     if row["stadiumNumber"] > 24 or row["raceNumber"] > 12:
         raise ValueError("Invalid actual purchase venue/race")
-    if not isinstance(row["combination"], str) or not COMBINATION.fullmatch(row["combination"]) or len(set(row["combination"])) != 3:
+    if not valid_combination(row["combination"]):
         raise ValueError("Invalid actual purchase combination")
     integer(row["stake"], "bet stake", 100)
     integer(row["payout"], "bet payout", 0)

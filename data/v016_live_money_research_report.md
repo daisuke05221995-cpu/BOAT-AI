@@ -36,3 +36,7 @@ python scripts/v016_live_money_eval_test.py -v
 - ローカル: 合成fixture 13テスト全件成功、protocol JSON構文検証成功。古いバックアップで監査項目が欠けていても、BUY母集団から消さず監査不足として数える。
 - CI: [Run 36290448833](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/36290448833) は synthetic-validation SUCCESS（protocol JSONと13テスト）。研究PR [#9](https://github.com/daisuke05221995-cpu/BOAT-AI/pull/9)。このレポート追記による再実行Runも確認する。
 - 次は端末の既存「バックアップ」からユーザー自身が `BOAT-AI-backup.json` を保存し、実ライブ記録が貯まった時点で本スクリプトへ渡して計算する。バックアップには実購入や学習情報も含まれるため、リポジトリへ公開commitしない。原因別の監査欠落や端末と集計器の照合を優先する。
+
+## 2026-09-27 Android backup format compatibility correction
+
+Post-merge cross-check against the Android `PredictionRecord`/`BetRecord` fixtures found that production backup combinations are serialized as `1-2-3`, while the first evaluator fixture used compact `123`. The evaluator and all synthetic fixtures now require the exact Android `N-N-N` format with three distinct lanes. This is a parser compatibility correction only; it does not change cohort, accounting, audit gates, profitability claims, or promotion rules.

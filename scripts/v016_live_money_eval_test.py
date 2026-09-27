@@ -5,10 +5,10 @@ import unittest
 from v016_live_money_eval import evaluate
 
 
-def fixture(day="2026-09-27", race=1, winner="123", stake=1000, payout=200):
+def fixture(day="2026-09-27", race=1, winner="1-2-3", stake=1000, payout=200):
     return {"id": f"{day}-01-{race}", "date": day, "stadiumNumber": 1,
             "raceNumber": race, "settled": True, "evaluationEligible": True,
-            "recommended": True, "strategyId": "value-v1", "combinations": ["123"],
+            "recommended": True, "strategyId": "value-v1", "combinations": ["1-2-3"],
             "stakes": [stake], "liveOddsFetchedAt": 1790460000000,
             "liveOddsSource": "synthetic-official", "liveOddsCount": 120,
             "livePickOdds": [2.0], "resultCombination": winner,
@@ -16,7 +16,7 @@ def fixture(day="2026-09-27", race=1, winner="123", stake=1000, payout=200):
             "firstLane": 1, "confidence": 75}
 
 
-def bet(race=1, combination="123", stake=100, payout=0, settled=True):
+def bet(race=1, combination="1-2-3", stake=100, payout=0, settled=True):
     return {"id": f"bet-{race}-{combination}", "date": "2026-09-27", "stadiumNumber": 1,
             "raceNumber": race, "combination": combination, "stake": stake, "payout": payout,
             "settled": settled, "createdAt": 1790460000000}
@@ -36,9 +36,9 @@ class MoneyEvalTests(unittest.TestCase):
         self.assertFalse(result["productionPromotion"])
 
     def test_money_curve_drawdown_and_race_accounting(self):
-        rows = [fixture(race=1, winner="123", stake=1000, payout=200),
-                fixture(race=2, winner="234", stake=1000, payout=100),
-                fixture(race=3, winner="345", stake=1000, payout=100)]
+        rows = [fixture(race=1, winner="1-2-3", stake=1000, payout=200),
+                fixture(race=2, winner="2-3-4", stake=1000, payout=100),
+                fixture(race=3, winner="3-4-5", stake=1000, payout=100)]
         result = evaluate(rows, "2026-09-27")["performance"]["all"]["money"]
         self.assertEqual((result["stakeYen"], result["payoutYen"], result["profitYen"]), (3000, 2000, -1000))
         self.assertEqual(result["hitCount"], 1)
@@ -47,8 +47,8 @@ class MoneyEvalTests(unittest.TestCase):
         self.assertEqual(result["maxDrawdownYen"], 2000)
 
     def test_multiple_combinations_use_winning_ticket_stake(self):
-        row = fixture(winner="234", payout=550)
-        row["combinations"] = ["123", "234"]
+        row = fixture(winner="2-3-4", payout=550)
+        row["combinations"] = ["1-2-3", "2-3-4"]
         row["stakes"] = [300, 700]
         row["livePickOdds"] = [3.0, 5.5]
         money = evaluate([row], "2026-09-27")["performance"]["all"]["money"]
@@ -115,7 +115,7 @@ class MoneyEvalTests(unittest.TestCase):
         rows = []
         for index in range(360):
             row = fixture(day=str(date(2026, 1, 1) + timedelta(days=index // 12)), race=index % 12 + 1,
-                          winner="123" if index == 0 else "234", payout=100000 if index == 0 else 100)
+                          winner="1-2-3" if index == 0 else "2-3-4", payout=100000 if index == 0 else 100)
             row["stadiumNumber"] = index % 3 + 1
             rows.append(row)
         result = evaluate(rows, "2026-09-27")
@@ -124,8 +124,8 @@ class MoneyEvalTests(unittest.TestCase):
 
     def test_android_backup_separates_actual_and_live_and_groups_tickets(self):
         data = backup([fixture(payout=200)],
-                      [bet(combination="123", stake=100, payout=200),
-                       bet(combination="234", stake=200, payout=0),
+                      [bet(combination="1-2-3", stake=100, payout=200),
+                       bet(combination="2-3-4", stake=200, payout=0),
                        bet(race=2, stake=500, settled=False)])
         output = evaluate(data, "2026-09-27")
         self.assertEqual(output["dataStatus"], "BACKUP_EVALUATION")

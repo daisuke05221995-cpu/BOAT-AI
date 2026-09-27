@@ -8,6 +8,7 @@
     "defaultedAuditFields": "Missing combinations/stakes/odds evidence defaults to empty/null/zero, matching PredictionRecord.fromJson and counting an incomplete live BUY rather than discarding it",
     "optionalFields": ["confidence", "firstLane", "modelProbability"],
     "moneyUnit": "JPY integers; trifectaPayout is JPY per 100 JPY ticket",
+    "combinationFormat": "Android backup exact format N-N-N, e.g. 1-2-3; three distinct lanes 1..6",
     "dateZone": "Asia/Tokyo",
     "deduplication": "Reject duplicate settled eligible value-v1 BUY race keys (date, stadiumNumber, raceNumber); never sum repeated snapshots",
     "dataIntegrity": "Fail closed on malformed candidate values, invalid date/race/stadium, missing mandatory keys, or inconsistent result/payout"
