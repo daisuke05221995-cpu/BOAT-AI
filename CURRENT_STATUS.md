@@ -15,15 +15,14 @@ Detailed model explanations, feature importance, and race-theory commentary are 
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
 - Branch: `main`
-- Current public version: **v0.16.6**
-- versionCode: **41**
-- Release target: `80f7800eaac984c549ccdd67dcf63b7f71158687`
-- Build Run: `36257301807` SUCCESS
-- Signed Release Run: `36257301835` SUCCESS
-- Release ID: `397321639`
-- APK: `BOAT-AI-v0.16.6.apk`
-- APK SHA-256: `9abf8fcdedf175035a09698e9ee591a7a9f104f0b70df21c4fc50b4730dc78ec`
-- Detailed handoff: `data/V0166_MONEY_FIRST_PROFIT_HANDOFF_20260927.md`
+- Current public version: **v0.16.7**
+- versionCode: **42**
+- Release target: `d5ad64d59305d2da71d9f60900c8036f4bcb2429`
+- Signed Release Run: `36290599312` SUCCESS
+- GitHub Release ID: `397490360`
+- APK: `BOAT-AI-v0.16.7.apk`
+- APK SHA-256: `db536a83fbd72b4d6a9cda66e054dda1ac7934ce56d2896b2f27593e64ce4698`
+- Detailed handoff: `data/V0167_ACCOUNTING_RELIABILITY_HANDOFF_20260927.md`
 
 ## Development priority
 
@@ -52,100 +51,140 @@ Never mix these three:
 
 The user should be able to compare AI-live and actual-purchase cumulative performance easily. Research/backtest numbers must remain clearly separate.
 
-### Priority 3: Simple purchase decision UI
+### Priority 3: Reliability of live accounting
 
-The Prediction screen should prioritize:
-
-- BUY / SKIP
-- recommended combinations
-- stake for each combination
-- total stake
-- race purchase deadline / purchase availability
-
-Do not make detailed prediction explanations a primary requirement. Model probability, odds details, exhibition data, wind, motor information, etc. can remain available where useful, but they should not dominate the main flow.
-
-### Priority 4: Reliability of live accounting
-
-Before adding major new prediction models, make sure live records are trustworthy:
+Before major new prediction models, keep live records trustworthy:
 
 - complete official trifecta odds snapshot
 - source and fetch timestamp persisted
 - selected-pick odds persisted
 - no duplicate race accounting
 - stable persistence through app/background lifecycle
-- unsettled-record updates preserve the original creation time
 - automatic settle after race results
-- live audited totals match the Result screen records
+- live audited totals match Result-screen records
 - incomplete audit records expose the reason instead of silently disappearing
+- cumulative ledgers recover from malformed local JSON
+- backup export/restore uses the same recovery path
+
+### Priority 4: Simple purchase decision UI
+
+Prediction should prioritize:
+
+- BUY / SKIP
+- recommended combinations
+- stake for each combination
+- total stake
+- purchase deadline / availability
+
+Detailed model data may remain available but should not dominate the main flow.
 
 ### Priority 5: Model improvement stays mostly behind the scenes
 
-Model A remains the current production forecast baseline.
+Model A remains the production forecast baseline.
 
-Future Model B / Model C / LONGSHOT research should be evaluated mainly by whether it improves realizable cumulative money performance while maintaining enough sample size and audit quality. The app does not need to explain every model feature to the user.
+Future Model B / Model C / LONGSHOT research should be evaluated mainly by realizable audited cumulative money performance, adequate sample size, out-of-sample evidence, drawdown, and concentration risk. Do not promote from retrospective final-like odds alone.
 
-## Latest implementation progress — v0.16.6
+## Latest implementation progress — v0.16.7
 
 Completed and released:
 
-- Added reusable Profit periods: **Today / 7 days / 30 days / Month / Year / All time**.
-- Profit now defaults to **All time** because cumulative performance is the primary user need.
-- Added unit tests for all period boundaries.
-- Changed the normal Profit screen emphasis to **Actual purchase cumulative** and **AI live cumulative**.
-- Actual purchase cumulative now shows purchased race count, hit race count, and hit rate; multiple tickets in one race count as one race.
-- Removed retrospective Model A and point-count diagnostic cards from the always-visible main Profit flow; research remains behind the AI analysis/validation section.
-- Added explicit live-audit failure reasons: missing fetch time, missing source, fewer than 120 official trifecta odds, missing combinations, invalid stake allocation, or missing selected-pick odds.
-- Added aggregated audit-failure counts to the AI live cumulative card when incomplete live BUY records exist.
-- Confirmed the prediction-history update paths preserve the original `createdAt` when an unsettled record is refreshed.
-- Confirmed actual confirmed-purchase storage rejects the same date/venue/race/combination from being registered twice.
-- Removed temporary one-shot patch helpers after validation.
+- v0.16.6 money-first Profit UI remains the base: **Actual purchase cumulative first**, **AI live cumulative second**, default **All time**.
+- `BoatViewModel.syncStoredAccounting()` reloads durable accounting when the app resumes and when Purchase / Results / Profit is opened.
+- background settlement no longer requires an Activity/process restart before the newest cumulative totals appear.
+- `BetStore` now keeps the previous valid actual-purchase ledger and automatically recovers/heals the primary payload if malformed.
+- `PredictionHistoryStore` now provides the same previous-known-good recovery for audited AI history.
+- Backup export now reads through the recovering stores instead of raw primary JSON.
+- Restore seeds both primary and recovery copies with the validated imported payload, preventing rollback to stale pre-import data.
+- Signed v0.16.7 Release pipeline passed release unit tests, release lint, signed APK build, APK signature verification, and GitHub Release publication.
 
-Validation:
+Validation / commits:
 
-- Money-first UI validation: Unit test / lint / Debug APK SUCCESS.
-- Cumulative all-time UI validation: Unit test / lint / Debug APK SUCCESS.
-- Official v0.16.6 Build Run `36257301807`: live API schema / Unit tests / lint / Debug APK / artifact upload all SUCCESS.
-- Signed Release Run `36257301835`: release tests / lint / signed APK / signature verification / GitHub Release publication all SUCCESS.
+- Accounting resume sync: Run `36289522137` SUCCESS, commit `01477e14def5928e55ee5b8f160f93cbaea279ba`.
+- Ledger backup recovery: Run `36289769011` SUCCESS, commit `8c5347b16427f724bede82a836c5f1fe3fa63de1`.
+- Backup export/restore alignment: Run `36290107958` SUCCESS, commit `911a9abb3fa9ff9af2f491982f038d2f5719e3fb`.
+- Signed v0.16.7 Release: Run `36290599312` SUCCESS.
 
-Still requires real-device/live-race evidence:
+Release repair note:
 
-- overwrite install v0.16.6 without deleting app data
+- Two earlier v0.16.7 release attempts failed safely before publication after the version bump accidentally replaced parts of the known-good Gradle dependency set.
+- The exact v0.16.6 dependency set was restored while retaining versionCode 42 / versionName 0.16.7.
+- No broken APK was published.
+
+## Work research status
+
+Work is research-only and must not edit production Android / release files.
+
+Completed:
+
+- PR #9 added the audited live-money evaluator for existing `BOAT-AI-backup.json` and was merged to main at `ccd29d173e0dd1933a839fa37213625683eda328`.
+- Main research validation Run `36290527263` SUCCESS.
+- Evaluator separates `bets` actual purchases from `predictions` AI-live records.
+- It supports stake, payout, profit, ROI, hit rate, cumulative profit curve, maximum drawdown, audit completeness, and Today / 7d / 30d / Month / Year / All time.
+- It does not fabricate profitability when no real device export is supplied.
+
+Compatibility correction:
+
+- Android stores trifecta combinations as `1-2-3` style, while the first evaluator fixture expected `123`.
+- Corrected and validated by Run `36290668041` SUCCESS.
+- Main correction commit: `f2b8332479ada5af4313285e1e305b6c9b36b7ca`.
+
+Current Work assignment:
+
+- `data/WORK_ASSIGNMENT_20260927_V0167_BACKUP_PARITY_AUDIT.md`
+- Perform field-by-field parity audit between Android serializers and Python evaluator.
+- Add a golden Android backup fixture and contract tests.
+- Eliminate remaining field/null/default/alias mismatches before evaluating real device data.
+
+## Real-device update rule
+
+Install `BOAT-AI-v0.16.7.apk` over the existing app.
+
+**Do not uninstall BOAT AI and do not clear app data before updating.**
+The actual-purchase and audited prediction ledgers are local app data.
+
+## Still requires real-device/live-race evidence
+
+- overwrite install v0.16.7 while preserving existing data
 - existing actual-purchase totals remain intact after update
-- lifecycle/background persistence across real app process conditions
-- Result-screen audit rows vs Profit-screen audited counts
-- automatic settlement after actual race results
-- real live BUY/SKIP accumulation on the installed app
+- background settlement updates Profit/Results correctly in real use
+- Result-screen audit rows match Profit-screen audited counts
+- real BUY/SKIP + live official odds accumulate normally
+- app Backup produces a real `BOAT-AI-backup.json` that passes the Work evaluator
+- enough audited live BUY records exist to make a meaningful cumulative profit/ROI judgment
+
+There is currently **no new factual claim that the live strategy is profitable**, because no real-device backup has yet been evaluated through the completed evaluator.
 
 ## Planned phases
 
-### Phase 1 — Stabilize v0.16.6 live operation
-- real-device overwrite update only; do not clear app data
+### Phase 1 — Stabilize v0.16.7 real operation
+- overwrite update only; preserve app data
 - verify live BUY/SKIP persistence
-- verify live audited Profit totals
-- verify lifecycle/background reliability
-- verify automatic settlement and no duplicate cumulative accounting
+- verify automatic/background settlement
+- verify actual and AI-live cumulative accounting
+- verify backup/export/restore reliability
 
-### Phase 2 — Finish cumulative-money UX
-- keep stake / payout / profit / ROI immediately visible
-- compare AI-live vs actual-user cumulative performance cleanly
-- improve cumulative trend visibility only where it helps money tracking
+### Phase 2 — Complete evaluator parity
+- Work completes Android backup/evaluator contract audit
+- add golden fixture and cross-language parity tests
+- keep actual and AI-live accounting strictly separate
 
-### Phase 3 — Simplify purchase workflow
-- improve bulk selection
+### Phase 3 — Accumulate real live evidence
+- collect audited live BUY records
+- export existing `BOAT-AI-backup.json`
+- evaluate cumulative stake / payout / profit / ROI / hit rate / drawdown
+- diagnose where money is gained or lost only after sufficient sample exists
+
+### Phase 4 — Simplify purchase workflow further
+- bulk selection
 - individual purchase selection
 - editable stake where appropriate
 - total planned stake
 - official purchase-screen handoff
 - actual-purchase recording
 
-### Phase 4 — Accumulate real live evidence
-- collect audited live BUY records
-- evaluate cumulative live performance
-- break down only when needed to find where money is gained or lost
-
 ### Phase 5 — Model B/C research
 - test new models without destabilizing Model A
-- promote only candidates that improve robust out-of-sample performance and live-accounting usefulness
+- promote only candidates that improve robust out-of-sample and audited live-accounting performance
 
 ### Phase 6 — LONGSHOT
 - separate LONGSHOT BUY from normal BUY
@@ -162,7 +201,7 @@ When documents disagree, use this order:
 5. `NEXT_WEEK_HANDOFF.md`
 6. `WORK_HANDOFF.md` historical notes
 
-Old notes such as v0.15.x state or "Q4 unopened" must not override newer verified status.
+Old notes such as v0.15.x state, v0.16.6 being current, or "Q4 unopened" must not override newer verified status.
 
 ## User-facing design principle
 
