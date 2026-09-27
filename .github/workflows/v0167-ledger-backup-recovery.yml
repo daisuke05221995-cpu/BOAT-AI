@@ -1,0 +1,52 @@
+name: v0.16.7 ledger backup recovery patch
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/patch_v0167_ledger_backup_recovery.py'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Generate Gradle Wrapper
+        run: gradle wrapper --gradle-version 8.10.2
+
+      - name: Apply ledger backup recovery patch
+        run: python scripts/patch_v0167_ledger_backup_recovery.py
+
+      - name: Validate tests lint and debug APK
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
+
+      - name: Commit validated patch
+        run: |
+          if git diff --quiet; then
+            echo 'No ledger recovery changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/jp/boatai/app/BetStore.kt app/src/main/java/jp/boatai/app/PredictionHistoryStore.kt
+          git commit -m 'Add backup recovery for cumulative ledgers'
+          git push
