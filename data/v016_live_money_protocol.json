@@ -4,7 +4,8 @@
   "source": "Existing Android DataBackupManager BOAT-AI-backup.json; never retrospective/backtest records",
   "input": {
     "format": "Primary: DataBackupManager schemaVersion=1 JSON with bets and predictions arrays, appVersion and exportedAt; prediction-only array is supported for synthetic tests",
-    "requiredFields": ["id", "date", "stadiumNumber", "raceNumber", "settled", "evaluationEligible", "recommended", "strategyId", "combinations", "stakes", "liveOddsFetchedAt", "liveOddsSource", "liveOddsCount", "livePickOdds", "resultCombination", "trifectaPayout", "createdAt"],
+    "requiredFields": ["id", "date", "stadiumNumber", "raceNumber", "createdAt"],
+    "defaultedAuditFields": "Missing combinations/stakes/odds evidence defaults to empty/null/zero, matching PredictionRecord.fromJson and counting an incomplete live BUY rather than discarding it",
     "optionalFields": ["confidence", "firstLane", "modelProbability"],
     "moneyUnit": "JPY integers; trifectaPayout is JPY per 100 JPY ticket",
     "dateZone": "Asia/Tokyo",
