@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 43
-        versionName = "0.16.8"
-        // v0.16.8: Make official-purchase handoff safer with selected totals and pending-session overwrite protection.
+        versionCode = 44
+        versionName = "0.16.9"
+        // v0.16.9: Add explicit on-device BOAT-AI-backup.json export and harden CI against wrapper URL failures.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
