@@ -186,6 +186,6 @@ class OneTwoLockHistoryStore(context: Context) {
 
     companion object {
         private const val PREFS = "boat_ai_one_two_lock"
-        private const val KEY = "records_v1"
+        private const val KEY = "records_v2"
     }
 }
