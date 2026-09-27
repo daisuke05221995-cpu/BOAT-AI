@@ -73,6 +73,16 @@ class MoneyEvalTests(unittest.TestCase):
         self.assertEqual(result["audit"]["failureCounts"], {"ODDS_COUNT": 1, "PICK_ODDS": 1})
         self.assertEqual(result["money"]["stakeYen"], 1000)
 
+    def test_legacy_missing_audit_fields_remain_in_denominator(self):
+        missing = fixture()
+        for key in ("liveOddsFetchedAt", "liveOddsSource", "liveOddsCount", "livePickOdds", "stakes"):
+            missing.pop(key)
+        output = evaluate(backup([missing]), "2026-09-27")["performance"]["all"]
+        self.assertEqual(output["audit"]["liveBuyCount"], 1)
+        self.assertEqual(output["audit"]["auditedBuyCount"], 0)
+        self.assertEqual(set(output["audit"]["failureCounts"]),
+                         {"FETCH_TIME", "SOURCE", "ODDS_COUNT", "STAKES", "PICK_ODDS"})
+
     def test_legacy_and_retro_are_never_counted(self):
         retro = fixture(race=2)
         retro["strategyId"] = "model-a-retro-flex-v2"
@@ -90,7 +100,7 @@ class MoneyEvalTests(unittest.TestCase):
 
     def test_reject_malformed_candidate_and_inconsistent_result(self):
         bad = fixture()
-        bad.pop("stakes")
+        bad.pop("date")
         with self.assertRaisesRegex(ValueError, "Missing candidate"):
             evaluate([bad], "2026-09-27")
         bad = fixture(winner=None, payout=100)
