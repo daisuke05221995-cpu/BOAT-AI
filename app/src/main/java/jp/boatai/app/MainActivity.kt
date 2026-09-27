@@ -893,6 +893,17 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
         items(race.racers, key = { it.lane }) { racer -> RacerCard(racer) }
 
         item {
+            FocusPredictionCard(
+                race = race,
+                raceBudget = ui.raceBudget,
+                purchased = ui.records.any {
+                    it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber
+                },
+                pendingPurchaseExists = ui.pendingPurchase != null
+            )
+        }
+
+        item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
                     Text("AI予想 3連単", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
