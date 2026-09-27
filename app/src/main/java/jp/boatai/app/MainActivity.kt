@@ -222,6 +222,9 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
         item { AppUpdateCard(ui.update, vm) }
         item { DateSelectorCard(ui, vm) }
         item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }
+        ui.pendingPurchase?.let { pending ->
+            item { PendingPurchaseCard(pending, vm) }
+        }
         item { PredictionModeBar(sortMode) { sortMode = it } }
         item { BulkSelectionModeCard(vm) }
 

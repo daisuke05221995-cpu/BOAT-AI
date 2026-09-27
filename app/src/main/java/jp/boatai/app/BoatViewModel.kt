@@ -652,6 +652,17 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         entries: List<Pair<RaceData, List<PredictionPick>>>,
         message: String
     ): Boolean {
+    val existing = _ui.value.pendingPurchase ?: pendingPurchaseStore.load()
+    if (existing != null) {
+        _ui.update {
+            it.copy(
+                pendingPurchase = existing,
+                actionMessage = "未確定の投票待ちがあります。先に実購入として確定するか、購入しなかった場合は破棄してください"
+            )
+        }
+        return false
+    }
+
         if (entries.isEmpty()) {
             _ui.update { it.copy(actionMessage = "投票できる買い目がありません") }
             return false
