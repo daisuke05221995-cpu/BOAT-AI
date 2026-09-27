@@ -1,9 +1,9 @@
 package jp.boatai.app
 
 /**
- * Ultra-selective 1→2 strategy.
+ * Selective 1→2 high-probability strategy.
  *
- * The 90% gate is a Model A estimated probability threshold, not a promise that 90% of
+ * The 70% gate is a Model A estimated probability threshold, not a promise that 70% of
  * future races will finish 1→2. Realized calibration is tracked separately in
  * [OneTwoLockHistoryStore].
  */
@@ -36,8 +36,8 @@ data class OneTwoLockQuote(
 }
 
 object OneTwoLockStrategy {
-    const val STRATEGY_ID = "one-two-lock-v1"
-    const val TARGET_PAIR_PROBABILITY = 0.90
+    const val STRATEGY_ID = "one-two-lock-v2"
+    const val TARGET_PAIR_PROBABILITY = 0.70
     const val MIN_ODDS = 3.10
     const val THIRD_COUNT = 3
 
@@ -92,7 +92,7 @@ object OneTwoLockStrategy {
                 odds = quote.odds[combination],
                 recommendedStake = stakeEach,
                 tier = BetTier.MAIN,
-                reason = "1→2鉄板候補 / 3点均等 / 最低3.1倍ゲート"
+                reason = "1→2高確率候補 / 3点均等 / 最低3.1倍ゲート"
             )
         }
     }
