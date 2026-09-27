@@ -18,7 +18,7 @@ jobs:
           ref: feature/focus-4-5
           fetch-depth: 0
 
-      - name: Patch race detail UI idempotently
+      - name: Patch focus integration idempotently
         run: python3 scripts/integrate_focus_ui.py
 
       - name: Setup Java 17
@@ -41,7 +41,7 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
 
-      - name: Commit integrated UI when changed
+      - name: Commit integrated sources when changed
         run: |
           if git diff --quiet; then
             echo 'No integration changes to commit'
@@ -49,6 +49,8 @@ jobs:
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app/src/main/java/jp/boatai/app/MainActivity.kt
-          git commit -m 'Wire Focus 4/5 into race detail screen'
+          git add \
+            app/src/main/java/jp/boatai/app/MainActivity.kt \
+            app/src/main/java/jp/boatai/app/PredictionTrackingScheduler.kt
+          git commit -m 'Wire Focus 4/5 UI and tracking'
           git push origin HEAD:feature/focus-4-5
