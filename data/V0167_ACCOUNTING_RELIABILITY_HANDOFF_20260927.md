@@ -59,6 +59,28 @@ Validation:
 - Debug APK build SUCCESS
 - main commit/push SUCCESS
 
+### 3. Align backup export/restore with ledger recovery
+
+Commit: `911a9abb3fa9ff9af2f491982f038d2f5719e3fb`
+Validation Run: `36290107958` — SUCCESS
+
+Changes:
+- `DataBackupManager.backupJson()` now reads through `BetStore` / `PredictionHistoryStore` rather than raw primary SharedPreferences payloads.
+- if a primary ledger is malformed but its recovery copy is valid, export benefits from the same healing path before producing the backup file.
+- restore validates all imported records first, then writes the imported actual-purchase payload to both `records` and `records_backup`.
+- restore likewise writes imported prediction history to both `prediction_records` and `prediction_records_backup`.
+
+Purpose:
+- avoid a state where the app can recover its cumulative history but the Backup action fails on the damaged primary JSON.
+- avoid resurrecting a stale pre-import recovery copy after a successful restore.
+
+Validation:
+- patch application SUCCESS
+- Unit tests SUCCESS
+- Android lint SUCCESS
+- Debug APK build SUCCESS
+- main commit/push SUCCESS
+
 ## Current Profit-screen behavior verified
 
 The active screen is `CompactProfitScreen` (the legacy `ProfitScreen` function remains in source but is not used by navigation).
@@ -79,7 +101,11 @@ Current Work instruction:
 
 Work remains research-only and must not edit Android production/release files.
 
+The assignment now explicitly uses the existing Android `BOAT-AI-backup.json` as the standard real-device input.
+
 Requested research foundation:
+- parse existing backup JSON directly
+- keep `bets` (actual purchases) and `predictions` (AI live accounting) separate
 - audited live BUY evaluator
 - stake / payout / profit / ROI / hit rate
 - cumulative profit curve
@@ -93,8 +119,8 @@ Requested research foundation:
 
 1. Accumulate real-device `value-v1` live BUY/SKIP + official odds + settlement data.
 2. Verify actual and AI-live cumulative values after real background settlements on device.
-3. Add a clean way to export/share audited live accounting records for research evaluation if current backup/export tooling does not expose the required fields.
-4. Once sufficient real live records exist, use Work evaluator to diagnose where profit/loss is coming from; do not tune thresholds from tiny samples.
+3. Use the existing Backup action to obtain `BOAT-AI-backup.json` when live data is ready; no extra Android research-export UI is currently needed.
+4. Run the Work evaluator on that backup and diagnose where profit/loss is coming from; do not tune thresholds from tiny samples.
 5. Consider migration from SharedPreferences JSON to a transactional local database only if real-device reliability data shows the remaining risk justifies it.
 
 ## Release note
