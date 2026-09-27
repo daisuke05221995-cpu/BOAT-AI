@@ -32,6 +32,14 @@ class DataBackupManager(private val context: Context) {
         }.toString(2)
     }
 
+    fun writeBackup(uri: Uri) {
+        val output = context.contentResolver.openOutputStream(uri)
+            ?: error("保存先を開けません")
+        output.bufferedWriter(Charsets.UTF_8).use { writer ->
+            writer.write(backupJson())
+        }
+    }
+
     fun restore(uri: Uri): RestoreSummary {
         val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
             ?: error("バックアップを読み込めません")
