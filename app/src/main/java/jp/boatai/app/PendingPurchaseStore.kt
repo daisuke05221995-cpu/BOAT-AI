@@ -30,7 +30,8 @@ data class PendingPurchaseRace(
     val raceNumber: Int,
     val venueName: String,
     val recommended: Boolean,
-    val tickets: List<PendingPurchaseTicket>
+    val tickets: List<PendingPurchaseTicket>,
+    val strategyId: String? = null
 ) {
     val totalStake: Int get() = tickets.sumOf { it.amount }
 
@@ -45,6 +46,7 @@ data class PendingPurchaseRace(
             .put("venueName", venueName)
             .put("recommended", recommended)
             .put("tickets", ticketArray)
+            .apply { if (!strategyId.isNullOrBlank()) put("strategyId", strategyId) }
     }
 
     companion object {
@@ -69,7 +71,8 @@ data class PendingPurchaseRace(
                 raceNumber = raceNumber,
                 venueName = json.optString("venueName").ifBlank { Venues.name(stadiumNumber) },
                 recommended = json.optBoolean("recommended", true),
-                tickets = tickets
+                tickets = tickets,
+                strategyId = json.optString("strategyId").takeIf { it.isNotBlank() }
             )
         }
     }
@@ -101,7 +104,10 @@ data class PendingPurchaseSession(
     }
 
     companion object {
-        fun create(entries: List<Pair<RaceData, List<PredictionPick>>>): PendingPurchaseSession? {
+        fun create(
+            entries: List<Pair<RaceData, List<PredictionPick>>>,
+            strategyId: String? = null
+        ): PendingPurchaseSession? {
             val races = entries.mapNotNull { (race, picks) ->
                 val tickets = picks.mapNotNull { pick ->
                     val amount = pick.recommendedStake
@@ -115,7 +121,8 @@ data class PendingPurchaseSession(
                     raceNumber = race.raceNumber,
                     venueName = race.venueName,
                     recommended = PredictionEngine.isRecommended(race),
-                    tickets = tickets
+                    tickets = tickets,
+                    strategyId = strategyId
                 )
             }
             if (races.isEmpty()) return null

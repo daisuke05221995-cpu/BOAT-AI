@@ -99,7 +99,7 @@ fun FocusPredictionCard(
                     if (existing != null) {
                         actionMessage = "未確定の投票待ちがあります。先に実購入として確定するか、購入しなかった場合は破棄してください"
                     } else {
-                        val session = PendingPurchaseSession.create(listOf(race to picks))
+                        val session = PendingPurchaseSession.create(listOf(race to picks), mode.strategyId)
                         if (session == null) {
                             actionMessage = "100円単位のフォーカス買い目を作成できませんでした"
                         } else {
