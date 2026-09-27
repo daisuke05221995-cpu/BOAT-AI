@@ -38,6 +38,9 @@ fun FocusPredictionCard(
     val picks = remember(race.id, mode, raceBudget) {
         FocusPredictionStrategy.purchasePicks(race, mode, raceBudget)
     }
+    val focusStore = remember(context) { FocusPredictionHistoryStore(context.applicationContext) }
+    val fourSummary = remember(race.id) { focusStore.summary(FocusMode.FOUR) }
+    val fiveSummary = remember(race.id) { focusStore.summary(FocusMode.FIVE) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
@@ -79,10 +82,16 @@ fun FocusPredictionCard(
                     if (picks.isEmpty()) "（予算不足または予想未確定）" else " / 配分 ${focusMoney(picks.sumOf { it.recommendedStake })}",
                 style = MaterialTheme.typography.bodySmall
             )
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text("フォーカス累計（この機能導入後）", fontWeight = FontWeight.SemiBold)
+            FocusSummaryLine("4択", fourSummary)
+            FocusSummaryLine("5択", fiveSummary)
             Text(
-                "このモードは的中範囲を広げる検証枠です。フォーカス4択・5択の成績は既存value-v1と分けて評価します。",
+                "4択・5択は締切前に別々に固定保存し、既存value-v1の監査済み成績には混ぜません。",
                 style = MaterialTheme.typography.bodySmall
             )
+
             Spacer(Modifier.height(8.dp))
             Button(
                 onClick = {
@@ -120,4 +129,18 @@ fun FocusPredictionCard(
     }
 }
 
+@Composable
+private fun FocusSummaryLine(label: String, summary: AnalyticsSummary) {
+    if (summary.races == 0) {
+        Text("$label：まだ確定データなし", style = MaterialTheme.typography.bodySmall)
+        return
+    }
+    Text(
+        "$label：${summary.hits}/${summary.races}的中　回収率 ${String.format(Locale.US, "%.1f", summary.roi)}%　損益 ${focusSignedMoney(summary.profit)}",
+        style = MaterialTheme.typography.bodySmall,
+        fontWeight = FontWeight.SemiBold
+    )
+}
+
 private fun focusMoney(value: Int): String = String.format(Locale.JAPAN, "%,d円", value)
+private fun focusSignedMoney(value: Int): String = if (value >= 0) "+${focusMoney(value)}" else "-${focusMoney(-value)}"
