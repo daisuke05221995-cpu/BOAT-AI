@@ -1,0 +1,93 @@
+name: Focus branch integrate and validate
+
+on:
+  push:
+    branches:
+      - feature/focus-4-5
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-focus:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/focus-4-5
+          fetch-depth: 0
+
+      - name: Patch race detail UI idempotently
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/jp/boatai/app/MainActivity.kt')
+          s = p.read_text()
+          marker = '''        item { Text("出走データ", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
+          items(race.racers, key = { it.lane }) { racer -> RacerCard(racer) }
+
+          item {
+              Card(modifier = Modifier.fillMaxWidth()) {
+'''.replace('          items', '        items').replace('          item {\n              Card', '        item {\n            Card')
+          if 'FocusPredictionCard(' not in s:
+              expected = '''        item { Text("出走データ", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
+        items(race.racers, key = { it.lane }) { racer -> RacerCard(racer) }
+
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+'''
+              replacement = '''        item { Text("出走データ", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
+        items(race.racers, key = { it.lane }) { racer -> RacerCard(racer) }
+
+        item {
+            FocusPredictionCard(
+                race = race,
+                raceBudget = ui.raceBudget,
+                purchased = ui.records.any {
+                    it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber
+                },
+                pendingPurchaseExists = ui.pendingPurchase != null
+            )
+        }
+
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+'''
+              if expected not in s:
+                  raise SystemExit('Race detail insertion point not found')
+              s = s.replace(expected, replacement, 1)
+              p.write_text(s)
+          PY
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Unit tests
+        run: gradle testDebugUnitTest --stacktrace
+
+      - name: Lint
+        run: gradle lintDebug --stacktrace
+
+      - name: Build debug APK
+        run: gradle assembleDebug --stacktrace
+
+      - name: Commit integrated UI when changed
+        run: |
+          if git diff --quiet; then
+            echo 'No integration changes to commit'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/jp/boatai/app/MainActivity.kt
+          git commit -m 'Wire Focus 4/5 into race detail screen'
+          git push origin HEAD:feature/focus-4-5
