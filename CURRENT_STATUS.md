@@ -15,15 +15,16 @@ Detailed model explanations, feature importance, and race-theory commentary are 
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
 - Branch: `main`
-- Current public version: **v0.16.7**
-- versionCode: **42**
-- Release target: `d5ad64d59305d2da71d9f60900c8036f4bcb2429`
-- Signed Release Run: `36290599312` SUCCESS
-- GitHub Release ID: `397490360`
-- APK: `BOAT-AI-v0.16.7.apk`
-- APK SHA-256: `db536a83fbd72b4d6a9cda66e054dda1ac7934ce56d2896b2f27593e64ce4698`
-- Detailed handoff: `data/V0167_ACCOUNTING_RELIABILITY_HANDOFF_20260927.md`
-- Research-only backup parity work after the release does **not** change the published APK/version.
+- Current public version: **v0.16.8**
+- versionCode: **43**
+- Release target: `e58fd4393d9928949484b75092ca5690ece58de4`
+- Signed Release Run: `36317879182` SUCCESS
+- Debug validation Run: `36317879225` SUCCESS
+- GitHub Release ID: `397634824`
+- APK: `BOAT-AI-v0.16.8.apk`
+- APK SHA-256: `c575743718eceb3f38539e1a69db6103d50507855585b1a6935a445f917a4ea3`
+- Detailed handoff: `data/V0168_PURCHASE_SAFETY_HANDOFF_20260927.md`
+- Research-only backup parity work does **not** change the published APK/version.
 
 ## Development priority
 
@@ -85,31 +86,28 @@ Model A remains the production forecast baseline.
 
 Future Model B / Model C / LONGSHOT research should be evaluated mainly by realizable audited cumulative money performance, adequate sample size, out-of-sample evidence, drawdown, and concentration risk. Do not promote from retrospective final-like odds alone.
 
-## Latest implementation progress — v0.16.7
+## Latest implementation progress — v0.16.8
 
 Completed and released:
 
-- v0.16.6 money-first Profit UI remains the base: **Actual purchase cumulative first**, **AI live cumulative second**, default **All time**.
-- `BoatViewModel.syncStoredAccounting()` reloads durable accounting when the app resumes and when Purchase / Results / Profit is opened.
-- background settlement no longer requires an Activity/process restart before the newest cumulative totals appear.
-- `BetStore` now keeps the previous valid actual-purchase ledger and automatically recovers/heals the primary payload if malformed.
-- `PredictionHistoryStore` now provides the same previous-known-good recovery for audited AI history.
-- Backup export now reads through the recovering stores instead of raw primary JSON.
-- Restore seeds both primary and recovery copies with the validated imported payload, preventing rollback to stale pre-import data.
-- Signed v0.16.7 Release pipeline passed release unit tests, release lint, signed APK build, APK signature verification, and GitHub Release publication.
+- v0.16.7 accounting reliability remains intact: resume-time durable accounting sync, recovery copies for actual and AI-live ledgers, and backup export/restore alignment.
+- Pending purchase now shows both the full candidate total and the **currently selected** race count / ticket count / total stake.
+- Official-purchase button shows the selected total, is disabled at zero selected races, and only selected races are copied.
+- Pending purchase has **Select all** and **Clear all** controls.
+- `OfficialBetLauncher` has a zero-selection guard.
+- Unit tests verify selected-only clipboard output and the zero-selection case.
+- A new purchase session can no longer silently overwrite an unresolved pending purchase session.
+- The Prediction screen now shows the pending-purchase card, so after returning from the official purchase surface the user can immediately confirm the races actually purchased or discard the pending session.
+- Existing bulk selection, individual purchase selection, editable planned budget, total planned stake, official purchase handoff, and actual-purchase recording remain available.
+- Signed v0.16.8 Release pipeline passed release unit tests, release lint, signed APK build, APK signature verification, and GitHub Release publication.
 
 Validation / commits:
 
-- Accounting resume sync: Run `36289522137` SUCCESS, commit `01477e14def5928e55ee5b8f160f93cbaea279ba`.
-- Ledger backup recovery: Run `36289769011` SUCCESS, commit `8c5347b16427f724bede82a836c5f1fe3fa63de1`.
-- Backup export/restore alignment: Run `36290107958` SUCCESS, commit `911a9abb3fa9ff9af2f491982f038d2f5719e3fb`.
-- Signed v0.16.7 Release: Run `36290599312` SUCCESS.
-
-Release repair note:
-
-- Two earlier v0.16.7 release attempts failed safely before publication after the version bump accidentally replaced parts of the known-good Gradle dependency set.
-- The exact v0.16.6 dependency set was restored while retaining versionCode 42 / versionName 0.16.7.
-- No broken APK was published.
+- Selected-total / zero-selection safety: commit `1619f2db7f3249d510cb52ac5bb05851567b4ed1`, Run `36317240148` SUCCESS.
+- Pending-session overwrite prevention: source commit `4ab0e85b4a7ea246e4eb597abf5b64a2ca6fb73a`; pre-commit Run `36317673303` passed patch verification, tests, lint and Debug APK build.
+- v0.16.8 release commit: `e58fd4393d9928949484b75092ca5690ece58de4`.
+- Signed v0.16.8 Release: Run `36317879182` SUCCESS.
+- v0.16.8 Debug validation: Run `36317879225` SUCCESS.
 
 ## Work research status
 
@@ -123,31 +121,32 @@ Completed:
 - It supports stake, payout, profit, ROI, hit rate, cumulative profit curve, maximum drawdown, audit completeness, and Today / 7d / 30d / Month / Year / All time.
 - It does not fabricate profitability when no real device export is supplied.
 - Android trifecta combination format was corrected from compact `123` assumptions to the production `1-2-3` format; Run `36290668041` SUCCESS, commit `f2b8332479ada5af4313285e1e305b6c9b36b7ca`.
-- v0.16.7 backup parity audit is now complete: Android serializer-compatible golden backup fixture added, envelope/field names/defaults checked, legacy `recommended` default matched, and result-known/payout-zero records accepted consistently.
+- v0.16.7 backup parity audit is complete: Android serializer-compatible golden backup fixture added, envelope/field names/defaults checked, legacy `recommended` default matched, and result-known/payout-zero records accepted consistently.
 - Backup parity commit: `d12504ab2ca65b690044b6761a3a2ff773b6d357`.
 - Backup parity research validation: Run `36310196169` SUCCESS with protocol JSON, golden backup JSON and 18 tests.
 - Detailed research report: `data/v016_live_money_research_report.md`.
 
 Next research input:
 
-- a real device `BOAT-AI-backup.json` exported from v0.16.7 or later.
+- a real device `BOAT-AI-backup.json` exported from v0.16.8 or later.
 - Do **not** commit the real backup to the public repository; it can contain actual purchase history and learning state.
 - Run the frozen evaluator directly against that backup and compare AI-live cumulative accounting with actual-purchase accounting.
 
 ## Real-device update rule
 
-Install `BOAT-AI-v0.16.7.apk` over the existing app.
+Install `BOAT-AI-v0.16.8.apk` over the existing app.
 
 **Do not uninstall BOAT AI and do not clear app data before updating.**
 The actual-purchase and audited prediction ledgers are local app data.
 
 ## Still requires real-device/live-race evidence
 
-- overwrite install v0.16.7 while preserving existing data
+- overwrite install v0.16.8 while preserving existing data
 - existing actual-purchase totals remain intact after update
 - background settlement updates Profit/Results correctly in real use
 - Result-screen audit rows match Profit-screen audited counts
 - real BUY/SKIP + live official odds accumulate normally
+- pending purchase survives the official-site round trip and can be confirmed without being overwritten
 - app Backup produces a real `BOAT-AI-backup.json` that passes the frozen evaluator directly
 - enough audited live BUY records exist to make a meaningful cumulative profit/ROI judgment
 
@@ -155,7 +154,7 @@ There is currently **no new factual claim that the live strategy is profitable**
 
 ## Planned phases
 
-### Phase 1 — Stabilize v0.16.7 real operation
+### Phase 1 — Stabilize real operation
 - overwrite update only; preserve app data
 - verify live BUY/SKIP persistence
 - verify automatic/background settlement
@@ -175,13 +174,16 @@ There is currently **no new factual claim that the live strategy is profitable**
 - evaluate cumulative stake / payout / profit / ROI / hit rate / drawdown
 - diagnose where money is gained or lost only after sufficient sample exists
 
-### Phase 4 — Simplify purchase workflow further
-- bulk selection
-- individual purchase selection
-- editable stake where appropriate
-- total planned stake
-- official purchase-screen handoff
-- actual-purchase recording
+### Phase 4 — Simplify purchase workflow — CORE FLOW COMPLETED IN v0.16.8
+- bulk selection: implemented
+- individual purchase selection: implemented
+- editable planned budget/stake controls: implemented where currently supported
+- total planned stake: implemented
+- official purchase-screen handoff: implemented
+- actual-purchase recording: implemented
+- selected-total clarity and zero-selection guard: implemented
+- unresolved pending-session overwrite protection: implemented
+- further UX reduction can continue, but it is no longer the main blocker
 
 ### Phase 5 — Model B/C research
 - test new models without destabilizing Model A
@@ -202,7 +204,7 @@ When documents disagree, use this order:
 5. `NEXT_WEEK_HANDOFF.md`
 6. `WORK_HANDOFF.md` historical notes
 
-Old notes such as v0.15.x state, v0.16.6 being current, or "Q4 unopened" must not override newer verified status.
+Old notes such as v0.15.x state, v0.16.6/v0.16.7 being current, or "Q4 unopened" must not override newer verified status.
 
 ## User-facing design principle
 
