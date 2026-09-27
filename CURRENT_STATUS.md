@@ -23,6 +23,7 @@ Detailed model explanations, feature importance, and race-theory commentary are 
 - APK: `BOAT-AI-v0.16.7.apk`
 - APK SHA-256: `db536a83fbd72b4d6a9cda66e054dda1ac7934ce56d2896b2f27593e64ce4698`
 - Detailed handoff: `data/V0167_ACCOUNTING_RELIABILITY_HANDOFF_20260927.md`
+- Research-only backup parity work after the release does **not** change the published APK/version.
 
 ## Development priority
 
@@ -121,19 +122,17 @@ Completed:
 - Evaluator separates `bets` actual purchases from `predictions` AI-live records.
 - It supports stake, payout, profit, ROI, hit rate, cumulative profit curve, maximum drawdown, audit completeness, and Today / 7d / 30d / Month / Year / All time.
 - It does not fabricate profitability when no real device export is supplied.
+- Android trifecta combination format was corrected from compact `123` assumptions to the production `1-2-3` format; Run `36290668041` SUCCESS, commit `f2b8332479ada5af4313285e1e305b6c9b36b7ca`.
+- v0.16.7 backup parity audit is now complete: Android serializer-compatible golden backup fixture added, envelope/field names/defaults checked, legacy `recommended` default matched, and result-known/payout-zero records accepted consistently.
+- Backup parity commit: `d12504ab2ca65b690044b6761a3a2ff773b6d357`.
+- Backup parity research validation: Run `36310196169` SUCCESS with protocol JSON, golden backup JSON and 18 tests.
+- Detailed research report: `data/v016_live_money_research_report.md`.
 
-Compatibility correction:
+Next research input:
 
-- Android stores trifecta combinations as `1-2-3` style, while the first evaluator fixture expected `123`.
-- Corrected and validated by Run `36290668041` SUCCESS.
-- Main correction commit: `f2b8332479ada5af4313285e1e305b6c9b36b7ca`.
-
-Current Work assignment:
-
-- `data/WORK_ASSIGNMENT_20260927_V0167_BACKUP_PARITY_AUDIT.md`
-- Perform field-by-field parity audit between Android serializers and Python evaluator.
-- Add a golden Android backup fixture and contract tests.
-- Eliminate remaining field/null/default/alias mismatches before evaluating real device data.
+- a real device `BOAT-AI-backup.json` exported from v0.16.7 or later.
+- Do **not** commit the real backup to the public repository; it can contain actual purchase history and learning state.
+- Run the frozen evaluator directly against that backup and compare AI-live cumulative accounting with actual-purchase accounting.
 
 ## Real-device update rule
 
@@ -149,7 +148,7 @@ The actual-purchase and audited prediction ledgers are local app data.
 - background settlement updates Profit/Results correctly in real use
 - Result-screen audit rows match Profit-screen audited counts
 - real BUY/SKIP + live official odds accumulate normally
-- app Backup produces a real `BOAT-AI-backup.json` that passes the Work evaluator
+- app Backup produces a real `BOAT-AI-backup.json` that passes the frozen evaluator directly
 - enough audited live BUY records exist to make a meaningful cumulative profit/ROI judgment
 
 There is currently **no new factual claim that the live strategy is profitable**, because no real-device backup has yet been evaluated through the completed evaluator.
@@ -163,12 +162,14 @@ There is currently **no new factual claim that the live strategy is profitable**
 - verify actual and AI-live cumulative accounting
 - verify backup/export/restore reliability
 
-### Phase 2 — Complete evaluator parity
-- Work completes Android backup/evaluator contract audit
-- add golden fixture and cross-language parity tests
-- keep actual and AI-live accounting strictly separate
+### Phase 2 — Complete evaluator parity — COMPLETED 2026-09-27
+- Android backup/evaluator contract audit completed
+- golden Android serializer-compatible fixture added
+- cross-language behavior covered by contract tests
+- actual and AI-live accounting remain strictly separate
+- validation Run `36310196169` SUCCESS
 
-### Phase 3 — Accumulate real live evidence
+### Phase 3 — Accumulate real live evidence — NEXT
 - collect audited live BUY records
 - export existing `BOAT-AI-backup.json`
 - evaluate cumulative stake / payout / profit / ROI / hit rate / drawdown
