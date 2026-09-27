@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 42
-        versionName = "0.16.7"
-        // v0.16.7: Keep cumulative accounting fresh and recoverable across background settlement and malformed local ledgers.
+        versionCode = 43
+        versionName = "0.16.8"
+        // v0.16.8: Make official-purchase handoff safer with selected totals and pending-session overwrite protection.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
