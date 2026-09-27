@@ -16,6 +16,13 @@ internal object OfficialBetLauncher {
     private const val OFFICIAL_SMARTPHONE_URL = "https://spweb.brtb.jp/"
 
     fun launch(context: Context, session: PendingPurchaseSession): OfficialBetLaunchResult {
+        if (session.selectedRaces.isEmpty()) {
+            return OfficialBetLaunchResult(
+                openedOfficialApp = false,
+                message = "投票するレースを選択してください。"
+            )
+        }
+
         copyTickets(context, session)
         val packageManager = context.packageManager
         val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(OFFICIAL_SMARTPHONE_URL)).apply {
@@ -34,7 +41,7 @@ internal object OfficialBetLauncher {
             context.startActivity(officialIntent)
             OfficialBetLaunchResult(
                 openedOfficialApp = true,
-                message = "買い目をコピーして公式BOATRACEアプリを開きました。公式側で内容を確認して投票してください。"
+                message = "選択中の買い目をコピーして公式BOATRACEアプリを開きました。公式側で内容と合計金額を確認して投票してください。"
             )
         } else {
             context.startActivity(
@@ -44,7 +51,7 @@ internal object OfficialBetLauncher {
             )
             OfficialBetLaunchResult(
                 openedOfficialApp = false,
-                message = "買い目をコピーして公式投票サイトを開きました。公式側で内容を確認して投票してください。"
+                message = "選択中の買い目をコピーして公式投票サイトを開きました。公式側で内容と合計金額を確認して投票してください。"
             )
         }
     }

@@ -33,11 +33,17 @@ fun PendingPurchaseCard(session: PendingPurchaseSession, vm: BoatViewModel) {
         Column(Modifier.padding(14.dp)) {
             Text("公式投票待ち", fontWeight = FontWeight.Bold, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
             Text(
-                "${session.races.size}レース / ${session.ticketCount}点 / 合計 ${purchaseMoney(session.totalStake)}",
-                fontWeight = FontWeight.Bold
+                "候補全体 ${session.races.size}レース / ${session.ticketCount}点 / ${purchaseMoney(session.totalStake)}",
+                style = androidx.compose.material3.MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "選択中 ${selected.size}レース / ${session.selectedTicketCount}点 / ${purchaseMoney(session.selectedStake)}",
+                fontWeight = FontWeight.Bold,
+                style = androidx.compose.material3.MaterialTheme.typography.titleMedium
             )
             Text(
-                "買い目はクリップボードへ自動コピーします。公式側で内容を確認して投票し、戻ってから実購入として確定してください。",
+                "チェック中のレースだけ買い目をコピーします。公式側で内容・金額を確認して投票し、戻ってから実購入として確定してください。",
                 style = androidx.compose.material3.MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(8.dp))
@@ -63,12 +69,39 @@ fun PendingPurchaseCard(session: PendingPurchaseSession, vm: BoatViewModel) {
             }
 
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Button(onClick = vm::openOfficialPurchase) {
-                    Text("公式アプリで入力")
-                }
-                OutlinedButton(onClick = vm::selectAllPendingPurchaseRaces) {
+            Button(
+                onClick = vm::openOfficialPurchase,
+                enabled = selected.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    if (selected.isEmpty()) {
+                        "投票するレースを選択"
+                    } else {
+                        "${selected.size}レース・${purchaseMoney(session.selectedStake)}を公式投票へ"
+                    }
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                OutlinedButton(
+                    onClick = vm::selectAllPendingPurchaseRaces,
+                    enabled = selected.size < session.races.size,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text("全選択")
+                }
+                OutlinedButton(
+                    onClick = {
+                        session.selectedRaceIds.toList().forEach(vm::togglePendingPurchaseRace)
+                    },
+                    enabled = selected.isNotEmpty(),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("全解除")
                 }
             }
             Spacer(Modifier.height(8.dp))
