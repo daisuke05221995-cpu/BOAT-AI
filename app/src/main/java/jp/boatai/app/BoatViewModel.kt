@@ -50,6 +50,9 @@ data class BoatUiState(
     val actionMessage: String? = null,
     val learnedRaceCount: Int = 0,
     val notificationsEnabled: Boolean = false,
+    val oneTwoQuotes: Map<String, OneTwoLockQuote> = emptyMap(),
+    val oneTwoLoading: Boolean = false,
+    val oneTwoStats: OneTwoLockSummary = OneTwoLockSummary(),
     val update: AppUpdateState = AppUpdateState()
 )
 
@@ -58,6 +61,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val betStore = BetStore(application)
     private val pendingPurchaseStore = PendingPurchaseStore(application)
     private val predictionStore = PredictionHistoryStore(application)
+    private val oneTwoStore = OneTwoLockHistoryStore(application)
     private val modelARecentVirtualRepository = ModelARecentVirtualRepository(application)
     private val appUpdateManager = AppUpdateManager(application)
     private val learningStore = LearningStore(application)
@@ -67,6 +71,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private fun earliestBrowsableDate(): LocalDate = currentToday().minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
     private var oddsRefreshJob: Job? = null
     private var valueRefreshJob: Job? = null
+    private var oneTwoRefreshJob: Job? = null
     // 0 = nationwide, 1..24 = venue. A single tap on recommended-only stays active
     // while official 120-way odds are resolved sequentially.
     private var recommendedBulkScope: Int? = null
@@ -79,7 +84,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             pendingPurchase = pendingPurchaseStore.load(),
             predictionHistory = initialPredictionHistory,
             performance = initialPerformance,
-            notificationsEnabled = notificationScheduler.enabled
+            notificationsEnabled = notificationScheduler.enabled,
+            oneTwoStats = oneTwoStore.summary()
         )
     )
     val ui: StateFlow<BoatUiState> = _ui.asStateFlow()
@@ -126,6 +132,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         val changingDate = date != _ui.value.date
         if (changingDate) {
             valueRefreshJob?.cancel()
+            oneTwoRefreshJob?.cancel()
             oddsRefreshJob?.cancel()
             PredictionEngine.clearValueSelections()
         }
@@ -139,6 +146,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     selectedVenue = null,
                     predictions = emptyList(),
                     selectedForBulk = emptySet(),
+                    oneTwoQuotes = emptyMap(),
+                    oneTwoLoading = false,
                     actionMessage = null
                 )
             }
@@ -148,6 +157,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     val beforePending = _ui.value.records.count { !it.settled }
                     val beforeLearned = _ui.value.learnedRaceCount
                     val records = betStore.settle(races)
+                    oneTwoStore.settle(races)
 
                     // Existing resolved value decisions or the legacy engine may be
                     // persisted before result learning. Fresh value decisions are captured
@@ -177,10 +187,12 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             loading = false,
                             error = if (races.isEmpty()) "この日のレースデータがありません" else null,
                             lastUpdatedAt = System.currentTimeMillis(),
-                            learnedRaceCount = learning.totalRaceCount
+                            learnedRaceCount = learning.totalRaceCount,
+                            oneTwoStats = oneTwoStore.summary()
                         )
                     }
                     refreshValueSelections(races)
+                    refreshOneTwoLocks(races)
                 }
                 .onFailure { error ->
                     _ui.update {
@@ -329,6 +341,41 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
                 }
+        }
+    }
+
+    private fun refreshOneTwoLocks(races: List<RaceData>) {
+        oneTwoRefreshJob?.cancel()
+        val candidates = races.mapNotNull { race ->
+            if (!race.isPurchasable() || !PredictionEngine.isDecisionReady(race)) return@mapNotNull null
+            val selection = OneTwoLockStrategy.selection(race) ?: return@mapNotNull null
+            if (!selection.eligible) null else race to selection
+        }
+        val initialQuotes = candidates.associate { (race, selection) -> race.id to OneTwoLockQuote(selection) }
+        _ui.update { state -> state.copy(oneTwoQuotes = initialQuotes, oneTwoLoading = candidates.isNotEmpty()) }
+        if (candidates.isEmpty()) return
+
+        oneTwoRefreshJob = viewModelScope.launch {
+            for ((race, selection) in candidates) {
+                if (!race.isPurchasable()) continue
+                oneTwoStore.captureRace(race, selection)
+                runCatching { repository.loadOfficialTrifectaOddsDetailed(race, selection.combinations) }
+                    .onSuccess { result ->
+                        val quote = OneTwoLockStrategy.quote(selection, result)
+                        oneTwoStore.updateOdds(race.id, quote)
+                        _ui.update { state ->
+                            state.copy(
+                                oneTwoQuotes = state.oneTwoQuotes + (race.id to quote),
+                                oneTwoStats = oneTwoStore.summary()
+                            )
+                        }
+                    }
+                    .onFailure { error ->
+                        val quote = OneTwoLockQuote(selection = selection, error = error.message ?: "公式オッズ取得失敗")
+                        _ui.update { state -> state.copy(oneTwoQuotes = state.oneTwoQuotes + (race.id to quote)) }
+                    }
+            }
+            _ui.update { it.copy(oneTwoLoading = false, oneTwoStats = oneTwoStore.summary()) }
         }
     }
 
@@ -505,7 +552,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 records = records,
                 pendingPurchase = pendingPurchaseStore.load(),
                 predictionHistory = history,
-                performance = performance
+                performance = performance,
+                oneTwoStats = oneTwoStore.summary()
             )
         }
     }
@@ -614,6 +662,25 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun prepareOneTwoLockPurchase(race: RaceData): Boolean {
+        if (!race.isPurchasable()) return false
+        val quote = _ui.value.oneTwoQuotes[race.id]
+        if (quote == null || !quote.purchaseQualified) {
+            _ui.update { it.copy(actionMessage = "1→2鉄板の90%＋3.1倍条件を満たしていません") }
+            return false
+        }
+        val picks = OneTwoLockStrategy.purchasePicks(quote, _ui.value.raceBudget)
+        if (picks.isEmpty()) {
+            _ui.update { it.copy(actionMessage = "1→2鉄板の3点均等買いを作成できませんでした") }
+            return false
+        }
+        return savePendingPurchase(
+            entries = listOf(race to picks),
+            message = "${race.venueName} ${race.raceNumber}Rの1→2鉄板3点を投票待ちに保存",
+            strategyId = OneTwoLockStrategy.STRATEGY_ID
+        )
+    }
+
     fun prepareSelectedPurchase(): Boolean {
         val state = _ui.value
         val races = state.races.filter { it.id in state.selectedForBulk && it.isPurchasable() }
@@ -650,7 +717,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun savePendingPurchase(
         entries: List<Pair<RaceData, List<PredictionPick>>>,
-        message: String
+        message: String,
+        strategyId: String? = null
     ): Boolean {
     val existing = _ui.value.pendingPurchase ?: pendingPurchaseStore.load()
     if (existing != null) {
@@ -667,7 +735,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             _ui.update { it.copy(actionMessage = "投票できる買い目がありません") }
             return false
         }
-        val session = PendingPurchaseSession.create(entries)
+        val session = PendingPurchaseSession.create(entries, strategyId)
         if (session == null) {
             _ui.update { it.copy(actionMessage = "100円単位の買い目を作成できませんでした") }
             return false

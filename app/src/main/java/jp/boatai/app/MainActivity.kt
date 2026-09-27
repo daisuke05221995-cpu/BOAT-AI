@@ -226,7 +226,11 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
             item { PendingPurchaseCard(pending, vm) }
         }
         item { PredictionModeBar(sortMode) { sortMode = it } }
-        item { BulkSelectionModeCard(vm) }
+        if (sortMode == 3) {
+            item { OneTwoLockCandidateList(ui, vm) }
+        } else {
+            item { BulkSelectionModeCard(vm) }
+        }
 
         if (ui.loading && ui.races.isEmpty()) {
             item {
@@ -245,7 +249,7 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
             }
         }
 
-        items(venues.chunked(3), key = { row -> row.joinToString { it.first.toString() } }) { row ->
+        if (sortMode != 3) items(venues.chunked(3), key = { row -> row.joinToString { it.first.toString() } }) { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 row.forEach { (stadium, races) ->
                     VenueTile(stadium, races, Modifier.weight(1f)) { vm.selectVenue(stadium) }
@@ -254,7 +258,7 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
             }
         }
 
-        if (ui.selectedForBulk.isNotEmpty()) item { BulkPurchaseCard(ui, vm) }
+        if (sortMode != 3 && ui.selectedForBulk.isNotEmpty()) item { BulkPurchaseCard(ui, vm) }
 
         item {
             Text(
@@ -270,7 +274,7 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
 private fun PredictionModeBar(selected: Int, onSelect: (Int) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            listOf("開催一覧", "締切順", "推奨数順").forEachIndexed { index, label ->
+            listOf("開催一覧", "締切順", "推奨数順", "1→2鉄板").forEachIndexed { index, label ->
                 TextButton(onClick = { onSelect(index) }) {
                     Text(label, fontWeight = if (selected == index) FontWeight.Bold else FontWeight.Normal)
                 }

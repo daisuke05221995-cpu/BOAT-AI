@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 45
-        versionName = "0.17.0"
-        // v0.17.0: Add Focus 4/5 grouped Model A predictions with separate pre-close performance tracking.
+        versionCode = 46
+        versionName = "0.18.0"
+        // v0.18.0: Add 1→2 90% candidate mode, 3.1x odds gate and realized calibration tracking.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
