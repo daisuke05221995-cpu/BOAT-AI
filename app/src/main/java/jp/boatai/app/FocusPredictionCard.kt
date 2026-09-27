@@ -19,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
@@ -28,9 +29,11 @@ fun FocusPredictionCard(
     race: RaceData,
     raceBudget: Int,
     purchased: Boolean,
-    onPurchase: (FocusMode) -> Unit
+    pendingPurchaseExists: Boolean
 ) {
+    val context = LocalContext.current
     var mode by remember(race.id) { mutableStateOf(FocusMode.FOUR) }
+    var actionMessage by remember(race.id) { mutableStateOf<String?>(null) }
     val selection = remember(race.id, mode) { FocusPredictionStrategy.selection(race, mode) }
     val picks = remember(race.id, mode, raceBudget) {
         FocusPredictionStrategy.purchasePicks(race, mode, raceBudget)
@@ -47,7 +50,7 @@ fun FocusPredictionCard(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 FocusMode.entries.forEach { option ->
                     TextButton(
-                        onClick = { mode = option },
+                        onClick = { mode = option; actionMessage = null },
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(option.label, fontWeight = if (mode == option) FontWeight.Bold else FontWeight.Normal)
@@ -63,10 +66,7 @@ fun FocusPredictionCard(
             selection.patterns.forEachIndexed { index, pattern ->
                 if (index > 0) HorizontalDivider(Modifier.padding(vertical = 6.dp))
                 Text("${index + 1}. ${pattern.notation}", fontWeight = FontWeight.SemiBold)
-                Text(
-                    pattern.combinations.joinToString(" / "),
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text(pattern.combinations.joinToString(" / "), style = MaterialTheme.typography.bodySmall)
             }
 
             Spacer(Modifier.height(8.dp))
@@ -85,11 +85,36 @@ fun FocusPredictionCard(
             )
             Spacer(Modifier.height(8.dp))
             Button(
-                onClick = { onPurchase(mode) },
-                enabled = race.isPurchasable() && picks.isNotEmpty() && !purchased,
+                onClick = {
+                    val existing = PendingPurchaseStore(context).load()
+                    if (existing != null) {
+                        actionMessage = "未確定の投票待ちがあります。先に実購入として確定するか、購入しなかった場合は破棄してください"
+                    } else {
+                        val session = PendingPurchaseSession.create(listOf(race to picks))
+                        if (session == null) {
+                            actionMessage = "100円単位のフォーカス買い目を作成できませんでした"
+                        } else {
+                            PendingPurchaseStore(context).save(session)
+                            runCatching { OfficialBetLauncher.launch(context, session) }
+                                .onSuccess { actionMessage = it.message }
+                                .onFailure { actionMessage = it.message ?: "公式投票画面を開けませんでした" }
+                        }
+                    }
+                },
+                enabled = race.isPurchasable() && picks.isNotEmpty() && !purchased && !pendingPurchaseExists,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (purchased) "このレースは購入済み" else "${mode.label}を公式投票へ")
+                Text(
+                    when {
+                        purchased -> "このレースは購入済み"
+                        pendingPurchaseExists -> "投票待ちを先に確定してください"
+                        else -> "${mode.label}を公式投票へ"
+                    }
+                )
+            }
+            actionMessage?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
             }
         }
     }
