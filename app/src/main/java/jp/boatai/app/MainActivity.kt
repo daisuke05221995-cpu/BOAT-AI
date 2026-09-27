@@ -85,6 +85,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // PredictionTrackingService may have settled purchases while the UI process stayed
+        // alive. Pull durable accounting back into the ViewModel before the user sees Profit.
+        vm.syncStoredAccounting()
+        runCatching {
+            PredictionTrackingScheduler(this).scheduleBootstrapSoon(2_000L)
+        }.onFailure { CrashRecoveryStore(this).recordNonFatal("MainActivity.resumeTrackingBootstrap", it) }
         vm.resumePendingInstall(this)
     }
 }

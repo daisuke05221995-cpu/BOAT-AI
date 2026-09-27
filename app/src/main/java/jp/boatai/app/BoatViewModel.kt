@@ -489,10 +489,33 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         _ui.update { it.copy(selectedForBulk = ids, actionMessage = "購入推奨 ${ids.size}レースを選択") }
     }
 
-    fun setTab(tab: Int) {
+    /**
+     * Background tracking can settle races while this ViewModel stays alive. Reload the
+     * durable stores before showing accounting-oriented screens so cumulative money never
+     * depends on recreating the Activity or manually refreshing the race list.
+     */
+    fun syncStoredAccounting() {
+        val records = betStore.load()
+        val history = predictionStore.load()
+        val performance = PredictionPerformanceProfile.from(history)
+        PredictionEngine.restoreValueSelections(history)
+        PredictionEngine.installPerformanceProfile(performance)
         _ui.update {
             it.copy(
-                tab = tab.coerceIn(0, 3),
+                records = records,
+                pendingPurchase = pendingPurchaseStore.load(),
+                predictionHistory = history,
+                performance = performance
+            )
+        }
+    }
+
+    fun setTab(tab: Int) {
+        val nextTab = tab.coerceIn(0, 3)
+        if (nextTab != 0) syncStoredAccounting()
+        _ui.update {
+            it.copy(
+                tab = nextTab,
                 selectedRace = null,
                 selectedVenue = null,
                 predictions = emptyList(),
