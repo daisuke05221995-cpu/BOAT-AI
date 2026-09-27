@@ -1,0 +1,30 @@
+name: v0.16 live money research validation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'data/v016_live_money_protocol.json'
+      - 'data/v016_live_money_research_report.md'
+      - 'scripts/v016_live_money_eval.py'
+      - 'scripts/v016_live_money_eval_test.py'
+      - '.github/workflows/v016-live-money-research.yml'
+  pull_request:
+    paths:
+      - 'data/v016_live_money_protocol.json'
+      - 'scripts/v016_live_money_eval.py'
+      - 'scripts/v016_live_money_eval_test.py'
+      - '.github/workflows/v016-live-money-research.yml'
+
+jobs:
+  synthetic-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate protocol JSON
+        run: python -m json.tool data/v016_live_money_protocol.json > /dev/null
+      - name: Test synthetic live accounting
+        run: python scripts/v016_live_money_eval_test.py -v
