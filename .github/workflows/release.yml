@@ -31,9 +31,6 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Generate Gradle Wrapper
-        run: gradle wrapper --gradle-version 8.10.2
-
       - name: Resolve and verify release version
         id: version
         shell: bash
@@ -74,7 +71,7 @@ jobs:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/boat-ai-release.p12
           BOAT_AI_SIGNING_PASSWORD: ${{ secrets.BOAT_AI_SIGNING_PASSWORD }}
         run: |
-          ./gradlew testReleaseUnitTest lintRelease assembleRelease --stacktrace
+          gradle testReleaseUnitTest lintRelease assembleRelease --stacktrace
 
       - name: Verify APK signature
         run: |
