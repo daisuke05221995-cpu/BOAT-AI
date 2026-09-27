@@ -23,6 +23,7 @@ import java.util.Locale
 
 @Composable
 fun OneTwoLockCandidateList(ui: BoatUiState, vm: BoatViewModel) {
+    val thresholdPercent = (OneTwoLockStrategy.TARGET_PAIR_PROBABILITY * 100.0).toInt()
     val candidates = ui.races.mapNotNull { race ->
         val selection = OneTwoLockStrategy.selection(race) ?: return@mapNotNull null
         if (!selection.eligible) null else race to selection
@@ -37,9 +38,9 @@ fun OneTwoLockCandidateList(ui: BoatUiState, vm: BoatViewModel) {
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         ) {
             Column(Modifier.padding(14.dp)) {
-                Text("1→2鉄板候補", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text("1→2高確率候補", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Model Aで1→2の推定確率が90%以上のレースだけ表示。3着は確率上位3艇、3点均等買いで全3点が3.1倍以上のときだけ購入条件OKにします。",
+                    "Model Aで1→2の推定確率が${thresholdPercent}%以上のレースを表示します。各レースには実際の推定確率を表示。3着は確率上位3艇、3点均等買いで全3点が3.1倍以上のときだけ購入条件OKにします。",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(Modifier.height(6.dp))
@@ -55,7 +56,7 @@ fun OneTwoLockCandidateList(ui: BoatUiState, vm: BoatViewModel) {
                         )
                     }
                 } else {
-                    Text("実測データはこの機能の導入後から蓄積します。90%は現時点ではModel Aの推定値です。", style = MaterialTheme.typography.bodySmall)
+                    Text("実測データは${thresholdPercent}%以上ルールの導入後から蓄積します。表示％はModel Aの推定値です。", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -77,7 +78,7 @@ fun OneTwoLockCandidateList(ui: BoatUiState, vm: BoatViewModel) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
                     Text("本日該当なし", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text("推定1→2確率90%以上に届くレースはありません。条件を下げて無理に買うことはしません。", style = MaterialTheme.typography.bodySmall)
+                    Text("推定1→2確率${thresholdPercent}%以上に届くレースはありません。", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

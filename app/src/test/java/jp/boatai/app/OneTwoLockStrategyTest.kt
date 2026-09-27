@@ -7,9 +7,9 @@ import org.junit.Test
 
 class OneTwoLockStrategyTest {
     @Test
-    fun selectsOnlyWhenOneTwoMassReachesNinetyPercent() {
-        val eligible = OneTwoLockStrategy.selectionFromProbabilities(probabilities(pairMass = 0.91))!!
-        val ineligible = OneTwoLockStrategy.selectionFromProbabilities(probabilities(pairMass = 0.89))!!
+    fun selectsOnlyWhenOneTwoMassReachesSeventyPercent() {
+        val eligible = OneTwoLockStrategy.selectionFromProbabilities(probabilities(pairMass = 0.71))!!
+        val ineligible = OneTwoLockStrategy.selectionFromProbabilities(probabilities(pairMass = 0.69))!!
 
         assertTrue(eligible.eligible)
         assertFalse(ineligible.eligible)
@@ -19,7 +19,7 @@ class OneTwoLockStrategyTest {
 
     @Test
     fun requiresAllThreeOddsAtLeastThreePointOne() {
-        val selection = OneTwoLockStrategy.selectionFromProbabilities(probabilities(pairMass = 0.92))!!
+        val selection = OneTwoLockStrategy.selectionFromProbabilities(probabilities(pairMass = 0.72))!!
         val ok = OneTwoLockQuote(
             selection = selection,
             odds = mapOf("1-2-3" to 3.1, "1-2-5" to 4.0, "1-2-4" to 5.2)
@@ -32,7 +32,7 @@ class OneTwoLockStrategyTest {
 
     @Test
     fun purchaseUsesEqualStakesAndLeavesRemainderUnused() {
-        val selection = OneTwoLockStrategy.selectionFromProbabilities(probabilities(pairMass = 0.92))!!
+        val selection = OneTwoLockStrategy.selectionFromProbabilities(probabilities(pairMass = 0.72))!!
         val quote = OneTwoLockQuote(
             selection = selection,
             odds = selection.combinations.associateWith { 3.5 }

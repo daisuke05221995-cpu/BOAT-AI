@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 46
-        versionName = "0.18.0"
-        // v0.18.0: Add 1→2 90% candidate mode, 3.1x odds gate and realized calibration tracking.
+        versionCode = 47
+        versionName = "0.18.1"
+        // v0.18.1: Show 1→2 candidates from 70% with exact Model A probability; keep the 3.1x odds gate.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
