@@ -31,67 +31,69 @@ fun OneTwoLockCandidateList(ui: BoatUiState, vm: BoatViewModel) {
             .thenBy { it.first.closedAt }
     )
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-    ) {
-        Column(Modifier.padding(14.dp)) {
-            Text("1→2鉄板候補", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Model Aで1→2の推定確率が90%以上のレースだけ表示。3着は確率上位3艇、3点均等買いで全3点が3.1倍以上のときだけ購入条件OKにします。",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Spacer(Modifier.height(6.dp))
-            if (ui.oneTwoStats.settledCandidates > 0) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        ) {
+            Column(Modifier.padding(14.dp)) {
+                Text("1→2鉄板候補", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "導入後の実測1→2：${ui.oneTwoStats.pairHits}/${ui.oneTwoStats.settledCandidates}R（${oneTwoPercent(ui.oneTwoStats.pairHitRate)}）",
-                    fontWeight = FontWeight.SemiBold
+                    "Model Aで1→2の推定確率が90%以上のレースだけ表示。3着は確率上位3艇、3点均等買いで全3点が3.1倍以上のときだけ購入条件OKにします。",
+                    style = MaterialTheme.typography.bodySmall
                 )
-                if (ui.oneTwoStats.qualifiedSettled > 0) {
+                Spacer(Modifier.height(6.dp))
+                if (ui.oneTwoStats.settledCandidates > 0) {
                     Text(
-                        "オッズ条件通過の仮想3点：${oneTwoMoney(ui.oneTwoStats.simulatedStake)} → ${oneTwoMoney(ui.oneTwoStats.simulatedPayout)} / 回収率 ${oneTwoPercent(ui.oneTwoStats.simulatedRoi)}",
-                        style = MaterialTheme.typography.bodySmall
+                        "導入後の実測1→2：${ui.oneTwoStats.pairHits}/${ui.oneTwoStats.settledCandidates}R（${oneTwoPercent(ui.oneTwoStats.pairHitRate)}）",
+                        fontWeight = FontWeight.SemiBold
                     )
+                    if (ui.oneTwoStats.qualifiedSettled > 0) {
+                        Text(
+                            "オッズ条件通過の仮想3点：${oneTwoMoney(ui.oneTwoStats.simulatedStake)} → ${oneTwoMoney(ui.oneTwoStats.simulatedPayout)} / 回収率 ${oneTwoPercent(ui.oneTwoStats.simulatedRoi)}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                } else {
+                    Text("実測データはこの機能の導入後から蓄積します。90%は現時点ではModel Aの推定値です。", style = MaterialTheme.typography.bodySmall)
                 }
-            } else {
-                Text("実測データはこの機能の導入後から蓄積します。90%は現時点ではModel Aの推定値です。", style = MaterialTheme.typography.bodySmall)
             }
         }
-    }
 
-    if (ui.oneTwoLoading && candidates.isEmpty()) {
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                Modifier.fillMaxWidth().padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                CircularProgressIndicator()
-                Text("1→2候補を判定中…")
+        if (ui.oneTwoLoading && candidates.isEmpty()) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator()
+                    Text("1→2候補を判定中…")
+                }
             }
         }
-    }
 
-    if (!ui.oneTwoLoading && candidates.isEmpty()) {
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Text("本日該当なし", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                Text("推定1→2確率90%以上に届くレースはありません。条件を下げて無理に買うことはしません。", style = MaterialTheme.typography.bodySmall)
+        if (!ui.oneTwoLoading && candidates.isEmpty()) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("本日該当なし", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("推定1→2確率90%以上に届くレースはありません。条件を下げて無理に買うことはしません。", style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
-    }
 
-    candidates.forEach { (race, selection) ->
-        val quote = ui.oneTwoQuotes[race.id] ?: OneTwoLockQuote(selection)
-        OneTwoLockRaceCard(
-            race = race,
-            quote = quote,
-            pendingPurchaseExists = ui.pendingPurchase != null,
-            onDetail = { vm.selectRace(race) },
-            onBuy = {
-                if (vm.prepareOneTwoLockPurchase(race)) vm.openOfficialPurchase()
-            }
-        )
+        candidates.forEach { (race, selection) ->
+            val quote = ui.oneTwoQuotes[race.id] ?: OneTwoLockQuote(selection)
+            OneTwoLockRaceCard(
+                race = race,
+                quote = quote,
+                pendingPurchaseExists = ui.pendingPurchase != null,
+                onDetail = { vm.selectRace(race) },
+                onBuy = {
+                    if (vm.prepareOneTwoLockPurchase(race)) vm.openOfficialPurchase()
+                }
+            )
+        }
     }
 }
 
