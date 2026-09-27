@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 44
-        versionName = "0.16.9"
-        // v0.16.9: Add explicit on-device BOAT-AI-backup.json export and harden CI against wrapper URL failures.
+        versionCode = 45
+        versionName = "0.17.0"
+        // v0.17.0: Add Focus 4/5 grouped Model A predictions with separate pre-close performance tracking.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
