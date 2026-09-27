@@ -15,16 +15,17 @@ Detailed model explanations, feature importance, and race-theory commentary are 
 
 - Repository: `daisuke05221995-cpu/BOAT-AI`
 - Branch: `main`
-- Current public version: **v0.16.8**
-- versionCode: **43**
-- Release target: `e58fd4393d9928949484b75092ca5690ece58de4`
-- Signed Release Run: `36317879182` SUCCESS
-- Debug validation Run: `36317879225` SUCCESS
-- GitHub Release ID: `397634824`
-- APK: `BOAT-AI-v0.16.8.apk`
-- APK SHA-256: `c575743718eceb3f38539e1a69db6103d50507855585b1a6935a445f917a4ea3`
-- Detailed handoff: `data/V0168_PURCHASE_SAFETY_HANDOFF_20260927.md`
-- Research-only backup parity work does **not** change the published APK/version.
+- Current public version: **v0.16.9**
+- versionCode: **44**
+- Release target: `446d84f1a57c4e9a489492fdf3ed2edbf9dff84b`
+- Signed Release Run: `36318605815` SUCCESS
+- Debug validation Run: `36318605810` SUCCESS
+- Pre-release backup-export validation Run: `36318440533` SUCCESS
+- GitHub Release ID: `397639019`
+- APK: `BOAT-AI-v0.16.9.apk`
+- APK SHA-256: `c701984ab8410e696e3e3d39d34491fb47722fbcc78d9fc66da5822422ab3426`
+- Detailed handoff: `data/V0169_DIRECT_BACKUP_HANDOFF_20260927.md`
+- Research-only work does **not** change the published APK/version unless explicitly promoted through Android release work.
 
 ## Development priority
 
@@ -86,28 +87,30 @@ Model A remains the production forecast baseline.
 
 Future Model B / Model C / LONGSHOT research should be evaluated mainly by realizable audited cumulative money performance, adequate sample size, out-of-sample evidence, drawdown, and concentration risk. Do not promote from retrospective final-like odds alone.
 
-## Latest implementation progress — v0.16.8
+## Latest implementation progress — v0.16.9
 
 Completed and released:
 
-- v0.16.7 accounting reliability remains intact: resume-time durable accounting sync, recovery copies for actual and AI-live ledgers, and backup export/restore alignment.
-- Pending purchase now shows both the full candidate total and the **currently selected** race count / ticket count / total stake.
-- Official-purchase button shows the selected total, is disabled at zero selected races, and only selected races are copied.
-- Pending purchase has **Select all** and **Clear all** controls.
-- `OfficialBetLauncher` has a zero-selection guard.
-- Unit tests verify selected-only clipboard output and the zero-selection case.
-- A new purchase session can no longer silently overwrite an unresolved pending purchase session.
-- The Prediction screen now shows the pending-purchase card, so after returning from the official purchase surface the user can immediately confirm the races actually purchased or discard the pending session.
-- Existing bulk selection, individual purchase selection, editable planned budget, total planned stake, official purchase handoff, and actual-purchase recording remain available.
-- Signed v0.16.8 Release pipeline passed release unit tests, release lint, signed APK build, APK signature verification, and GitHub Release publication.
+- v0.16.8 purchase-safety improvements remain intact: selected purchase totals, zero-selection guard, Select all / Clear all, unresolved pending-session overwrite prevention, and pending-purchase card on the Prediction screen.
+- Settings > Data management now has a primary **direct file save** action for `BOAT-AI-backup.json` using Android's document-save UI.
+- The user can choose a device/document-provider location directly instead of first routing through a share target.
+- The previous backup-share action remains available separately.
+- Backup JSON schema is unchanged, so the frozen live-money evaluator remains compatible.
+- The Settings card explicitly warns that the backup contains actual purchase history and should not be uploaded to a public location.
+- Debug and Release CI no longer regenerate a Gradle Wrapper on every run. Both use the fixed Gradle 8.10.2 installation provisioned by `gradle/actions/setup-gradle`, removing the wrapper-URL validation failure point seen in Run `36318317657`.
+- Signed v0.16.9 Release passed release unit tests, release lint, signed APK build, APK signature verification, and GitHub Release publication.
+- v0.16.9 Debug validation passed live API verification, unit tests, lint, Debug APK build, and artifact upload.
 
 Validation / commits:
 
-- Selected-total / zero-selection safety: commit `1619f2db7f3249d510cb52ac5bb05851567b4ed1`, Run `36317240148` SUCCESS.
-- Pending-session overwrite prevention: source commit `4ab0e85b4a7ea246e4eb597abf5b64a2ca6fb73a`; pre-commit Run `36317673303` passed patch verification, tests, lint and Debug APK build.
-- v0.16.8 release commit: `e58fd4393d9928949484b75092ca5690ece58de4`.
-- Signed v0.16.8 Release: Run `36317879182` SUCCESS.
-- v0.16.8 Debug validation: Run `36317879225` SUCCESS.
+- Direct backup writer: commit `3ad7b830a8ef7b4c8b1d04213561b98fec641ea5`.
+- Explicit backup UI: commit `252092779c33d4ba78ca0ab76128b73d890f981a`.
+- Debug CI hardening: commit `c30b894aed9628ee600f7aef80c142e3a6ded707`.
+- Release CI hardening: commit `fa296005b35c0a1c541ae870ebc41fb3adadba1a`.
+- Direct backup source validation: Run `36318440533` SUCCESS.
+- v0.16.9 release commit: `446d84f1a57c4e9a489492fdf3ed2edbf9dff84b`.
+- Signed v0.16.9 Release: Run `36318605815` SUCCESS.
+- v0.16.9 Debug validation: Run `36318605810` SUCCESS.
 
 ## Work research status
 
@@ -128,29 +131,29 @@ Completed:
 
 Next research input:
 
-- a real device `BOAT-AI-backup.json` exported from v0.16.8 or later.
+- a real device `BOAT-AI-backup.json` exported from v0.16.9 or later.
 - Do **not** commit the real backup to the public repository; it can contain actual purchase history and learning state.
-- Run the frozen evaluator directly against that backup and compare AI-live cumulative accounting with actual-purchase accounting.
+- Run the frozen evaluator directly against that private backup and compare AI-live cumulative accounting with actual-purchase accounting.
 
 ## Real-device update rule
 
-Install `BOAT-AI-v0.16.8.apk` over the existing app.
+Install `BOAT-AI-v0.16.9.apk` over the existing app.
 
 **Do not uninstall BOAT AI and do not clear app data before updating.**
 The actual-purchase and audited prediction ledgers are local app data.
 
 ## Still requires real-device/live-race evidence
 
-- overwrite install v0.16.8 while preserving existing data
+- overwrite install v0.16.9 while preserving existing data
 - existing actual-purchase totals remain intact after update
 - background settlement updates Profit/Results correctly in real use
 - Result-screen audit rows match Profit-screen audited counts
 - real BUY/SKIP + live official odds accumulate normally
 - pending purchase survives the official-site round trip and can be confirmed without being overwritten
-- app Backup produces a real `BOAT-AI-backup.json` that passes the frozen evaluator directly
+- direct Settings backup saves a real `BOAT-AI-backup.json` that passes the frozen evaluator
 - enough audited live BUY records exist to make a meaningful cumulative profit/ROI judgment
 
-There is currently **no new factual claim that the live strategy is profitable**, because no real-device backup has yet been evaluated through the completed evaluator.
+There is currently **no factual claim that the live strategy is profitable**, because no real-device backup has yet been evaluated through the completed evaluator.
 
 ## Planned phases
 
@@ -170,7 +173,7 @@ There is currently **no new factual claim that the live strategy is profitable**
 
 ### Phase 3 — Accumulate real live evidence — NEXT
 - collect audited live BUY records
-- export existing `BOAT-AI-backup.json`
+- export existing `BOAT-AI-backup.json` using the direct-save action added in v0.16.9
 - evaluate cumulative stake / payout / profit / ROI / hit rate / drawdown
 - diagnose where money is gained or lost only after sufficient sample exists
 
@@ -204,7 +207,7 @@ When documents disagree, use this order:
 5. `NEXT_WEEK_HANDOFF.md`
 6. `WORK_HANDOFF.md` historical notes
 
-Old notes such as v0.15.x state, v0.16.6/v0.16.7 being current, or "Q4 unopened" must not override newer verified status.
+Old notes such as v0.15.x state, v0.16.8 being current, or "Q4 unopened" must not override newer verified status.
 
 ## User-facing design principle
 
