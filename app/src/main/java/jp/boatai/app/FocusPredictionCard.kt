@@ -48,7 +48,7 @@ fun FocusPredictionCard(
             )
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                FocusMode.entries.forEach { option ->
+                FocusMode.values().forEach { option ->
                     TextButton(
                         onClick = { mode = option; actionMessage = null },
                         modifier = Modifier.weight(1f)
@@ -75,8 +75,8 @@ fun FocusPredictionCard(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                "最低 ${money(selection.minimumStake)}。現在予算 ${money(raceBudget)}" +
-                    if (picks.isEmpty()) "（予算不足または予想未確定）" else " / 配分 ${money(picks.sumOf { it.recommendedStake })}",
+                "最低 ${focusMoney(selection.minimumStake)}。現在予算 ${focusMoney(raceBudget)}" +
+                    if (picks.isEmpty()) "（予算不足または予想未確定）" else " / 配分 ${focusMoney(picks.sumOf { it.recommendedStake })}",
                 style = MaterialTheme.typography.bodySmall
             )
             Text(
@@ -119,3 +119,5 @@ fun FocusPredictionCard(
         }
     }
 }
+
+private fun focusMoney(value: Int): String = String.format(Locale.JAPAN, "%,d円", value)
