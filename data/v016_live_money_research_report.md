@@ -33,5 +33,6 @@ python scripts/v016_live_money_eval_test.py -v
 
 ## 検証・次の1手
 
-- ローカル: 合成fixture 13テスト全件成功、protocol JSON構文検証成功。古いバックアップで監査項目が欠けていても、BUY母集団から消さず監査不足として数える。CI Run IDは実行後に追記する。
+- ローカル: 合成fixture 13テスト全件成功、protocol JSON構文検証成功。古いバックアップで監査項目が欠けていても、BUY母集団から消さず監査不足として数える。
+- CI: [Run 36290448833](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/36290448833) は synthetic-validation SUCCESS（protocol JSONと13テスト）。研究PR [#9](https://github.com/daisuke05221995-cpu/BOAT-AI/pull/9)。このレポート追記による再実行Runも確認する。
 - 次は端末の既存「バックアップ」からユーザー自身が `BOAT-AI-backup.json` を保存し、実ライブ記録が貯まった時点で本スクリプトへ渡して計算する。バックアップには実購入や学習情報も含まれるため、リポジトリへ公開commitしない。原因別の監査欠落や端末と集計器の照合を優先する。
