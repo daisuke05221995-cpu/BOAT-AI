@@ -36,6 +36,17 @@ def candidate(record):
             and record.get("recommended") is True and record.get("strategyId") == "value-v1")
 
 
+def normalize_prediction(record):
+    """Mirror absent audit fields in PredictionRecord.fromJson for legacy backups."""
+    result = dict(record)
+    defaults = {"combinations": [], "stakes": [], "liveOddsFetchedAt": None,
+                "liveOddsSource": None, "liveOddsCount": 0, "livePickOdds": [],
+                "resultCombination": None, "trifectaPayout": 0}
+    for key, value in defaults.items():
+        result.setdefault(key, value)
+    return result
+
+
 def audit(record):
     failures = []
     if type(record["liveOddsFetchedAt"]) is not int or record["liveOddsFetchedAt"] <= 0:
@@ -240,9 +251,10 @@ def evaluate(payload, as_of, protocol=None):
     anchor = parse_date(as_of)
     candidates = []
     seen = set()
-    for row in predictions:
-        if not candidate(row):
+    for original in predictions:
+        if not candidate(original):
             continue
+        row = normalize_prediction(original)
         validate(row)
         if parse_date(row["date"]) > anchor:
             continue
