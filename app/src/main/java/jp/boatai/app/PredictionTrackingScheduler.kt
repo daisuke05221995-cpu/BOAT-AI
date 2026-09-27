@@ -269,6 +269,7 @@ class PredictionTrackingService : Service() {
         val predictionStore = PredictionHistoryStore(this)
         val betStore = BetStore(this)
         val focusStore = FocusPredictionHistoryStore(this)
+        val oneTwoStore = OneTwoLockHistoryStore(this)
 
         reconcileRecentPending(today, predictionStore, betStore)
 
@@ -277,6 +278,7 @@ class PredictionTrackingService : Service() {
             predictionStore.settle(races)
             betStore.settle(races)
             focusStore.settle(races)
+            oneTwoStore.settle(races)
             PredictionTrackingScheduler(this).scheduleRaces(races)
         }
         PredictionTrackingScheduler(this).scheduleDailyBootstrap()
@@ -288,6 +290,7 @@ class PredictionTrackingService : Service() {
         betStore: BetStore
     ) {
         val focusStore = FocusPredictionHistoryStore(this)
+        val oneTwoStore = OneTwoLockHistoryStore(this)
         val pendingDateTexts = buildList {
             predictionStore.load()
                 .asSequence()
@@ -300,6 +303,7 @@ class PredictionTrackingService : Service() {
                 .map { it.date }
                 .forEach(::add)
             focusStore.pendingDates().forEach(::add)
+            oneTwoStore.pendingDates().forEach(::add)
         }
         val dates = SettlementRecoveryPlanner.selectDates(pendingDateTexts, today)
             .filter { it != today }
@@ -311,6 +315,7 @@ class PredictionTrackingService : Service() {
             predictionStore.settle(races)
             betStore.settle(races)
             focusStore.settle(races)
+            oneTwoStore.settle(races)
         }
     }
 
@@ -321,6 +326,7 @@ class PredictionTrackingService : Service() {
         val predictionStore = PredictionHistoryStore(this)
         val betStore = BetStore(this)
         val focusStore = FocusPredictionHistoryStore(this)
+        val oneTwoStore = OneTwoLockHistoryStore(this)
 
         fun hasPendingTarget(): Boolean {
             if (raceId.isNullOrBlank()) return false
@@ -334,7 +340,8 @@ class PredictionTrackingService : Service() {
             val focusPending = FocusMode.values().any { mode ->
                 focusStore.load(mode).any { record -> !record.settled && record.id == raceId }
             }
-            return predictionPending || purchasePending || focusPending
+            val oneTwoPending = oneTwoStore.hasPending(raceId)
+            return predictionPending || purchasePending || focusPending || oneTwoPending
         }
 
         val pendingBeforeFetch = hasPendingTarget()
@@ -349,6 +356,7 @@ class PredictionTrackingService : Service() {
         predictionStore.settle(races)
         betStore.settle(races)
         focusStore.settle(races)
+        oneTwoStore.settle(races)
 
         if (hasPendingTarget() && !raceId.isNullOrBlank()) {
             PredictionTrackingScheduler(this).scheduleSettleRetry(normalizedDate, raceId, attempt)
@@ -364,6 +372,7 @@ class PredictionTrackingService : Service() {
         PredictionHistoryStore(this).settle(races)
         BetStore(this).settle(races)
         FocusPredictionHistoryStore(this).settle(races)
+        OneTwoLockHistoryStore(this).settle(races)
 
         val race = races.firstOrNull { it.id == raceId } ?: return
         if (!race.isPurchasable() || !PredictionEngine.isDecisionReady(race)) return
@@ -380,6 +389,15 @@ class PredictionTrackingService : Service() {
         val focusStore = FocusPredictionHistoryStore(this)
         FocusMode.values().forEach { mode ->
             focusStore.captureRace(race, mode, BetStrategy.DEFAULT_BUDGET)
+        }
+
+        OneTwoLockStrategy.selection(race)?.takeIf { it.eligible }?.let { selection ->
+            val oneTwoStore = OneTwoLockHistoryStore(this)
+            oneTwoStore.captureRace(race, selection)
+            runCatching { repository.loadOfficialTrifectaOddsDetailed(race, selection.combinations) }
+                .onSuccess { oddsResult ->
+                    oneTwoStore.updateOdds(race.id, OneTwoLockStrategy.quote(selection, oddsResult))
+                }
         }
 
         val existing = predictionStore.load().firstOrNull { it.id == race.id }
