@@ -8,7 +8,20 @@ class BetStore(context: Context) {
     private val prefs = context.getSharedPreferences("boat_ai_bets", Context.MODE_PRIVATE)
 
     fun load(): List<BetRecord> {
-        val raw = prefs.getString(KEY, "[]") ?: "[]"
+        val raw = prefs.getString(KEY, null)
+        decode(raw)?.let { return it }
+
+        // Cumulative real-money records are too important to silently become empty when a
+        // SharedPreferences payload is damaged. Fall back to the previous known-good payload
+        // and heal the primary copy for subsequent reads.
+        val backupRaw = prefs.getString(BACKUP_KEY, null)
+        val recovered = decode(backupRaw) ?: return emptyList()
+        if (backupRaw != null) prefs.edit().putString(KEY, backupRaw).apply()
+        return recovered
+    }
+
+    private fun decode(raw: String?): List<BetRecord>? {
+        if (raw == null) return null
         return runCatching {
             val array = JSONArray(raw)
             buildList {
@@ -17,7 +30,7 @@ class BetStore(context: Context) {
                     add(BetRecord.fromJson(obj))
                 }
             }.sortedByDescending { it.createdAt }
-        }.getOrDefault(emptyList())
+        }.getOrNull()
     }
 
     fun addPicks(race: RaceData, picks: List<PredictionPick>, stakePerPick: Int): List<BetRecord> =
@@ -147,17 +160,24 @@ class BetStore(context: Context) {
     }
 
     fun clear(): List<BetRecord> {
-        prefs.edit().remove(KEY).apply()
+        prefs.edit().remove(KEY).remove(BACKUP_KEY).apply()
         return emptyList()
     }
 
     private fun save(records: List<BetRecord>) {
         val array = JSONArray()
         records.forEach { array.put(it.toJson()) }
-        prefs.edit().putString(KEY, array.toString()).apply()
+        val payload = array.toString()
+        val current = prefs.getString(KEY, null)
+        val editor = prefs.edit()
+        if (current != null && decode(current) != null) {
+            editor.putString(BACKUP_KEY, current)
+        }
+        editor.putString(KEY, payload).apply()
     }
 
     companion object {
         private const val KEY = "records"
+        private const val BACKUP_KEY = "records_backup"
     }
 }

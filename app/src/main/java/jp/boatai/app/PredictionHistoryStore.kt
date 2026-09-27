@@ -7,7 +7,18 @@ class PredictionHistoryStore(context: Context) {
     private val prefs = context.getSharedPreferences("boat_ai_predictions", Context.MODE_PRIVATE)
 
     fun load(): List<PredictionRecord> {
-        val raw = prefs.getString(KEY, "[]") ?: "[]"
+        val raw = prefs.getString(KEY, null)
+        decode(raw)?.let { return it }
+
+        // Preserve the audited AI ledger across a malformed primary preference payload.
+        val backupRaw = prefs.getString(BACKUP_KEY, null)
+        val recovered = decode(backupRaw) ?: return emptyList()
+        if (backupRaw != null) prefs.edit().putString(KEY, backupRaw).apply()
+        return recovered
+    }
+
+    private fun decode(raw: String?): List<PredictionRecord>? {
+        if (raw == null) return null
         return runCatching {
             val array = JSONArray(raw)
             buildList {
@@ -16,7 +27,7 @@ class PredictionHistoryStore(context: Context) {
                     add(PredictionRecord.fromJson(obj))
                 }
             }.sortedByDescending { it.createdAt }
-        }.getOrDefault(emptyList())
+        }.getOrNull()
     }
 
     fun captureOpenRaces(
@@ -204,11 +215,18 @@ class PredictionHistoryStore(context: Context) {
     private fun save(records: List<PredictionRecord>) {
         val array = JSONArray()
         records.forEach { array.put(it.toJson()) }
-        prefs.edit().putString(KEY, array.toString()).apply()
+        val payload = array.toString()
+        val current = prefs.getString(KEY, null)
+        val editor = prefs.edit()
+        if (current != null && decode(current) != null) {
+            editor.putString(BACKUP_KEY, current)
+        }
+        editor.putString(KEY, payload).apply()
     }
 
     companion object {
         const val DEFAULT_SIMULATION_STAKE = 300
         private const val KEY = "prediction_records"
+        private const val BACKUP_KEY = "prediction_records_backup"
     }
 }
