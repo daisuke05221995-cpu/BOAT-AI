@@ -1,8 +1,13 @@
-"""Synthetic fixtures only; no production race data or profitability assertion."""
+"""Synthetic and golden contract fixtures only; no production profitability assertion."""
 from datetime import date, timedelta
+import json
+from pathlib import Path
 import unittest
 
 from v016_live_money_eval import evaluate
+
+ROOT = Path(__file__).resolve().parents[1]
+GOLDEN_BACKUP = ROOT / "data/v016_live_money_golden_backup.json"
 
 
 def fixture(day="2026-09-27", race=1, winner="1-2-3", stake=1000, payout=200):
@@ -23,9 +28,10 @@ def bet(race=1, combination="1-2-3", stake=100, payout=0, settled=True):
 
 
 def backup(predictions=None, bets=None):
-    return {"schemaVersion": 1, "appVersion": "0.16.6", "exportedAt": "2026-09-27T01:00:00Z",
+    return {"schemaVersion": 1, "appVersion": "0.16.7", "exportedAt": "2026-09-27T01:00:00Z",
             "bets": bets if bets is not None else [],
-            "predictions": predictions if predictions is not None else [], "learning": {}}
+            "predictions": predictions if predictions is not None else [], "learning": {},
+            "historicalBaselineMigratedThrough": ""}
 
 
 class MoneyEvalTests(unittest.TestCase):
@@ -83,6 +89,26 @@ class MoneyEvalTests(unittest.TestCase):
         self.assertEqual(set(output["audit"]["failureCounts"]),
                          {"FETCH_TIME", "SOURCE", "ODDS_COUNT", "STAKES", "PICK_ODDS"})
 
+    def test_android_legacy_recommended_default_is_applied_before_cohort_filter(self):
+        legacy_buy = fixture()
+        legacy_buy.pop("recommended")
+        legacy_buy["confidence"] = 75
+        result = evaluate(backup([legacy_buy]), "2026-09-27")["performance"]["all"]
+        self.assertEqual(result["audit"]["liveBuyCount"], 1)
+        self.assertEqual(result["audit"]["auditedBuyCount"], 1)
+
+        legacy_skip = fixture(race=2)
+        legacy_skip.pop("recommended")
+        legacy_skip["confidence"] = 69
+        result = evaluate(backup([legacy_skip]), "2026-09-27")["performance"]["all"]
+        self.assertEqual(result["audit"]["liveBuyCount"], 0)
+
+    def test_android_allows_known_result_with_zero_payout(self):
+        row = fixture(payout=0)
+        result = evaluate(backup([row]), "2026-09-27")["performance"]["all"]["money"]
+        self.assertEqual((result["buyRaces"], result["stakeYen"], result["payoutYen"], result["profitYen"]),
+                         (1, 1000, 0, -1000))
+
     def test_legacy_and_retro_are_never_counted(self):
         retro = fixture(race=2)
         retro["strategyId"] = "model-a-retro-flex-v2"
@@ -98,7 +124,7 @@ class MoneyEvalTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Duplicate live BUY race"):
             evaluate([fixture(), duplicate], "2026-09-27")
 
-    def test_reject_malformed_candidate_and_inconsistent_result(self):
+    def test_reject_malformed_candidate_and_positive_payout_without_result(self):
         bad = fixture()
         bad.pop("date")
         with self.assertRaisesRegex(ValueError, "Missing candidate"):
@@ -106,6 +132,16 @@ class MoneyEvalTests(unittest.TestCase):
         bad = fixture(winner=None, payout=100)
         with self.assertRaisesRegex(ValueError, "disagree"):
             evaluate([bad], "2026-09-27")
+
+    def test_android_export_field_names_are_exact_no_aliases(self):
+        bad = fixture()
+        bad["venueNumber"] = bad.pop("stadiumNumber")
+        with self.assertRaisesRegex(ValueError, "Missing candidate"):
+            evaluate([bad], "2026-09-27")
+        bad_bet = bet()
+        bad_bet["actualPayout"] = bad_bet.pop("payout")
+        with self.assertRaisesRegex(ValueError, "Missing actual purchase key"):
+            evaluate(backup([], [bad_bet]), "2026-09-27")
 
     def test_diagnostics_suppressed_for_small_sample(self):
         result = evaluate([fixture()], "2026-09-27")
@@ -141,6 +177,33 @@ class MoneyEvalTests(unittest.TestCase):
         data["schemaVersion"] = 2
         with self.assertRaisesRegex(ValueError, "schemaVersion"):
             evaluate(data, "2026-09-27")
+
+    def test_backup_envelope_requires_android_learning_object(self):
+        data = backup()
+        data.pop("learning")
+        with self.assertRaisesRegex(ValueError, "learning"):
+            evaluate(data, "2026-09-27")
+
+    def test_golden_android_backup_contract_and_live_audit_parity(self):
+        data = json.loads(GOLDEN_BACKUP.read_text(encoding="utf-8"))
+        output = evaluate(data, "2026-09-27")
+        live = output["performance"]["all"]
+        self.assertEqual(live["audit"], {
+            "liveBuyCount": 2,
+            "auditedBuyCount": 1,
+            "incompleteCount": 1,
+            "completenessPercent": 50.0,
+            "failureCounts": {"ODDS_COUNT": 1, "PICK_ODDS": 1},
+        })
+        self.assertEqual((live["money"]["buyRaces"], live["money"]["hitCount"],
+                          live["money"]["stakeYen"], live["money"]["payoutYen"],
+                          live["money"]["profitYen"], live["money"]["roiPercent"]),
+                         (1, 1, 1000, 5950, 4950, 595.0))
+        actual = output["actualPurchasePerformance"]["all"]
+        self.assertEqual((actual["money"]["buyRaces"], actual["money"]["hitCount"],
+                          actual["money"]["stakeYen"], actual["money"]["payoutYen"],
+                          actual["money"]["profitYen"], actual["pendingStakeYen"]),
+                         (1, 1, 1000, 5950, 4950, 500))
 
 
 if __name__ == "__main__":

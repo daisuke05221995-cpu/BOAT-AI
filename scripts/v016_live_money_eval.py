@@ -43,13 +43,60 @@ def candidate(record):
 
 
 def normalize_prediction(record):
-    """Mirror absent audit fields in PredictionRecord.fromJson for legacy backups."""
+    """Mirror PredictionRecord.fromJson defaults needed by the evaluator."""
     result = dict(record)
-    defaults = {"combinations": [], "stakes": [], "liveOddsFetchedAt": None,
-                "liveOddsSource": None, "liveOddsCount": 0, "livePickOdds": [],
-                "resultCombination": None, "trifectaPayout": 0}
-    for key, value in defaults.items():
-        result.setdefault(key, value)
+
+    result.setdefault("combinations", [])
+    result.setdefault("stakePerPick", 300)
+    result.setdefault("trifectaPayout", 0)
+    result.setdefault("settled", False)
+    result.setdefault("confidence", 0)
+    result.setdefault("rank", "D")
+    result.setdefault("evaluationEligible", False)
+    result.setdefault("autoSkipped", False)
+
+    if "recommended" not in result:
+        confidence = result.get("confidence")
+        result["recommended"] = (
+            result.get("autoSkipped") is not True
+            and type(confidence) is int
+            and confidence >= 70
+        )
+
+    result.setdefault("stakes", [])
+    result.setdefault("liveOddsFetchedAt", None)
+    result.setdefault("liveOddsSource", None)
+    result.setdefault("liveOddsCount", 0)
+    result.setdefault("livePickOdds", [])
+    result.setdefault("resultCombination", None)
+
+    if isinstance(result.get("resultCombination"), str) and not result["resultCombination"].strip():
+        result["resultCombination"] = None
+    if isinstance(result.get("strategyId"), str) and not result["strategyId"].strip():
+        result["strategyId"] = None
+    if isinstance(result.get("liveOddsSource"), str) and not result["liveOddsSource"].strip():
+        result["liveOddsSource"] = None
+
+    # Android fromJson turns invalid/mismatched allocation arrays into empty lists.
+    picks = result.get("combinations")
+    stakes = result.get("stakes")
+    if isinstance(picks, list) and isinstance(stakes, list):
+        if len(stakes) != len(picks) or any(type(v) is not int or v < 100 or v % 100 for v in stakes):
+            result["stakes"] = []
+    elif stakes is not None:
+        result["stakes"] = []
+
+    odds = result.get("livePickOdds")
+    if isinstance(picks, list) and isinstance(odds, list):
+        if (len(odds) != len(picks)
+                or any(type(v) not in (int, float) or not math.isfinite(v) or v <= 0 for v in odds)):
+            result["livePickOdds"] = []
+    elif odds is not None:
+        result["livePickOdds"] = []
+
+    if type(result.get("liveOddsCount")) is int and result["liveOddsCount"] < 0:
+        result["liveOddsCount"] = 0
+
     return result
 
 
@@ -99,7 +146,9 @@ def validate(record):
     if result is not None and not valid_combination(result):
         raise ValueError("Invalid resultCombination")
     integer(record["trifectaPayout"], "trifectaPayout", 0)
-    if (result is None) != (record["trifectaPayout"] == 0):
+    # Android can settle a race with a known result while the payout is unavailable (0).
+    # A positive payout without any result combination is inconsistent and remains fail-closed.
+    if result is None and record["trifectaPayout"] > 0:
         raise ValueError("Result and trifecta payout disagree")
     if "confidence" in record:
         if integer(record["confidence"], "confidence", 0) > 100:
@@ -237,14 +286,25 @@ def actual_purchase(bets, anchor, periods):
     return result
 
 
+def validate_backup_envelope(payload):
+    if type(payload["schemaVersion"]) is not int or payload["schemaVersion"] != 1:
+        raise ValueError("Unsupported backup schemaVersion")
+    if not isinstance(payload.get("appVersion"), str) or not payload["appVersion"].strip():
+        raise ValueError("Backup missing appVersion")
+    if not isinstance(payload.get("exportedAt"), str) or not payload["exportedAt"].strip():
+        raise ValueError("Backup missing exportedAt")
+    if not isinstance(payload.get("learning"), dict):
+        raise ValueError("Backup missing learning object")
+    if ("historicalBaselineMigratedThrough" in payload
+            and not isinstance(payload["historicalBaselineMigratedThrough"], str)):
+        raise ValueError("Invalid historicalBaselineMigratedThrough")
+
+
 def evaluate(payload, as_of, protocol=None):
     protocol = protocol or json.loads(PROTOCOL.read_text(encoding="utf-8"))
     is_backup = isinstance(payload, dict) and "schemaVersion" in payload
     if is_backup:
-        if type(payload["schemaVersion"]) is not int or payload["schemaVersion"] != 1:
-            raise ValueError("Unsupported backup schemaVersion")
-        if not isinstance(payload.get("appVersion"), str) or not isinstance(payload.get("exportedAt"), str):
-            raise ValueError("Backup missing appVersion/exportedAt")
+        validate_backup_envelope(payload)
         bets = payload.get("bets")
         predictions = payload.get("predictions")
         if not isinstance(bets, list) or any(not isinstance(r, dict) for r in bets):
@@ -258,9 +318,9 @@ def evaluate(payload, as_of, protocol=None):
     candidates = []
     seen = set()
     for original in predictions:
-        if not candidate(original):
-            continue
         row = normalize_prediction(original)
+        if not candidate(row):
+            continue
         validate(row)
         if parse_date(row["date"]) > anchor:
             continue

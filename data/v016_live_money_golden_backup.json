@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "appVersion": "0.16.7",
+  "exportedAt": "2026-09-27T03:30:00Z",
+  "bets": [
+    {
+      "id": "bet-1",
+      "date": "2026-09-27",
+      "stadiumNumber": 1,
+      "raceNumber": 1,
+      "combination": "1-2-3",
+      "stake": 300,
+      "payout": 0,
+      "settled": true,
+      "createdAt": 1790478000000
+    },
+    {
+      "id": "bet-2",
+      "date": "2026-09-27",
+      "stadiumNumber": 1,
+      "raceNumber": 1,
+      "combination": "1-3-2",
+      "stake": 700,
+      "payout": 5950,
+      "settled": true,
+      "createdAt": 1790478000001
+    },
+    {
+      "id": "bet-3",
+      "date": "2026-09-27",
+      "stadiumNumber": 1,
+      "raceNumber": 2,
+      "combination": "2-1-3",
+      "stake": 500,
+      "payout": 0,
+      "settled": false,
+      "createdAt": 1790478000002
+    }
+  ],
+  "predictions": [
+    {
+      "id": "2026-09-27-01-1",
+      "date": "2026-09-27",
+      "stadiumNumber": 1,
+      "raceNumber": 1,
+      "combinations": [
+        "1-2-3",
+        "1-3-2"
+      ],
+      "stakePerPick": 300,
+      "stakes": [
+        300,
+        700
+      ],
+      "strategyId": "value-v1",
+      "liveOddsFetchedAt": 1790477400000,
+      "liveOddsSource": "official-trifecta",
+      "liveOddsCount": 120,
+      "livePickOdds": [
+        4.2,
+        8.5
+      ],
+      "resultCombination": "1-3-2",
+      "trifectaPayout": 850,
+      "settled": true,
+      "createdAt": 1790477000000,
+      "confidence": 75,
+      "rank": "A",
+      "firstLane": 1,
+      "evaluationEligible": true,
+      "autoSkipped": false,
+      "recommended": true,
+      "recommendationReason": "synthetic golden BUY"
+    },
+    {
+      "id": "2026-09-27-01-2",
+      "date": "2026-09-27",
+      "stadiumNumber": 1,
+      "raceNumber": 2,
+      "combinations": [
+        "2-1-3"
+      ],
+      "stakePerPick": 500,
+      "stakes": [
+        500
+      ],
+      "strategyId": "value-v1",
+      "liveOddsFetchedAt": 1790477500000,
+      "liveOddsSource": "official-trifecta",
+      "liveOddsCount": 119,
+      "resultCombination": "2-1-3",
+      "trifectaPayout": 430,
+      "settled": true,
+      "createdAt": 1790477100000,
+      "confidence": 72,
+      "rank": "B",
+      "firstLane": 2,
+      "evaluationEligible": true,
+      "autoSkipped": false,
+      "recommended": true,
+      "recommendationReason": "synthetic golden incomplete audit"
+    },
+    {
+      "id": "2026-09-27-01-3",
+      "date": "2026-09-27",
+      "stadiumNumber": 1,
+      "raceNumber": 3,
+      "combinations": [],
+      "stakePerPick": 0,
+      "strategyId": "value-v1",
+      "liveOddsFetchedAt": 1790477600000,
+      "liveOddsSource": "official-trifecta",
+      "liveOddsCount": 120,
+      "resultCombination": "3-1-2",
+      "trifectaPayout": 1200,
+      "settled": true,
+      "createdAt": 1790477200000,
+      "confidence": 68,
+      "rank": "C",
+      "evaluationEligible": true,
+      "autoSkipped": true,
+      "autoSkipReason": "synthetic golden SKIP",
+      "recommended": false,
+      "recommendationReason": "synthetic golden SKIP"
+    }
+  ],
+  "learning": {},
+  "historicalBaselineMigratedThrough": ""
+}

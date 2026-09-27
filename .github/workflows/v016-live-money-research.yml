@@ -6,12 +6,14 @@ on:
     paths:
       - 'data/v016_live_money_protocol.json'
       - 'data/v016_live_money_research_report.md'
+      - 'data/v016_live_money_golden_backup.json'
       - 'scripts/v016_live_money_eval.py'
       - 'scripts/v016_live_money_eval_test.py'
       - '.github/workflows/v016-live-money-research.yml'
   pull_request:
     paths:
       - 'data/v016_live_money_protocol.json'
+      - 'data/v016_live_money_golden_backup.json'
       - 'scripts/v016_live_money_eval.py'
       - 'scripts/v016_live_money_eval_test.py'
       - '.github/workflows/v016-live-money-research.yml'
@@ -26,5 +28,7 @@ jobs:
           python-version: '3.12'
       - name: Validate protocol JSON
         run: python -m json.tool data/v016_live_money_protocol.json > /dev/null
+      - name: Validate golden Android backup JSON
+        run: python -m json.tool data/v016_live_money_golden_backup.json > /dev/null
       - name: Test synthetic live accounting
         run: python scripts/v016_live_money_eval_test.py -v

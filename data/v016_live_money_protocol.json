@@ -1,25 +1,76 @@
 {
-  "protocolVersion": "v016-live-money-1",
+  "protocolVersion": "v016-live-money-2",
   "status": "PRE_REGISTERED_NO_LIVE_EXPORT",
   "source": "Existing Android DataBackupManager BOAT-AI-backup.json; never retrospective/backtest records",
   "input": {
-    "format": "Primary: DataBackupManager schemaVersion=1 JSON with bets and predictions arrays, appVersion and exportedAt; prediction-only array is supported for synthetic tests",
-    "requiredFields": ["id", "date", "stadiumNumber", "raceNumber", "createdAt"],
+    "format": "Primary: DataBackupManager schemaVersion=1 JSON with bets, predictions, learning, appVersion and exportedAt; prediction-only array is supported for synthetic tests",
+    "requiredFields": [
+      "id",
+      "date",
+      "stadiumNumber",
+      "raceNumber",
+      "createdAt"
+    ],
+    "androidPredictionDefaults": {
+      "stakePerPick": 300,
+      "confidence": 0,
+      "rank": "D",
+      "evaluationEligible": false,
+      "autoSkipped": false,
+      "recommendedWhenMissing": "!autoSkipped AND confidence>=70",
+      "stakes": [],
+      "liveOddsFetchedAt": null,
+      "liveOddsSource": null,
+      "liveOddsCount": 0,
+      "livePickOdds": [],
+      "resultCombination": null,
+      "trifectaPayout": 0
+    },
     "defaultedAuditFields": "Missing combinations/stakes/odds evidence defaults to empty/null/zero, matching PredictionRecord.fromJson and counting an incomplete live BUY rather than discarding it",
-    "optionalFields": ["confidence", "firstLane", "modelProbability"],
+    "optionalFields": [
+      "confidence",
+      "firstLane",
+      "modelProbability"
+    ],
     "moneyUnit": "JPY integers; trifectaPayout is JPY per 100 JPY ticket",
     "combinationFormat": "Android backup exact format N-N-N, e.g. 1-2-3; three distinct lanes 1..6",
+    "fieldAliases": "No aliases: Android export uses stadiumNumber/raceNumber and BetRecord uses payout. venueNumber/race/actualPayout are not accepted as substitutes.",
     "dateZone": "Asia/Tokyo",
     "deduplication": "Reject duplicate settled eligible value-v1 BUY race keys (date, stadiumNumber, raceNumber); never sum repeated snapshots",
-    "dataIntegrity": "Fail closed on malformed candidate values, invalid date/race/stadium, missing mandatory keys, or inconsistent result/payout"
+    "dataIntegrity": "Fail closed on malformed candidate values, invalid date/race/stadium, missing mandatory keys, positive trifecta payout without a result combination, or invalid actual purchase rows",
+    "intentionalEvaluatorStrictness": "Android JSONObject opt* may coerce some malformed legacy scalar types and createdAt=0; evaluator requires canonical scalar types, positive createdAt, appVersion/exportedAt provenance, and a learning object. Android-valid resultCombination with trifectaPayout=0 is accepted because settlement can store a known result before payout is available."
+  },
+  "backupEnvelope": {
+    "schemaVersion": 1,
+    "requiredForEvaluator": [
+      "schemaVersion",
+      "appVersion",
+      "exportedAt",
+      "bets",
+      "predictions",
+      "learning"
+    ],
+    "historicalBaselineMigratedThrough": "Current Android export always writes a string; evaluator accepts omission for older backups but requires a string when present.",
+    "restoreDifference": "Android restore does not use appVersion/exportedAt, but evaluator requires them for provenance. Android restore requires learning as an object; evaluator now matches that requirement."
   },
   "actualPurchase": {
     "source": "bets array only, never inferred from AI predictions",
     "settledMoney": "Only settled BetRecord tickets; group tickets by date, venue and race for race counts and hits",
     "pendingStake": "Separate pending stake, never include in settled ROI",
-    "duplicateTicket": "Reject duplicate date/venue/race/combination for an actual purchase"
+    "duplicateTicket": "Reject duplicate date/venue/race/combination for an actual purchase",
+    "exportFields": [
+      "id",
+      "date",
+      "stadiumNumber",
+      "raceNumber",
+      "combination",
+      "stake",
+      "payout",
+      "settled",
+      "createdAt"
+    ]
   },
-  "cohort": "settled AND evaluationEligible AND recommended AND strategyId=value-v1",
+  "cohort": "settled AND evaluationEligible AND recommended AND strategyId=value-v1 after applying Android PredictionRecord.fromJson defaults",
   "audit": {
     "fetchTimePositive": true,
     "sourceNonblank": true,
@@ -37,7 +88,14 @@
     "roiPercent": "100 * payout / stake; null if zero stake",
     "curveOrder": "date ascending, then stadiumNumber and raceNumber; within-day order is a deterministic ledger order, not actual purchase time",
     "maxDrawdownYen": "maximum previous cumulative profit peak (including initial zero) minus subsequent cumulative profit",
-    "periods": ["today", "7d", "30d", "month", "year", "all"],
+    "periods": [
+      "today",
+      "7d",
+      "30d",
+      "month",
+      "year",
+      "all"
+    ],
     "asOf": "Explicit JST date; future-dated records excluded from every period; seven and thirty days include anchor date",
     "periodDrawdown": "Rebased to zero at the start of each selected period"
   },
@@ -46,13 +104,34 @@
     "minimumSliceBuys": 100,
     "minimumSliceActiveDays": 20,
     "minimumSliceHits": 10,
-    "dimensions": ["venue", "selectedOddsBand", "selectedPointCount", "stakeBand", "modelProbabilityBand", "firstLanePredicted", "weekday", "hourJst"],
+    "dimensions": [
+      "venue",
+      "selectedOddsBand",
+      "selectedPointCount",
+      "stakeBand",
+      "modelProbabilityBand",
+      "firstLanePredicted",
+      "weekday",
+      "hourJst"
+    ],
     "interpretation": "Descriptive only. Weekday/hour are supporting diagnostics. Never treat a slice or a single high payout as proof of improvement."
   },
   "promotion": {
     "productionPromotion": false,
-    "candidateTypes": ["Model B", "Model C", "LONGSHOT"],
-    "requirements": ["forecast quality does not regress", "complete auditable live purchase decisions", "predeclared adequate sample size", "out-of-sample replication", "cumulative ROI and drawdown", "concentration sensitivity", "no final-like odds presented as realizable live ROI"],
+    "candidateTypes": [
+      "Model B",
+      "Model C",
+      "LONGSHOT"
+    ],
+    "requirements": [
+      "forecast quality does not regress",
+      "complete auditable live purchase decisions",
+      "predeclared adequate sample size",
+      "out-of-sample replication",
+      "cumulative ROI and drawdown",
+      "concentration sensitivity",
+      "no final-like odds presented as realizable live ROI"
+    ],
     "decision": "No candidate may be promoted by this evaluation script; separate frozen prospective evaluation is required"
   }
 }
