@@ -99,7 +99,8 @@ class PredictionRecordTest {
             liveOddsFetchedAt = 1_797_000_000_000L,
             liveOddsSource = "公式PC版",
             liveOddsCount = 120,
-            livePickOdds = listOf(12.4, 18.7)
+            livePickOdds = listOf(12.4, 18.7),
+            sourceAppVersion = "0.18.7"
         )
 
         val restored = PredictionRecord.fromJson(record.toJson())
@@ -132,6 +133,26 @@ class PredictionRecordTest {
         assertEquals(null, restored.liveOddsSource)
         assertEquals(0, restored.liveOddsCount)
         assertTrue(restored.livePickOdds.isEmpty())
+        assertEquals(null, restored.sourceAppVersion)
+    }
+
+    @Test
+    fun jsonRoundTripKeepsSourceAppVersion() {
+        val record = PredictionRecord(
+            id = "2026-10-11-01-1",
+            date = "2026-10-11",
+            stadiumNumber = 1,
+            raceNumber = 1,
+            combinations = listOf("1-2-3"),
+            stakePerPick = 500,
+            resultCombination = null,
+            trifectaPayout = 0,
+            settled = false,
+            createdAt = 10L,
+            sourceAppVersion = "0.18.7"
+        )
+
+        assertEquals("0.18.7", PredictionRecord.fromJson(record.toJson()).sourceAppVersion)
     }
 
 }
