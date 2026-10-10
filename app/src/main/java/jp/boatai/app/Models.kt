@@ -175,7 +175,8 @@ data class PredictionRecord(
     val liveOddsFetchedAt: Long? = null,
     val liveOddsSource: String? = null,
     val liveOddsCount: Int = 0,
-    val livePickOdds: List<Double> = emptyList()
+    val livePickOdds: List<Double> = emptyList(),
+    val sourceAppVersion: String? = null
 ) {
     val venueName: String get() = Venues.name(stadiumNumber)
     val recommendation: RaceRecommendation get() = if (recommended) RaceRecommendation.BUY else RaceRecommendation.SKIP
@@ -203,6 +204,7 @@ data class PredictionRecord(
         if (!liveOddsSource.isNullOrBlank()) put("liveOddsSource", liveOddsSource)
         if (liveOddsCount > 0) put("liveOddsCount", liveOddsCount)
         if (livePickOdds.isNotEmpty()) put("livePickOdds", JSONArray().apply { livePickOdds.forEach { put(it) } })
+        if (!sourceAppVersion.isNullOrBlank()) put("sourceAppVersion", sourceAppVersion)
         put("resultCombination", resultCombination)
         put("trifectaPayout", trifectaPayout)
         put("settled", settled)
@@ -261,7 +263,8 @@ data class PredictionRecord(
                 liveOddsFetchedAt = if (obj.has("liveOddsFetchedAt") && !obj.isNull("liveOddsFetchedAt")) obj.optLong("liveOddsFetchedAt") else null,
                 liveOddsSource = obj.optString("liveOddsSource").takeIf { it.isNotBlank() },
                 liveOddsCount = obj.optInt("liveOddsCount", 0).coerceAtLeast(0),
-                livePickOdds = livePickOdds
+                livePickOdds = livePickOdds,
+                sourceAppVersion = obj.optString("sourceAppVersion").takeIf { it.isNotBlank() }
             )
         }
     }
