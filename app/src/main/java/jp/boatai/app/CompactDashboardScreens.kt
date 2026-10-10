@@ -259,6 +259,7 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
     val recommended = ProfitAnalytics.summarize(selectedPredictions.filter { it.recommended })
     val all = ProfitAnalytics.summarize(selectedPredictions)
     val liveAuditCoverage = LiveAuditedPerformance.coverage(selectedPredictions)
+    val formalEvaluation = LiveAuditedPerformance.evaluationProgress(settledPredictions)
     val liveAuditFailureCounts = LiveAuditedPerformance.failureCounts(selectedPredictions)
     val auditedLiveRecords = LiveAuditedPerformance.eligible(selectedPredictions)
     val auditedLive = ProfitAnalytics.summarize(auditedLiveRecords)
@@ -328,6 +329,16 @@ fun CompactProfitScreen(ui: BoatUiState, vm: BoatViewModel) {
                         "監査済み ${liveAuditCoverage.auditedBuyCount} / ライブBUY ${liveAuditCoverage.liveBuyCount} / 完備率 ${compactPercent(liveAuditCoverage.coveragePercent)}",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        if (formalEvaluation.complete) {
+                            "正式判定サンプル到達：${formalEvaluation.auditedBuyCount}/${formalEvaluation.targetBuyCount}R"
+                        } else {
+                            "正式判定まで残り ${formalEvaluation.remainingBuyCount}R（${formalEvaluation.auditedBuyCount}/${formalEvaluation.targetBuyCount} 監査済BUY）"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (formalEvaluation.complete) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onTertiaryContainer
                     )
                     if (liveAuditCoverage.missingAuditCount > 0) {
                         Text("監査情報不足 ${liveAuditCoverage.missingAuditCount}R はこの成績から除外しています。", style = MaterialTheme.typography.bodySmall)
