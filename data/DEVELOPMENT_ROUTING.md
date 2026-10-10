@@ -1,8 +1,8 @@
 # BOAT AI DEVELOPMENT ROUTING
 
-Updated: 2026-10-10
+Updated: 2026-10-11
 
-This file defines how future BOAT AI work is split between normal ChatGPT, ChatGPT Work, and Codex-style coding work.
+This file defines how future BOAT AI work is split between normal ChatGPT and ChatGPT Work.
 
 ## Source of truth
 Always start from:
@@ -13,13 +13,14 @@ Always start from:
 
 Never rely on an older chat summary when repository state is newer.
 
-## Normal ChatGPT — integration owner
+## Normal ChatGPT — implementation / integration owner
 Use for:
 - deciding product behavior and user-facing scope
-- production Android integration
-- resolving conflicts between research and implementation
+- production Android implementation
+- code fixes and tests
 - versionCode/versionName
-- CI follow-up and release publication
+- CI/build error diagnosis and follow-up
+- release publication
 - CURRENT_STATUS.md updates
 - final real-device interpretation
 
@@ -32,6 +33,7 @@ Use for:
 - model/strategy research
 - failure-pattern analysis
 - sample-size and concentration analysis
+- operational continuity reviews
 - reports and handoff documents
 
 Default boundary:
@@ -41,20 +43,12 @@ Default boundary:
 - do not commit private BOAT-AI-backup.json
 unless a dated assignment explicitly changes the boundary.
 
-## Codex — isolated engineering implementation/review
-Use for:
-- Android reliability fixes
-- unit/integration tests
-- refactors with defined acceptance criteria
-- CI/build error diagnosis
-- code review of normal-chat patches
+## Codex status
 
-Codex should:
-- read latest main before editing
-- use a dedicated branch/PR when available
-- avoid prediction-threshold tuning unless the assignment explicitly allows it
-- avoid changing release/version files unless assigned
-- leave exact test/run IDs in a handoff file
+Codex is **suspended from the normal BOAT AI workflow** because its cloud environment/repository handoff added more setup friction than value for this project.
+
+Historical Codex assignment files may remain for audit/history, but they are not active tasks.
+Do not ask the user to run Codex unless the user explicitly decides to restore it later.
 
 ## Gambling transaction boundary
 BOAT AI may:
@@ -66,13 +60,20 @@ BOAT AI may:
 
 BOAT AI must not implement an unattended external wager submission. Final submission remains user-confirmed on the official service.
 
-## Current parallel assignments
-- Work: data/WORK_ASSIGNMENT_20261010_LIVE_EVIDENCE.md
-- Codex: data/CODEX_ASSIGNMENT_20261010_BACKGROUND_RELIABILITY.md
+## Current working model
+- Normal ChatGPT: implementation, Android changes, CI, release, integration
+- Work: research/evidence only when a concrete analysis task exists
+
+When Work is useful, normal chat must explicitly tell the user:
+- `Workへの指示：あり`
+- exact assignment file/path to send
+
+When Work is not needed, normal chat should say:
+- `Workへの指示：なし`
 
 ## Handoff rule
 Every substantial task should end with:
-- commit/PR SHA
+- commit SHA
 - GitHub Actions Run IDs
 - what changed
 - what remains
