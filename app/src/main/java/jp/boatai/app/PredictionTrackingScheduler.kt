@@ -192,13 +192,20 @@ class PredictionTrackingReceiver : BroadcastReceiver() {
 
 class PredictionTrackingBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        val supported = setOf(
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_DATE_CHANGED
+        )
+        if (intent.action !in supported) return
         runCatching {
             PredictionTrackingScheduler(context).apply {
                 scheduleDailyBootstrap()
-                scheduleBootstrapSoon(60_000L)
+                scheduleBootstrapSoon(if (intent.action == Intent.ACTION_BOOT_COMPLETED) 60_000L else 5_000L)
             }
-        }.onFailure { CrashRecoveryStore(context).recordNonFatal("PredictionTrackingBootReceiver", it) }
+        }.onFailure { CrashRecoveryStore(context).recordNonFatal("PredictionTrackingBootReceiver." + intent.action, it) }
     }
 }
 
