@@ -250,19 +250,7 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
             }
         }
 
-        if (programWaiting) {
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(14.dp)) {
-                        Text("本日データ公開待ち", fontWeight = FontWeight.Bold)
-                        Text(
-                            "公開後に自動で再取得します。未公開中は「開催なし」とは判定しません。",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-            }
-        } else {
+        if (!programWaiting) {
             when (sortMode) {
                 1 -> {
                     if (deadlineRaces.isEmpty() && !ui.loading) {
