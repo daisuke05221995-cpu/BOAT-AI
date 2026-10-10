@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 52
-        versionName = "0.18.6"
-        // v0.18.6: Hide background internals during normal operation and show actionable data guidance only when acquisition is unavailable.
+        versionCode = 53
+        versionName = "0.18.7"
+        // v0.18.7: Add hidden-unless-needed automation guidance and stamp prediction evidence with source app version.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
