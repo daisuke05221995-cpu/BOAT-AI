@@ -307,7 +307,11 @@ class PredictionTrackingService : Service() {
         reconcileRecentPending(today, predictionStore, betStore)
 
         val scheduler = PredictionTrackingScheduler(this)
-        val races = runCatching { BoatRaceRepository().loadDate(today) }.getOrNull()
+        val races = runCatching { BoatRaceRepository().loadDate(today) }
+            .getOrElse { error ->
+                CrashRecoveryStore(this).recordNonFatal("PredictionTrackingService.bootstrapToday.loadDate", error)
+                null
+            }
         if (races.isNullOrEmpty()) {
             if (BootstrapRetryPolicy.shouldRetry(LocalDateTime.now(PredictionTrackingScheduler.TOKYO))) {
                 scheduler.scheduleBootstrapRetry()
@@ -385,7 +389,11 @@ class PredictionTrackingService : Service() {
         }
 
         val pendingBeforeFetch = hasPendingTarget()
-        val races = runCatching { BoatRaceRepository().loadDate(date) }.getOrNull()
+        val races = runCatching { BoatRaceRepository().loadDate(date) }
+            .getOrElse { error ->
+                CrashRecoveryStore(this).recordNonFatal("PredictionTrackingService.settleDate.loadDate", error)
+                null
+            }
         if (races == null) {
             if (pendingBeforeFetch && !raceId.isNullOrBlank()) {
                 PredictionTrackingScheduler(this).scheduleSettleRetry(normalizedDate, raceId, attempt)
@@ -407,7 +415,11 @@ class PredictionTrackingService : Service() {
         if (dateText.isNullOrBlank() || raceId.isNullOrBlank()) return
         val date = runCatching { LocalDate.parse(dateText.take(10)) }.getOrNull() ?: return
         val repository = BoatRaceRepository()
-        val races = runCatching { repository.loadDate(date) }.getOrNull() ?: return
+        val races = runCatching { repository.loadDate(date) }
+            .getOrElse { error ->
+                CrashRecoveryStore(this).recordNonFatal("PredictionTrackingService.evaluateRace.loadDate", error)
+                return
+            }
 
         PredictionHistoryStore(this).settle(races)
         BetStore(this).settle(races)
@@ -449,7 +461,8 @@ class PredictionTrackingService : Service() {
         if (PredictionEngine.hasValueStrategyModel()) {
             val oddsResult = runCatching {
                 repository.loadOfficialTrifectaOddsDetailed(race, PredictionEngine.valueOddsCombinations())
-            }.getOrElse {
+            }.getOrElse { error ->
+                CrashRecoveryStore(this).recordNonFatal("PredictionTrackingService.evaluateRace.valueOdds", error)
                 predictionStore.upsertEvaluatedRace(
                     race,
                     basePicks,
@@ -488,7 +501,8 @@ class PredictionTrackingService : Service() {
 
         val oddsResult = runCatching {
             repository.loadOfficialTrifectaOddsDetailed(race, basePicks.map { it.combination })
-        }.getOrElse {
+        }.getOrElse { error ->
+            CrashRecoveryStore(this).recordNonFatal("PredictionTrackingService.evaluateRace.legacyOdds", error)
             predictionStore.upsertEvaluatedRace(
                 race,
                 basePicks,
