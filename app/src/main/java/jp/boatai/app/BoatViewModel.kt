@@ -54,7 +54,9 @@ data class BoatUiState(
     val oneTwoQuotes: Map<String, OneTwoLockQuote> = emptyMap(),
     val oneTwoLoading: Boolean = false,
     val oneTwoStats: OneTwoLockSummary = OneTwoLockSummary(),
-    val update: AppUpdateState = AppUpdateState()
+    val update: AppUpdateState = AppUpdateState(),
+    val purchaseLaunchHelpVisible: Boolean = false,
+    val operationalIssues: List<OperationalIssue> = emptyList()
 )
 
 class BoatViewModel(application: Application) : AndroidViewModel(application) {
@@ -775,8 +777,43 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     fun openOfficialPurchase() {
         val session = _ui.value.pendingPurchase ?: return
         runCatching { OfficialBetLauncher.launch(getApplication(), session) }
-            .onSuccess { result -> _ui.update { it.copy(actionMessage = result.message) } }
-            .onFailure { error -> _ui.update { it.copy(actionMessage = error.message ?: "公式投票画面を開けませんでした") } }
+            .onSuccess { result ->
+                _ui.update {
+                    it.copy(
+                        actionMessage = result.message,
+                        purchaseLaunchHelpVisible = result.fallbackAvailable || !result.openedOfficialSurface
+                    )
+                }
+            }
+            .onFailure { error ->
+                _ui.update {
+                    it.copy(
+                        actionMessage = error.message ?: "公式投票画面を開けませんでした",
+                        purchaseLaunchHelpVisible = true
+                    )
+                }
+            }
+    }
+
+    fun openOfficialPurchaseFallback() {
+        val session = _ui.value.pendingPurchase ?: return
+        runCatching { OfficialBetLauncher.launchFallback(getApplication(), session) }
+            .onSuccess { result ->
+                _ui.update {
+                    it.copy(
+                        actionMessage = result.message,
+                        purchaseLaunchHelpVisible = !result.openedOfficialSurface
+                    )
+                }
+            }
+            .onFailure { error ->
+                _ui.update {
+                    it.copy(
+                        actionMessage = error.message ?: "代替の公式投票画面も開けませんでした",
+                        purchaseLaunchHelpVisible = true
+                    )
+                }
+            }
     }
 
     fun togglePendingPurchaseRace(raceId: String) {
@@ -811,14 +848,15 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             it.copy(
                 records = records,
                 pendingPurchase = null,
-                actionMessage = "${selected.size}レース / ${addedTickets}点を実購入として記録しました"
+                actionMessage = "${selected.size}レース / ${addedTickets}点を実購入として記録しました",
+                purchaseLaunchHelpVisible = false
             )
         }
     }
 
     fun cancelPendingPurchase() {
         pendingPurchaseStore.clear()
-        _ui.update { it.copy(pendingPurchase = null, actionMessage = "投票待ちを破棄しました") }
+        _ui.update { it.copy(pendingPurchase = null, actionMessage = "投票待ちを破棄しました", purchaseLaunchHelpVisible = false) }
     }
 
     fun recordSelectedRaces() {
