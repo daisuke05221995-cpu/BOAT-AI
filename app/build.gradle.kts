@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 48
-        versionName = "0.18.2"
-        // v0.18.2: Re-evaluate provisional live records near close so official-odds audit evidence is persisted.
+        versionCode = 49
+        versionName = "0.18.3"
+        // v0.18.3: Harden unattended tracking, separate notification controls, auto-prepare pending tickets, and show formal-evaluation progress.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
