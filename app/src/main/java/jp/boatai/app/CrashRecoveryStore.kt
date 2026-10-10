@@ -11,7 +11,7 @@ class CrashRecoveryStore(context: Context) {
     private val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     val normalBootEnabled: Boolean
-        get() = prefs.getBoolean(KEY_NORMAL_BOOT, false)
+        get() = prefs.getBoolean(KEY_NORMAL_BOOT, true)
 
     fun enableNormalBoot() {
         prefs.edit().putBoolean(KEY_NORMAL_BOOT, true).commit()
