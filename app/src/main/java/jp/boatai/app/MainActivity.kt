@@ -227,7 +227,7 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
         item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }
         item { AutomationRequirementCard(ui) }
         ui.pendingPurchase?.let { pending ->
-            item { PendingPurchaseCard(pending, vm) }
+            item { PendingPurchaseCard(pending, vm, ui.purchaseLaunchHelpVisible) }
         }
         item { PredictionModeBar(sortMode) { sortMode = it } }
         if (sortMode == 3) {
@@ -392,7 +392,7 @@ private fun VenueDetailScreen(ui: BoatUiState, vm: BoatViewModel, stadium: Int) 
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        ui.pendingPurchase?.let { pending -> item { PendingPurchaseCard(pending, vm) } }
+        ui.pendingPurchase?.let { pending -> item { PendingPurchaseCard(pending, vm, ui.purchaseLaunchHelpVisible) } }
         item {
             OutlinedButton(
                 onClick = { vm.selectVenuePurchasable(stadium) },
@@ -892,7 +892,7 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        ui.pendingPurchase?.let { pending -> item { PendingPurchaseCard(pending, vm) } }
+        ui.pendingPurchase?.let { pending -> item { PendingPurchaseCard(pending, vm, ui.purchaseLaunchHelpVisible) } }
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
