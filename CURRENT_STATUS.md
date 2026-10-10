@@ -2,6 +2,52 @@
 
 Updated: 2026-10-11
 
+## SUPERCEDING STATUS — v0.18.9
+
+- Current public version: **v0.18.9**
+- versionCode: **55**
+- Release target: `085c0f113c1e68d5bff0d546bb31851559d08c21`
+- Debug validation Run: `38069749817` SUCCESS
+- Signed Release Run: `38069749807` SUCCESS
+- GitHub Release ID: `409080706`
+- APK: `BOAT-AI-v0.18.9.apk`
+- APK SHA-256: `60094e0b2dfb321ab8b29ec4fc21dc8c83c4b7f34aeebf95a2f13b0cc9986e45`
+- Detailed handoff: `data/V0189_SELF_CHECK_PURCHASE_ROUTE_HANDOFF_20261011.md`
+
+### v0.18.9 changes
+
+- Added forward-looking silent operational self-checks.
+- Healthy state remains invisible.
+- Detects recent hidden background failures, post-install missed pre-close prediction records, stale settlement, and current-version live-audit evidence loss.
+- Current data-source errors suppress the self-check card to avoid duplicate error surfaces.
+- Hidden background acquisition exceptions are persisted for the self-check instead of being silently discarded.
+- Official purchase launch now prefers the current official Simple Betting site `https://bu.tbbr.jp/`.
+- If needed, the user can switch to the official smartphone betting site `https://spweb.brtb.jp/`; installed official app and clipboard/manual URL are additional fallbacks.
+- Purchase fallback UI appears only after the primary route has been attempted.
+- External wager submission is still confirmed by the user on the official service.
+
+### Live evidence
+
+Per-record `sourceAppVersion` remains active.
+Work's versioned evidence helper/report is merged and tested.
+The frozen formal evaluation target remains **360 fully audited value-v1 BUYs**; last measured baseline is **223/360, 137 remaining** until the next private backup.
+
+### Real-device verification required once
+
+After installing v0.18.9 over existing data, use one real pending BUY to confirm the Simple Betting login/purchase surface opens on the user's device. For a route-only test, stop before final wager submission and do not mark the pending purchase complete.
+
+### Work
+
+- Workへの指示: **なし**
+- The previous versioned-evidence assignment is complete.
+
+---
+
+## Historical status below (superseded where inconsistent)
+
+
+Updated: 2026-10-11
+
 ## SUPERCEDING STATUS — v0.18.8
 
 - Current public version: **v0.18.8**
