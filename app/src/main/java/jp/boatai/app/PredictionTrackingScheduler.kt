@@ -49,6 +49,14 @@ class PredictionTrackingScheduler(private val context: Context) {
         schedule(System.currentTimeMillis() + delayMillis, BOOTSTRAP_SOON_REQUEST_CODE, ACTION_BOOTSTRAP)
     }
 
+    fun scheduleBootstrapRetry() {
+        schedule(
+            System.currentTimeMillis() + BootstrapRetryPolicy.RETRY_MINUTES * 60_000L,
+            BOOTSTRAP_RETRY_REQUEST_CODE,
+            ACTION_BOOTSTRAP
+        )
+    }
+
     fun scheduleRaces(races: List<RaceData>) {
         val now = System.currentTimeMillis()
         races.forEach { race ->
@@ -159,10 +167,19 @@ class PredictionTrackingScheduler(private val context: Context) {
         private const val SETTLE_DELAY_MINUTES = 20
         private const val DAILY_REQUEST_CODE = 9_910
         private const val BOOTSTRAP_SOON_REQUEST_CODE = 9_912
+        private const val BOOTSTRAP_RETRY_REQUEST_CODE = 9_913
         private const val EVALUATE_REQUEST_XOR = 0x36B1
         private const val SETTLE_REQUEST_XOR = 0x51A7
         private const val SETTLE_RETRY_REQUEST_XOR = 0x6C2D
     }
+}
+
+internal object BootstrapRetryPolicy {
+    const val RETRY_MINUTES = 15L
+    private val RETRY_UNTIL = LocalTime.of(10, 30)
+
+    fun shouldRetry(now: LocalDateTime): Boolean =
+        now.toLocalTime().isBefore(RETRY_UNTIL)
 }
 
 internal object PredictionTrackingPolicy {
@@ -289,15 +306,22 @@ class PredictionTrackingService : Service() {
 
         reconcileRecentPending(today, predictionStore, betStore)
 
+        val scheduler = PredictionTrackingScheduler(this)
         val races = runCatching { BoatRaceRepository().loadDate(today) }.getOrNull()
-        if (races != null) {
-            predictionStore.settle(races)
-            betStore.settle(races)
-            focusStore.settle(races)
-            oneTwoStore.settle(races)
-            PredictionTrackingScheduler(this).scheduleRaces(races)
+        if (races.isNullOrEmpty()) {
+            if (BootstrapRetryPolicy.shouldRetry(LocalDateTime.now(PredictionTrackingScheduler.TOKYO))) {
+                scheduler.scheduleBootstrapRetry()
+            }
+            scheduler.scheduleDailyBootstrap()
+            return
         }
-        PredictionTrackingScheduler(this).scheduleDailyBootstrap()
+
+        predictionStore.settle(races)
+        betStore.settle(races)
+        focusStore.settle(races)
+        oneTwoStore.settle(races)
+        scheduler.scheduleRaces(races)
+        scheduler.scheduleDailyBootstrap()
     }
 
     private suspend fun reconcileRecentPending(
