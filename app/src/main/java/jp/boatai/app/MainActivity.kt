@@ -241,15 +241,6 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
             }
         }
 
-        ui.error?.let { message ->
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text(message, modifier = Modifier.padding(12.dp)) }
-            }
-        }
-
         if (!programWaiting) {
             when (sortMode) {
                 1 -> {
