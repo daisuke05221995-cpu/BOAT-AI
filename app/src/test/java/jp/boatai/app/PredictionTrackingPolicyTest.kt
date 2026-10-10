@@ -41,6 +41,21 @@ class PredictionTrackingPolicyTest {
         assertTrue(PredictionTrackingPolicy.shouldSkipEvaluation(record(settled = true)))
     }
 
+
+    @Test
+    fun bootstrapRetriesBeforeMorningCutoff() {
+        assertTrue(
+            BootstrapRetryPolicy.shouldRetry(
+                java.time.LocalDateTime.of(2026, 10, 11, 8, 0)
+            )
+        )
+        assertFalse(
+            BootstrapRetryPolicy.shouldRetry(
+                java.time.LocalDateTime.of(2026, 10, 11, 10, 30)
+            )
+        )
+    }
+
     @Test
     fun missingRecordDoesNotBlockEvaluation() {
         assertFalse(PredictionTrackingPolicy.shouldSkipEvaluation(null))
