@@ -12,6 +12,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.text.Normalizer
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 class BoatRaceRepository : RaceDataProvider, OddsProvider {
@@ -20,11 +21,39 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
     suspend fun loadDate(date: LocalDate): List<RaceData> = loadDateDetailed(date).races
 
     override suspend fun loadDateDetailed(date: LocalDate): DateLoadResult = withContext(Dispatchers.IO) {
-        val day = date.format(compact)
-        val url = "https://boatraceopenapi.github.io/api/v1/${date.year}/$day.json?ts=${System.currentTimeMillis()}"
         val startedAt = System.currentTimeMillis()
-        val json = httpGet(url)
-        val parsed = BoatRaceJsonParser.parse(json)
+        val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))
+        val fetch = fetchProgramJson(date, today)
+        if (fetch.json == null) {
+            return@withContext DateLoadResult(
+                races = emptyList(),
+                diagnostics = listOf(
+                    DataSourceDiagnostic(
+                        source = "開催・出走データ",
+                        status = DiagnosticStatus.WAITING,
+                        detail = fetch.detail
+                    )
+                )
+            )
+        }
+
+        val parsed = ProgramDataAvailability.keepRequestedDate(
+            BoatRaceJsonParser.parse(fetch.json),
+            date
+        )
+        if (date == today && parsed.isEmpty()) {
+            return@withContext DateLoadResult(
+                races = emptyList(),
+                diagnostics = listOf(
+                    DataSourceDiagnostic(
+                        source = "開催・出走データ",
+                        status = DiagnosticStatus.WAITING,
+                        detail = "本日分の公開待ちです。再取得で自動確認します"
+                    )
+                )
+            )
+        }
+
         val supplement = supplementMissingResults(parsed, date)
         val previewCount = supplement.races.count { it.preview != null }
         val diagnostics = buildList {
@@ -32,7 +61,7 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
                 DataSourceDiagnostic(
                     source = "開催・出走データ",
                     status = if (parsed.isNotEmpty()) DiagnosticStatus.OK else DiagnosticStatus.WARNING,
-                    detail = "公開データ ${parsed.size}レース / ${System.currentTimeMillis() - startedAt}ms"
+                    detail = "${fetch.source} ${parsed.size}レース / ${System.currentTimeMillis() - startedAt}ms"
                 )
             )
             add(
@@ -52,6 +81,47 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
             )
         }
         DateLoadResult(supplement.races, diagnostics)
+    }
+
+    private data class ProgramJsonFetch(
+        val json: String?,
+        val source: String,
+        val detail: String
+    )
+
+    private fun fetchProgramJson(date: LocalDate, today: LocalDate): ProgramJsonFetch {
+        val day = date.format(compact)
+        val datedUrl = "https://boatraceopenapi.github.io/api/v1/${date.year}/$day.json?ts=${System.currentTimeMillis()}"
+        return try {
+            ProgramJsonFetch(
+                json = httpGet(datedUrl),
+                source = "日付データ",
+                detail = ""
+            )
+        } catch (error: HttpStatusException) {
+            if (!ProgramDataAvailability.isTodayPublicationWait(date, today, error.statusCode)) {
+                throw error
+            }
+
+            val todayUrl = "https://boatraceopenapi.github.io/api/v1/today.json?ts=${System.currentTimeMillis()}"
+            try {
+                ProgramJsonFetch(
+                    json = httpGet(todayUrl),
+                    source = "当日データ",
+                    detail = ""
+                )
+            } catch (fallback: HttpStatusException) {
+                if (fallback.statusCode == 404) {
+                    ProgramJsonFetch(
+                        json = null,
+                        source = "当日データ",
+                        detail = "本日分はまだ公開されていません。しばらくして自動再取得します"
+                    )
+                } else {
+                    throw fallback
+                }
+            }
+        }
     }
 
     private data class ResultSupplement(
@@ -304,13 +374,17 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
             connection.useCaches = false
             connection.connect()
             if (connection.responseCode !in 200..299) {
-                throw IllegalStateException("データ取得失敗 HTTP ${connection.responseCode}")
+                throw HttpStatusException(connection.responseCode)
             }
             connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
         } finally {
             connection.disconnect()
         }
     }
+
+    private class HttpStatusException(
+        val statusCode: Int
+    ) : IllegalStateException("データ取得失敗 HTTP $statusCode")
 
     companion object {
         private const val OFFICIAL_USER_AGENT =
