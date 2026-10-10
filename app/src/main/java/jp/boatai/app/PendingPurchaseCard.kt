@@ -23,7 +23,11 @@ import androidx.compose.ui.unit.dp
 import java.util.Locale
 
 @Composable
-fun PendingPurchaseCard(session: PendingPurchaseSession, vm: BoatViewModel) {
+fun PendingPurchaseCard(
+    session: PendingPurchaseSession,
+    vm: BoatViewModel,
+    showLaunchFallback: Boolean = false
+) {
     val selected = session.selectedRaces
 
     Card(
@@ -81,6 +85,16 @@ fun PendingPurchaseCard(session: PendingPurchaseSession, vm: BoatViewModel) {
                         "${selected.size}レース・${purchaseMoney(session.selectedStake)}を公式投票へ"
                     }
                 )
+            }
+            if (showLaunchFallback) {
+                Spacer(Modifier.height(6.dp))
+                OutlinedButton(
+                    onClick = vm::openOfficialPurchaseFallback,
+                    enabled = selected.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("購入画面が開かない場合：別の公式投票サイト")
+                }
             }
             Spacer(Modifier.height(6.dp))
             Row(
