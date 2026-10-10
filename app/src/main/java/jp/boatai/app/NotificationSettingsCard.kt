@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,7 +28,9 @@ import androidx.compose.ui.unit.dp
 fun NotificationSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
     val context = LocalContext.current
     val scheduler = NotificationScheduler(context)
+    val purchaseAssist = PurchaseAssistSettings(context)
     var exactAlarmReady by remember { mutableStateOf(scheduler.exactAlarmReady) }
+    var autoPrepare by remember { mutableStateOf(purchaseAssist.autoPrepareEnabled) }
 
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) vm.setNotificationsEnabled(true) else vm.setNotificationsEnabled(false)
@@ -71,18 +74,26 @@ fun NotificationSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
             Text("全国全レースを締切約5分前に再確認し、AI判定＋最新公式3連単オッズの両方を通ったレースだけ通知します。")
             Text("買い目・オッズ・推奨金額も通知に表示。毎朝6:30に当日レースを自動登録し、端末再起動後も復旧します。", style = MaterialTheme.typography.bodySmall)
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
-                    if (ui.notificationsEnabled) {
-                        vm.setNotificationsEnabled(false)
-                    } else if (Build.VERSION.SDK_INT >= 33) {
-                        permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        vm.setNotificationsEnabled(true)
-                    }
-                }) {
-                    Text(if (ui.notificationsEnabled) "アラートをオフ" else "アラートをオン")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(if (ui.notificationsEnabled) "通知：ON" else "通知：OFF", fontWeight = FontWeight.SemiBold)
+                    Text("直前BUY通知だけを切り替えます。予想の自動記録はOFFにしても継続します。", style = MaterialTheme.typography.bodySmall)
                 }
+                Switch(
+                    checked = ui.notificationsEnabled,
+                    onCheckedChange = { enabled ->
+                        if (!enabled) {
+                            vm.setNotificationsEnabled(false)
+                        } else if (Build.VERSION.SDK_INT >= 33) {
+                            permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            vm.setNotificationsEnabled(true)
+                        }
+                    }
+                )
             }
 
             if (ui.notificationsEnabled) {
@@ -93,7 +104,25 @@ fun NotificationSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
                 )
             }
 
-            Text("見送りレースは通知しません。購入は自動実行せず、最終判断と投票はユーザーが行います。", style = MaterialTheme.typography.bodySmall)
+            Text("AI購入準備", fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(if (autoPrepare) "投票待ちの自動作成：ON" else "投票待ちの自動作成：OFF", fontWeight = FontWeight.SemiBold)
+                    Text("BUY判定が出たら買い目・金額を端末内の投票待ちへ自動保存します。実際の投票送信は行いません。", style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(
+                    checked = autoPrepare,
+                    onCheckedChange = { enabled ->
+                        purchaseAssist.setAutoPrepareEnabled(enabled)
+                        autoPrepare = enabled
+                    }
+                )
+            }
+
+            Text("見送りレースは通知しません。外部サービスへの実投票は自動実行せず、公式画面での最終送信はユーザー確認が必要です。", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
