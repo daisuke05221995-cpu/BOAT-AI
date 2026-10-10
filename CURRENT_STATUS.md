@@ -2,6 +2,43 @@
 
 Updated: 2026-10-10
 
+## SUPERCEDING STATUS — v0.18.4
+
+- Current public version: **v0.18.4**
+- versionCode: **50**
+- Release target: `611541d8901afd9b9a1f3c6ffcfd341a21b63236`
+- Debug validation Run: `38062106818` SUCCESS
+- Signed Release Run: `38062106863` SUCCESS
+- GitHub Release ID: `409020260`
+- APK: `BOAT-AI-v0.18.4.apk`
+- APK SHA-256: `9d23f52891d602bbfc167cdbbdfb194aefc1abbf2843502364074c166c330e87`
+- Detailed handoff: `data/V0184_BACKGROUND_AUTOMATION_HANDOFF_20261010.md`
+
+### v0.18.4 changes
+
+- Fresh installs default to normal mode; recovery mode remains for actual crashes.
+- Normal process startup self-heals background prediction tracking.
+- Tracking reschedules after reboot, package replacement, date/time/timezone changes.
+- Prediction tracking remains active even when BUY notifications are OFF.
+- Notification settings now use an explicit ON/OFF switch.
+- Notification-side live evaluation persists full official odds audit evidence.
+- Optional AI purchase preparation automatically creates/appends a local pending-purchase draft from BUY decisions.
+- Automatic purchase preparation never submits an external wager; final official submission remains user-confirmed.
+- Profit screen now shows formal-evaluation progress against the frozen 360 audited-BUY target.
+- First real evaluation baseline: 223/360 audited BUYs, so the starting remaining count is **137**.
+- Work/Codex routing is defined in `data/DEVELOPMENT_ROUTING.md`.
+
+### Android background limitation
+
+A brand-new Android install still requires one initial user launch before reliable background execution is possible. Android Force stop also blocks alarms/background starts until the next user launch. v0.18.4 removes the extra recovery-mode gate and restores scheduling automatically after normal reboot/update/time changes, but does not falsely claim to bypass Android's stopped-package rules.
+
+---
+
+## Historical status below (superseded where inconsistent)
+
+
+Updated: 2026-10-10
+
 ## SUPERCEDING STATUS — v0.18.2
 
 - Current public version: **v0.18.2**
