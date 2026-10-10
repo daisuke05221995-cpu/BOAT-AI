@@ -450,6 +450,9 @@ class PredictionTrackingService : Service() {
                 "value-v1",
                 oddsResult = oddsResult
             )
+            if (decision.recommended) {
+                PurchaseAssistCoordinator.prepareIfEnabled(this, race, picks, "value-v1")
+            }
             return
         }
 
@@ -492,6 +495,9 @@ class PredictionTrackingService : Service() {
             "legacy-final-v1",
             oddsResult = oddsResult
         )
+        if (finalDecision.recommended) {
+            PurchaseAssistCoordinator.prepareIfEnabled(this, race, picks.ifEmpty { basePicks }, "legacy-final-v1")
+        }
     }
 
     override fun onDestroy() {
