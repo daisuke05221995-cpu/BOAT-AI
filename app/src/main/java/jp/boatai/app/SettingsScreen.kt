@@ -30,17 +30,9 @@ fun SettingsScreen(ui: BoatUiState, vm: BoatViewModel) {
                 }
             }
         }
-        item { Text("通知・自動記録", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
+        item { Text("通知・購入", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
         item { NotificationSettingsCard(ui, vm) }
         item { Text("データ・バックアップ", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
         item { BackupCard(ui, vm) }
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("復旧モード", fontWeight = FontWeight.Bold)
-                    Text("クラッシュ復旧機構と端末内データは維持されます。バックグラウンド自動処理は原因切り分け中のため停止中です。", style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
     }
 }
