@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 53
-        versionName = "0.18.7"
-        // v0.18.7: Add hidden-unless-needed automation guidance and stamp prediction evidence with source app version.
+        versionCode = 54
+        versionName = "0.18.8"
+        // v0.18.8: Keep normal UI quiet, hide up-to-date update card, and preserve versioned prediction evidence.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
