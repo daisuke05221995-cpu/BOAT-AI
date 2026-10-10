@@ -470,7 +470,7 @@ class AlertEvaluationService : Service() {
                 scheduler.recordCheck(raceId, "見送り: ${decision.reason}")
                 return
             }
-            autoPreparePurchase(race, picks, "value-v1")
+            PurchaseAssistCoordinator.prepareIfEnabled(this, race, picks, "value-v1")
             scheduler.notifyPurchaseRecommendation(race, picks, decision.reason)
             scheduler.recordCheck(raceId, "購入推奨通知済み")
             return
@@ -515,21 +515,9 @@ class AlertEvaluationService : Service() {
             scheduler.recordCheck(raceId, "見送り: ${finalDecision.reason}")
             return
         }
-        autoPreparePurchase(race, picks, "legacy-final-v1")
+        PurchaseAssistCoordinator.prepareIfEnabled(this, race, picks, "legacy-final-v1")
         scheduler.notifyPurchaseRecommendation(race, picks, finalDecision.reason)
         scheduler.recordCheck(raceId, "購入推奨通知済み")
-    }
-
-    private fun autoPreparePurchase(
-        race: RaceData,
-        picks: List<PredictionPick>,
-        strategyId: String
-    ) {
-        val settings = PurchaseAssistSettings(this)
-        if (!settings.autoPrepareEnabled || picks.isEmpty()) return
-        val store = PendingPurchaseStore(this)
-        if (store.load() != null) return
-        PendingPurchaseSession.create(listOf(race to picks), strategyId)?.let(store::save)
     }
 
     override fun onDestroy() {
