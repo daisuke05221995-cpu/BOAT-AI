@@ -824,6 +824,7 @@ private fun SummaryCompact(summary: AnalyticsSummary) {
 @Composable
 private fun AppUpdateCard(update: AppUpdateState, vm: BoatViewModel) {
     val activity = LocalActivity.current
+    if (!update.updateAvailable && !update.downloading && update.error == null) return
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
