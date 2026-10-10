@@ -1,5 +1,6 @@
 package jp.boatai.app
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -70,5 +71,35 @@ class OfficialBetLauncherTest {
         assertTrue(text.contains("合計 0円"))
         assertFalse(text.contains("戸田 1R"))
         assertFalse(text.contains("1-2-3 300円"))
+    }
+
+    @Test
+    fun primaryAndFallbackUrlsAreCurrentOfficialRoutes() {
+        assertEquals("https://bu.tbbr.jp/", OfficialBetLauncher.SIMPLE_BET_URL)
+        assertEquals("https://spweb.brtb.jp/", OfficialBetLauncher.SMARTPHONE_BET_URL)
+    }
+
+    @Test
+    fun manualClipboardIncludesOfficialUrl() {
+        val session = PendingPurchaseSession(
+            id = "manual",
+            createdAt = 1L,
+            races = listOf(
+                PendingPurchaseRace(
+                    raceId = "r1",
+                    date = "2026-10-11",
+                    stadiumNumber = 1,
+                    raceNumber = 1,
+                    venueName = "桐生",
+                    recommended = true,
+                    tickets = listOf(PendingPurchaseTicket("1-2-3", 500))
+                )
+            ),
+            selectedRaceIds = setOf("r1")
+        )
+
+        val text = OfficialBetLauncher.clipboardText(session, includeUrl = true)
+
+        assertTrue(text.contains("公式投票: https://bu.tbbr.jp/"))
     }
 }
