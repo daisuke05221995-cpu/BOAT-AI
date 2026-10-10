@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 50
-        versionName = "0.18.4"
-        // v0.18.4: Finalize unattended tracking, independent alert toggle, safe auto-prepared pending tickets, and formal-evaluation progress.
+        versionCode = 51
+        versionName = "0.18.5"
+        // v0.18.5: Simplify recommendation-only bulk UI, add per-race deadline list, and harden same-day data publication retries.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
