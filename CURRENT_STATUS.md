@@ -1,5 +1,60 @@
 # BOAT AI Current Status
 
+Updated: 2026-10-10
+
+## SUPERCEDING STATUS — v0.18.2
+
+- Current public version: **v0.18.2**
+- versionCode: **48**
+- Release target: `1acabb4ccee9cc01e5f8149513fa80684fc447c0`
+- Debug validation Run: `38060657559` SUCCESS
+- Signed Release Run: `38060657553` release build/sign/publish SUCCESS
+- GitHub Release ID: `409008690`
+- APK: `BOAT-AI-v0.18.2.apk`
+- APK SHA-256: `806f1d9cd1d267142fa3f3abea30abcd2585c25ed2d29d62c7b7c1773c488c62`
+
+### First real-device live-money evaluation
+
+Private device backup exported from appVersion 0.18.1 on 2026-10-10 was evaluated with the frozen live-money rules. The raw backup was not committed.
+
+- predictions: 1,797
+- live value-v1 BUY candidates: 457
+- fully audited BUYs: 223 (48.80% completeness)
+- audited hits: 74 / 223 = 33.18%
+- audited stake: 497,800 JPY
+- audited payout: 455,920 JPY
+- audited profit: **-41,880 JPY**
+- audited ROI: **91.59%**
+- audited max drawdown: 75,820 JPY
+- October audited ROI through available records: **99.62%** (-1,320 JPY)
+- actual-purchase `bets` array in this export: empty, so actual user purchase ROI cannot be evaluated from this backup.
+- protocol slice threshold is 360 audited BUYs; do not promote post-hoc point/odds/confidence gates from the current 223.
+
+Detailed aggregate report: `data/REAL_LIVE_EVAL_20261010.md`.
+
+### v0.18.2 audit-completeness fix
+
+The real backup exposed a tracking bug: provisional unsettled `value-v1` records could be saved without durable live-odds audit fields, then the near-close background evaluator returned early merely because a strategyId already existed.
+
+Fix:
+- near-close tracking now re-evaluates provisional unsettled records regardless of existing `value-v1` / `legacy-final-v1` strategyId;
+- only settled records block re-evaluation;
+- regression tests cover unsettled value, unsettled legacy, settled, and missing record cases.
+
+Commits:
+- `1e30226e5caa4395f5d8a112758a24ce34d4ce6f`
+- `ddd89cfc66c43a060eb2adda0c7bf534de0f6a9e`
+- release bump `1acabb4ccee9cc01e5f8149513fa80684fc447c0`
+
+### Next evidence target
+
+Install v0.18.2 **over the existing app without uninstalling or clearing data**. Treat all already-inspected data as historical evidence. For the next prospective decision, accumulate new v0.18.2 audited BUYs and re-run the same frozen evaluator. Also investigate daily continuity because the 2026-10-10 export contained no prediction records for 2026-10-06, 2026-10-09, or 2026-10-10.
+
+---
+
+## Historical status below (superseded where inconsistent)
+
+
 Updated: 2026-09-27
 
 ## Product goal
