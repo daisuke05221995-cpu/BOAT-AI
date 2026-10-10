@@ -58,7 +58,7 @@ fun PurchaseDashboardScreen(ui: BoatUiState, vm: BoatViewModel) {
         item { CompactDateSelector(ui, vm) }
 
         ui.pendingPurchase?.let { pending ->
-            item { PendingPurchaseCard(pending, vm) }
+            item { PendingPurchaseCard(pending, vm, ui.purchaseLaunchHelpVisible) }
         }
 
         item {
