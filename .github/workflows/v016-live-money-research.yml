@@ -9,6 +9,8 @@ on:
       - 'data/v016_live_money_golden_backup.json'
       - 'scripts/v016_live_money_eval.py'
       - 'scripts/v016_live_money_eval_test.py'
+      - 'scripts/v016_versioned_evidence_report.py'
+      - 'scripts/v016_versioned_evidence_report_test.py'
       - '.github/workflows/v016-live-money-research.yml'
   pull_request:
     paths:
@@ -16,6 +18,8 @@ on:
       - 'data/v016_live_money_golden_backup.json'
       - 'scripts/v016_live_money_eval.py'
       - 'scripts/v016_live_money_eval_test.py'
+      - 'scripts/v016_versioned_evidence_report.py'
+      - 'scripts/v016_versioned_evidence_report_test.py'
       - '.github/workflows/v016-live-money-research.yml'
 
 jobs:
@@ -32,3 +36,5 @@ jobs:
         run: python -m json.tool data/v016_live_money_golden_backup.json > /dev/null
       - name: Test synthetic live accounting
         run: python scripts/v016_live_money_eval_test.py -v
+      - name: Test versioned evidence reporting
+        run: python scripts/v016_versioned_evidence_report_test.py -v
