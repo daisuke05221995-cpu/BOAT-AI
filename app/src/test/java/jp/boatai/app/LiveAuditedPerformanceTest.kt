@@ -105,6 +105,26 @@ class LiveAuditedPerformanceTest {
     }
 
     @Test
+    fun formalEvaluationProgressShowsRemainingAuditedBuys() {
+        val records = List(223) { index -> record(id = "audited-$index") }
+        val progress = LiveAuditedPerformance.evaluationProgress(records)
+
+        assertEquals(223, progress.auditedBuyCount)
+        assertEquals(360, progress.targetBuyCount)
+        assertEquals(137, progress.remainingBuyCount)
+        assertFalse(progress.complete)
+    }
+
+    @Test
+    fun formalEvaluationProgressStopsAtZeroRemaining() {
+        val records = List(360) { index -> record(id = "audited-$index") }
+        val progress = LiveAuditedPerformance.evaluationProgress(records)
+
+        assertEquals(0, progress.remainingBuyCount)
+        assertTrue(progress.complete)
+    }
+
+    @Test
     fun failureCountsAggregateReasonsAcrossLiveBuys() {
         val missingSource = record(id = "source", liveOddsSource = null)
         val missingOdds = record(id = "odds", liveOddsCount = 100, livePickOdds = emptyList())
