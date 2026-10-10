@@ -213,6 +213,9 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
             }
         }
     val deadlineRaces = PredictionListOrder.byDeadline(ui.races)
+    val programWaiting = ui.races.isEmpty() && ui.diagnostics.any { diagnostic ->
+        diagnostic.source == "開催・出走データ" && diagnostic.status == DiagnosticStatus.WAITING
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -247,31 +250,45 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
             }
         }
 
-        when (sortMode) {
-            1 -> {
-                if (deadlineRaces.isEmpty() && !ui.loading) {
-                    item {
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Text("現在、締切前のレースはありません。", modifier = Modifier.padding(14.dp))
-                        }
-                    }
-                } else {
-                    items(deadlineRaces, key = { it.id }) { race ->
-                        DeadlineRaceRow(
-                            race = race,
-                            onDetail = { vm.selectRace(race) }
+        if (programWaiting) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text("本日データ公開待ち", fontWeight = FontWeight.Bold)
+                        Text(
+                            "公開後に自動で再取得します。未公開中は「開催なし」とは判定しません。",
+                            style = MaterialTheme.typography.bodySmall
                         )
                     }
                 }
             }
-            3 -> Unit
-            else -> {
-                items(venues.chunked(3), key = { row -> row.joinToString { it.first.toString() } }) { row ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        row.forEach { (stadium, races) ->
-                            VenueTile(stadium, races, Modifier.weight(1f)) { vm.selectVenue(stadium) }
+        } else {
+            when (sortMode) {
+                1 -> {
+                    if (deadlineRaces.isEmpty() && !ui.loading) {
+                        item {
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Text("現在、締切前のレースはありません。", modifier = Modifier.padding(14.dp))
+                            }
                         }
-                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                    } else {
+                        items(deadlineRaces, key = { it.id }) { race ->
+                            DeadlineRaceRow(
+                                race = race,
+                                onDetail = { vm.selectRace(race) }
+                            )
+                        }
+                    }
+                }
+                3 -> Unit
+                else -> {
+                    items(venues.chunked(3), key = { row -> row.joinToString { it.first.toString() } }) { row ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            row.forEach { (stadium, races) ->
+                                VenueTile(stadium, races, Modifier.weight(1f)) { vm.selectVenue(stadium) }
+                            }
+                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
                     }
                 }
             }
@@ -436,7 +453,17 @@ private fun DateSelectorCard(ui: BoatUiState, vm: BoatViewModel) {
             IconButton(onClick = vm::previousDay, enabled = ui.date.isAfter(earliest)) { Icon(Icons.Default.ChevronLeft, contentDescription = "前日") }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(ui.date.format(formatter), fontWeight = FontWeight.Bold)
-                Text(if (ui.loading) "データ更新中…" else "全国24場 / 実データ", style = MaterialTheme.typography.bodySmall)
+                val waiting = ui.races.isEmpty() && ui.diagnostics.any { diagnostic ->
+                    diagnostic.source == "開催・出走データ" && diagnostic.status == DiagnosticStatus.WAITING
+                }
+                Text(
+                    when {
+                        ui.loading -> "データ更新中…"
+                        waiting -> "本日データ公開待ち"
+                        else -> "全国24場 / 実データ"
+                    },
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
             IconButton(onClick = vm::nextDay, enabled = ui.date.isBefore(today)) { Icon(Icons.Default.ChevronRight, contentDescription = "翌日") }
         }
