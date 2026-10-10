@@ -83,10 +83,16 @@ fun PurchaseDashboardScreen(ui: BoatUiState, vm: BoatViewModel) {
                 ) {
                     Column(Modifier.padding(14.dp)) {
                         Text("一括購入", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        Text("予想タブで「購入推奨のみ」を選ぶと、複数レースをまとめて公式投票へ送れます。", style = MaterialTheme.typography.bodySmall)
+                        Text("現在の購入推奨レースだけを一括選択します。見送りレースは含めません。", style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.height(8.dp))
-                        Button(onClick = { vm.setTab(0) }, modifier = Modifier.fillMaxWidth()) {
-                            Text("予想から一括購入を選ぶ")
+                        Button(
+                            onClick = {
+                                vm.selectAllPurchasable()
+                                vm.setTab(0)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("購入推奨を一括選択")
                         }
                     }
                 }
