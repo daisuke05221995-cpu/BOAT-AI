@@ -165,6 +165,15 @@ class PredictionTrackingScheduler(private val context: Context) {
     }
 }
 
+internal object PredictionTrackingPolicy {
+    /**
+     * An unsettled pre-race record is provisional even when it already has a strategyId.
+     * The scheduled near-close evaluation must be allowed to replace it with the final
+     * official-odds snapshot. Only a settled record is immutable.
+     */
+    fun shouldSkipEvaluation(existing: PredictionRecord?): Boolean = existing?.settled == true
+}
+
 class PredictionTrackingReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val serviceIntent = Intent(context, PredictionTrackingService::class.java).apply {
@@ -401,7 +410,7 @@ class PredictionTrackingService : Service() {
         }
 
         val existing = predictionStore.load().firstOrNull { it.id == race.id }
-        if (existing?.strategyId == "value-v1" || existing?.strategyId == "legacy-final-v1") return
+        if (PredictionTrackingPolicy.shouldSkipEvaluation(existing)) return
 
         val basePicks = PredictionEngine.predict(race, maxPicks = 4)
         if (basePicks.isEmpty()) return
