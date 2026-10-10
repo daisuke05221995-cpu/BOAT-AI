@@ -13,14 +13,17 @@ class BoatAiApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        CrashRecoveryStore(this).installHandler()
+        val recovery = CrashRecoveryStore(this)
+        recovery.installHandler()
         ModelAProduction.install(this)
-        runCatching {
-            PredictionTrackingScheduler(this).apply {
-                scheduleDailyBootstrap()
-                scheduleBootstrapSoon(5_000L)
-            }
-        }.onFailure { CrashRecoveryStore(this).recordNonFatal("BoatAiApplication.trackingBootstrap", it) }
+        if (recovery.normalBootEnabled) {
+            runCatching {
+                PredictionTrackingScheduler(this).apply {
+                    scheduleDailyBootstrap()
+                    scheduleBootstrapSoon(5_000L)
+                }
+            }.onFailure { recovery.recordNonFatal("BoatAiApplication.trackingBootstrap", it) }
+        }
         applicationScope.launch { catchUpModelAHistory() }
     }
 
