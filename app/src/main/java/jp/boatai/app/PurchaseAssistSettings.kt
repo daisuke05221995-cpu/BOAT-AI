@@ -30,15 +30,24 @@ object PurchaseAssistCoordinator {
         val incoming = PendingPurchaseSession.create(listOf(race to picks), strategyId) ?: return null
         val store = PendingPurchaseStore(context)
         val existing = store.load()
-        if (existing == null) return store.save(incoming)
-
-        val missing = incoming.races.filter { newRace -> existing.races.none { it.raceId == newRace.raceId } }
-        if (missing.isEmpty()) return existing
-
-        val merged = existing.copy(
-            races = existing.races + missing,
-            selectedRaceIds = existing.selectedRaceIds + missing.map { it.raceId }
-        )
+        val merged = mergePendingSessions(existing, incoming)
+        if (existing == merged) return existing
         return store.save(merged)
     }
+}
+
+
+internal fun mergePendingSessions(
+    existing: PendingPurchaseSession?,
+    incoming: PendingPurchaseSession
+): PendingPurchaseSession {
+    if (existing == null) return incoming
+    val missing = incoming.races.filter { newRace ->
+        existing.races.none { it.raceId == newRace.raceId }
+    }
+    if (missing.isEmpty()) return existing
+    return existing.copy(
+        races = existing.races + missing,
+        selectedRaceIds = existing.selectedRaceIds + missing.map { it.raceId }
+    )
 }
