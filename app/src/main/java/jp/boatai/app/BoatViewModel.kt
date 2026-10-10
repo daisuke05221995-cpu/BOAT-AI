@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.ZoneId
 
 data class BoatUiState(
@@ -72,6 +73,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private var oddsRefreshJob: Job? = null
     private var valueRefreshJob: Job? = null
     private var oneTwoRefreshJob: Job? = null
+    private var datePublicationRetryJob: Job? = null
     // 0 = nationwide, 1..24 = venue. A single tap on recommended-only stays active
     // while official 120-way odds are resolved sequentially.
     private var recommendedBulkScope: Int? = null
@@ -129,6 +131,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadDate(date: LocalDate) {
         if (date.isAfter(currentToday()) || date.isBefore(earliestBrowsableDate())) return
+        datePublicationRetryJob?.cancel()
+        datePublicationRetryJob = null
         val changingDate = date != _ui.value.date
         if (changingDate) {
             valueRefreshJob?.cancel()
@@ -194,6 +198,19 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             learnedRaceCount = learning.totalRaceCount,
                             oneTwoStats = oneTwoStore.summary()
                         )
+                    }
+                    if (
+                        waitingForPublication &&
+                        date == currentToday() &&
+                        BootstrapRetryPolicy.shouldRetry(LocalDateTime.now(ZoneId.of("Asia/Tokyo")))
+                    ) {
+                        datePublicationRetryJob = viewModelScope.launch {
+                            delay(BootstrapRetryPolicy.RETRY_MINUTES * 60_000L)
+                            if (_ui.value.date == date && _ui.value.races.isEmpty()) {
+                                datePublicationRetryJob = null
+                                loadDate(date)
+                            }
+                        }
                     }
                     refreshValueSelections(races)
                     refreshOneTwoLocks(races)
