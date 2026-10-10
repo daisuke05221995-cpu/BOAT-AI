@@ -17,3 +17,29 @@ class PurchaseAssistSettings(context: Context) {
         private const val KEY_AUTO_PREPARE = "auto_prepare_enabled"
     }
 }
+
+object PurchaseAssistCoordinator {
+    fun prepareIfEnabled(
+        context: Context,
+        race: RaceData,
+        picks: List<PredictionPick>,
+        strategyId: String
+    ): PendingPurchaseSession? {
+        if (!PurchaseAssistSettings(context).autoPrepareEnabled || picks.isEmpty()) return null
+
+        val incoming = PendingPurchaseSession.create(listOf(race to picks), strategyId) ?: return null
+        val store = PendingPurchaseStore(context)
+        val existing = store.load()
+        if (existing == null) return store.save(incoming)
+
+        val incomingById = incoming.races.associateBy { it.raceId }
+        val missing = incoming.races.filter { newRace -> existing.races.none { it.raceId == newRace.raceId } }
+        if (missing.isEmpty()) return existing
+
+        val merged = existing.copy(
+            races = existing.races + missing,
+            selectedRaceIds = existing.selectedRaceIds + missing.map { it.raceId }
+        )
+        return store.save(merged)
+    }
+}
