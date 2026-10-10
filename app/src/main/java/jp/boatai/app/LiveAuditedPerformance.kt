@@ -8,6 +8,16 @@ data class LiveAuditCoverage(
     val coveragePercent: Double get() = if (liveBuyCount > 0) auditedBuyCount * 100.0 / liveBuyCount else 0.0
 }
 
+data class FormalEvaluationProgress(
+    val auditedBuyCount: Int,
+    val targetBuyCount: Int
+) {
+    val remainingBuyCount: Int get() = (targetBuyCount - auditedBuyCount).coerceAtLeast(0)
+    val complete: Boolean get() = auditedBuyCount >= targetBuyCount
+    val progressPercent: Double
+        get() = if (targetBuyCount > 0) (auditedBuyCount * 100.0 / targetBuyCount).coerceAtMost(100.0) else 100.0
+}
+
 enum class LiveAuditFailure(val label: String) {
     FETCH_TIME("取得時刻なし"),
     SOURCE("取得元なし"),
@@ -28,6 +38,7 @@ enum class LiveAuditFailure(val label: String) {
 object LiveAuditedPerformance {
     const val LIVE_STRATEGY_ID = "value-v1"
     const val REQUIRED_TRIFECTA_ODDS = 120
+    const val FORMAL_EVALUATION_TARGET_BUYS = 360
 
     fun isLiveBuyCandidate(record: PredictionRecord): Boolean =
         record.settled &&
@@ -78,6 +89,12 @@ object LiveAuditedPerformance {
             auditedBuyCount = liveBuys.count(::isAuditedBuy)
         )
     }
+
+    fun evaluationProgress(records: List<PredictionRecord>): FormalEvaluationProgress =
+        FormalEvaluationProgress(
+            auditedBuyCount = eligible(records).size,
+            targetBuyCount = FORMAL_EVALUATION_TARGET_BUYS
+        )
 
     fun failureCounts(records: List<PredictionRecord>): Map<LiveAuditFailure, Int> =
         records.asSequence()
