@@ -177,6 +177,10 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     if (beforeLearned > 0 && learning.totalRaceCount > beforeLearned) {
                         notificationScheduler.notifyNow("AI学習を更新", "新しい確定結果を次回予想へ反映しました", 2003)
                     }
+                    val waitingForPublication = loadResult.diagnostics.any { diagnostic ->
+                        diagnostic.source == "開催・出走データ" &&
+                            diagnostic.status == DiagnosticStatus.WAITING
+                    }
                     _ui.update {
                         it.copy(
                             races = races,
@@ -185,7 +189,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             performance = preOddsPerformance,
                             diagnostics = loadResult.diagnostics,
                             loading = false,
-                            error = if (races.isEmpty()) "この日のレースデータがありません" else null,
+                            error = if (races.isEmpty() && !waitingForPublication) "この日のレースデータがありません" else null,
                             lastUpdatedAt = System.currentTimeMillis(),
                             learnedRaceCount = learning.totalRaceCount,
                             oneTwoStats = oneTwoStore.summary()
