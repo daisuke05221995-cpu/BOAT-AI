@@ -2,6 +2,45 @@
 
 Updated: 2026-10-11
 
+## SUPERCEDING STATUS — v0.18.6
+
+- Current public version: **v0.18.6**
+- versionCode: **52**
+- Release target: `e3c4db8e1659333b9e2bbf19874b636c0d416d30`
+- Debug validation Run: `38064026654` SUCCESS
+- Signed Release Run: `38064026632` SUCCESS
+- GitHub Release ID: `409036258`
+- APK: `BOAT-AI-v0.18.6.apk`
+- APK SHA-256: `977d29afad170937da21738ec0c88fc7af76b35e88ab38838794b59d38a24fa5`
+- Detailed handoff: `data/V0186_MINIMAL_BACKGROUND_UI_HANDOFF_20261011.md`
+
+### v0.18.6 UX policy
+
+- Background prediction/retry/recovery internals stay hidden during normal operation.
+- Settings exposes only user choices: purchase recommendation notifications, AI purchase preparation, and backup/data controls.
+- The stale recovery-mode/background-processing card was removed.
+- Successful OK-only diagnostics render no card.
+- WAITING/WARNING/ERROR produce one compact actionable card with automatic-retry guidance and an immediate retry button.
+- Duplicate red acquisition-error cards were removed.
+- Hidden background capture/retry/settlement behavior remains active.
+
+### Operational evidence
+
+Work completed `data/OPERATION_REVIEW_20261011.md` and kept continuity at HOLD until the next private post-v0.18.5/v0.18.6 backup.
+The frozen formal-evaluation baseline remains **223/360 audited BUYs; 137 remaining** until a new private backup is measured.
+
+### Parallel follow-up
+
+- Work: no new assignment for this UI-only change; use the existing operation review on the next backup.
+- Codex: `data/CODEX_FOLLOWUP_20261011_MINIMAL_BACKGROUND_UI.md`
+
+---
+
+## Historical status below (superseded where inconsistent)
+
+
+Updated: 2026-10-11
+
 ## SUPERCEDING STATUS — v0.18.5
 
 - Current public version: **v0.18.5**
