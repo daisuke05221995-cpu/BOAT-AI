@@ -49,6 +49,9 @@ class CrashRecoveryStore(context: Context) {
 
     fun lastBackgroundFailure(): String? = prefs.getString(KEY_LAST_BACKGROUND_FAILURE, null)
 
+    fun lastBackgroundFailureAt(): Long? =
+        prefs.getLong(KEY_LAST_BACKGROUND_FAILURE_AT, 0L).takeIf { it > 0L }
+
     fun installHandler() {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
