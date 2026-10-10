@@ -208,11 +208,11 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
     val venues = (1..24).map { stadium -> stadium to ui.races.filter { it.stadiumNumber == stadium } }
         .let { list ->
             when (sortMode) {
-                1 -> list.sortedBy { (_, races) -> races.filter { it.isPurchasable() }.minOfOrNull { closeTime(it.closedAt) } ?: "99:99" }
                 2 -> list.sortedByDescending { (_, races) -> races.count { it.isPurchasable() && PredictionEngine.isRecommended(it) } }
                 else -> list
             }
         }
+    val deadlineRaces = PredictionListOrder.byDeadline(ui.races)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -228,8 +228,6 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
         item { PredictionModeBar(sortMode) { sortMode = it } }
         if (sortMode == 3) {
             item { OneTwoLockCandidateList(ui, vm) }
-        } else {
-            item { BulkSelectionModeCard(vm) }
         }
 
         if (ui.loading && ui.races.isEmpty()) {
@@ -249,12 +247,33 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
             }
         }
 
-        if (sortMode != 3) items(venues.chunked(3), key = { row -> row.joinToString { it.first.toString() } }) { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                row.forEach { (stadium, races) ->
-                    VenueTile(stadium, races, Modifier.weight(1f)) { vm.selectVenue(stadium) }
+        when (sortMode) {
+            1 -> {
+                if (deadlineRaces.isEmpty() && !ui.loading) {
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Text("現在、締切前のレースはありません。", modifier = Modifier.padding(14.dp))
+                        }
+                    }
+                } else {
+                    items(deadlineRaces, key = { it.id }) { race ->
+                        DeadlineRaceRow(
+                            race = race,
+                            onDetail = { vm.selectRace(race) }
+                        )
+                    }
                 }
-                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+            3 -> Unit
+            else -> {
+                items(venues.chunked(3), key = { row -> row.joinToString { it.first.toString() } }) { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        row.forEach { (stadium, races) ->
+                            VenueTile(stadium, races, Modifier.weight(1f)) { vm.selectVenue(stadium) }
+                        }
+                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
             }
         }
 
@@ -284,17 +303,49 @@ private fun PredictionModeBar(selected: Int, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-private fun BulkSelectionModeCard(vm: BoatViewModel) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp)) {
-            Text("一括購入の対象", fontWeight = FontWeight.Bold)
-            Text("市場非入力Model Aの予想と、現在の公式3連単オッズを別レイヤーで評価します。120通りオッズと展示・進入などの直前情報が揃った購入可能レースだけAI購入推奨を出し、条件不足は安全側で見送ります。外部投票の自動実行はせず、最終購入は公式画面で行います。", style = MaterialTheme.typography.bodySmall)
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(onClick = vm::selectAllPurchasable) { Text("購入推奨のみ") }
-                OutlinedButton(onClick = vm::selectAllIncludingSkipped) { Text("見送りも含む") }
-                OutlinedButton(onClick = vm::clearBulkSelection) { Text("解除") }
+private fun DeadlineRaceRow(
+    race: RaceData,
+    onDetail: () -> Unit
+) {
+    val selection = if (PredictionEngine.hasValueStrategyModel()) {
+        PredictionEngine.cachedValueSelection(race)
+    } else null
+    val status = when {
+        !PredictionEngine.isDecisionReady(race) -> "直前情報待ち"
+        PredictionEngine.hasValueStrategyModel() && selection == null -> "オッズ判定待ち"
+        PredictionEngine.isRecommended(race) -> "購入推奨"
+        else -> "見送り"
+    }
+    val recommended = status == "購入推奨"
+
+    Card(
+        onClick = onDetail,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                closeTime(race.closedAt),
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+            Column(Modifier.weight(1f)) {
+                Text("${race.venueName}  ${race.raceNumber}R", fontWeight = FontWeight.Bold)
+                Text(
+                    "締切 ${closeTime(race.closedAt)}  ${remainingTime(race)}",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
+            Text(
+                status,
+                fontWeight = FontWeight.Bold,
+                color = if (recommended) MaterialTheme.colorScheme.primary
+                else if (status == "見送り") MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -346,14 +397,11 @@ private fun VenueDetailScreen(ui: BoatUiState, vm: BoatViewModel, stadium: Int) 
     ) {
         ui.pendingPurchase?.let { pending -> item { PendingPurchaseCard(pending, vm) } }
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp)) {
-                    Text("${Venues.name(stadium)}の一括購入", fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedButton(onClick = { vm.selectVenuePurchasable(stadium) }) { Text("購入推奨のみ") }
-                        OutlinedButton(onClick = { vm.selectVenueIncludingSkipped(stadium) }) { Text("見送りも含む") }
-                    }
-                }
+            OutlinedButton(
+                onClick = { vm.selectVenuePurchasable(stadium) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("${Venues.name(stadium)}の購入推奨を一括選択")
             }
         }
         if (ui.selectedForBulk.isNotEmpty()) item { BulkPurchaseCard(ui, vm) }
