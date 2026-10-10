@@ -15,6 +15,12 @@ class BoatAiApplication : Application() {
         super.onCreate()
         CrashRecoveryStore(this).installHandler()
         ModelAProduction.install(this)
+        runCatching {
+            PredictionTrackingScheduler(this).apply {
+                scheduleDailyBootstrap()
+                scheduleBootstrapSoon(5_000L)
+            }
+        }.onFailure { CrashRecoveryStore(this).recordNonFatal("BoatAiApplication.trackingBootstrap", it) }
         applicationScope.launch { catchUpModelAHistory() }
     }
 
