@@ -51,6 +51,10 @@ fun NotificationSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
             Text("事前予想の自動記録", fontWeight = FontWeight.Bold)
             Text("購入推奨アラートのON/OFFに関係なく、全レースの締切前予想を結果・損益検証用に保存します。")
             Text(
+                "初回インストール後だけはAndroid仕様上、一度アプリを起動して初期化が必要です。その後は再起動・アップデート・日付/時刻変更後に自動復旧します。",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
                 if (exactAlarmReady) {
                     "正確な時刻で記録：有効"
                 } else {
