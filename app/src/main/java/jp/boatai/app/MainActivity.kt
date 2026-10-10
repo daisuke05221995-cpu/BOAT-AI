@@ -225,6 +225,13 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
         item { AppUpdateCard(ui.update, vm) }
         item { DateSelectorCard(ui, vm) }
         item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }
+        item {
+            OperationalIssueCard(
+                issues = ui.operationalIssues,
+                suppressedByDataIssue = DataIssuePresenter.present(ui.diagnostics) != null,
+                onRetry = vm::refresh
+            )
+        }
         item { AutomationRequirementCard(ui) }
         ui.pendingPurchase?.let { pending ->
             item { PendingPurchaseCard(pending, vm, ui.purchaseLaunchHelpVisible) }
