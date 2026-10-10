@@ -70,6 +70,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val learningStore = LearningStore(application)
     private val performanceMemoryStore = PerformanceMemoryStore(application)
     private val notificationScheduler = NotificationScheduler(application)
+    private val operationalSelfCheckStore = OperationalSelfCheckStore(application)
+    private val crashRecoveryStore = CrashRecoveryStore(application)
+    private val operationalMonitoringStartedAt = operationalSelfCheckStore.monitoringStartedAt()
     private fun currentToday(): LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo"))
     private fun earliestBrowsableDate(): LocalDate = currentToday().minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
     private var oddsRefreshJob: Job? = null
@@ -214,6 +217,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                     }
+                    refreshOperationalIssues(races, preOddsHistory)
                     refreshValueSelections(races)
                     refreshOneTwoLocks(races)
                 }
@@ -579,6 +583,22 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 oneTwoStats = oneTwoStore.summary()
             )
         }
+        refreshOperationalIssues(_ui.value.races, history)
+    }
+
+    private fun refreshOperationalIssues(
+        races: List<RaceData> = _ui.value.races,
+        history: List<PredictionRecord> = predictionStore.load()
+    ) {
+        val issues = OperationalSelfCheck.evaluate(
+            races = races,
+            predictions = history,
+            monitoringStartedAt = operationalMonitoringStartedAt,
+            currentVersion = BuildConfig.VERSION_NAME,
+            backgroundFailureAt = crashRecoveryStore.lastBackgroundFailureAt(),
+            backgroundFailureSummary = crashRecoveryStore.lastBackgroundFailure()
+        )
+        _ui.update { it.copy(operationalIssues = issues) }
     }
 
     fun setTab(tab: Int) {
