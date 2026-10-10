@@ -111,7 +111,8 @@ class PredictionHistoryStore(context: Context) {
                 liveOddsFetchedAt = audit?.fetchedAt,
                 liveOddsSource = audit?.source,
                 liveOddsCount = audit?.odds?.values?.count { it.isFinite() && it > 0.0 } ?: 0,
-                livePickOdds = livePickOdds
+                livePickOdds = livePickOdds,
+                sourceAppVersion = BuildConfig.VERSION_NAME
             )
             if (index >= 0) current[index] = record else current += record
             changed = true
@@ -182,7 +183,8 @@ class PredictionHistoryStore(context: Context) {
             liveOddsFetchedAt = oddsResult?.fetchedAt,
             liveOddsSource = oddsResult?.source,
             liveOddsCount = oddsResult?.odds?.values?.count { it.isFinite() && it > 0.0 } ?: 0,
-            livePickOdds = livePickOdds
+            livePickOdds = livePickOdds,
+            sourceAppVersion = BuildConfig.VERSION_NAME
         )
 
         if (index >= 0) current[index] = record else current += record
