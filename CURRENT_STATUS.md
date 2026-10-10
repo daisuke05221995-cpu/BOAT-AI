@@ -1,5 +1,46 @@
 # BOAT AI Current Status
 
+Updated: 2026-10-11
+
+## SUPERCEDING STATUS — v0.18.5
+
+- Current public version: **v0.18.5**
+- versionCode: **51**
+- Release target: `d828efb649da2147c206ad43e30cf0afc5adc69a`
+- Debug validation Run: `38063285208` SUCCESS
+- Signed Release Run: `38063285199` SUCCESS
+- GitHub Release ID: `409029816`
+- APK: `BOAT-AI-v0.18.5.apk`
+- APK SHA-256: `340e08dcf41c18675ea6db69ec248eb3f29ebfebae9ebf4270a5543c1926e18c`
+- Detailed handoff: `data/V0185_DEADLINE_DATA_WAIT_HANDOFF_20261011.md`
+
+### v0.18.5 changes
+
+- Removed the large Prediction-screen bulk target menu.
+- Recommendation-only is the normal bulk-purchase path; the UI no longer offers bulk inclusion of AI-SKIP races.
+- "締切順" is now a one-race-per-row nationwide list ordered by each race's closing time.
+- Today's source HTTP 404 is treated as publication WAITING rather than a fatal red error.
+- Today's dated endpoint falls back to `/api/v1/today.json`, with a requested-date guard preventing stale prior-day records.
+- While today's data is unpublished, venue tiles are hidden instead of falsely displaying 24 "開催なし" states.
+- The foreground ViewModel retries unpublished data after 15 minutes while alive.
+- Background prediction bootstrap retries every 15 minutes until 10:30 JST if the morning daily data is still unavailable.
+- No prediction threshold, stake rule, or formal evaluation rule changed.
+
+### Formal evaluation target
+
+The frozen target remains **360 fully audited value-v1 BUYs**.
+The last reviewed private backup had **223**, so the reviewed baseline remaining count is **137**. The app calculates the live remaining count from current durable data.
+
+### Parallel work
+
+- Work assignment: `data/WORK_ASSIGNMENT_20261011_OPERATION_REVIEW.md`
+- Codex assignment: `data/CODEX_ASSIGNMENT_20261011_UI_BACKGROUND_REVIEW.md`
+
+---
+
+## Historical status below (superseded where inconsistent)
+
+
 Updated: 2026-10-10
 
 ## SUPERCEDING STATUS — v0.18.4
