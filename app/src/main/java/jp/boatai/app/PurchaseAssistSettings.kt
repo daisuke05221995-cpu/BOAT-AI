@@ -32,7 +32,6 @@ object PurchaseAssistCoordinator {
         val existing = store.load()
         if (existing == null) return store.save(incoming)
 
-        val incomingById = incoming.races.associateBy { it.raceId }
         val missing = incoming.races.filter { newRace -> existing.races.none { it.raceId == newRace.raceId } }
         if (missing.isEmpty()) return existing
 
