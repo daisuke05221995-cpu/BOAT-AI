@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,64 +26,25 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun NotificationSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
     val context = LocalContext.current
-    val scheduler = NotificationScheduler(context)
     val purchaseAssist = PurchaseAssistSettings(context)
-    var exactAlarmReady by remember { mutableStateOf(scheduler.exactAlarmReady) }
     var autoPrepare by remember { mutableStateOf(purchaseAssist.autoPrepareEnabled) }
 
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) vm.setNotificationsEnabled(true) else vm.setNotificationsEnabled(false)
-    }
-    val exactAlarmPermission = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        exactAlarmReady = scheduler.exactAlarmReady
-        if (exactAlarmReady) {
-            PredictionTrackingScheduler(context).apply {
-                scheduleDailyBootstrap()
-                scheduleBootstrapSoon(1_000L)
-            }
-        }
+        vm.setNotificationsEnabled(granted)
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("事前予想の自動記録", fontWeight = FontWeight.Bold)
-            Text("購入推奨アラートのON/OFFに関係なく、全レースの締切前予想を結果・損益検証用に保存します。")
-            Text(
-                "初回インストール後だけはAndroid仕様上、一度アプリを起動して初期化が必要です。その後は再起動・アップデート・日付/時刻変更後に自動復旧します。",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Text(
-                if (exactAlarmReady) {
-                    "正確な時刻で記録：有効"
-                } else {
-                    "正確な時刻で記録：要設定（端末都合で締切後まで遅れる場合があります）"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (exactAlarmReady) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-            )
-            if (!exactAlarmReady) {
-                OutlinedButton(onClick = {
-                    scheduler.requestExactAlarmPermissionIntent()?.let(exactAlarmPermission::launch)
-                }) {
-                    Text("締切前の自動記録を正確にする")
-                }
-                Text(
-                    "Androidの「アラームとリマインダー」でBOAT AIを許可してください。購入推奨通知を使わない場合でも、この設定は事前予想の保存精度に使います。",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            Text("購入推奨アラート", fontWeight = FontWeight.Bold)
-            Text("全国全レースを締切約5分前に再確認し、AI判定＋最新公式3連単オッズの両方を通ったレースだけ通知します。")
-            Text("買い目・オッズ・推奨金額も通知に表示。毎朝6:30に当日レースを自動登録し、端末再起動後も復旧します。", style = MaterialTheme.typography.bodySmall)
-
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(if (ui.notificationsEnabled) "通知：ON" else "通知：OFF", fontWeight = FontWeight.SemiBold)
-                    Text("直前BUY通知だけを切り替えます。予想の自動記録はOFFにしても継続します。", style = MaterialTheme.typography.bodySmall)
+                    Text("購入推奨通知", fontWeight = FontWeight.Bold)
+                    Text(
+                        if (ui.notificationsEnabled) "購入推奨が出たレースだけ通知します。" else "通知はOFFです。",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
                 Switch(
                     checked = ui.notificationsEnabled,
@@ -100,22 +60,20 @@ fun NotificationSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
                 )
             }
 
-            if (ui.notificationsEnabled) {
-                Text(
-                    if (exactAlarmReady) "5分前の正確なアラーム：有効" else "5分前通知も正確なアラーム設定が必要です",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (exactAlarmReady) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                )
-            }
-
-            Text("AI購入準備", fontWeight = FontWeight.Bold)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(if (autoPrepare) "投票待ちの自動作成：ON" else "投票待ちの自動作成：OFF", fontWeight = FontWeight.SemiBold)
-                    Text("BUY判定が出たら買い目・金額を端末内の投票待ちへ自動保存します。実際の投票送信は行いません。", style = MaterialTheme.typography.bodySmall)
+                    Text("AI購入準備", fontWeight = FontWeight.Bold)
+                    Text(
+                        if (autoPrepare) {
+                            "購入推奨の買い目・金額を投票待ちへ自動保存します。"
+                        } else {
+                            "投票待ちの自動作成はOFFです。"
+                        },
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
                 Switch(
                     checked = autoPrepare,
@@ -126,7 +84,10 @@ fun NotificationSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
                 )
             }
 
-            Text("見送りレースは通知しません。外部サービスへの実投票は自動実行せず、公式画面での最終送信はユーザー確認が必要です。", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "実際の投票送信は自動実行しません。公式画面で最終確認して投票します。",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
