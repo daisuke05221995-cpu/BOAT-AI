@@ -2,6 +2,45 @@
 
 Updated: 2026-10-11
 
+## SUPERCEDING STATUS — v0.18.8
+
+- Current public version: **v0.18.8**
+- versionCode: **54**
+- Release target: `1aee55cdb35c9138e41971789401b10158e8bd0a`
+- Debug validation Run: `38066405772` SUCCESS
+- Signed Release Run: `38066405759` SUCCESS
+- GitHub Release ID: `409055038`
+- APK: `BOAT-AI-v0.18.8.apk`
+- APK SHA-256: `c97bf6310fd9cb30d939500410d53d956c658439aaafa79a3df0ae1963714867`
+- Detailed handoff: `data/V0188_QUIET_UI_VERSIONED_EVIDENCE_HANDOFF_20261011.md`
+
+### v0.18.8 changes
+
+- Healthy normal UI stays quiet.
+- Up-to-date app-update card is hidden; it appears only for a real update/download/check error.
+- Missing exact-alarm access is surfaced only when active races exist and user action is relevant.
+- New/updated PredictionRecord rows store `sourceAppVersion` so future private backups can separate v0.18.8+ evidence from legacy/unversioned rows.
+- Legacy records remain null/unversioned; envelope appVersion is not used to guess row provenance.
+- Frozen live-money accounting/audit rules and the 360 audited-BUY gate are unchanged.
+- Codex is suspended from the normal workflow; normal chat handles implementation and Work handles research/evidence.
+
+### Formal evaluation
+
+Last measured private baseline remains **223/360 fully audited value-v1 BUYs; 137 remaining** until the next private backup is evaluated.
+Starting with v0.18.8, newly evaluated rows can be isolated by `sourceAppVersion`.
+
+### Work
+
+- Workへの指示: `data/WORK_ASSIGNMENT_20261011_VERSIONED_EVIDENCE_REPORT.md`
+- Purpose: prepare version-bucket reporting without changing the frozen evaluator.
+
+---
+
+## Historical status below (superseded where inconsistent)
+
+
+Updated: 2026-10-11
+
 ## SUPERCEDING STATUS — v0.18.6
 
 - Current public version: **v0.18.6**
