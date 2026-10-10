@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 47
-        versionName = "0.18.1"
-        // v0.18.1: Show 1→2 candidates from 70% with exact Model A probability; keep the 3.1x odds gate.
+        versionCode = 48
+        versionName = "0.18.2"
+        // v0.18.2: Re-evaluate provisional live records near close so official-odds audit evidence is persisted.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
