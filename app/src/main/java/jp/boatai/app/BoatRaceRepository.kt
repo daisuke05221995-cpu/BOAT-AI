@@ -67,7 +67,7 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
             add(
                 DataSourceDiagnostic(
                     source = "展示・気象データ",
-                    status = if (previewCount > 0 || date.isBefore(LocalDate.now())) DiagnosticStatus.OK else DiagnosticStatus.WAITING,
+                    status = if (previewCount > 0 || date.isBefore(LocalDate.now(ZoneId.of("Asia/Tokyo")))) DiagnosticStatus.OK else DiagnosticStatus.WAITING,
                     detail = "展示・気象あり $previewCount/${supplement.races.size}レース"
                 )
             )
