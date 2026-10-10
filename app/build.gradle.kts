@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 51
-        versionName = "0.18.5"
-        // v0.18.5: Simplify recommendation-only bulk UI, add per-race deadline list, and harden same-day data publication retries.
+        versionCode = 52
+        versionName = "0.18.6"
+        // v0.18.6: Hide background internals during normal operation and show actionable data guidance only when acquisition is unavailable.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
