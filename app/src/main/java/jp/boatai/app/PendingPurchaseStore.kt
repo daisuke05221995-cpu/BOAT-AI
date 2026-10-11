@@ -7,18 +7,28 @@ import java.util.UUID
 
 data class PendingPurchaseTicket(
     val combination: String,
-    val amount: Int
+    val amount: Int,
+    val odds: Double? = null,
+    val tier: BetTier? = null
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("combination", combination)
         .put("amount", amount)
+        .apply {
+            odds?.takeIf { it.isFinite() && it > 0.0 }?.let { put("odds", it) }
+            tier?.let { put("tier", it.name) }
+        }
 
     companion object {
         fun fromJson(json: JSONObject): PendingPurchaseTicket? {
             val combination = json.optString("combination").trim()
             val amount = json.optInt("amount", 0)
             if (combination.isBlank() || amount < 100 || amount % 100 != 0) return null
-            return PendingPurchaseTicket(combination, amount)
+            val odds = json.optDouble("odds", Double.NaN).takeIf { it.isFinite() && it > 0.0 }
+            val tier = json.optString("tier").takeIf { it.isNotBlank() }?.let { raw ->
+                runCatching { BetTier.valueOf(raw) }.getOrNull()
+            }
+            return PendingPurchaseTicket(combination, amount, odds, tier)
         }
     }
 }
@@ -112,7 +122,12 @@ data class PendingPurchaseSession(
                 val tickets = picks.mapNotNull { pick ->
                     val amount = pick.recommendedStake
                     if (pick.combination.isBlank() || amount < 100 || amount % 100 != 0) null
-                    else PendingPurchaseTicket(pick.combination, amount)
+                    else PendingPurchaseTicket(
+                        combination = pick.combination,
+                        amount = amount,
+                        odds = pick.odds,
+                        tier = pick.tier
+                    )
                 }
                 if (tickets.isEmpty()) null else PendingPurchaseRace(
                     raceId = race.id,
