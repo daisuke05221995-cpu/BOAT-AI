@@ -12,7 +12,9 @@ class PendingPurchaseTicketTest {
             combination = "1-2-3",
             amount = 1800,
             odds = 12.4,
-            tier = BetTier.MAIN
+            tier = BetTier.MAIN,
+            aiProbability = 0.081,
+            expectedReturnRate = 100.44
         )
         val restored = PendingPurchaseTicket.fromJson(ticket.toJson())
         requireNotNull(restored)
@@ -21,6 +23,8 @@ class PendingPurchaseTicketTest {
         assertEquals(1800, restored.amount)
         assertEquals(12.4, restored.odds!!, 0.0001)
         assertEquals(BetTier.MAIN, restored.tier)
+        assertEquals(0.081, restored.aiProbability!!, 0.0001)
+        assertEquals(100.44, restored.expectedReturnRate!!, 0.0001)
     }
 
     @Test
@@ -34,5 +38,7 @@ class PendingPurchaseTicketTest {
 
         assertNull(restored.odds)
         assertNull(restored.tier)
+        assertNull(restored.aiProbability)
+        assertNull(restored.expectedReturnRate)
     }
 }
