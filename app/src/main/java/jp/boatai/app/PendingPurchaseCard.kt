@@ -64,7 +64,16 @@ fun PendingPurchaseCard(
                     Column(Modifier.weight(1f)) {
                         Text("${race.venueName} ${race.raceNumber}R　${purchaseMoney(race.totalStake)}", fontWeight = FontWeight.SemiBold)
                         Text(
-                            race.tickets.joinToString(" / ") { "${it.combination} ${purchaseMoney(it.amount)}" },
+                            race.tickets.joinToString(" / ") { ticket ->
+                                buildString {
+                                    ticket.tier?.let { append(it.label).append(" ") }
+                                    append(ticket.combination)
+                                    append(" ").append(purchaseMoney(ticket.amount))
+                                    ticket.odds?.let { odds ->
+                                        append(" (").append(String.format(Locale.US, "%.1f", odds)).append("倍)")
+                                    }
+                                }
+                            },
                             style = androidx.compose.material3.MaterialTheme.typography.bodySmall
                         )
                     }
