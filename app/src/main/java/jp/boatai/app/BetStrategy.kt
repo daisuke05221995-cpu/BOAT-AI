@@ -16,12 +16,7 @@ object BetStrategy {
 
         return limited.mapIndexed { index, pick ->
             val odds = pick.odds
-            val tier = when {
-                index == 0 && (odds == null || odds < 15.0) -> BetTier.MAIN
-                odds != null && odds >= 35.0 -> BetTier.LONG
-                index >= 3 -> BetTier.LONG
-                else -> BetTier.MID
-            }
+            val tier = BetLabelRule.classify(index, odds)
             pick.copy(
                 recommendedStake = stakes[index],
                 tier = tier,
@@ -119,9 +114,9 @@ object BetStrategy {
         return when {
             returns.all { it < total } -> "見送り：どの買い目が的中しても購入額を下回ります"
             mainReturn >= total * 1.50 && profitableCount >= 2 ->
-                "購入推奨：本線150%以上かつ複数買い目に十分な払戻余地があります"
+                "購入推奨：本命150%以上かつ複数買い目に十分な払戻余地があります"
             mainReturn >= total * 1.30 && strongUpsideCount >= 2 ->
-                "購入推奨：本線130%以上かつ中穴側にも十分な払戻余地があります"
+                "購入推奨：本命130%以上かつ対抗・穴側にも十分な払戻余地があります"
             else -> "見送り：払戻余地が厳選購入基準に届きません"
         }
     }
