@@ -119,7 +119,9 @@ internal class ValueStrategyModel private constructor(
                 odds = candidate.odds,
                 recommendedStake = stakes[index],
                 tier = BetLabelRule.classify(index, candidate.odds),
-                reason = "AI確率と公式オッズの期待値基準を通過"
+                reason = "AI確率と公式オッズの期待値基準を通過",
+                aiProbability = candidate.modelP,
+                expectedReturnRate = candidate.modelP * candidate.odds * 100.0
             )
         }
         return ValueSelection(
