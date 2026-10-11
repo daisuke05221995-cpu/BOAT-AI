@@ -113,9 +113,19 @@ data class PredictionPick(
 )
 
 enum class BetTier(val label: String) {
-    MAIN("本線"),
-    MID("中穴"),
-    LONG("超穴")
+    MAIN("本命"),
+    MID("対抗"),
+    LONG("穴"),
+    VERY_LONG("大穴")
+}
+
+internal object BetLabelRule {
+    fun classify(index: Int, odds: Double?): BetTier = when {
+        odds != null && odds > 200.0 -> BetTier.VERY_LONG
+        odds != null && odds > 100.0 -> BetTier.LONG
+        index == 0 -> BetTier.MAIN
+        else -> BetTier.MID
+    }
 }
 
 enum class RaceRecommendation(val label: String) {
