@@ -118,7 +118,8 @@ internal object AverageRoiReferenceStrategy {
             PredictionPick(
                 combination = combo,
                 score = probability,
-                reason = "互換AI着順確率 ${"%.1f".format(probability * 100.0)}%"
+                reason = "互換AI着順確率 ${"%.1f".format(probability * 100.0)}%",
+                aiProbability = probability
             )
         }.sortedByDescending { it.score }
             .take(maxPicks.coerceIn(1, FORECAST_POINTS))
@@ -226,7 +227,9 @@ internal object AverageRoiReferenceStrategy {
                 odds = odds,
                 recommendedStake = allocation.stakes[index],
                 tier = BetLabelRule.classify(index, odds),
-                reason = "Model A ${"%.1f".format(p * 100.0)}% × ライブオッズ ${"%.1f".format(odds)}倍"
+                reason = "Model A ${"%.1f".format(p * 100.0)}% × ライブオッズ ${"%.1f".format(odds)}倍",
+                aiProbability = p,
+                expectedReturnRate = p * odds * 100.0
             )
         }
 
