@@ -9,7 +9,9 @@ data class PendingPurchaseTicket(
     val combination: String,
     val amount: Int,
     val odds: Double? = null,
-    val tier: BetTier? = null
+    val tier: BetTier? = null,
+    val aiProbability: Double? = null,
+    val expectedReturnRate: Double? = null
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("combination", combination)
@@ -17,6 +19,8 @@ data class PendingPurchaseTicket(
         .apply {
             odds?.takeIf { it.isFinite() && it > 0.0 }?.let { put("odds", it) }
             tier?.let { put("tier", it.name) }
+            aiProbability?.takeIf { it.isFinite() && it > 0.0 }?.let { put("aiProbability", it) }
+            expectedReturnRate?.takeIf { it.isFinite() && it > 0.0 }?.let { put("expectedReturnRate", it) }
         }
 
     companion object {
@@ -28,7 +32,18 @@ data class PendingPurchaseTicket(
             val tier = json.optString("tier").takeIf { it.isNotBlank() }?.let { raw ->
                 runCatching { BetTier.valueOf(raw) }.getOrNull()
             }
-            return PendingPurchaseTicket(combination, amount, odds, tier)
+            val aiProbability = json.optDouble("aiProbability", Double.NaN)
+                .takeIf { it.isFinite() && it > 0.0 }
+            val expectedReturnRate = json.optDouble("expectedReturnRate", Double.NaN)
+                .takeIf { it.isFinite() && it > 0.0 }
+            return PendingPurchaseTicket(
+                combination = combination,
+                amount = amount,
+                odds = odds,
+                tier = tier,
+                aiProbability = aiProbability,
+                expectedReturnRate = expectedReturnRate
+            )
         }
     }
 }
@@ -126,7 +141,9 @@ data class PendingPurchaseSession(
                         combination = pick.combination,
                         amount = amount,
                         odds = pick.odds,
-                        tier = pick.tier
+                        tier = pick.tier,
+                        aiProbability = pick.aiProbability,
+                        expectedReturnRate = pick.expectedReturnRate
                     )
                 }
                 if (tickets.isEmpty()) null else PendingPurchaseRace(
