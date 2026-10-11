@@ -2,6 +2,62 @@
 
 Updated: 2026-10-11
 
+## SUPERCEDING STATUS — v0.18.11
+
+- Current public version: **v0.18.11**
+- versionCode: **57**
+- Release target: `dd898c4dace6d2063a942906381cbbdb14ba22be`
+- Debug validation Run: `38106368995` SUCCESS
+- Signed Release Run: `38106369003` SUCCESS
+- GitHub Release ID: `409358399`
+- APK: `BOAT-AI-v0.18.11.apk`
+- APK SHA-256: `2b95f372937600925016fdf0a020189566656a380dbaab19f60965c2653054af`
+- Detailed handoff: `data/V01811_PURCHASE_RATIONALE_HANDOFF_20261011.md`
+
+### v0.18.11 purchase explanation
+
+Each live pick now shows:
+- 本命 / 対抗 / 穴 / 大穴
+- recommended stake
+- AI probability
+- current official odds
+- estimated expected return rate
+- allocation reason (主力配分 / 厚め配分 / 抑え配分)
+- estimated gross payout if hit
+
+Expected return rate is displayed as `AI probability × live odds × 100`.
+
+Bet label rule:
+- <=100x: first selected pick = 本命, others = 対抗
+- >100x through 200x = 穴
+- >200x = 大穴
+
+Pending purchase tickets persist odds/tier/probability/expected-return fields when available, while legacy pending tickets remain readable.
+
+### Allocation explanation
+
+Within a race:
+- max stake = 主力配分
+- >= 50% of max = 厚め配分
+- < 50% of max = 抑え配分
+
+This is explanatory UI only. The underlying expected-log-utility stake allocation and production BUY/SKIP logic were not changed.
+
+### Formal evaluation
+
+Frozen target remains **360 fully audited value-v1 BUYs**. No research threshold or audit accounting rule changed.
+
+### Work
+
+- Workへの指示: **なし**
+
+---
+
+## Historical status below (superseded where inconsistent)
+
+
+Updated: 2026-10-11
+
 ## SUPERCEDING STATUS — v0.18.9
 
 - Current public version: **v0.18.9**
