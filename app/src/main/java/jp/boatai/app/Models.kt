@@ -109,7 +109,9 @@ data class PredictionPick(
     val odds: Double? = null,
     val recommendedStake: Int = 0,
     val tier: BetTier = BetTier.MAIN,
-    val reason: String = ""
+    val reason: String = "",
+    val aiProbability: Double? = null,
+    val expectedReturnRate: Double? = null
 )
 
 enum class BetTier(val label: String) {
@@ -125,6 +127,25 @@ internal object BetLabelRule {
         odds != null && odds > 100.0 -> BetTier.LONG
         index == 0 -> BetTier.MAIN
         else -> BetTier.MID
+    }
+}
+
+internal object PickExplanationRule {
+    fun expectedReturnRate(aiProbability: Double?, odds: Double?): Double? =
+        if (
+            aiProbability != null && aiProbability.isFinite() && aiProbability > 0.0 &&
+            odds != null && odds.isFinite() && odds > 0.0
+        ) {
+            aiProbability * odds * 100.0
+        } else {
+            null
+        }
+
+    fun allocationLabel(stake: Int, maxStake: Int): String = when {
+        stake <= 0 || maxStake <= 0 -> "配分未確定"
+        stake >= maxStake -> "主力配分"
+        stake * 2 >= maxStake -> "厚め配分"
+        else -> "抑え配分"
     }
 }
 
