@@ -118,11 +118,7 @@ internal class ValueStrategyModel private constructor(
                 score = candidate.expectedValue,
                 odds = candidate.odds,
                 recommendedStake = stakes[index],
-                tier = when {
-                    index == 0 && candidate.odds < 15.0 -> BetTier.MAIN
-                    candidate.odds >= 35.0 -> BetTier.LONG
-                    else -> BetTier.MID
-                },
+                tier = BetLabelRule.classify(index, candidate.odds),
                 reason = "AI確率と公式オッズの期待値基準を通過"
             )
         }
