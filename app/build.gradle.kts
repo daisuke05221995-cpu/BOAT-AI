@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 55
-        versionName = "0.18.9"
-        // v0.18.9: Add silent operational self-checks and resilient official purchase routing with fallbacks.
+        versionCode = 56
+        versionName = "0.18.10"
+        // v0.18.10: Standardize betting labels: favorite/challenger, >100x longshot, >200x big longshot.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
