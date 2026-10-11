@@ -976,8 +976,11 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
                     Text("AI予想 3連単", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     Text(if (isRetrospective) "対象日前日までの履歴でModel Aを再現。オッズはレース終了後の公式値" else "全国/当地・平均ST・モーター/ボート・展示・直前ST・進入を合成", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(8.dp))
+                    val predictionMaxStake = ui.predictions.maxOfOrNull { pick ->
+                        pick.recommendedStake.takeIf { it > 0 } ?: ui.stakePerPick
+                    } ?: ui.stakePerPick
                     ui.predictions.forEachIndexed { index, pick ->
-                        PredictionRow(index + 1, pick, ui.stakePerPick)
+                        PredictionRow(index + 1, pick, ui.stakePerPick, predictionMaxStake)
                         if (index < ui.predictions.lastIndex) HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     }
                     if (ui.oddsLoading) {
@@ -1068,19 +1071,47 @@ private fun RacerCard(racer: Racer) {
 }
 
 @Composable
-private fun PredictionRow(rank: Int, pick: PredictionPick, stake: Int) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text("$rank.  ${pick.combination}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-            Text(pick.tier.label, style = MaterialTheme.typography.bodySmall)
+private fun PredictionRow(
+    rank: Int,
+    pick: PredictionPick,
+    stake: Int,
+    maxStake: Int
+) {
+    val actualStake = pick.recommendedStake.takeIf { it > 0 } ?: stake
+    val expectedReturn = pick.expectedReturnRate
+        ?: PickExplanationRule.expectedReturnRate(pick.aiProbability, pick.odds)
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "${pick.tier.label}　${pick.combination}",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(money(actualStake), fontWeight = FontWeight.Bold)
+        }
+        Text(
+            "AI確率 ${pick.aiProbability?.let { String.format(Locale.US, "%.1f%%", it * 100.0) } ?: "-"} / " +
+                "オッズ ${pick.odds?.let { String.format(Locale.US, "%.1f倍", it) } ?: "-"} / " +
+                "推定期待値 ${expectedReturn?.let { String.format(Locale.US, "%.0f%%", it) } ?: "-"}",
+            style = MaterialTheme.typography.bodySmall
+        )
+        Text(
+            PickExplanationRule.allocationLabel(actualStake, maxStake),
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        if (pick.aiProbability == null && pick.reason.isNotBlank()) {
             Text(pick.reason, style = MaterialTheme.typography.labelSmall)
         }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(pick.odds?.let { "${String.format(Locale.US, "%.1f", it)}倍" } ?: "オッズ -")
-            Text("推奨 ${money(pick.recommendedStake.takeIf { it > 0 } ?: stake)}", fontWeight = FontWeight.SemiBold)
-            pick.odds?.let {
-                Text("想定 ${String.format(Locale.US, "%,.0f", it * (pick.recommendedStake.takeIf { amount -> amount > 0 } ?: stake))}円", style = MaterialTheme.typography.bodySmall)
-            }
+        pick.odds?.let {
+            Text(
+                "的中時想定払戻 ${String.format(Locale.US, "%,.0f", it * actualStake)}円",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
