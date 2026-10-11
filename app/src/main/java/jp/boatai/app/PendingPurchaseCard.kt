@@ -63,19 +63,29 @@ fun PendingPurchaseCard(
                     )
                     Column(Modifier.weight(1f)) {
                         Text("${race.venueName} ${race.raceNumber}R　${purchaseMoney(race.totalStake)}", fontWeight = FontWeight.SemiBold)
-                        Text(
-                            race.tickets.joinToString(" / ") { ticket ->
+                        val maxStake = race.tickets.maxOfOrNull { it.amount } ?: 0
+                        race.tickets.forEach { ticket ->
+                            Spacer(Modifier.height(4.dp))
+                            Text(
                                 buildString {
-                                    ticket.tier?.let { append(it.label).append(" ") }
+                                    ticket.tier?.let { append(it.label).append("　") }
                                     append(ticket.combination)
-                                    append(" ").append(purchaseMoney(ticket.amount))
-                                    ticket.odds?.let { odds ->
-                                        append(" (").append(String.format(Locale.US, "%.1f", odds)).append("倍)")
-                                    }
-                                }
-                            },
-                            style = androidx.compose.material3.MaterialTheme.typography.bodySmall
-                        )
+                                    append("　").append(purchaseMoney(ticket.amount))
+                                },
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "AI確率 ${purchaseProbability(ticket.aiProbability)} / " +
+                                    "オッズ ${purchaseOdds(ticket.odds)} / " +
+                                    "推定期待値 ${purchaseExpectedReturn(ticket.expectedReturnRate)}",
+                                style = androidx.compose.material3.MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                PickExplanationRule.allocationLabel(ticket.amount, maxStake),
+                                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
                 if (index < session.races.lastIndex) HorizontalDivider(Modifier.padding(vertical = 4.dp))
@@ -143,3 +153,9 @@ fun PendingPurchaseCard(
 }
 
 private fun purchaseMoney(value: Int): String = String.format(Locale.JAPAN, "%,d円", value)
+private fun purchaseProbability(value: Double?): String =
+    value?.let { String.format(Locale.US, "%.1f%%", it * 100.0) } ?: "-"
+private fun purchaseOdds(value: Double?): String =
+    value?.let { String.format(Locale.US, "%.1f倍", it) } ?: "-"
+private fun purchaseExpectedReturn(value: Double?): String =
+    value?.let { String.format(Locale.US, "%.0f%%", it) } ?: "-"
