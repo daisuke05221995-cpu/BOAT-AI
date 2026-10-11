@@ -225,11 +225,7 @@ internal object AverageRoiReferenceStrategy {
                 score = p * odds,
                 odds = odds,
                 recommendedStake = allocation.stakes[index],
-                tier = when {
-                    index == 0 && odds < 15.0 -> BetTier.MAIN
-                    odds >= 35.0 -> BetTier.LONG
-                    else -> BetTier.MID
-                },
+                tier = BetLabelRule.classify(index, odds),
                 reason = "Model A ${"%.1f".format(p * 100.0)}% × ライブオッズ ${"%.1f".format(odds)}倍"
             )
         }
