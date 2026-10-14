@@ -1,5 +1,52 @@
 # BOAT AI Current Status
 
+Updated: 2026-10-14
+
+## SUPERCEDING STATUS — v0.18.14
+
+- Current public version: **v0.18.14**
+- versionCode: **60**
+- Release target: `736f605dcca238c1b8782821e54726580f37d3c8`
+- Debug validation Run: `38505945034` SUCCESS
+- Signed Release Run: `38505945004` SUCCESS
+- GitHub Release ID: `412308936`
+- APK: `BOAT-AI-v0.18.14.apk`
+- APK SHA-256: `f526eef08e90b4a054cc48b46503c8cc9d11a9333b68b5f9b6dba903b9a5af1d`
+- Detailed handoff: `data/V01814_CACHED_ODDS_START_ESTIMATE_HANDOFF_20261014.md`
+
+### v0.18.14 odds behavior
+
+- Official PC odds first.
+- Official smartphone odds second.
+- Incomplete official odds are treated as failure rather than success.
+- If official acquisition fails, use the BoatraceCSV od3 complete 120-way pre-close cache.
+- Cached odds are adjusted toward an estimated start-time value using popularity rank and actual time remaining.
+- Fallback UI explicitly labels those values as `出走時推定`.
+- AI expected value and stake allocation use the adjusted fallback estimate, not the stale raw cache odds.
+- No odds are invented if neither official nor a valid complete cached source exists.
+
+### Provisional calibration
+
+The start-time correction is deliberately provisional.
+A recent winner-only diagnostic did not support a universal favorite -1.5x rule; rank-1 median movement was closer to a 0.92 ratio / roughly -0.7x in that limited sample.
+
+Because winning-payout comparison is selection-biased, Work is assigned to expand/calibrate before replacing the provisional prior.
+
+### Evidence separation
+
+v0.18.14 fallback behavior changes the production odds input for fallback races.
+Future analysis must separate records by `sourceAppVersion` and `liveOddsSource`.
+
+### Work
+
+- Workへの指示: **あり**
+- Assignment: `data/WORK_ASSIGNMENT_20261014_ODDS_DRIFT_CALIBRATION.md`
+
+---
+
+## Historical status below (superseded where inconsistent)
+
+
 Updated: 2026-10-11
 
 ## SUPERCEDING STATUS — v0.18.11
