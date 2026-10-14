@@ -2,6 +2,37 @@
 
 Updated: 2026-10-14
 
+## USER-APPROVED EARLY FORMAL LIVE VERDICT — 343 AUDITED BUYs
+
+- Formal operational report: `data/FORMAL_LIVE_EVAL_20261014_343.md`
+- Fully audited value-v1 BUYs: **343**
+- Original pre-registered gate: **360** (**17 remaining**; not falsely treated as satisfied)
+- Hits: **101**
+- Hit rate: **29.45%**
+- Stake: **¥764,700**
+- Payout: **¥593,480**
+- Profit: **-¥171,220**
+- ROI: **77.61%**
+- Max drawdown: **¥205,260**
+- Operational verdict: **current value-v1 FAILS as evidence of a profitable live-money strategy**
+- Legacy 223 BUY baseline reproduces exactly at ROI **91.59%**.
+- Newly versioned 120 BUYs: ROI **51.54%**, profit **-¥129,340**.
+- Post-version audit completeness: **120/120 = 100%**.
+- All audited BUYs in this backup used `liveOddsSource=公式PC版`; v0.18.14 cached-odds fallback has not yet been evaluated by live BUY evidence.
+- Current stake weighting is not the main loss source; same selections with equalized budget remain around ROI 75.64%.
+- First-pick-only is worse (ROI 70.00% using its original recommended stake).
+- Post-hoc point-count diagnostics show 4/6/7-point BUYs weak and 5/8-point BUYs stronger, but no slice meets the pre-registered 20-active-day promotion requirement.
+- Displayed estimated-return percentage is poorly calibrated against realized race ROI in this sample; next research should prioritize BUY/value calibration rather than stake allocation.
+
+Raw private backup is not committed.
+
+---
+
+## CURRENT RELEASE — v0.18.14
+
+
+Updated: 2026-10-14
+
 ## SUPERCEDING STATUS — v0.18.14
 
 - Current public version: **v0.18.14**
