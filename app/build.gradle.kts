@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 58
-        versionName = "0.18.12"
-        // v0.18.12: Add resilient pre-close odds fallback and conservative estimated start-time odds.
+        versionCode = 59
+        versionName = "0.18.13"
+        // v0.18.13: Require complete official odds or fall back to cached pre-close odds with estimated start-time adjustment.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
