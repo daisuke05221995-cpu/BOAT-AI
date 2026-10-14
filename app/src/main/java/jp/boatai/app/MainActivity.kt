@@ -980,7 +980,7 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
                         pick.recommendedStake.takeIf { it > 0 } ?: ui.stakePerPick
                     } ?: ui.stakePerPick
                     ui.predictions.forEachIndexed { index, pick ->
-                        PredictionRow(index + 1, pick, ui.stakePerPick, predictionMaxStake)
+                        PredictionRow(index + 1, pick, ui.stakePerPick, predictionMaxStake, ui.oddsSource)
                         if (index < ui.predictions.lastIndex) HorizontalDivider(Modifier.padding(vertical = 6.dp))
                     }
                     if (ui.oddsLoading) {
@@ -1075,7 +1075,8 @@ private fun PredictionRow(
     rank: Int,
     pick: PredictionPick,
     stake: Int,
-    maxStake: Int
+    maxStake: Int,
+    oddsSource: String?
 ) {
     val actualStake = pick.recommendedStake.takeIf { it > 0 } ?: stake
     val expectedReturn = pick.expectedReturnRate
@@ -1093,9 +1094,10 @@ private fun PredictionRow(
             )
             Text(money(actualStake), fontWeight = FontWeight.Bold)
         }
+        val oddsLabel = if (oddsSource?.contains("出走時推定") == true) "出走時推定" else "オッズ"
         Text(
             "AI確率 ${pick.aiProbability?.let { String.format(Locale.US, "%.1f%%", it * 100.0) } ?: "-"} / " +
-                "オッズ ${pick.odds?.let { String.format(Locale.US, "%.1f倍", it) } ?: "-"} / " +
+                "$oddsLabel ${pick.odds?.let { String.format(Locale.US, "%.1f倍", it) } ?: "-"} / " +
                 "推定期待値 ${expectedReturn?.let { String.format(Locale.US, "%.0f%%", it) } ?: "-"}",
             style = MaterialTheme.typography.bodySmall
         )
