@@ -201,7 +201,10 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
             runCatching {
                 val fetched = fetchOfficialPageWithSession(url)
                 val odds = parseTrifectaOdds(fetched.document, combinations)
-                if (odds.isEmpty()) error("オッズ表の解析結果が空です")
+                val requiredCount = combinations.distinct().size
+                if (odds.size < requiredCount) {
+                    error("オッズ表が不足しています: ${odds.size}/$requiredCount")
+                }
                 fetched to odds
             }.onSuccess { (fetched, odds) ->
                 diagnostics += DataSourceDiagnostic(
