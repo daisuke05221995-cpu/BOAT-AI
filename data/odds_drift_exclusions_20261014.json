@@ -1,0 +1,1074 @@
+[
+  {
+    "race_code": "202607190809",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202607190909",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202607192206",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202607190209",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202607190912",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202607190103",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202607190212",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202607200409",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202607201611",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202607201904",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202607200512",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202607210905",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202607220910",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202607231506",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202607241511",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202607251410",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202607250309",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202607252412",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202607261311",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202607270409",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202607271711",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202607270411",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202607281706",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202607280911",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202607302208",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202607311310",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202607312407",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608011107",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608040409",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608041210",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608051010",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608051711",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608060412",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608072401",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608072009",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608072012",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608080208",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608092407",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608120403",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608120206",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608121607",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608120212",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608121907",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608142110",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608141709",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608140211",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608151002",
+    "reason": "nonpositive_or_nonfinite_snapshot"
+  },
+  {
+    "race_code": "202608150607",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608151111",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608171304",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608171311",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608180508",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608202009",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608201912",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608210309",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608210210",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608221901",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608221910",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608231809",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608232212",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608232408",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608232410",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608251807",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608250307",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608250611",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608252010",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608261308",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608271810",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608271509",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608291401",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608292301",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291001",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291402",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608292302",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291002",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291403",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608292303",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291003",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291404",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608292304",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291004",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291405",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608292305",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290901",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291101",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291005",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291301",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291701",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291406",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608292306",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290902",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291302",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291102",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291006",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291702",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291407",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291601",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291303",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290903",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608292307",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290501",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291103",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291007",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291703",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291304",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290401",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291602",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291408",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290904",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608292308",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290502",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291104",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291008",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291704",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290402",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291603",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291305",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291409",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290905",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290503",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291105",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608292309",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291009",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290403",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291604",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291705",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290906",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291106",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291410",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290504",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291306",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608292310",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291010",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290404",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291605",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291706",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290907",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291107",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290505",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291411",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291307",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608292311",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291606",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290405",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291011",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290908",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291707",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291108",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290506",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291308",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291412",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291607",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290406",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608292312",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291012",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290909",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290507",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291708",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291109",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291309",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291608",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290407",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291709",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608290101",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290910",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290508",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291110",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291310",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291609",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290701",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290408",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291901",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290102",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291710",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290509",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290911",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290702",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291311",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291111",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291902",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290409",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290103",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291610",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291711",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290703",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290510",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291112",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290912",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291312",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608291903",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202608290706",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608302302",
+    "reason": "nonpositive_or_nonfinite_snapshot"
+  },
+  {
+    "race_code": "202608302311",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608300508",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608300510",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608301910",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608310503",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202608310507",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609011906",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609022411",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609041007",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609041109",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202609051704",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609051709",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609061001",
+    "reason": "nonpositive_or_nonfinite_snapshot"
+  },
+  {
+    "race_code": "202609060312",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609081308",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609112012",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609120205",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609132103",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609132107",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609131708",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609131207",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609140606",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202609140808",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609140812",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609150403",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609151104",
+    "reason": "nonpositive_or_nonfinite_snapshot"
+  },
+  {
+    "race_code": "202609150408",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609150909",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609150707",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609152011",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609162312",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609161110",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609180303",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609180309",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609190209",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202609191711",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609201001",
+    "reason": "nonpositive_or_nonfinite_snapshot"
+  },
+  {
+    "race_code": "202609201512",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609210905",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202609211010",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202609210906",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202609221009",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609220310",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609220311",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609230904",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609241001",
+    "reason": "nonpositive_or_nonfinite_snapshot"
+  },
+  {
+    "race_code": "202609240108",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609260311",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609281511",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609281512",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609291510",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202609291512",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610011612",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610010712",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610021508",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610020710",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610022409",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610031811",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610050509",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610052012",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202610060205",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610062012",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202610070707",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610072012",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202610081405",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202610080110",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610082012",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202610092303",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610090808",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610090110",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610092012",
+    "reason": "missing_payout_race"
+  },
+  {
+    "race_code": "202610110610",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610121405",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610121808",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610121409",
+    "reason": "invalid_or_missing_odds_cell"
+  },
+  {
+    "race_code": "202610131408",
+    "reason": "invalid_or_missing_odds_cell"
+  }
+]

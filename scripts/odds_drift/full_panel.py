@@ -77,12 +77,16 @@ def fetch(race, cache):
             error = f'{type(exc).__name__}: {exc}'
             if isinstance(exc, ValueError):
                 break
-    return {'race_code':code, 'date':race['date'], 'url':url, 'status':'error', 'error':error}, None
+    failure={'race_code':code, 'date':race['date'], 'url':url, 'status':'error', 'error':error}
+    if path.exists():
+        body=path.read_bytes()
+        failure.update({'sha256':hashlib.sha256(body).hexdigest(),'bytes':len(body),
+                        'retrievedAt':datetime.fromtimestamp(path.stat().st_mtime,timezone.utc).isoformat()})
+    return failure, None
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=ROOT)
-    parser.add_argument('--analyze-only', action='store_true')
     args = parser.parse_args()
     root = args.root
     winners = pd.read_csv(root/'output/odds_drift_winner_matches_20261014.csv', dtype={'race_code':str,'venue':str})

@@ -7,9 +7,12 @@ Requires Python 3.10+, numpy and pandas. The CSV inventory is pinned to Boatrace
 ```bash
 python scripts/odds_drift/download.py --root odds_drift_work
 python scripts/odds_drift/analyze.py --root odds_drift_work
+python scripts/odds_drift/restore_raw.py --root odds_drift_work
 python scripts/odds_drift/full_panel.py --root odds_drift_work
 python -m unittest discover -s scripts/odds_drift -p 'test_semantics.py' -v
 ```
+
+Restore the committed public evidence archive before the full-panel analysis to reproduce the dated result without querying mutable official files again. Every raw file hash and original response-receipt file timestamp is checked/preserved. Omit the restore step only for a new exploratory collection; compare its hashes and do not silently replace the historical result.
 
 The final collector caps request starts at 2/second with at most 8 concurrent requests. It retries network failures twice, records complete final-file mismatches with the winning payout without filtering on that outcome, and rejects incomplete/nonpositive/nonfinite 120-way final files. It recognizes the integer display precision of quotes at 1000x and above. Raw official files are cached locally; checksums and excluded race codes are reported. Ratios are final / pre-close; differences are final minus pre-close. Signed and unsigned differences are both retained.
 

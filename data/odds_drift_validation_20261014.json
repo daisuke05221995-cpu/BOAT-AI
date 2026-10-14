@@ -1,0 +1,51 @@
+{
+  "checks": [
+    {
+      "race_code": "202607212201",
+      "htmlUrl": "https://www.boatrace.jp/owpc/pc/race/odds3t?hd=20260721&jcd=22&rno=1",
+      "htmlSha256": "be9b2febdf48e9a8a3a9bab40945d23453bfb33837f4ce213c6f75a85b095f88",
+      "finalSha256": "85ea581cd22341b3092559640a7806c150607de2711f6564db5c54c45d525a11",
+      "comparedCombinations": 120,
+      "mismatchCount": 0,
+      "mismatches": {}
+    },
+    {
+      "race_code": "202607282104",
+      "htmlUrl": "https://www.boatrace.jp/owpc/pc/race/odds3t?hd=20260728&jcd=21&rno=4",
+      "htmlSha256": "37d9f89bc70258ed421dcab90089e6ca80765bbdfe0596999eabd1edff15eebd",
+      "finalSha256": "4f8682f9503a7734b5fecd7e681945130a51c27ab92caa60a595fae3ce038539",
+      "comparedCombinations": 120,
+      "mismatchCount": 0,
+      "mismatches": {}
+    },
+    {
+      "race_code": "202608151001",
+      "htmlUrl": "https://www.boatrace.jp/owpc/pc/race/odds3t?hd=20260815&jcd=10&rno=1",
+      "htmlSha256": "44e63a14cb9cdb26a40aabbd228105fb73d25a386dd2564f1ec1f4a4707fcaca",
+      "finalSha256": "8b1bc0919dbb77960175e2586ad640897118b56ef8f91f89f4a9f088f8dfea09",
+      "comparedCombinations": 120,
+      "mismatchCount": 0,
+      "mismatches": {}
+    },
+    {
+      "race_code": "202609151001",
+      "htmlUrl": "https://www.boatrace.jp/owpc/pc/race/odds3t?hd=20260915&jcd=10&rno=1",
+      "htmlSha256": "26e5f6823fd49ec0556b272698ed79eb740b5beda21a7d63a22f0c4091b8cd4e",
+      "finalSha256": "dc25f96295eb8e4d36b4ad5196bb959055d483d7fe142273582b2db8d2a342c1",
+      "comparedCombinations": 120,
+      "mismatchCount": 0,
+      "mismatches": {}
+    },
+    {
+      "race_code": "202610121401",
+      "htmlUrl": "https://www.boatrace.jp/owpc/pc/race/odds3t?hd=20261012&jcd=14&rno=1",
+      "htmlSha256": "499944a5d7e36882ad31b5aee9003a865ff5f9de6d882d9a8bd1a88a087dbbe6",
+      "finalSha256": "61af8cf0d995ef5c539b6dcb03107c289ebd0809d8aa2d33b52c2e96dde8fefd",
+      "comparedCombinations": 120,
+      "mismatchCount": 0,
+      "mismatches": {}
+    }
+  ],
+  "allMatched": true,
+  "limitation": "Small independent HTML mapping check; not a guarantee for missing/refund/dead-heat states."
+}

@@ -78,6 +78,7 @@ def main():
     args=argparse.ArgumentParser()
     args.add_argument('--root',type=Path,default=ROOT)
     root=args.parse_args().root
+    (root/'output').mkdir(parents=True,exist_ok=True)
     checks=[]
     for html in sorted((root/'cache').glob('official_odds3t_*.html')):
         code=html.stem.split('_')[-1]

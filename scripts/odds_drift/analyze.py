@@ -33,7 +33,10 @@ def parse_snapshot(row):
     code = row['レースコード'].strip()
     if len(code) != 12 or not code.isdigit():
         raise ValueError('invalid_race_code')
-    odds = {combo: float(row['3連単_' + combo]) for combo in COMBOS}
+    try:
+        odds = {combo: float(row['3連単_' + combo]) for combo in COMBOS}
+    except (ValueError, KeyError) as exc:
+        raise ValueError('invalid_or_missing_odds_cell') from exc
     if not all(math.isfinite(v) and v > 0 for v in odds.values()):
         raise ValueError('nonpositive_or_nonfinite_snapshot')
     fetched = datetime.fromisoformat(row['取得日時'])
@@ -205,7 +208,7 @@ def main():
                                'minimumTieRankBuckets': grouped(frame,['minimum_tie_bucket'],[RANKS]),
                                'unresolvedRefundsAndDeadHeats': 'not identifiable from the one-combination payout CSV; retained as diagnostic contamination risk'},
                'currentAndroidPrior': {'baseFactors': PRIOR, 'effectiveFactor': '1 + (baseFactor - 1) * clamp(minutes/8,0,1)'},
-               'decision': 'KEEP provisional Android priors pending full-combination final snapshots; do not fit or promote from winner-selected payouts',
+               'decision': 'KEEP provisional Android priors pending prospective timestamp-quality checks and adequate full-snapshot time-cell coverage; do not fit or promote from winner-selected payouts',
                'bootstrap': {'replicates': 800, 'seed': 20261014, 'unit': 'calendar day', 'interpretation': 'sampling uncertainty of biased diagnostic only'}}
     (root / 'output/odds_drift_calibration_20261014.json').write_text(json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + '\n')
     frame.to_csv(root / 'output/odds_drift_winner_matches_20261014.csv', index=False)
