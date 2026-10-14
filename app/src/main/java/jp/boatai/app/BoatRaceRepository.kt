@@ -221,6 +221,38 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
                 )
             }
         }
+        runCatching {
+            val csvUrl = BoatraceCsvOddsFallback.urlFor(race)
+            val csv = httpGet(csvUrl)
+            val snapshot = BoatraceCsvOddsFallback.parseRaceSnapshot(csv, race)
+                ?: error("予備オッズに対象レースまたは120通りがありません")
+            val selected = combinations.associateWith { combo ->
+                snapshot.estimatedOdds[combo]
+                    ?: error("予備オッズに $combo がありません")
+            }
+            diagnostics += DataSourceDiagnostic(
+                source = "BoatraceCSV予備オッズ",
+                status = DiagnosticStatus.OK,
+                detail = "取得時点は締切約 ${"%.1f".format(snapshot.minutesBeforeClose)}分前 / 出走時推定へ補正"
+            )
+            OddsFetchResult(
+                odds = selected,
+                source = "BoatraceCSV約5分前→出走時推定v1",
+                diagnostics = diagnostics,
+                fetchedAt = snapshot.fetchedAt
+            )
+        }.onSuccess { result ->
+            LiveOddsAuditRegistry.record(race.id, result)
+            return@withContext result
+        }.onFailure { error ->
+            lastError = error
+            diagnostics += DataSourceDiagnostic(
+                source = "BoatraceCSV予備オッズ",
+                status = DiagnosticStatus.WARNING,
+                detail = error.message ?: "取得失敗"
+            )
+        }
+
         val detail = diagnostics.joinToString(" / ") { "${it.source}: ${it.detail}" }
         throw IllegalStateException("オッズ取得失敗（$detail）", lastError)
     }
