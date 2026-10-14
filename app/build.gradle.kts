@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 57
-        versionName = "0.18.11"
-        // v0.18.11: Explain each bet with AI probability, live odds, expected return, and stake-allocation reason.
+        versionCode = 58
+        versionName = "0.18.12"
+        // v0.18.12: Add resilient pre-close odds fallback and conservative estimated start-time odds.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
