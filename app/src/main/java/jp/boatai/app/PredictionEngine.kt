@@ -51,6 +51,9 @@ object PredictionEngine {
     }
 
     internal fun restoreValueSelections(records: List<PredictionRecord>) {
+        if (AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED) {
+            AverageRoiReferenceStrategy.restore(records, BuildConfig.VERSION_NAME)
+        }
         if (valueStrategyModel == null) return
         records.filter { it.strategyId == "value-v1" && it.evaluationEligible }.forEach { record ->
             val picks = if (record.recommended) {
