@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 60
-        versionName = "0.18.14"
-        // v0.18.14: Complete resilient odds fallback and clearly label adjusted cache odds as estimated start-time odds.
+        versionCode = 61
+        versionName = "0.18.15"
+        // v0.18.15: Add composite-odds >3.0 BUY gate and instant same-day cached startup with background refresh.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
