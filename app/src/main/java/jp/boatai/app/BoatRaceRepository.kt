@@ -1,5 +1,6 @@
 package jp.boatai.app
 
+import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -15,10 +16,35 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-class BoatRaceRepository : RaceDataProvider, OddsProvider {
+class BoatRaceRepository(context: Context? = null) : RaceDataProvider, OddsProvider {
     private val compact = DateTimeFormatter.ofPattern("yyyyMMdd")
+    private val dailyCacheDir = context?.applicationContext?.filesDir?.resolve("daily-program-cache")
 
     suspend fun loadDate(date: LocalDate): List<RaceData> = loadDateDetailed(date).races
+
+    suspend fun loadCachedDateDetailed(date: LocalDate): DateLoadResult? = withContext(Dispatchers.IO) {
+        val file = cacheFile(date) ?: return@withContext null
+        if (!file.isFile) return@withContext null
+        val json = runCatching { file.readText(Charsets.UTF_8) }.getOrNull()
+            ?: return@withContext null
+        val races = runCatching {
+            ProgramDataAvailability.keepRequestedDate(
+                BoatRaceJsonParser.parse(json),
+                date
+            )
+        }.getOrNull().orEmpty()
+        if (races.isEmpty()) return@withContext null
+        DateLoadResult(
+            races = races,
+            diagnostics = listOf(
+                DataSourceDiagnostic(
+                    source = "当日キャッシュ",
+                    status = DiagnosticStatus.OK,
+                    detail = "保存済み${races.size}レースを先に表示 / 最新データをバックグラウンド更新"
+                )
+            )
+        )
+    }
 
     override suspend fun loadDateDetailed(date: LocalDate): DateLoadResult = withContext(Dispatchers.IO) {
         val startedAt = System.currentTimeMillis()
@@ -93,8 +119,10 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
         val day = date.format(compact)
         val datedUrl = "https://boatraceopenapi.github.io/api/v1/${date.year}/$day.json?ts=${System.currentTimeMillis()}"
         return try {
+            val json = httpGet(datedUrl)
+            saveProgramCache(date, json)
             ProgramJsonFetch(
-                json = httpGet(datedUrl),
+                json = json,
                 source = "日付データ",
                 detail = ""
             )
@@ -105,8 +133,10 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
 
             val todayUrl = "https://boatraceopenapi.github.io/api/v1/today.json?ts=${System.currentTimeMillis()}"
             try {
+                val json = httpGet(todayUrl)
+                saveProgramCache(date, json)
                 ProgramJsonFetch(
-                    json = httpGet(todayUrl),
+                    json = json,
                     source = "当日データ",
                     detail = ""
                 )
@@ -120,6 +150,28 @@ class BoatRaceRepository : RaceDataProvider, OddsProvider {
                 } else {
                     throw fallback
                 }
+            }
+        }
+    }
+
+    private fun cacheFile(date: LocalDate) =
+        dailyCacheDir?.resolve("${date.format(compact)}.json")
+
+    private fun saveProgramCache(date: LocalDate, json: String) {
+        val dir = dailyCacheDir ?: return
+        runCatching {
+            dir.mkdirs()
+            val target = cacheFile(date) ?: return@runCatching
+            val temp = dir.resolve("${target.name}.tmp")
+            temp.writeText(json, Charsets.UTF_8)
+            if (target.exists()) target.delete()
+            temp.renameTo(target)
+            val keepAfter = LocalDate.now(ZoneId.of("Asia/Tokyo")).minusDays(2)
+            dir.listFiles()?.forEach { file ->
+                val parsed = file.name.removeSuffix(".json").let { raw ->
+                    runCatching { LocalDate.parse(raw, compact) }.getOrNull()
+                }
+                if (parsed != null && parsed.isBefore(keepAfter)) file.delete()
             }
         }
     }
