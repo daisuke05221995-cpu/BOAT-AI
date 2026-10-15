@@ -78,6 +78,34 @@ class AverageRoiReferenceStrategyTest {
     }
 
     @Test
+    fun compositeOddsAtThreeIsSkippedButAboveThreeCanProceed() {
+        val combinations = AverageRoiReferenceStrategy.allCombinations()
+        val boosted = setOf("1-2-3", "1-2-4", "1-3-2", "1-3-4")
+        val raw = combinations.associateWith { combo -> if (combo in boosted) 60.0 else 1.0 }
+        val total = raw.values.sum()
+        val probabilities = raw.mapValues { (_, value) -> value / total }
+
+        val exactlyThree = combinations.associateWith { 12.0 }
+        val atBoundary = AverageRoiReferenceStrategy.evaluateProbabilities(
+            probabilities,
+            exactlyThree,
+            3_000
+        )
+        assertEquals(RaceRecommendation.SKIP, atBoundary.recommendation)
+        assertTrue(atBoundary.reason.contains("合成オッズ"))
+        assertTrue(atBoundary.reason.contains("3.00倍"))
+
+        val aboveThree = combinations.associateWith { 12.1 }
+        val aboveBoundary = AverageRoiReferenceStrategy.evaluateProbabilities(
+            probabilities,
+            aboveThree,
+            3_000
+        )
+        assertEquals(RaceRecommendation.BUY, aboveBoundary.recommendation)
+        assertTrue(aboveBoundary.reason.contains("合成オッズ"))
+    }
+
+    @Test
     fun positiveLiveValueCanProduceVariablePurchaseRecommendation() {
         val probabilities = uniformProbabilities()
         val odds = AverageRoiReferenceStrategy.allCombinations().associateWith { 200.0 }
