@@ -61,6 +61,23 @@ class AverageRoiReferenceStrategyTest {
     }
 
     @Test
+    fun compositeOddsBoundaryIsThree() {
+        assertEquals(
+            3.0,
+            AverageRoiReferenceStrategy.compositeOdds(listOf(12.0, 12.0, 12.0, 12.0)),
+            0.0001
+        )
+        assertTrue(
+            AverageRoiReferenceStrategy.compositeOdds(listOf(12.1, 12.1, 12.1, 12.1)) >
+                AverageRoiReferenceStrategy.MIN_COMPOSITE_ODDS
+        )
+        assertTrue(
+            AverageRoiReferenceStrategy.compositeOdds(listOf(11.9, 11.9, 11.9, 11.9)) <
+                AverageRoiReferenceStrategy.MIN_COMPOSITE_ODDS
+        )
+    }
+
+    @Test
     fun positiveLiveValueCanProduceVariablePurchaseRecommendation() {
         val probabilities = uniformProbabilities()
         val odds = AverageRoiReferenceStrategy.allCombinations().associateWith { 200.0 }
