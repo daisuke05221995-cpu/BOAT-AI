@@ -60,7 +60,7 @@ data class BoatUiState(
 )
 
 class BoatViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = BoatRaceRepository()
+    private val repository = BoatRaceRepository(application)
     private val betStore = BetStore(application)
     private val pendingPurchaseStore = PendingPurchaseStore(application)
     private val predictionStore = PredictionHistoryStore(application)
@@ -124,7 +124,30 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             appUpdateManager.checkForUpdates()
         }
         loadModelARecentVirtual()
-        loadDate(_ui.value.date)
+        loadInitialDate()
+    }
+
+    private fun loadInitialDate() {
+        val date = _ui.value.date
+        viewModelScope.launch {
+            val cached = repository.loadCachedDateDetailed(date)
+            if (cached != null && cached.races.isNotEmpty()) {
+                _ui.update {
+                    it.copy(
+                        date = date,
+                        races = cached.races,
+                        diagnostics = cached.diagnostics,
+                        loading = false,
+                        error = null,
+                        lastUpdatedAt = System.currentTimeMillis()
+                    )
+                }
+                refreshOperationalIssues(cached.races, initialPredictionHistory)
+                loadDate(date, showLoading = false)
+            } else {
+                loadDate(date)
+            }
+        }
     }
 
     private fun loadModelARecentVirtual() {
@@ -134,7 +157,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun loadDate(date: LocalDate) {
+    fun loadDate(date: LocalDate, showLoading: Boolean = true) {
         if (date.isAfter(currentToday()) || date.isBefore(earliestBrowsableDate())) return
         datePublicationRetryJob?.cancel()
         datePublicationRetryJob = null
@@ -146,19 +169,30 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             PredictionEngine.clearValueSelections()
         }
         viewModelScope.launch {
-            _ui.update {
-                it.copy(
-                    date = date,
-                    loading = true,
-                    error = null,
-                    selectedRace = null,
-                    selectedVenue = null,
-                    predictions = emptyList(),
-                    selectedForBulk = emptySet(),
-                    oneTwoQuotes = emptyMap(),
-                    oneTwoLoading = false,
-                    actionMessage = null
-                )
+            if (showLoading || changingDate || _ui.value.races.isEmpty()) {
+                _ui.update {
+                    it.copy(
+                        date = date,
+                        loading = true,
+                        error = null,
+                        selectedRace = null,
+                        selectedVenue = null,
+                        predictions = emptyList(),
+                        selectedForBulk = emptySet(),
+                        oneTwoQuotes = emptyMap(),
+                        oneTwoLoading = false,
+                        actionMessage = null
+                    )
+                }
+            } else {
+                _ui.update {
+                    it.copy(
+                        date = date,
+                        loading = false,
+                        error = null,
+                        actionMessage = null
+                    )
+                }
             }
             runCatching { repository.loadDateDetailed(date) }
                 .onSuccess { loadResult ->
