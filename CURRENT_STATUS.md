@@ -1,5 +1,56 @@
 # BOAT AI Current Status
 
+Updated: 2026-10-15
+
+## CURRENT RELEASE — v0.18.15
+
+- versionCode: **61**
+- Release target: `1d1e8a8bb58605e2e423aee55ddda037d936ce59`
+- Debug validation Run: `38696267139` SUCCESS
+- Signed Release Run: `38696267380` SUCCESS
+- GitHub Release ID: `413509305`
+- APK: `BOAT-AI-v0.18.15.apk`
+- APK SHA-256: `7e64ae53a2e6985a7af85bb95ee56272b4ad0b2423b26dcf70f361954a3f1615`
+- Handoff: `data/V01815_COMPOSITE_ODDS_FAST_START_HANDOFF_20261015.md`
+
+### New prospective BUY regime
+
+- Composite odds = `1 / sum(1 / selectedOdds)`.
+- **<=3.00x = SKIP**.
+- **>3.00x = eligible to continue through existing expected-log-utility / expected-return BUY logic**.
+- Exactly 3.00x is SKIP.
+- This threshold was chosen after the 343-BUY formal evaluation and is therefore a new prospective regime.
+- The frozen 343-BUY ledger remains unchanged.
+- Retrospective diagnostic only: >3.00x subset was 173 BUYs, ROI 101.08%; <=3.00x subset was 170 BUYs, ROI 46.91%. Do not treat the 101.08% as prospective proof.
+
+### Fast same-day repeat startup
+
+- First successful date/program fetch is persisted to private daily cache.
+- Same-day subsequent app starts show cached races immediately.
+- Current-version saved Model A BUY/SKIP decisions are restored immediately.
+- Old-version decisions are not restored.
+- Full network/date/result refresh continues in the background without blanking the visible cache.
+- Purchasable races are force-refreshed in the background, so cached decisions are not permanently stale.
+- Manual Refresh forces live re-evaluation.
+
+### Formal baseline retained
+
+- User-approved early formal baseline remains **343 audited BUYs**.
+- Hits 101 / 343 = **29.45%**.
+- ROI **77.61%**.
+- Profit **-¥171,220**.
+- Max drawdown **¥205,260**.
+- Original pre-registered 360 gate remains historically unmet by 17 in that frozen evaluation.
+
+### Work
+
+- Workへの指示: **なし**
+
+---
+
+## Previous status / historical evidence
+
+
 Updated: 2026-10-14
 
 ## USER-APPROVED EARLY FORMAL LIVE VERDICT — 343 AUDITED BUYs
