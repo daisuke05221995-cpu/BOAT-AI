@@ -36,6 +36,7 @@ internal object AverageRoiReferenceStrategy {
     private const val STAKE_STEP = 100
     private const val UTILITY_BANKROLL = 30_000.0
     private const val SCORE_TEMPERATURE = 14.0
+    internal const val MIN_COMPOSITE_ODDS = 3.0
 
     private val selections = ConcurrentHashMap<String, ValueSelection>()
     private val combinations = buildList(120) {
@@ -215,6 +216,12 @@ internal object AverageRoiReferenceStrategy {
         val selectedCombos = ordered.take(points)
         val selectedProbabilities = selectedCombos.map(probabilities::getValue)
         val selectedOdds = selectedCombos.map(officialOdds::getValue)
+        val compositeOdds = compositeOdds(selectedOdds)
+        if (compositeOdds <= MIN_COMPOSITE_ODDS) {
+            return skip(
+                "合成オッズ ${"%.2f".format(compositeOdds)}倍が基準${"%.1f".format(MIN_COMPOSITE_ODDS)}倍以下のため見送り"
+            )
+        }
         val allocation = allocateStakes(selectedProbabilities, selectedOdds, maxBudget)
             ?: return skip("現在オッズでは買わない方が期待対数効用が高いため見送り")
 
@@ -236,8 +243,14 @@ internal object AverageRoiReferenceStrategy {
         return ValueSelection(
             picks = picks,
             recommendation = RaceRecommendation.BUY,
-            reason = "購入推奨：Model A×現在オッズで期待対数効用がプラス（${picks.size}点 / ${allocation.budget}円 / 推定期待回収率 ${"%.0f".format(allocation.expectedRoi)}%）"
+            reason = "購入推奨：合成オッズ ${"%.2f".format(compositeOdds)}倍 / Model A×現在オッズで期待対数効用がプラス（${picks.size}点 / ${allocation.budget}円 / 推定期待回収率 ${"%.0f".format(allocation.expectedRoi)}%）"
         )
+    }
+
+    internal fun compositeOdds(odds: List<Double>): Double {
+        if (odds.isEmpty() || odds.any { !it.isFinite() || it <= 0.0 }) return 0.0
+        val inverseSum = odds.sumOf { 1.0 / it }
+        return if (inverseSum > 0.0 && inverseSum.isFinite()) 1.0 / inverseSum else 0.0
     }
 
     private data class Allocation(
