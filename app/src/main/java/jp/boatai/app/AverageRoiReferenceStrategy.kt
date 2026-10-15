@@ -49,6 +49,38 @@ internal object AverageRoiReferenceStrategy {
     fun cached(race: RaceData): ValueSelection? = selections[race.id]
     fun clear() = selections.clear()
 
+    internal fun restore(records: List<PredictionRecord>, currentVersion: String) {
+        selections.clear()
+        records
+            .filter {
+                it.strategyId == "value-v1" &&
+                    it.evaluationEligible &&
+                    it.sourceAppVersion == currentVersion
+            }
+            .forEach { record ->
+                val picks = if (record.recommended) {
+                    record.combinations.mapIndexed { index, combination ->
+                        val odds = record.livePickOdds.getOrNull(index)
+                        PredictionPick(
+                            combination = combination,
+                            score = 0.0,
+                            odds = odds,
+                            recommendedStake = record.stakes.getOrNull(index) ?: record.stakePerPick,
+                            tier = BetLabelRule.classify(index, odds),
+                            reason = "当日保存済みAI判定"
+                        )
+                    }
+                } else {
+                    emptyList()
+                }
+                selections[record.id] = ValueSelection(
+                    picks = picks,
+                    recommendation = record.recommendation,
+                    reason = record.recommendationReason ?: "当日保存済みAI判定"
+                )
+            }
+    }
+
     /** Re-evaluate on every live-odds refresh so a stale recommendation is not frozen. */
     fun evaluateAndCache(
         race: RaceData,
