@@ -143,7 +143,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 refreshOperationalIssues(cached.races, initialPredictionHistory)
-                loadDate(date, showLoading = false)
+                loadDate(date, showLoading = false, forceValueRefresh = true)
             } else {
                 loadDate(date)
             }
@@ -157,7 +157,11 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun loadDate(date: LocalDate, showLoading: Boolean = true) {
+    fun loadDate(
+        date: LocalDate,
+        showLoading: Boolean = true,
+        forceValueRefresh: Boolean = false
+    ) {
         if (date.isAfter(currentToday()) || date.isBefore(earliestBrowsableDate())) return
         datePublicationRetryJob?.cancel()
         datePublicationRetryJob = null
@@ -252,7 +256,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                     refreshOperationalIssues(races, preOddsHistory)
-                    refreshValueSelections(races)
+                    refreshValueSelections(races, forceRefresh = forceValueRefresh)
                     refreshOneTwoLocks(races)
                 }
                 .onFailure { error ->
@@ -275,7 +279,10 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun previousDay() { val target = _ui.value.date.minusDays(1); if (!target.isBefore(earliestBrowsableDate())) loadDate(target) }
     fun nextDay() { val target = _ui.value.date.plusDays(1); if (!target.isAfter(currentToday())) loadDate(target) }
-    fun refresh() { loadModelARecentVirtual(); loadDate(_ui.value.date) }
+    fun refresh() {
+        loadModelARecentVirtual()
+        loadDate(_ui.value.date, forceValueRefresh = true)
+    }
 
     fun selectRace(race: RaceData) {
         val retrospective = _ui.value.modelARecentVirtualRecords.firstOrNull { it.id == race.id }
@@ -445,7 +452,10 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
      * intentionally sequential to avoid hammering the official site, while still making
      * list/bulk BUY-SKIP decisions available without opening each detail screen.
      */
-    private fun refreshValueSelections(races: List<RaceData>) {
+    private fun refreshValueSelections(
+        races: List<RaceData>,
+        forceRefresh: Boolean = false
+    ) {
         val averageRoiMode = PredictionEngine.hasAverageRoiReferenceStrategy()
         val combinations = when {
             averageRoiMode -> PredictionEngine.averageRoiOddsCombinations()
@@ -460,8 +470,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         valueRefreshJob = viewModelScope.launch {
             for (race in candidates) {
                 if (!race.isPurchasable()) continue
-                if (averageRoiMode && PredictionEngine.hasAverageRoiSelection(race)) continue
-                if (!averageRoiMode && PredictionEngine.cachedValueSelection(race) != null) continue
+                if (!forceRefresh && averageRoiMode && PredictionEngine.hasAverageRoiSelection(race)) continue
+                if (!forceRefresh && !averageRoiMode && PredictionEngine.cachedValueSelection(race) != null) continue
                 runCatching {
                     repository.loadOfficialTrifectaOddsDetailed(race, combinations)
                 }.onSuccess { result ->
