@@ -74,9 +74,10 @@ class AverageRoiReferenceStrategyTest {
         assertFalse(PredictionEngine.hasAverageRoiSelection(race))
 
         val odds = AverageRoiReferenceStrategy.allCombinations().associateWith { 200.0 }
-        PredictionEngine.applyAverageRoiOdds(race, odds, 3_000)
+        val reevaluated = PredictionEngine.applyAverageRoiOdds(race, odds, 3_000)
         assertTrue(PredictionEngine.hasAverageRoiSelection(race))
-        assertEquals(RaceRecommendation.BUY, PredictionEngine.recommendation(race).recommendation)
+        assertEquals(reevaluated.recommendation, PredictionEngine.recommendation(race).recommendation)
+        assertEquals(reevaluated, PredictionEngine.cachedValueSelection(race))
 
         PredictionEngine.clearValueSelections()
         assertFalse(PredictionEngine.hasAverageRoiSelection(race))
