@@ -27,7 +27,11 @@ v0.18.15の同日2回目以降の高速起動では、端末に保存したBUY/S
 - 回帰テスト: 保存済みBUYを表示できても購入可能判定には使用しない、ライブ再評価後に最新のBUY/SKIPへ置換、別版の保存判定を現在版に読み込まない。
 - 修正コミット: `d6c96d3636b6e927bc0d2df432354fb81f938dd2`、テスト修正 `1cf59249065bcb734021b67a10c797530dad24d4`。
 - Debug validation Run: [`40203167129`](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/40203167129) **SUCCESS**（API schema、unit、lint、Debug APK、artifactアップロードすべて成功）。初回テストの誤ったBUY固定期待を修正したRunであり、初回Run `40202910316` の失敗を隠さない。
-- この文書とバージョン変更のpushによって署名Releaseワークフローが開始する。署名成功、公開APKとSHA256、Run IDは完了後に追記する。
+- Release commit: `b4a17be69191ec324a7f8b33bb15315ba5ffbe3f`。
+- Debug Run [`40203588010`](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/40203588010): **SUCCESS**。
+- Signed Release Run [`40203588039`](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/40203588039): **SUCCESS**。Release用unit/lint/署名APK/署名検証/公開がすべて成功。
+- GitHub Release: [`v0.18.16`](https://github.com/daisuke05221995-cpu/BOAT-AI/releases/tag/v0.18.16) / Release ID `423463887`。
+- APK `BOAT-AI-v0.18.16.apk`: `13,760,958` bytes。SHA-256 `238f589f9c4ff53f0e51f0fdcb3d1070f7b9f04239f98fef1eb1519513fbb77c`。
 
 ## 実機確認
 
