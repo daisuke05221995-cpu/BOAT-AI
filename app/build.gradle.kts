@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 61
-        versionName = "0.18.15"
-        // v0.18.15: Add composite-odds >3.0 BUY gate and instant same-day cached startup with background refresh.
+        versionCode = 62
+        versionName = "0.18.16"
+        // v0.18.16: Keep instant display, but require fresh live-odds evaluation before purchase preparation.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

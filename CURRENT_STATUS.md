@@ -4,12 +4,13 @@ Updated: 2026-10-25 (operational safety development checkpoint; **not yet a new 
 
 ## OPERATIONAL CHECKPOINT — 2026-10-25
 
-- Latest public release remains **v0.18.15 / versionCode 61**. Do not confuse later automated data commits with an APK update.
+- v0.18.16 / versionCode 62 release process has been initiated. Until signed Release CI is successful and the GitHub Release exists, the last verified public APK remains **v0.18.15 / versionCode 61**. Do not confuse later automated data commits with an APK update.
 - User-approved early formal evaluation: **343 fully audited BUYs; ROI 77.61%, profit -171,220 JPY**, old `value-v1` not qualified as profitable. Original 360 gate remained 17 short.
 - v0.18.15 composite-odds >3.00x rule is a new prospective regime; its retrospective 101.08% subset is not independent evidence of profit.
 - Latest scheduled research feeds (2026-10-24 and 10-25) completed, but the 2026-10-25 rolling Model A virtual feed contains **zero purchase records**, mostly because no 120-way odds matched the recent day's eligible races. CI success is not a valid ROI sample.
 - Operational plan / acceptance criteria: `data/REAL_OPERATION_PLAN_20261025.md`.
-- Pending code validation: prevent a restored fast-start BUY from being actionable before this process completes a fresh live-odds decision. Await CI before release; no app version bump or public APK has been performed at this checkpoint.
+- Safety patch test revision commit `1cf59249065bcb734021b67a10c797530dad24d4`; Debug Run `40203167129` **SUCCESS** (API schema / unit / lint / APK / upload). Initial CI Run `40202910316` failed on an overly strong regression-test BUY assumption; the test now permits a legitimate newly computed SKIP.
+- v0.18.16 handoff: `data/V01816_FRESH_ODDS_PURCHASE_GUARD_HANDOFF_20261025.md`. Signed Release remains to be verified; do not announce an installable v0.18.16 until verified.
 
 ---
 
