@@ -34,7 +34,9 @@ object PredictionEngine {
     fun hasAiForecastMode(): Boolean = AverageRoiReferenceStrategy.FORECAST_ENABLED
     fun hasAverageRoiReferenceStrategy(): Boolean = AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED
     fun averageRoiOddsCombinations(): List<String> = AverageRoiReferenceStrategy.allCombinations()
-    internal fun hasAverageRoiSelection(race: RaceData): Boolean = AverageRoiReferenceStrategy.cached(race) != null
+    // Only a decision evaluated from odds fetched in this process is actionable.
+    // Persisted BUY/SKIP data is for instant display and historical evidence.
+    internal fun hasAverageRoiSelection(race: RaceData): Boolean = AverageRoiReferenceStrategy.isLiveVerified(race)
     internal fun applyAverageRoiOdds(race: RaceData, odds: Map<String, Double>, budget: Int): ValueSelection =
         AverageRoiReferenceStrategy.evaluateAndCache(race, odds, AverageRoiReferenceStrategy.BUDGET)
 
@@ -173,6 +175,12 @@ object PredictionEngine {
         }
         if (AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED) {
             AverageRoiReferenceStrategy.cached(race)?.let { selection ->
+                if (race.isPurchasable() && !AverageRoiReferenceStrategy.isLiveVerified(race)) {
+                    return RecommendationDecision(
+                        RaceRecommendation.SKIP,
+                        "保存済みAI判定です。ライブオッズを再取得して購入可否を確認中"
+                    )
+                }
                 return RecommendationDecision(selection.recommendation, selection.reason)
             }
             if (race.racers.size < 6) {

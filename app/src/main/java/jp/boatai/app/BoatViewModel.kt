@@ -736,6 +736,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     /** Purchase preview used by both UI totals and final record creation. */
     fun purchasePicksFor(race: RaceData): List<PredictionPick> {
         if (!race.isPurchasable()) return emptyList()
+        // Fast-start cache may show saved odds. It is not purchase evidence.
+        if (PredictionEngine.hasAverageRoiReferenceStrategy() &&
+            !PredictionEngine.hasAverageRoiSelection(race)) return emptyList()
         val budget = _ui.value.raceBudget
         if (!PredictionEngine.hasValueStrategyModel()) {
             return BetStrategy.allocate(race, PredictionEngine.predict(race), budget)
@@ -796,6 +799,11 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         val state = _ui.value
         val race = state.selectedRace ?: return false
         if (!race.isPurchasable() || state.predictions.isEmpty()) return false
+        if (PredictionEngine.hasAverageRoiReferenceStrategy() &&
+            !PredictionEngine.hasAverageRoiSelection(race)) {
+            _ui.update { it.copy(actionMessage = "保存済みオッズでは投票できません。最新オッズの再判定を待ってください") }
+            return false
+        }
         return savePendingPurchase(
             listOf(race to state.predictions),
             "${race.venueName} ${race.raceNumber}Rを投票待ちに保存"

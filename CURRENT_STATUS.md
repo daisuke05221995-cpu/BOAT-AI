@@ -1,5 +1,18 @@
 # BOAT AI Current Status
 
+Updated: 2026-10-25 (operational safety development checkpoint; **not yet a new release**)
+
+## OPERATIONAL CHECKPOINT — 2026-10-25
+
+- Latest public release remains **v0.18.15 / versionCode 61**. Do not confuse later automated data commits with an APK update.
+- User-approved early formal evaluation: **343 fully audited BUYs; ROI 77.61%, profit -171,220 JPY**, old `value-v1` not qualified as profitable. Original 360 gate remained 17 short.
+- v0.18.15 composite-odds >3.00x rule is a new prospective regime; its retrospective 101.08% subset is not independent evidence of profit.
+- Latest scheduled research feeds (2026-10-24 and 10-25) completed, but the 2026-10-25 rolling Model A virtual feed contains **zero purchase records**, mostly because no 120-way odds matched the recent day's eligible races. CI success is not a valid ROI sample.
+- Operational plan / acceptance criteria: `data/REAL_OPERATION_PLAN_20261025.md`.
+- Pending code validation: prevent a restored fast-start BUY from being actionable before this process completes a fresh live-odds decision. Await CI before release; no app version bump or public APK has been performed at this checkpoint.
+
+---
+
 Updated: 2026-10-15
 
 ## CURRENT RELEASE — v0.18.15

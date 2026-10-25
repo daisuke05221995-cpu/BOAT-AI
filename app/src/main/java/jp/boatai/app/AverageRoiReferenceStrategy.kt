@@ -39,6 +39,9 @@ internal object AverageRoiReferenceStrategy {
     internal const val MIN_COMPOSITE_ODDS = 3.0
 
     private val selections = ConcurrentHashMap<String, ValueSelection>()
+    // Restored decisions make the list fast to display, but their saved odds may
+    // already have moved. They must never qualify a new purchase until refetched.
+    private val awaitingLiveRefresh = ConcurrentHashMap.newKeySet<String>()
     private val combinations = buildList(120) {
         for (first in 1..6) for (second in 1..6) for (third in 1..6) {
             if (first != second && first != third && second != third) add("$first-$second-$third")
@@ -47,10 +50,16 @@ internal object AverageRoiReferenceStrategy {
 
     fun allCombinations(): List<String> = combinations
     fun cached(race: RaceData): ValueSelection? = selections[race.id]
-    fun clear() = selections.clear()
+    internal fun isLiveVerified(race: RaceData): Boolean =
+        selections.containsKey(race.id) && !awaitingLiveRefresh.contains(race.id)
+
+    fun clear() {
+        selections.clear()
+        awaitingLiveRefresh.clear()
+    }
 
     internal fun restore(records: List<PredictionRecord>, currentVersion: String) {
-        selections.clear()
+        clear()
         records
             .filter {
                 it.strategyId == "value-v1" &&
@@ -78,6 +87,7 @@ internal object AverageRoiReferenceStrategy {
                     recommendation = record.recommendation,
                     reason = record.recommendationReason ?: "当日保存済みAI判定"
                 )
+                awaitingLiveRefresh.add(record.id)
             }
     }
 
@@ -89,6 +99,7 @@ internal object AverageRoiReferenceStrategy {
     ): ValueSelection {
         val evaluated = evaluate(race, officialOdds, budget)
         selections[race.id] = evaluated
+        awaitingLiveRefresh.remove(race.id)
         return evaluated
     }
 

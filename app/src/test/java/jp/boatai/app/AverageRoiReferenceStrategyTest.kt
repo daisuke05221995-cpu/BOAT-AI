@@ -44,6 +44,63 @@ class AverageRoiReferenceStrategyTest {
     }
 
     @Test
+    fun restoredBuyIsVisibleButNotActionableUntilNewOddsAreEvaluated() {
+        PredictionEngine.installValueStrategyModel(null)
+        PredictionEngine.clearValueSelections()
+        val race = strongLaneOneRace()
+        val saved = PredictionRecord(
+            id = race.id,
+            date = race.date,
+            stadiumNumber = race.stadiumNumber,
+            raceNumber = race.raceNumber,
+            combinations = listOf("1-2-3"),
+            stakePerPick = 1_000,
+            resultCombination = null,
+            trifectaPayout = 0,
+            settled = false,
+            createdAt = 1L,
+            recommended = true,
+            evaluationEligible = true,
+            stakes = listOf(1_000),
+            livePickOdds = listOf(30.0),
+            liveOddsFetchedAt = 1L,
+            liveOddsCount = 120,
+            strategyId = "value-v1",
+            sourceAppVersion = "0.18.15"
+        )
+
+        AverageRoiReferenceStrategy.restore(listOf(saved), "0.18.15")
+        assertEquals(RaceRecommendation.BUY, PredictionEngine.cachedValueSelection(race)?.recommendation)
+        assertFalse(PredictionEngine.hasAverageRoiSelection(race))
+
+        val odds = AverageRoiReferenceStrategy.allCombinations().associateWith { 200.0 }
+        PredictionEngine.applyAverageRoiOdds(race, odds, 3_000)
+        assertTrue(PredictionEngine.hasAverageRoiSelection(race))
+        assertEquals(RaceRecommendation.BUY, PredictionEngine.recommendation(race).recommendation)
+
+        PredictionEngine.clearValueSelections()
+        assertFalse(PredictionEngine.hasAverageRoiSelection(race))
+    }
+
+    @Test
+    fun restoredOldVersionIsNotEvenShownAsCurrentDecision() {
+        PredictionEngine.installValueStrategyModel(null)
+        val race = strongLaneOneRace()
+        val old = PredictionRecord(
+            id = race.id, date = race.date, stadiumNumber = race.stadiumNumber,
+            raceNumber = race.raceNumber, combinations = listOf("1-2-3"),
+            stakePerPick = 100, resultCombination = null, trifectaPayout = 0,
+            settled = false, createdAt = 1L, recommended = true,
+            evaluationEligible = true, strategyId = "value-v1",
+            sourceAppVersion = "0.18.14"
+        )
+        AverageRoiReferenceStrategy.restore(listOf(old), "0.18.15")
+        assertFalse(PredictionEngine.hasAverageRoiSelection(race))
+        assertEquals(null, PredictionEngine.cachedValueSelection(race))
+        PredictionEngine.clearValueSelections()
+    }
+
+    @Test
     fun forecastDoesNotNeedOddsAndWeakLaneOneIsNotForcedToFirst() {
         val race = weakLaneOneRace()
         val picks = AverageRoiReferenceStrategy.forecast(race, 4)
