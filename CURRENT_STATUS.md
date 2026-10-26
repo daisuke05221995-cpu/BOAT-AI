@@ -1,6 +1,6 @@
 # BOAT AI Current Status
 
-Updated: 2026-10-27 (v0.18.18 release verification pending)
+Updated: 2026-10-27 (v0.18.18 release verified)
 
 ## v0.18.18 — ユーザー指定の不要機能を廃止
 
@@ -8,6 +8,9 @@ Updated: 2026-10-27 (v0.18.18 release verification pending)
 - 両専用戦略の新規自動記録と1→2専用オッズ取得を停止し、通常Model A予想 / ライブBUY・SKIPと公式オッズ取得は継続。
 - 過去の戦略別履歴・実購入・未精算データは削除せず、既存の精算復旧処理を維持。
 - `data/V01818_REMOVE_FOCUS_ONE_TWO_HANDOFF_20261027.md` に変更範囲とリリース確認項目を記録。
+- 検証ブランチDebug Run `40422145085` SUCCESS、本番Debug Run `40422523234` SUCCESS、署名付きRelease Run `40422523228` SUCCESS（Unit / lint / APK署名検証 / 公開）。
+- 公開版: **v0.18.18 / versionCode 64**。Release ID `424891290`、APK `BOAT-AI-v0.18.18.apk` (13,744,574 bytes)、SHA-256 `3076195ccf3838f0ddbd81886e031b9be6af7f8c7c35f0fdba83c0c1ae71ca45`。
+- 実機確認は未実施。旧データを消さず上書き更新し、通常BUY/SKIP・オッズ更新・履歴維持を確認する。
 
 ---
 
