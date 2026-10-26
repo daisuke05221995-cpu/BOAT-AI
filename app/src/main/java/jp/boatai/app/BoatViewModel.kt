@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -48,6 +50,7 @@ data class BoatUiState(
     val raceBudget: Int = BetStrategy.DEFAULT_BUDGET,
     val tab: Int = 0,
     val lastUpdatedAt: Long? = null,
+    val programUpdatedAt: Long? = null,
     val actionMessage: String? = null,
     val learnedRaceCount: Int = 0,
     val notificationsEnabled: Boolean = false,
@@ -79,6 +82,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private var valueRefreshJob: Job? = null
     private var oneTwoRefreshJob: Job? = null
     private var datePublicationRetryJob: Job? = null
+    private var dateLoadJob: Job? = null
+    private var liveRefreshJob: Job? = null
     // 0 = nationwide, 1..24 = venue. A single tap on recommended-only stays active
     // while official 120-way odds are resolved sequentially.
     private var recommendedBulkScope: Int? = null
@@ -139,7 +144,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                         diagnostics = cached.diagnostics,
                         loading = false,
                         error = null,
-                        lastUpdatedAt = System.currentTimeMillis()
+                        lastUpdatedAt = System.currentTimeMillis(),
+                        programUpdatedAt = null
                     )
                 }
                 refreshOperationalIssues(cached.races, initialPredictionHistory)
@@ -157,12 +163,48 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Refresh only while the activity is visible; background T-5 tracking remains separate. */
+    fun startLiveRefresh() {
+        if (liveRefreshJob?.isActive == true) return
+        liveRefreshJob = viewModelScope.launch {
+            // On returning to an existing screen, do not wait a full minute for fresh data.
+            val initial = _ui.value
+            if (initial.races.isNotEmpty() && initial.programUpdatedAt != null &&
+                System.currentTimeMillis() - initial.programUpdatedAt >= LiveRefreshPolicy.INTERVAL_MS
+            ) refreshLiveDataIfDue()
+            while (isActive) {
+                delay(LiveRefreshPolicy.INTERVAL_MS)
+                refreshLiveDataIfDue()
+            }
+        }
+    }
+
+    private fun refreshLiveDataIfDue() {
+        val state = _ui.value
+        val now = LocalDateTime.now(ZoneId.of("Asia/Tokyo"))
+        if (dateLoadJob?.isActive != true &&
+            LiveRefreshPolicy.shouldRefresh(state.date, state.races, now)
+        ) {
+            loadDate(state.date, showLoading = false, forceValueRefresh = true, nearDeadlineOnly = true)
+        }
+    }
+
+    fun stopLiveRefresh() {
+        liveRefreshJob?.cancel()
+        liveRefreshJob = null
+    }
+
     fun loadDate(
         date: LocalDate,
         showLoading: Boolean = true,
-        forceValueRefresh: Boolean = false
+        forceValueRefresh: Boolean = false,
+        nearDeadlineOnly: Boolean = false
     ) {
         if (date.isAfter(currentToday()) || date.isBefore(earliestBrowsableDate())) return
+        if (dateLoadJob?.isActive == true) {
+            if (nearDeadlineOnly) return
+            dateLoadJob?.cancel()
+        }
         datePublicationRetryJob?.cancel()
         datePublicationRetryJob = null
         val changingDate = date != _ui.value.date
@@ -172,7 +214,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             oddsRefreshJob?.cancel()
             PredictionEngine.clearValueSelections()
         }
-        viewModelScope.launch {
+        dateLoadJob = viewModelScope.launch {
             if (showLoading || changingDate || _ui.value.races.isEmpty()) {
                 _ui.update {
                     it.copy(
@@ -231,6 +273,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     _ui.update {
                         it.copy(
                             races = races,
+                            selectedRace = it.selectedRace?.let { selected ->
+                                races.firstOrNull { current -> current.id == selected.id } ?: selected
+                            },
                             records = records,
                             predictionHistory = preOddsHistory,
                             performance = preOddsPerformance,
@@ -238,6 +283,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             loading = false,
                             error = if (races.isEmpty() && !waitingForPublication) "この日のレースデータがありません" else null,
                             lastUpdatedAt = System.currentTimeMillis(),
+                            programUpdatedAt = System.currentTimeMillis(),
                             learnedRaceCount = learning.totalRaceCount,
                             oneTwoStats = oneTwoStore.summary()
                         )
@@ -256,10 +302,13 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                     refreshOperationalIssues(races, preOddsHistory)
-                    refreshValueSelections(races, forceRefresh = forceValueRefresh)
-                    refreshOneTwoLocks(races)
+                    refreshValueSelections(races, forceRefresh = forceValueRefresh, nearDeadlineOnly = nearDeadlineOnly)
+                    refreshOneTwoLocks(if (nearDeadlineOnly) {
+                        races.filter { LiveRefreshPolicy.isNearDeadline(it, LocalDateTime.now(ZoneId.of("Asia/Tokyo"))) }
+                    } else races)
                 }
                 .onFailure { error ->
+                    if (error is CancellationException) return@onFailure
                     _ui.update {
                         it.copy(
                             loading = false,
@@ -316,9 +365,11 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         loadOdds(race, initial)
         if (race.isPurchasable()) {
             oddsRefreshJob = viewModelScope.launch {
-                while (_ui.value.selectedRace?.id == race.id && race.isPurchasable()) {
+                while (_ui.value.selectedRace?.id == race.id) {
                     delay(60_000)
-                    loadOdds(race, _ui.value.predictions, showLoading = false)
+                    val currentRace = _ui.value.selectedRace?.takeIf { it.id == race.id } ?: break
+                    if (!currentRace.isPurchasable()) break
+                    loadOdds(currentRace, _ui.value.predictions, showLoading = false)
                 }
             }
         }
@@ -454,7 +505,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
      */
     private fun refreshValueSelections(
         races: List<RaceData>,
-        forceRefresh: Boolean = false
+        forceRefresh: Boolean = false,
+        nearDeadlineOnly: Boolean = false
     ) {
         val averageRoiMode = PredictionEngine.hasAverageRoiReferenceStrategy()
         val combinations = when {
@@ -463,7 +515,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             else -> return
         }
         if (combinations.size != 120) return
-        val candidates = races.filter { it.isPurchasable() && PredictionEngine.isDecisionReady(it) }
+        val candidates = LiveRefreshPolicy.oddsCandidates(
+            races, LocalDateTime.now(ZoneId.of("Asia/Tokyo")), nearDeadlineOnly
+        )
         if (candidates.isEmpty()) return
 
         valueRefreshJob?.cancel()

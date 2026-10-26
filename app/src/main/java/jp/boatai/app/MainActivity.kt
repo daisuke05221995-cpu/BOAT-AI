@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.LocalDate
+import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -85,6 +86,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        vm.startLiveRefresh()
         // PredictionTrackingService may have settled purchases while the UI process stayed
         // alive. Pull durable accounting back into the ViewModel before the user sees Profit.
         vm.syncStoredAccounting()
@@ -92,6 +94,11 @@ class MainActivity : ComponentActivity() {
             PredictionTrackingScheduler(this).scheduleBootstrapSoon(2_000L)
         }.onFailure { CrashRecoveryStore(this).recordNonFatal("MainActivity.resumeTrackingBootstrap", it) }
         vm.resumePendingInstall(this)
+    }
+
+    override fun onStop() {
+        vm.stopLiveRefresh()
+        super.onStop()
     }
 }
 
@@ -451,6 +458,13 @@ private fun DateSelectorCard(ui: BoatUiState, vm: BoatViewModel) {
                     },
                     style = MaterialTheme.typography.bodySmall
                 )
+                if (ui.date == today) {
+                    val updatedTime = ui.programUpdatedAt?.let { timestamp ->
+                        Instant.ofEpochMilli(timestamp).atZone(ZoneId.of("Asia/Tokyo"))
+                            .format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+                    } ?: "未取得"
+                    Text("出走更新 $updatedTime · 自動60秒", style = MaterialTheme.typography.labelSmall)
+                }
             }
             IconButton(onClick = vm::nextDay, enabled = ui.date.isBefore(today)) { Icon(Icons.Default.ChevronRight, contentDescription = "翌日") }
         }
