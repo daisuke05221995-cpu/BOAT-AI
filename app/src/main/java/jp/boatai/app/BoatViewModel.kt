@@ -54,9 +54,6 @@ data class BoatUiState(
     val actionMessage: String? = null,
     val learnedRaceCount: Int = 0,
     val notificationsEnabled: Boolean = false,
-    val oneTwoQuotes: Map<String, OneTwoLockQuote> = emptyMap(),
-    val oneTwoLoading: Boolean = false,
-    val oneTwoStats: OneTwoLockSummary = OneTwoLockSummary(),
     val update: AppUpdateState = AppUpdateState(),
     val purchaseLaunchHelpVisible: Boolean = false,
     val operationalIssues: List<OperationalIssue> = emptyList()
@@ -80,7 +77,6 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private fun earliestBrowsableDate(): LocalDate = currentToday().minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
     private var oddsRefreshJob: Job? = null
     private var valueRefreshJob: Job? = null
-    private var oneTwoRefreshJob: Job? = null
     private var datePublicationRetryJob: Job? = null
     private var dateLoadJob: Job? = null
     private var liveRefreshJob: Job? = null
@@ -96,8 +92,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             pendingPurchase = pendingPurchaseStore.load(),
             predictionHistory = initialPredictionHistory,
             performance = initialPerformance,
-            notificationsEnabled = notificationScheduler.enabled,
-            oneTwoStats = oneTwoStore.summary()
+            notificationsEnabled = notificationScheduler.enabled
         )
     )
     val ui: StateFlow<BoatUiState> = _ui.asStateFlow()
@@ -210,7 +205,6 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         val changingDate = date != _ui.value.date
         if (changingDate) {
             valueRefreshJob?.cancel()
-            oneTwoRefreshJob?.cancel()
             oddsRefreshJob?.cancel()
             PredictionEngine.clearValueSelections()
         }
@@ -225,8 +219,6 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                         selectedVenue = null,
                         predictions = emptyList(),
                         selectedForBulk = emptySet(),
-                        oneTwoQuotes = emptyMap(),
-                        oneTwoLoading = false,
                         actionMessage = null
                     )
                 }
@@ -284,8 +276,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                             error = if (races.isEmpty() && !waitingForPublication) "この日のレースデータがありません" else null,
                             lastUpdatedAt = System.currentTimeMillis(),
                             programUpdatedAt = System.currentTimeMillis(),
-                            learnedRaceCount = learning.totalRaceCount,
-                            oneTwoStats = oneTwoStore.summary()
+                            learnedRaceCount = learning.totalRaceCount
                         )
                     }
                     if (
@@ -303,9 +294,6 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     refreshOperationalIssues(races, preOddsHistory)
                     refreshValueSelections(races, forceRefresh = forceValueRefresh, nearDeadlineOnly = nearDeadlineOnly)
-                    refreshOneTwoLocks(if (nearDeadlineOnly) {
-                        races.filter { LiveRefreshPolicy.isNearDeadline(it, LocalDateTime.now(ZoneId.of("Asia/Tokyo"))) }
-                    } else races)
                 }
                 .onFailure { error ->
                     if (error is CancellationException) return@onFailure
@@ -460,41 +448,6 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
                 }
-        }
-    }
-
-    private fun refreshOneTwoLocks(races: List<RaceData>) {
-        oneTwoRefreshJob?.cancel()
-        val candidates = races.mapNotNull { race ->
-            if (!race.isPurchasable() || !PredictionEngine.isDecisionReady(race)) return@mapNotNull null
-            val selection = OneTwoLockStrategy.selection(race) ?: return@mapNotNull null
-            if (!selection.eligible) null else race to selection
-        }
-        val initialQuotes = candidates.associate { (race, selection) -> race.id to OneTwoLockQuote(selection) }
-        _ui.update { state -> state.copy(oneTwoQuotes = initialQuotes, oneTwoLoading = candidates.isNotEmpty()) }
-        if (candidates.isEmpty()) return
-
-        oneTwoRefreshJob = viewModelScope.launch {
-            for ((race, selection) in candidates) {
-                if (!race.isPurchasable()) continue
-                oneTwoStore.captureRace(race, selection)
-                runCatching { repository.loadOfficialTrifectaOddsDetailed(race, selection.combinations) }
-                    .onSuccess { result ->
-                        val quote = OneTwoLockStrategy.quote(selection, result)
-                        oneTwoStore.updateOdds(race.id, quote)
-                        _ui.update { state ->
-                            state.copy(
-                                oneTwoQuotes = state.oneTwoQuotes + (race.id to quote),
-                                oneTwoStats = oneTwoStore.summary()
-                            )
-                        }
-                    }
-                    .onFailure { error ->
-                        val quote = OneTwoLockQuote(selection = selection, error = error.message ?: "公式オッズ取得失敗")
-                        _ui.update { state -> state.copy(oneTwoQuotes = state.oneTwoQuotes + (race.id to quote)) }
-                    }
-            }
-            _ui.update { it.copy(oneTwoLoading = false, oneTwoStats = oneTwoStore.summary()) }
         }
     }
 
@@ -677,8 +630,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 records = records,
                 pendingPurchase = pendingPurchaseStore.load(),
                 predictionHistory = history,
-                performance = performance,
-                oneTwoStats = oneTwoStore.summary()
+                performance = performance
             )
         }
         refreshOperationalIssues(_ui.value.races, history)
@@ -804,25 +756,6 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             // Only reached from explicit user selection of a SKIP race.
             PredictionEngine.manualOverridePicks(race, budget)
         }
-    }
-
-    fun prepareOneTwoLockPurchase(race: RaceData): Boolean {
-        if (!race.isPurchasable()) return false
-        val quote = _ui.value.oneTwoQuotes[race.id]
-        if (quote == null || !quote.purchaseQualified) {
-            _ui.update { it.copy(actionMessage = "1→2鉄板の90%＋3.1倍条件を満たしていません") }
-            return false
-        }
-        val picks = OneTwoLockStrategy.purchasePicks(quote, _ui.value.raceBudget)
-        if (picks.isEmpty()) {
-            _ui.update { it.copy(actionMessage = "1→2鉄板の3点均等買いを作成できませんでした") }
-            return false
-        }
-        return savePendingPurchase(
-            entries = listOf(race to picks),
-            message = "${race.venueName} ${race.raceNumber}Rの1→2鉄板3点を投票待ちに保存",
-            strategyId = OneTwoLockStrategy.STRATEGY_ID
-        )
     }
 
     fun prepareSelectedPurchase(): Boolean {

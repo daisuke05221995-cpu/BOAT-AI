@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 63
-        versionName = "0.18.17"
-        // v0.18.17: Foreground live refresh and imminent-deadline odds priority; preserve fresh-odds purchase guard.
+        versionCode = 64
+        versionName = "0.18.18"
+        // v0.18.18: Retire Focus and 1→2 side predictions; keep core Model A BUY/SKIP and historical records.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

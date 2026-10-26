@@ -438,20 +438,6 @@ class PredictionTrackingService : Service() {
         PredictionEngine.installValueStrategyModel(ValueStrategyModel.load(this))
         PredictionEngine.restoreValueSelections(history)
 
-        val focusStore = FocusPredictionHistoryStore(this)
-        FocusMode.values().forEach { mode ->
-            focusStore.captureRace(race, mode, BetStrategy.DEFAULT_BUDGET)
-        }
-
-        OneTwoLockStrategy.selection(race)?.takeIf { it.eligible }?.let { selection ->
-            val oneTwoStore = OneTwoLockHistoryStore(this)
-            oneTwoStore.captureRace(race, selection)
-            runCatching { repository.loadOfficialTrifectaOddsDetailed(race, selection.combinations) }
-                .onSuccess { oddsResult ->
-                    oneTwoStore.updateOdds(race.id, OneTwoLockStrategy.quote(selection, oddsResult))
-                }
-        }
-
         val existing = predictionStore.load().firstOrNull { it.id == race.id }
         if (PredictionTrackingPolicy.shouldSkipEvaluation(existing)) return
 

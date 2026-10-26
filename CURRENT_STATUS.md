@@ -1,5 +1,16 @@
 # BOAT AI Current Status
 
+Updated: 2026-10-27 (v0.18.18 release verification pending)
+
+## v0.18.18 — ユーザー指定の不要機能を廃止
+
+- `フォーカス予想（4択/5択）` と `1→2鉄板` を予想画面・詳細画面から除去。
+- 両専用戦略の新規自動記録と1→2専用オッズ取得を停止し、通常Model A予想 / ライブBUY・SKIPと公式オッズ取得は継続。
+- 過去の戦略別履歴・実購入・未精算データは削除せず、既存の精算復旧処理を維持。
+- `data/V01818_REMOVE_FOCUS_ONE_TWO_HANDOFF_20261027.md` に変更範囲とリリース確認項目を記録。
+
+---
+
 Updated: 2026-10-25 (v0.18.16 release verified)
 
 ## OPERATIONAL CHECKPOINT — 2026-10-25

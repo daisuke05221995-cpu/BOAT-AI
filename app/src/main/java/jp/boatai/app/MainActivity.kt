@@ -244,10 +244,6 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
             item { PendingPurchaseCard(pending, vm, ui.purchaseLaunchHelpVisible) }
         }
         item { PredictionModeBar(sortMode) { sortMode = it } }
-        if (sortMode == 3) {
-            item { OneTwoLockCandidateList(ui, vm) }
-        }
-
         if (ui.loading && ui.races.isEmpty()) {
             item {
                 Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
@@ -274,7 +270,6 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
                         }
                     }
                 }
-                3 -> Unit
                 else -> {
                     items(venues.chunked(3), key = { row -> row.joinToString { it.first.toString() } }) { row ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -288,7 +283,7 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
             }
         }
 
-        if (sortMode != 3 && ui.selectedForBulk.isNotEmpty()) item { BulkPurchaseCard(ui, vm) }
+        if (ui.selectedForBulk.isNotEmpty()) item { BulkPurchaseCard(ui, vm) }
 
         item {
             Text(
@@ -304,7 +299,7 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
 private fun PredictionModeBar(selected: Int, onSelect: (Int) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            listOf("開催一覧", "締切順", "推奨数順", "1→2鉄板").forEachIndexed { index, label ->
+            listOf("開催一覧", "締切順", "推奨数順").forEachIndexed { index, label ->
                 TextButton(onClick = { onSelect(index) }) {
                     Text(label, fontWeight = if (selected == index) FontWeight.Bold else FontWeight.Normal)
                 }
@@ -972,17 +967,6 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
 
         item { Text("出走データ", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
         items(race.racers, key = { it.lane }) { racer -> RacerCard(racer) }
-
-        item {
-            FocusPredictionCard(
-                race = race,
-                raceBudget = ui.raceBudget,
-                purchased = ui.records.any {
-                    it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber
-                },
-                pendingPurchaseExists = ui.pendingPurchase != null
-            )
-        }
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
