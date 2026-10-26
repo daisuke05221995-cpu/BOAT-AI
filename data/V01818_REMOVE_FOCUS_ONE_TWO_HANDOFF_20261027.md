@@ -19,6 +19,8 @@ Date: 2026-10-27
 
 - Version: versionCode 64, versionName 0.18.18.
 - Diff/reference checks locally; Android Gradle is unavailable in this runner.
-- GitHub Actions Debug test/lint/build must pass before publishing from `main`.
-- Signed Release test/lint/APK/signature verification must pass before announcing publication.
-- Verify on device that three prediction list modes remain (`開催一覧` / `締切順` / `推奨数順`), Focus card is gone, BUY/SKIP and background recording still operate, and historical purchases remain intact.
+- Verification branch Debug Run `40422145085` SUCCESS (API / unit / lint / APK / upload).
+- Main Debug Run `40422523234` SUCCESS; signed Release Run `40422523228` SUCCESS (test/lint/build/signature verification/publication).
+- GitHub Release v0.18.18 ID `424891290`, APK `BOAT-AI-v0.18.18.apk` (13,744,574 bytes), SHA-256 `3076195ccf3838f0ddbd81886e031b9be6af7f8c7c35f0fdba83c0c1ae71ca45`.
+- Published: https://github.com/daisuke05221995-cpu/BOAT-AI/releases/tag/v0.18.18
+- Not yet verified on a physical device. Verify on device that three prediction list modes remain (`開催一覧` / `締切順` / `推奨数順`), Focus card is gone, BUY/SKIP and background recording still operate, and historical purchases remain intact.
