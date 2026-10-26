@@ -25,6 +25,10 @@
 ## 検証と残る確認
 
 - 事前検証: Build and verify BOAT AI APK Run `40263376469` SUCCESS（公式APIスキーマ、Unit、Android lint、Debug APK）。
+- v0.18.17 バージョン反映後のBuild Run `40263712442` SUCCESS / main マージ後Build Run `40263982548` SUCCESS。
+- Signed Release Run `40263982614` SUCCESS（Unit・lint・assembleRelease・署名検証・公開）。公開tag `v0.18.17` / commit `226b309f5ce841b697a7677d8e7c1b47d0ee662d`。
+- 公開APK `BOAT-AI-v0.18.17.apk` 13,760,958 bytes、SHA-256 `7d53eb4aadf28d05529476db7bfc3f777bd6eb36ff237672deba9a947610f8f3`。
+- 既存インストールへ上書き更新する（versionCode 63）。アンインストール・アプリデータ消去はしない。
 - 新規 `LiveRefreshPolicyTest`: 当日・締切済みのフィルタ、会場をまたぐ締切順・直前30分範囲を固定。
 - 実機v0.18.17で、画面を開いたまま60秒待ったときの `直前情報待ち → オッズ判定待ち → BUY/SKIP` 遷移と、締切4分前でも自動更新されることを再確認する。
 - 公式APIが展示を締切直前まで公開しない場合は、取得そのものを先取りできない。API公開時刻・取得時刻の記録を別途分析する。
