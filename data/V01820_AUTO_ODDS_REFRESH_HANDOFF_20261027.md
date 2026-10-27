@@ -16,7 +16,8 @@
 
 - `LiveRefreshPolicyTest`: 締切優先・ローテーション・最大4R。
 - `AverageRoiReferenceStrategyTest`: 画面履歴同期でライブ判定を維持し、120秒後は非購入判定へ戻し、冷起動の復元は購入判断として使わない。
-- GitHub Actions `build-apk.yml` / `release.yml`: Unit/Lint/Debug/署名Release/署名検証（実行待ち）。
+- 検証ブランチRun `40497497260` SUCCESS（Unit/Lint/Debug）、署名Release Run `40497909283` SUCCESS（Unit/Lint/署名APK/署名検証/公開）。
+- v0.18.20 Release ID `425383455`、APK SHA-256 `dadf3d0578684c7bb178dcb6945a78c2404df5aef117091b053e5987b79e926c`。
 
 ## 実機確認（公開後に必要）
 
