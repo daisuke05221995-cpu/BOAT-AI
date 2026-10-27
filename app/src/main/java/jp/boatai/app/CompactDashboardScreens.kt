@@ -136,11 +136,11 @@ fun PurchaseDashboardScreen(ui: BoatUiState, vm: BoatViewModel) {
 @Composable
 fun CompactResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
     val results = ui.races.filter { it.hasResult }.sortedWith(compareBy<RaceData> { it.stadiumNumber }.thenBy { it.raceNumber })
-    val predictionByRace = ui.predictionHistory.associateBy { it.id } + ui.modelARecentVirtualRecords.associateBy { it.id }
+    val livePredictionByRace = ui.predictionHistory.associateBy { it.id }
+    val retrospectivePredictionByRace = ui.modelARecentVirtualRecords.associateBy { it.id }
     val venues = results.groupBy { it.stadiumNumber }.toSortedMap()
     val expanded = remember { mutableStateMapOf<Int, Boolean>() }
-    val captured = results.count { predictionByRace[it.id] != null }
-    val hits = results.count { predictionByRace[it.id]?.hit == true }
+    val aiDecisions = ResultsRecommendationCounter.count(results, livePredictionByRace)
     val boughtRaces = results.count { race ->
         ui.records.any { it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber }
     }
@@ -154,8 +154,8 @@ fun CompactResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DashboardMetric("確定", "${results.size}R", Modifier.weight(1f))
-                DashboardMetric("AI予想", "$captured R", Modifier.weight(1f))
-                DashboardMetric("的中", "$hits R", Modifier.weight(1f))
+                DashboardMetric("購入推奨", "${aiDecisions.recommended} R", Modifier.weight(1f))
+                DashboardMetric("的中", "${aiDecisions.hits} R", Modifier.weight(1f))
                 DashboardMetric("実購入", "$boughtRaces R", Modifier.weight(1f))
             }
         }
@@ -167,7 +167,7 @@ fun CompactResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
         venues.forEach { (stadium, stadiumRaces) ->
             item(key = "venue-$stadium") {
                 val isExpanded = expanded[stadium] == true
-                val venueHits = stadiumRaces.count { predictionByRace[it.id]?.hit == true }
+                val venueDecisions = ResultsRecommendationCounter.count(stadiumRaces, livePredictionByRace)
                 Card(
                     onClick = { expanded[stadium] = !isExpanded },
                     modifier = Modifier.fillMaxWidth()
@@ -176,7 +176,7 @@ fun CompactResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Column {
                                 Text(Venues.name(stadium), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                Text("${stadiumRaces.size}レース確定 / 的中 $venueHits", style = MaterialTheme.typography.bodySmall)
+                                Text("${stadiumRaces.size}レース確定 / 購入推奨 ${venueDecisions.recommended} / 的中 ${venueDecisions.hits}", style = MaterialTheme.typography.bodySmall)
                             }
                             Text(if (isExpanded) "閉じる ▲" else "詳細 ▼", fontWeight = FontWeight.SemiBold)
                         }
@@ -184,7 +184,8 @@ fun CompactResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
                         if (isExpanded) {
                             Spacer(Modifier.height(6.dp))
                             stadiumRaces.forEachIndexed { index, race ->
-                                val prediction = predictionByRace[race.id]
+                                val livePrediction = livePredictionByRace[race.id]
+                                val prediction = livePrediction ?: retrospectivePredictionByRace[race.id]
                                 val purchases = ui.records.filter { it.date == race.date && it.stadiumNumber == race.stadiumNumber && it.raceNumber == race.raceNumber }
                                 val stake = purchases.sumOf { it.stake }
                                 val payout = purchases.sumOf { it.payout }
@@ -197,9 +198,11 @@ fun CompactResultsScreen(ui: BoatUiState, vm: BoatViewModel) {
                                         Text(
                                             when {
                                                 prediction == null -> "事前予想：記録なし"
-                                                prediction.hit -> "✓ 的中  ${prediction.combinations.joinToString(" / ")}"
-                                                !prediction.recommended && prediction.combinations.isEmpty() -> "AI見送り：${prediction.recommendationReason ?: prediction.autoSkipReason ?: "購入条件を満たさず"}"
-                                                else -> "予想  ${prediction.combinations.joinToString(" / ")}"
+                                                livePrediction == null -> "Model A仮想：${if (prediction.hit) "的中" else "不的中"}  ${prediction.combinations.joinToString(" / ")}"
+                                                !prediction.evaluationEligible -> "事前予想（集計対象外）  ${prediction.combinations.joinToString(" / ")}"
+                                                !prediction.recommended -> "AI見送り：${prediction.recommendationReason ?: prediction.autoSkipReason ?: "購入条件を満たさず"}"
+                                                ResultsRecommendationCounter.isHit(race, prediction) -> "✓ 購入推奨的中  ${prediction.combinations.joinToString(" / ")}"
+                                                else -> "購入推奨  ${prediction.combinations.joinToString(" / ")}"
                                             },
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
