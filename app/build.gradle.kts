@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 64
-        versionName = "0.18.18"
-        // v0.18.18: Retire Focus and 1→2 side predictions; keep core Model A BUY/SKIP and historical records.
+        versionCode = 65
+        versionName = "0.18.19"
+        // v0.18.19: Results metrics count only eligible live BUY decisions and their hits; exclude SKIP/retrospective.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
