@@ -1,6 +1,6 @@
 # BOAT AI Current Status
 
-Updated: 2026-10-27 (v0.18.21 awaiting CI/release)
+Updated: 2026-10-27 (v0.18.21 signed release verified)
 
 ## v0.18.21 — データ欠損時の保護・エラー追跡
 
@@ -8,6 +8,8 @@ Updated: 2026-10-27 (v0.18.21 awaiting CI/release)
 - 当日データが単発で「公開待ち」になった場合、同じ日付の表示済みレースを消さない。再取得時には更新を継続。
 - キャッシュ保存を Android `AtomicFile` へ切り替え、途中失敗による破損リスクを減らす。
 - 通信・オッズ取得の直近48件を端末内に記録。新規JSONバックアップに `dataFetchAudit`、直近クラッシュ情報、バックグラウンド障害情報を追加。スキーマは1のまま、復元時は追加フィールドを無視して既存形式と互換。
+- 検証ブランチRun `40527988648` SUCCESS、main Debug Run `40528522144` SUCCESS、本番署名Release Run `40528521994` SUCCESS（Unit / Lint / APK署名確認 / GitHub Release）。
+- 公開版: **v0.18.21 / versionCode 67**。Release ID `425624136`、APK 13,744,574 bytes、SHA-256 `aaa8fbd5aea8abf5277e267623d95ef21a3c9341bad6d445e0f26fdd7f64726f`。
 - 実機でのエラー再現・公式オッズ取得成功率の検証はレース開催時まで保留。モデルや購入条件は変更しない。
 - 詳細: `data/V01821_ERROR_GAP_STABILITY_HANDOFF_20261027.md`。
 
