@@ -102,6 +102,33 @@ class AverageRoiReferenceStrategyTest {
     }
 
     @Test
+    fun foregroundHistorySyncPreservesCurrentLiveDecisionButExpiresOldOdds() {
+        PredictionEngine.installValueStrategyModel(null)
+        val race = strongLaneOneRace()
+        val now = 5_000_000L
+        val evaluated = AverageRoiReferenceStrategy.evaluateAndCache(race, emptyMap(), nowMillis = now)
+        assertTrue(AverageRoiReferenceStrategy.isLiveVerified(race, now))
+
+        val saved = PredictionRecord(
+            id = race.id, date = race.date, stadiumNumber = race.stadiumNumber,
+            raceNumber = race.raceNumber, combinations = listOf("1-2-3"),
+            stakePerPick = 300, resultCombination = null, trifectaPayout = 0,
+            settled = false, createdAt = 1L, recommended = true,
+            evaluationEligible = true, strategyId = "value-v1",
+            sourceAppVersion = "0.18.20"
+        )
+        AverageRoiReferenceStrategy.restore(listOf(saved), "0.18.20", preserveLive = true)
+        assertEquals(evaluated, AverageRoiReferenceStrategy.cached(race))
+        assertTrue(AverageRoiReferenceStrategy.isLiveVerified(race, now + 60_000L))
+        assertFalse(AverageRoiReferenceStrategy.isLiveVerified(race, now + AverageRoiReferenceStrategy.MAX_LIVE_AGE_MS + 1))
+
+        // A cold start only restores a non-actionable snapshot.
+        AverageRoiReferenceStrategy.restore(listOf(saved), "0.18.20")
+        assertFalse(AverageRoiReferenceStrategy.isLiveVerified(race, now))
+        AverageRoiReferenceStrategy.clear()
+    }
+
+    @Test
     fun forecastDoesNotNeedOddsAndWeakLaneOneIsNotForcedToFirst() {
         val race = weakLaneOneRace()
         val picks = AverageRoiReferenceStrategy.forecast(race, 4)

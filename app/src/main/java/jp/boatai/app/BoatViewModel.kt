@@ -20,6 +20,16 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 
+data class LiveOddsRefreshStatus(
+    val running: Boolean = false,
+    val attempted: Int = 0,
+    val succeeded: Int = 0,
+    val failed: Int = 0,
+    val lastCheckedAt: Long? = null,
+    val lastSuccessAt: Long? = null,
+    val lastError: String? = null
+)
+
 data class BoatUiState(
     val date: LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo")),
     val races: List<RaceData> = emptyList(),
@@ -56,7 +66,8 @@ data class BoatUiState(
     val notificationsEnabled: Boolean = false,
     val update: AppUpdateState = AppUpdateState(),
     val purchaseLaunchHelpVisible: Boolean = false,
-    val operationalIssues: List<OperationalIssue> = emptyList()
+    val operationalIssues: List<OperationalIssue> = emptyList(),
+    val liveOddsRefresh: LiveOddsRefreshStatus = LiveOddsRefreshStatus()
 )
 
 class BoatViewModel(application: Application) : AndroidViewModel(application) {
@@ -76,10 +87,13 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private fun currentToday(): LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo"))
     private fun earliestBrowsableDate(): LocalDate = currentToday().minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
     private var oddsRefreshJob: Job? = null
+    private var detailOddsFetchJob: Job? = null
+    private var detailOddsRequestVersion = 0L
     private var valueRefreshJob: Job? = null
     private var datePublicationRetryJob: Job? = null
     private var dateLoadJob: Job? = null
     private var liveRefreshJob: Job? = null
+    private val lastAutoOddsAttemptAt = mutableMapOf<String, Long>()
     // 0 = nationwide, 1..24 = venue. A single tap on recommended-only stays active
     // while official 120-way odds are resolved sequentially.
     private var recommendedBulkScope: Int? = null
@@ -207,6 +221,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             valueRefreshJob?.cancel()
             oddsRefreshJob?.cancel()
             PredictionEngine.clearValueSelections()
+            lastAutoOddsAttemptAt.clear()
+            _ui.update { it.copy(liveOddsRefresh = LiveOddsRefreshStatus()) }
         }
         dateLoadJob = viewModelScope.launch {
             if (showLoading || changingDate || _ui.value.races.isEmpty()) {
@@ -244,7 +260,10 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     // persisted before result learning. Fresh value decisions are captured
                     // immediately after the official 120-way odds evaluation below.
                     val preOddsHistory = predictionStore.captureOpenRaces(races)
-                    PredictionEngine.restoreValueSelections(preOddsHistory)
+                    PredictionEngine.restoreValueSelections(
+                        preOddsHistory,
+                        preserveLive = nearDeadlineOnly && !changingDate
+                    )
                     val preOddsPerformance = PredictionPerformanceProfile.from(preOddsHistory)
                     PredictionEngine.installPerformanceProfile(preOddsPerformance)
 
@@ -293,7 +312,10 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                     refreshOperationalIssues(races, preOddsHistory)
-                    refreshValueSelections(races, forceRefresh = forceValueRefresh, nearDeadlineOnly = nearDeadlineOnly)
+                    // Normal initial/manual date loads also prioritize upcoming races.
+                    // Full-national evaluation is reserved for an explicit bulk selection.
+                    val prioritizeNearby = nearDeadlineOnly || (date == currentToday() && recommendedBulkScope == null)
+                    refreshValueSelections(races, forceRefresh = forceValueRefresh, nearDeadlineOnly = prioritizeNearby)
                 }
                 .onFailure { error ->
                     if (error is CancellationException) return@onFailure
@@ -364,8 +386,12 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun loadOdds(race: RaceData, initial: List<PredictionPick>, showLoading: Boolean = true) {
+        // Do not cancel a still-running official fetch merely because 60 seconds elapsed.
+        if (!showLoading && detailOddsFetchJob?.isActive == true) return
         if (showLoading) _ui.update { it.copy(oddsLoading = true, oddsError = null) }
-        viewModelScope.launch {
+        detailOddsFetchJob?.cancel()
+        val requestVersion = ++detailOddsRequestVersion
+        detailOddsFetchJob = viewModelScope.launch {
             val retrospective = _ui.value.modelARecentVirtualRecords.firstOrNull { it.id == race.id }
             val requested = when {
                 retrospective != null -> initial.map { it.combination }
@@ -374,13 +400,18 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 else -> initial.map { it.combination }
             }
             if (requested.isEmpty()) {
-                _ui.update { it.copy(oddsLoading = false, oddsError = "オッズ取得対象がありません") }
+                _ui.update { state ->
+                    if (state.selectedRace?.id != race.id || requestVersion != detailOddsRequestVersion) state
+                    else state.copy(oddsLoading = false, oddsError = "オッズ取得対象がありません")
+                }
                 return@launch
             }
             runCatching {
                 repository.loadOfficialTrifectaOddsDetailed(race, requested)
             }
                 .onSuccess { result ->
+                    // A slow fetch must not overwrite another race selected in the meantime.
+                    if (_ui.value.selectedRace?.id != race.id || requestVersion != detailOddsRequestVersion) return@onSuccess
                     val strategyPredictions = if (retrospective != null) {
                         initial.map { pick -> pick.copy(odds = result.odds[pick.combination], reason = "過去Model A再現 / レース終了後の公式オッズ") }
                     } else {
@@ -412,7 +443,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     if (retrospective == null) PredictionEngine.installPerformanceProfile(performance)
 
                     _ui.update { state ->
-                        state.copy(
+                        if (state.selectedRace?.id != race.id || requestVersion != detailOddsRequestVersion) state else state.copy(
                             predictions = displayedPredictions,
                             predictionHistory = history,
                             performance = performance,
@@ -434,8 +465,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 .onFailure { error ->
+                    if (error is CancellationException) return@onFailure
                     _ui.update { state ->
-                        state.copy(
+                        if (state.selectedRace?.id != race.id || requestVersion != detailOddsRequestVersion) state else state.copy(
                             oddsLoading = false,
                             oddsError = error.message ?: "オッズ取得失敗",
                             oddsDiagnostics = listOf(
@@ -468,62 +500,102 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             else -> return
         }
         if (combinations.size != 120) return
-        val candidates = LiveRefreshPolicy.oddsCandidates(
+        val available = LiveRefreshPolicy.oddsCandidates(
             races, LocalDateTime.now(ZoneId.of("Asia/Tokyo")), nearDeadlineOnly
         )
-        if (candidates.isEmpty()) return
+        if (available.isEmpty()) return
 
+        // A nationwide pass can take longer than the 60-second program refresh.
+        // Keep the existing pass alive; otherwise later venues never reach odds evaluation.
+        if (nearDeadlineOnly && valueRefreshJob?.isActive == true) return
+        val candidates = if (nearDeadlineOnly) {
+            LiveRefreshPolicy.nextOddsBatch(
+                available,
+                LocalDateTime.now(ZoneId.of("Asia/Tokyo")),
+                lastAutoOddsAttemptAt
+            )
+        } else available
         valueRefreshJob?.cancel()
         valueRefreshJob = viewModelScope.launch {
-            for (race in candidates) {
-                if (!race.isPurchasable()) continue
-                if (!forceRefresh && averageRoiMode && PredictionEngine.hasAverageRoiSelection(race)) continue
-                if (!forceRefresh && !averageRoiMode && PredictionEngine.cachedValueSelection(race) != null) continue
-                runCatching {
-                    repository.loadOfficialTrifectaOddsDetailed(race, combinations)
-                }.onSuccess { result ->
-                    if (averageRoiMode) {
-                        PredictionEngine.applyAverageRoiOdds(race, result.odds, _ui.value.raceBudget)
-                    } else {
-                        PredictionEngine.applyValueOdds(race, result.odds)
-                    }
-                    val activeScope = recommendedBulkScope
-                    if (activeScope != null && (activeScope == 0 || activeScope == race.stadiumNumber)) {
+            if (nearDeadlineOnly) _ui.update { it.copy(liveOddsRefresh = it.liveOddsRefresh.copy(running = true)) }
+            try {
+                for (race in candidates) {
+                    if (!race.isPurchasable()) continue
+                    if (!forceRefresh && averageRoiMode && PredictionEngine.hasAverageRoiSelection(race)) continue
+                    if (!forceRefresh && !averageRoiMode && PredictionEngine.cachedValueSelection(race) != null) continue
+                    if (nearDeadlineOnly) {
+                        val now = System.currentTimeMillis()
+                        lastAutoOddsAttemptAt[race.id] = now
                         _ui.update { state ->
-                            val next = state.selectedForBulk.toMutableSet()
-                            if (PredictionEngine.isRecommended(race)) next.add(race.id) else next.remove(race.id)
-                            state.copy(
-                                selectedForBulk = next,
-                                actionMessage = "購入推奨を判定中… 現在${next.size}レース選択"
-                            )
+                            state.copy(liveOddsRefresh = state.liveOddsRefresh.copy(
+                                attempted = state.liveOddsRefresh.attempted + 1,
+                                lastCheckedAt = now
+                            ))
                         }
                     }
-                    val history = predictionStore.captureOpenRaces(listOf(race))
-                    val performance = PredictionPerformanceProfile.from(history)
-                    PredictionEngine.installPerformanceProfile(performance)
-                    _ui.update { state ->
-                        if (state.selectedRace?.id == race.id) {
-                            val picks = if (PredictionEngine.isRecommended(race)) {
-                                BetStrategy.allocate(race, PredictionEngine.predict(race), state.raceBudget)
-                            } else state.predictions
-                            state.copy(
-                                predictions = picks,
-                                predictionHistory = history,
-                                performance = performance,
-                                oddsUpdatedAt = result.fetchedAt,
-                                oddsSource = result.source,
-                                lastUpdatedAt = System.currentTimeMillis()
-                            )
+                    runCatching {
+                        repository.loadOfficialTrifectaOddsDetailed(race, combinations)
+                    }.onSuccess { result ->
+                        if (nearDeadlineOnly) _ui.update { state ->
+                            state.copy(liveOddsRefresh = state.liveOddsRefresh.copy(
+                                succeeded = state.liveOddsRefresh.succeeded + 1,
+                                lastSuccessAt = System.currentTimeMillis(),
+                                lastError = null
+                            ))
+                        }
+                        if (averageRoiMode) {
+                            PredictionEngine.applyAverageRoiOdds(race, result.odds, _ui.value.raceBudget)
                         } else {
-                            state.copy(
-                                predictionHistory = history,
-                                performance = performance,
-                                lastUpdatedAt = System.currentTimeMillis()
-                            )
+                            PredictionEngine.applyValueOdds(race, result.odds)
+                        }
+                        val activeScope = recommendedBulkScope
+                        if (activeScope != null && (activeScope == 0 || activeScope == race.stadiumNumber)) {
+                            _ui.update { state ->
+                                val next = state.selectedForBulk.toMutableSet()
+                                if (PredictionEngine.isRecommended(race)) next.add(race.id) else next.remove(race.id)
+                                state.copy(
+                                    selectedForBulk = next,
+                                    actionMessage = "購入推奨を判定中… 現在${next.size}レース選択"
+                                )
+                            }
+                        }
+                        val history = predictionStore.captureOpenRaces(listOf(race))
+                        val performance = PredictionPerformanceProfile.from(history)
+                        PredictionEngine.installPerformanceProfile(performance)
+                        _ui.update { state ->
+                            if (state.selectedRace?.id == race.id) {
+                                val picks = if (PredictionEngine.isRecommended(race)) {
+                                    BetStrategy.allocate(race, PredictionEngine.predict(race), state.raceBudget)
+                                } else state.predictions
+                                state.copy(
+                                    predictions = picks,
+                                    predictionHistory = history,
+                                    performance = performance,
+                                    oddsUpdatedAt = result.fetchedAt,
+                                    oddsSource = result.source,
+                                    lastUpdatedAt = System.currentTimeMillis()
+                                )
+                            } else {
+                                state.copy(
+                                    predictionHistory = history,
+                                    performance = performance,
+                                    lastUpdatedAt = System.currentTimeMillis()
+                                )
+                            }
+                        }
+                    }.onFailure { error ->
+                        if (error is CancellationException) throw error
+                        if (nearDeadlineOnly) _ui.update { state ->
+                            state.copy(liveOddsRefresh = state.liveOddsRefresh.copy(
+                                failed = state.liveOddsRefresh.failed + 1,
+                                lastError = "${race.venueName} ${race.raceNumber}R: ${error.message ?: "取得失敗"}"
+                            ))
                         }
                     }
+                    delay(250)
                 }
-                delay(250)
+            } finally {
+                if (nearDeadlineOnly) _ui.update { it.copy(liveOddsRefresh = it.liveOddsRefresh.copy(running = false)) }
             }
             if (recommendedBulkScope != null) {
                 _ui.update { state ->
@@ -556,6 +628,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun closeRace() {
         oddsRefreshJob?.cancel()
+        detailOddsFetchJob?.cancel()
+        detailOddsRequestVersion++
         _ui.update {
             it.copy(
                 selectedRace = null,
@@ -623,7 +697,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         val records = betStore.load()
         val history = predictionStore.load()
         val performance = PredictionPerformanceProfile.from(history)
-        PredictionEngine.restoreValueSelections(history)
+        PredictionEngine.restoreValueSelections(history, preserveLive = true)
         PredictionEngine.installPerformanceProfile(performance)
         _ui.update {
             it.copy(
@@ -653,6 +727,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setTab(tab: Int) {
         val nextTab = tab.coerceIn(0, 3)
+        oddsRefreshJob?.cancel()
+        detailOddsFetchJob?.cancel()
+        detailOddsRequestVersion++
         if (nextTab != 0) syncStoredAccounting()
         _ui.update {
             it.copy(

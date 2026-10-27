@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 65
-        versionName = "0.18.19"
-        // v0.18.19: Results metrics count only eligible live BUY decisions and their hits; exclude SKIP/retrospective.
+        versionCode = 66
+        versionName = "0.18.20"
+        // v0.18.20: Foreground odds-refresh scheduling, fresh-decision guard and visible fetch diagnostics.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
