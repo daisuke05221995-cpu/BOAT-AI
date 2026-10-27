@@ -231,6 +231,9 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
     ) {
         item { AppUpdateCard(ui.update, vm) }
         item { DateSelectorCard(ui, vm) }
+        if (ui.date == LocalDate.now(ZoneId.of("Asia/Tokyo"))) {
+            item { LiveOddsRefreshCard(ui.liveOddsRefresh) }
+        }
         item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }
         item {
             OperationalIssueCard(
@@ -296,6 +299,30 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
 }
 
 @Composable
+private fun LiveOddsRefreshCard(status: LiveOddsRefreshStatus) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp)) {
+            Text("直前オッズ自動取得", fontWeight = FontWeight.SemiBold)
+            Text(
+                "${if (status.running) "取得中" else "待機中"} / 成功 ${status.succeeded}R / 失敗 ${status.failed}R / 試行 ${status.attempted}R",
+                style = MaterialTheme.typography.bodySmall
+            )
+            val lastSuccess = status.lastSuccessAt?.let { timestamp ->
+                Instant.ofEpochMilli(timestamp).atZone(ZoneId.of("Asia/Tokyo"))
+                    .format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+            }
+            Text(
+                "最終成功 ${lastSuccess ?: "未取得"} / 締切30分以内を優先・順次再試行",
+                style = MaterialTheme.typography.labelSmall
+            )
+            status.lastError?.let { error ->
+                Text("直近の取得失敗：$error", style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
 private fun PredictionModeBar(selected: Int, onSelect: (Int) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -318,6 +345,7 @@ private fun DeadlineRaceRow(
     } else null
     val status = when {
         !PredictionEngine.isDecisionReady(race) -> "直前情報待ち"
+        PredictionEngine.hasAverageRoiReferenceStrategy() && !PredictionEngine.hasAverageRoiSelection(race) -> "オッズ判定待ち"
         PredictionEngine.hasValueStrategyModel() && selection == null -> "オッズ判定待ち"
         PredictionEngine.isRecommended(race) -> "購入推奨"
         else -> "見送り"
@@ -362,7 +390,9 @@ private fun VenueTile(stadium: Int, races: List<RaceData>, modifier: Modifier = 
     val next = open.minByOrNull { closeTime(it.closedAt) }
     val recommended = open.count(PredictionEngine::isRecommended)
     val skipped = open.count { race ->
-        if (PredictionEngine.hasValueStrategyModel()) {
+        if (PredictionEngine.hasAverageRoiReferenceStrategy()) {
+            PredictionEngine.hasAverageRoiSelection(race) && !PredictionEngine.isRecommended(race)
+        } else if (PredictionEngine.hasValueStrategyModel()) {
             PredictionEngine.cachedValueSelection(race)?.recommendation == RaceRecommendation.SKIP
         } else {
             PredictionEngine.predict(race).isNotEmpty() && !PredictionEngine.isRecommended(race)

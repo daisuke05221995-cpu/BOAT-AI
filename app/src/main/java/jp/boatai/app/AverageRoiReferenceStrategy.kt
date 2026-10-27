@@ -42,6 +42,8 @@ internal object AverageRoiReferenceStrategy {
     // Restored decisions make the list fast to display, but their saved odds may
     // already have moved. They must never qualify a new purchase until refetched.
     private val awaitingLiveRefresh = ConcurrentHashMap.newKeySet<String>()
+    private val verifiedAt = ConcurrentHashMap<String, Long>()
+    internal const val MAX_LIVE_AGE_MS = 120_000L
     private val combinations = buildList(120) {
         for (first in 1..6) for (second in 1..6) for (third in 1..6) {
             if (first != second && first != third && second != third) add("$first-$second-$third")
@@ -50,16 +52,20 @@ internal object AverageRoiReferenceStrategy {
 
     fun allCombinations(): List<String> = combinations
     fun cached(race: RaceData): ValueSelection? = selections[race.id]
-    internal fun isLiveVerified(race: RaceData): Boolean =
-        selections.containsKey(race.id) && !awaitingLiveRefresh.contains(race.id)
+    internal fun isLiveVerified(race: RaceData, nowMillis: Long = System.currentTimeMillis()): Boolean =
+        selections.containsKey(race.id) && !awaitingLiveRefresh.contains(race.id) &&
+            verifiedAt[race.id]?.let { it <= nowMillis && nowMillis - it <= MAX_LIVE_AGE_MS } == true
 
     fun clear() {
         selections.clear()
         awaitingLiveRefresh.clear()
+        verifiedAt.clear()
     }
 
-    internal fun restore(records: List<PredictionRecord>, currentVersion: String) {
-        clear()
+    internal fun restore(records: List<PredictionRecord>, currentVersion: String, preserveLive: Boolean = false) {
+        // Foreground polling and tab changes must not discard a fresh live decision.
+        // Cold start and explicit date changes still require a completely new verification.
+        if (!preserveLive) clear()
         records
             .filter {
                 it.strategyId == "value-v1" &&
@@ -67,6 +73,7 @@ internal object AverageRoiReferenceStrategy {
                     it.sourceAppVersion == currentVersion
             }
             .forEach { record ->
+                if (preserveLive && selections.containsKey(record.id)) return@forEach
                 val picks = if (record.recommended) {
                     record.combinations.mapIndexed { index, combination ->
                         val odds = record.livePickOdds.getOrNull(index)
@@ -95,10 +102,12 @@ internal object AverageRoiReferenceStrategy {
     fun evaluateAndCache(
         race: RaceData,
         officialOdds: Map<String, Double>,
-        budget: Int = BUDGET
+        budget: Int = BUDGET,
+        nowMillis: Long = System.currentTimeMillis()
     ): ValueSelection {
         val evaluated = evaluate(race, officialOdds, budget)
         selections[race.id] = evaluated
+        verifiedAt[race.id] = nowMillis
         awaitingLiveRefresh.remove(race.id)
         return evaluated
     }

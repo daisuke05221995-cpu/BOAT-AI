@@ -74,4 +74,27 @@ class LiveRefreshPolicyTest {
         )
         assertEquals(4, LiveRefreshPolicy.oddsCandidates(races, now, nearDeadlineOnly = false).size)
     }
+
+    @Test fun autoOddsBatchRotatesAcrossSameDeadlineInsteadOfRepeatingFirstVenues() {
+        val races = (1..6).map { race(it, 1, "10:30") }
+        val candidates = LiveRefreshPolicy.oddsCandidates(races, now, nearDeadlineOnly = true)
+        val first = LiveRefreshPolicy.nextOddsBatch(candidates, now, emptyMap())
+        assertEquals(listOf(1, 2, 3, 4), first.map { it.stadiumNumber })
+
+        val attempted = first.associate { it.id to 1_000L }
+        val second = LiveRefreshPolicy.nextOddsBatch(candidates, now, attempted)
+        assertEquals(listOf(5, 6, 1, 2), second.map { it.stadiumNumber })
+    }
+
+    @Test fun autoOddsBatchPrioritizesUrgentDeadlinesEvenWithOlderFartherAttempts() {
+        val urgent = race(10, 1, "10:28")
+        val farther = race(11, 1, "10:45")
+        val farOld = race(12, 1, "10:40")
+        val chosen = LiveRefreshPolicy.nextOddsBatch(
+            listOf(farther, urgent, farOld), now,
+            lastAttemptAt = mapOf(urgent.id to 10_000L),
+            maxRaces = 2
+        )
+        assertEquals(listOf(urgent.id, farOld.id), chosen.map { it.id })
+    }
 }

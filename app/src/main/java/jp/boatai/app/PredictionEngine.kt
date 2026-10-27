@@ -52,9 +52,9 @@ object PredictionEngine {
         AverageRoiReferenceStrategy.clear()
     }
 
-    internal fun restoreValueSelections(records: List<PredictionRecord>) {
+    internal fun restoreValueSelections(records: List<PredictionRecord>, preserveLive: Boolean = false) {
         if (AverageRoiReferenceStrategy.PURCHASE_RECOMMENDATION_ENABLED) {
-            AverageRoiReferenceStrategy.restore(records, BuildConfig.VERSION_NAME)
+            AverageRoiReferenceStrategy.restore(records, BuildConfig.VERSION_NAME, preserveLive)
         }
         if (valueStrategyModel == null) return
         records.filter { it.strategyId == "value-v1" && it.evaluationEligible }.forEach { record ->
