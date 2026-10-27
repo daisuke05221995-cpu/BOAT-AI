@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 66
-        versionName = "0.18.20"
-        // v0.18.20: Foreground odds-refresh scheduling, fresh-decision guard and visible fetch diagnostics.
+        versionCode = 67
+        versionName = "0.18.21"
+        // v0.18.21: Preserve validated day cache and include bounded fetch diagnostics in backups.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

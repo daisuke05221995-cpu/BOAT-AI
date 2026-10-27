@@ -1,6 +1,7 @@
 package jp.boatai.app
 
 import android.content.Context
+import android.util.AtomicFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -24,8 +25,9 @@ class BoatRaceRepository(context: Context? = null) : RaceDataProvider, OddsProvi
 
     suspend fun loadCachedDateDetailed(date: LocalDate): DateLoadResult? = withContext(Dispatchers.IO) {
         val file = cacheFile(date) ?: return@withContext null
-        if (!file.isFile) return@withContext null
-        val json = runCatching { file.readText(Charsets.UTF_8) }.getOrNull()
+        val json = runCatching {
+            AtomicFile(file).openRead().bufferedReader(Charsets.UTF_8).use { it.readText() }
+        }.getOrNull()
             ?: return@withContext null
         val races = runCatching {
             ProgramDataAvailability.keepRequestedDate(
@@ -67,6 +69,9 @@ class BoatRaceRepository(context: Context? = null) : RaceDataProvider, OddsProvi
             BoatRaceJsonParser.parse(fetch.json),
             date
         )
+        // Cache only validated, date-matching race data. The today.json alias may
+        // temporarily point to the prior day, or an upstream response may be empty.
+        if (ProgramDataAvailability.shouldCache(parsed)) saveProgramCache(date, fetch.json)
         if (date == today && parsed.isEmpty()) {
             return@withContext DateLoadResult(
                 races = emptyList(),
@@ -120,7 +125,6 @@ class BoatRaceRepository(context: Context? = null) : RaceDataProvider, OddsProvi
         val datedUrl = "https://boatraceopenapi.github.io/api/v1/${date.year}/$day.json?ts=${System.currentTimeMillis()}"
         return try {
             val json = httpGet(datedUrl)
-            saveProgramCache(date, json)
             ProgramJsonFetch(
                 json = json,
                 source = "日付データ",
@@ -134,7 +138,6 @@ class BoatRaceRepository(context: Context? = null) : RaceDataProvider, OddsProvi
             val todayUrl = "https://boatraceopenapi.github.io/api/v1/today.json?ts=${System.currentTimeMillis()}"
             try {
                 val json = httpGet(todayUrl)
-                saveProgramCache(date, json)
                 ProgramJsonFetch(
                     json = json,
                     source = "当日データ",
@@ -162,10 +165,15 @@ class BoatRaceRepository(context: Context? = null) : RaceDataProvider, OddsProvi
         runCatching {
             dir.mkdirs()
             val target = cacheFile(date) ?: return@runCatching
-            val temp = dir.resolve("${target.name}.tmp")
-            temp.writeText(json, Charsets.UTF_8)
-            if (target.exists()) target.delete()
-            temp.renameTo(target)
+            val atomic = AtomicFile(target)
+            val output = atomic.startWrite()
+            try {
+                output.write(json.toByteArray(Charsets.UTF_8))
+                atomic.finishWrite(output)
+            } catch (error: Exception) {
+                atomic.failWrite(output)
+                throw error
+            }
             val keepAfter = LocalDate.now(ZoneId.of("Asia/Tokyo")).minusDays(2)
             dir.listFiles()?.forEach { file ->
                 val parsed = file.name.removeSuffix(".json").let { raw ->
