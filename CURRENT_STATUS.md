@@ -1,6 +1,6 @@
 # BOAT AI Current Status
 
-Updated: 2026-10-27 (v0.18.20 pending CI/release)
+Updated: 2026-10-27 (v0.18.20 signed release verified)
 
 ## v0.18.20 — 自動オッズ取得の処理詰まり対策
 
@@ -10,7 +10,9 @@ Updated: 2026-10-27 (v0.18.20 pending CI/release)
 - ライブBUY/SKIPは画面切替や自動データ更新で不必要に消さず、ただし最後のライブ評価から2分を超えたら購入可能な判断として使用しない。
 - 予想画面に自動オッズの試行・成功・失敗件数、最終成功時刻、最後の失敗理由を表示。
 - 詳細画面の取得中に別のレースへ切り替えた場合、遅れて届いた古い取得結果で表示を上書きしない。
-- CI、署名APK、GitHubリリースと実機での60秒以上の連続動作検証は未完了。
+- 検証ブランチDebug Run `40497497260` SUCCESS、本番署名Release Run `40497909283` SUCCESS（Unit / Lint / 署名検証 / 公開）。
+- 公開版: **v0.18.20 / versionCode 66**。Release ID `425383455`、APK `BOAT-AI-v0.18.20.apk` (13,744,574 bytes)、SHA-256 `dadf3d0578684c7bb178dcb6945a78c2404df5aef117091b053e5987b79e926c`。
+- 実機での60秒以上の連続動作検証・取得成功率測定は未完了。旧データを消さず上書き更新し、自動取得カウンターを観察して新バックアップを取得する。
 - 詳細: `data/V01820_AUTO_ODDS_REFRESH_HANDOFF_20261027.md`。
 
 ---
