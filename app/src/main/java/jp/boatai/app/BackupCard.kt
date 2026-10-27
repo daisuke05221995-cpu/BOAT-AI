@@ -45,9 +45,9 @@ fun BackupCard(ui: BoatUiState, vm: BoatViewModel) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("データ管理", fontWeight = FontWeight.Bold)
-            Text("購入履歴・AI予想履歴・端末学習を1つのバックアップに保存します。")
+            Text("購入履歴・AI予想履歴・端末学習・直近の取得エラー記録を1つのバックアップに保存します。")
             Text(
-                "累計収支の検証に使う場合は「ファイルに保存」で BOAT-AI-backup.json を保存してください。実購入履歴を含むため、公開場所にはアップロードしないでください。"
+                "累計収支やエラーの検証には「ファイルに保存」を使用してください。購入履歴・端末情報・クラッシュ記録も含むため、公開場所にはアップロードしないでください。"
             )
             Button(
                 onClick = { saveLauncher.launch("BOAT-AI-backup.json") },

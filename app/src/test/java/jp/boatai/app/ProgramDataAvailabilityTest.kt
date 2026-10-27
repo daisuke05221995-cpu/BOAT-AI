@@ -29,6 +29,27 @@ class ProgramDataAvailabilityTest {
         )
     }
 
+    @Test
+    fun wrongDayOrEmptyPayloadMustNotOverwriteExistingCache() {
+        val requested = LocalDate.of(2026, 10, 27)
+        val aliasFromYesterday = ProgramDataAvailability.keepRequestedDate(
+            listOf(race("2026-10-26")), requested
+        )
+        assertFalse(ProgramDataAvailability.shouldCache(aliasFromYesterday))
+        assertFalse(ProgramDataAvailability.shouldCache(emptyList()))
+        assertTrue(ProgramDataAvailability.shouldCache(listOf(race("2026-10-27"))))
+    }
+
+    @Test
+    fun publicationWaitMustNotEraseAlreadyDisplayedSameDayRaces() {
+        val day = LocalDate.of(2026, 10, 27)
+        val visible = listOf(race("2026-10-27"))
+        assertTrue(ProgramDataAvailability.shouldRetainVisibleRaces(day, day, visible, emptyList(), true))
+        assertFalse(ProgramDataAvailability.shouldRetainVisibleRaces(day, day, visible, emptyList(), false))
+        assertFalse(ProgramDataAvailability.shouldRetainVisibleRaces(day.minusDays(1), day, visible, emptyList(), true))
+        assertFalse(ProgramDataAvailability.shouldRetainVisibleRaces(day, day, emptyList(), emptyList(), true))
+    }
+
     private fun race(date: String) = RaceData(
         date = date,
         stadiumNumber = 1,

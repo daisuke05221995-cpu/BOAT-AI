@@ -83,6 +83,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val notificationScheduler = NotificationScheduler(application)
     private val operationalSelfCheckStore = OperationalSelfCheckStore(application)
     private val crashRecoveryStore = CrashRecoveryStore(application)
+    private val fetchAuditStore = DataFetchAuditStore(application)
     private val operationalMonitoringStartedAt = operationalSelfCheckStore.monitoringStartedAt()
     private fun currentToday(): LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo"))
     private fun earliestBrowsableDate(): LocalDate = currentToday().minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
@@ -251,6 +252,30 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             runCatching { repository.loadDateDetailed(date) }
                 .onSuccess { loadResult ->
                     val races = loadResult.races
+                    val waitingForPublication = loadResult.diagnostics.any { diagnostic ->
+                        diagnostic.source == "開催・出走データ" &&
+                            diagnostic.status == DiagnosticStatus.WAITING
+                    }
+                    fetchAuditStore.record(
+                        "開催・出走データ",
+                        when {
+                            loadResult.diagnostics.any { it.status == DiagnosticStatus.ERROR } -> "ERROR"
+                            waitingForPublication -> "WAITING"
+                            loadResult.diagnostics.any { it.status == DiagnosticStatus.WARNING } -> "WARNING"
+                            else -> "OK"
+                        },
+                        loadResult.diagnostics.joinToString(" / ") { "${it.source}: ${it.detail}" }
+                    )
+                    if (ProgramDataAvailability.shouldRetainVisibleRaces(
+                            _ui.value.date, date, _ui.value.races, races, waitingForPublication
+                        )) {
+                        _ui.update { state -> state.copy(
+                            loading = false,
+                            error = null,
+                            diagnostics = loadResult.diagnostics
+                        ) }
+                        return@onSuccess
+                    }
                     val beforePending = _ui.value.records.count { !it.settled }
                     val beforeLearned = _ui.value.learnedRaceCount
                     val records = betStore.settle(races)
@@ -276,10 +301,6 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     if (beforeLearned > 0 && learning.totalRaceCount > beforeLearned) {
                         notificationScheduler.notifyNow("AI学習を更新", "新しい確定結果を次回予想へ反映しました", 2003)
-                    }
-                    val waitingForPublication = loadResult.diagnostics.any { diagnostic ->
-                        diagnostic.source == "開催・出走データ" &&
-                            diagnostic.status == DiagnosticStatus.WAITING
                     }
                     _ui.update {
                         it.copy(
@@ -319,6 +340,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 .onFailure { error ->
                     if (error is CancellationException) return@onFailure
+                    fetchAuditStore.record("開催・出走データ", "ERROR", error.message ?: "取得失敗")
                     _ui.update {
                         it.copy(
                             loading = false,
@@ -410,6 +432,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 repository.loadOfficialTrifectaOddsDetailed(race, requested)
             }
                 .onSuccess { result ->
+                    fetchAuditStore.record("詳細オッズ", "OK", result.source)
                     // A slow fetch must not overwrite another race selected in the meantime.
                     if (_ui.value.selectedRace?.id != race.id || requestVersion != detailOddsRequestVersion) return@onSuccess
                     val strategyPredictions = if (retrospective != null) {
@@ -466,6 +489,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 .onFailure { error ->
                     if (error is CancellationException) return@onFailure
+                    fetchAuditStore.record("詳細オッズ", "ERROR", error.message ?: "取得失敗")
                     _ui.update { state ->
                         if (state.selectedRace?.id != race.id || requestVersion != detailOddsRequestVersion) state else state.copy(
                             oddsLoading = false,
@@ -536,6 +560,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     runCatching {
                         repository.loadOfficialTrifectaOddsDetailed(race, combinations)
                     }.onSuccess { result ->
+                        fetchAuditStore.record("自動オッズ", "OK", result.source)
                         if (nearDeadlineOnly) _ui.update { state ->
                             state.copy(liveOddsRefresh = state.liveOddsRefresh.copy(
                                 succeeded = state.liveOddsRefresh.succeeded + 1,
@@ -585,6 +610,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }.onFailure { error ->
                         if (error is CancellationException) throw error
+                        fetchAuditStore.record("自動オッズ", "ERROR", error.message ?: "取得失敗")
                         if (nearDeadlineOnly) _ui.update { state ->
                             state.copy(liveOddsRefresh = state.liveOddsRefresh.copy(
                                 failed = state.liveOddsRefresh.failed + 1,

@@ -29,6 +29,13 @@ class DataBackupManager(private val context: Context) {
             put("predictions", predictions)
             put("learning", JSONObject(learning))
             put("historicalBaselineMigratedThrough", learningPrefs.getString("historical_baseline_migrated_through", ""))
+            // Optional diagnostic fields keep schemaVersion=1 restore backward-compatible.
+            // These can contain device details: share backups privately for troubleshooting.
+            put("dataFetchAudit", DataFetchAuditStore(context).snapshot())
+            val recovery = CrashRecoveryStore(context)
+            put("lastCrash", recovery.lastCrash() ?: JSONObject.NULL)
+            put("lastBackgroundFailure", recovery.lastBackgroundFailure() ?: JSONObject.NULL)
+            put("lastBackgroundFailureAt", recovery.lastBackgroundFailureAt() ?: JSONObject.NULL)
         }.toString(2)
     }
 
