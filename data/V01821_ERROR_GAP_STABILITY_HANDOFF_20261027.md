@@ -16,7 +16,8 @@
 
 - `ProgramDataAvailabilityTest`: 404待ち、前日データ混入、空データでのキャッシュ保護、同日画面維持。
 - `DataFetchAuditWindowTest`: 保存上限48件、順序、失敗記録保持。
-- Android CI: unit/lint/Debug APK → signed Release APK の順に確認。
+- Android CI: 検証Run `40527988648` SUCCESS、main Debug Run `40528522144` SUCCESS、署名Release Run `40528521994` SUCCESS（Unit/lint/APK署名検証/公開）。
+- GitHub Release: `v0.18.21`, Release ID `425624136`、APK SHA-256 `aaa8fbd5aea8abf5277e267623d95ef21a3c9341bad6d445e0f26fdd7f64726f`。
 - 実機通信と結果補完の成否は、次に開催されるレースで確認する。公式オッズが失敗した際に架空の値を作らない購入安全基準は維持。
 
 ## 次回実機確認
