@@ -3,7 +3,9 @@
 from copy import deepcopy
 import unittest
 
-from roi_recovery_diagnostic import analyze, production_version, top_payout_sensitivity
+from roi_recovery_diagnostic import (
+    analyze, expected_roi_reason_diagnostic, production_version, top_payout_sensitivity,
+)
 from v016_live_money_eval import evaluate
 from v016_live_money_eval_test import backup, bet, fixture
 
@@ -87,6 +89,32 @@ class RoiRecoveryDiagnosticTest(unittest.TestCase):
         row = new_row()
         with self.assertRaisesRegex(ValueError, "Duplicate live BUY race"):
             analyze(backup([row, deepcopy(row)]), AS_OF)
+
+    def test_expected_roi_reason_is_stake_weighted_and_text_only(self):
+        low = new_row(race=1, stake=1000, payout=200)
+        low["recommendationReason"] = "購入推奨（推定期待回収率 130%）"
+        high = new_row(race=2, stake=3000, payout=200)
+        high["recommendationReason"] = "購入推奨（推定期待回収率 250%）"
+        missing = new_row(race=3)
+        missing["recommendationReason"] = "購入推奨・率なし"
+        result = analyze(backup([low, high, missing]), AS_OF)["prospectiveNewPolicy"]
+        diagnostic = result["expectedRoiReasonDiagnostic"]
+        self.assertEqual(diagnostic["coveredRaces"], 2)
+        self.assertEqual(diagnostic["missingReasonRoiRaces"], 1)
+        self.assertEqual(diagnostic["overallWithReason"]["stakeYen"], 4000)
+        self.assertEqual(diagnostic["overallWithReason"]["payoutYen"], 8000)
+        self.assertEqual(diagnostic["overallWithReason"]["stakeWeightedEstimatedRoiPercent"], 220)
+        self.assertEqual(diagnostic["overallWithReason"]["realizedRoiPercent"], 200)
+        self.assertEqual([b["races"] for b in diagnostic["bands"]], [0, 1, 0, 0, 1])
+        self.assertFalse(result.get("productionPromotionAllowed", False))
+
+    def test_missing_or_malformed_reason_does_not_invent_expected_roi(self):
+        rows = [new_row(race=1), new_row(race=2)]
+        rows[0]["recommendationReason"] = "推定期待回収率 -500%"
+        rows[1]["recommendationReason"] = "推定期待回収率 99999%"
+        diagnosis = expected_roi_reason_diagnostic(rows)
+        self.assertEqual(diagnosis["coveredRaces"], 0)
+        self.assertIsNone(diagnosis["overallWithReason"]["stakeWeightedEstimatedRoiPercent"])
 
 
 if __name__ == "__main__":
