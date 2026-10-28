@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 67
-        versionName = "0.18.21"
-        // v0.18.21: Preserve validated day cache and include bounded fetch diagnostics in backups.
+        versionCode = 68
+        versionName = "0.18.22"
+        // v0.18.22: Save numerical pre-race probability and ROI evidence without changing recommendations.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

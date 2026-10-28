@@ -100,11 +100,16 @@ class PredictionRecordTest {
             liveOddsSource = "公式PC版",
             liveOddsCount = 120,
             livePickOdds = listOf(12.4, 18.7),
-            sourceAppVersion = "0.18.7"
+            sourceAppVersion = "0.18.22",
+            livePickAiProbabilities = listOf(0.08, 0.04),
+            liveExpectedRoiPercent = 149.12,
+            decisionCapturedAt = 1_797_000_001_000L
         )
 
         val restored = PredictionRecord.fromJson(record.toJson())
         assertEquals(record, restored)
+        assertEquals(149.12, restored.liveExpectedRoiPercent!!, 1e-6)
+        assertEquals(listOf(0.08, 0.04), restored.livePickAiProbabilities)
     }
 
     @Test
@@ -133,6 +138,9 @@ class PredictionRecordTest {
         assertEquals(null, restored.liveOddsSource)
         assertEquals(0, restored.liveOddsCount)
         assertTrue(restored.livePickOdds.isEmpty())
+        assertTrue(restored.livePickAiProbabilities.isEmpty())
+        assertEquals(null, restored.liveExpectedRoiPercent)
+        assertEquals(null, restored.decisionCapturedAt)
         assertEquals(null, restored.sourceAppVersion)
     }
 
@@ -153,6 +161,26 @@ class PredictionRecordTest {
         )
 
         assertEquals("0.18.7", PredictionRecord.fromJson(record.toJson()).sourceAppVersion)
+    }
+
+    @Test
+    fun invalidProbabilitySnapshotFailsClosedWithoutChangingExistingOdds() {
+        val record = PredictionRecord(
+            id = "2026-10-28-01-1", date = "2026-10-28", stadiumNumber = 1,
+            raceNumber = 1, combinations = listOf("1-2-3", "1-3-2"), stakePerPick = 300,
+            resultCombination = null, trifectaPayout = 0, settled = false, createdAt = 1L,
+            livePickOdds = listOf(13.0, 16.0)
+        )
+        val json = record.toJson().apply {
+            put("livePickAiProbabilities", org.json.JSONArray().put(0.7).put(0.7))
+            put("liveExpectedRoiPercent", -5.0)
+            put("decisionCapturedAt", -1L)
+        }
+        val restored = PredictionRecord.fromJson(json)
+        assertTrue(restored.livePickAiProbabilities.isEmpty())
+        assertEquals(null, restored.liveExpectedRoiPercent)
+        assertEquals(null, restored.decisionCapturedAt)
+        assertEquals(record.livePickOdds, restored.livePickOdds)
     }
 
 }

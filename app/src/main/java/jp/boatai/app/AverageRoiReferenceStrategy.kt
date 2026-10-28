@@ -83,7 +83,11 @@ internal object AverageRoiReferenceStrategy {
                             odds = odds,
                             recommendedStake = record.stakes.getOrNull(index) ?: record.stakePerPick,
                             tier = BetLabelRule.classify(index, odds),
-                            reason = "当日保存済みAI判定"
+                            reason = "当日保存済みAI判定",
+                            aiProbability = record.livePickAiProbabilities.getOrNull(index),
+                            expectedReturnRate = PickExplanationRule.expectedReturnRate(
+                                record.livePickAiProbabilities.getOrNull(index), odds
+                            )
                         )
                     }
                 } else {

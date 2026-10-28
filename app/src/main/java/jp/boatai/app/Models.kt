@@ -207,7 +207,10 @@ data class PredictionRecord(
     val liveOddsSource: String? = null,
     val liveOddsCount: Int = 0,
     val livePickOdds: List<Double> = emptyList(),
-    val sourceAppVersion: String? = null
+    val sourceAppVersion: String? = null,
+    val livePickAiProbabilities: List<Double> = emptyList(),
+    val liveExpectedRoiPercent: Double? = null,
+    val decisionCapturedAt: Long? = null
 ) {
     val venueName: String get() = Venues.name(stadiumNumber)
     val recommendation: RaceRecommendation get() = if (recommended) RaceRecommendation.BUY else RaceRecommendation.SKIP
@@ -236,6 +239,13 @@ data class PredictionRecord(
         if (liveOddsCount > 0) put("liveOddsCount", liveOddsCount)
         if (livePickOdds.isNotEmpty()) put("livePickOdds", JSONArray().apply { livePickOdds.forEach { put(it) } })
         if (!sourceAppVersion.isNullOrBlank()) put("sourceAppVersion", sourceAppVersion)
+        if (livePickAiProbabilities.size == combinations.size && livePickAiProbabilities.isNotEmpty()) {
+            put("livePickAiProbabilities", JSONArray().apply { livePickAiProbabilities.forEach { put(it) } })
+        }
+        if (liveExpectedRoiPercent != null && liveExpectedRoiPercent.isFinite() && liveExpectedRoiPercent > 0.0) {
+            put("liveExpectedRoiPercent", liveExpectedRoiPercent)
+        }
+        if (decisionCapturedAt != null && decisionCapturedAt > 0L) put("decisionCapturedAt", decisionCapturedAt)
         put("resultCombination", resultCombination)
         put("trifectaPayout", trifectaPayout)
         put("settled", settled)
@@ -270,6 +280,17 @@ data class PredictionRecord(
                 List(array.length()) { index -> array.optDouble(index) }
                     .takeIf { it.size == combinations.size && it.all { odds -> odds.isFinite() && odds > 0.0 } }
             }.orEmpty()
+            val livePickAiProbabilities = obj.optJSONArray("livePickAiProbabilities")?.let { array ->
+                List(array.length()) { index -> array.optDouble(index) }
+                    .takeIf { values ->
+                        values.isNotEmpty() && values.size == combinations.size &&
+                            values.all { it.isFinite() && it > 0.0 && it <= 1.0 } &&
+                            values.sum() <= 1.0 + 1e-6
+                    }
+            }.orEmpty()
+            val liveExpectedRoiPercent = if (obj.has("liveExpectedRoiPercent") && !obj.isNull("liveExpectedRoiPercent")) {
+                obj.optDouble("liveExpectedRoiPercent").takeIf { it.isFinite() && it > 0.0 }
+            } else null
             return PredictionRecord(
                 id = obj.optString("id"),
                 date = obj.optString("date"),
@@ -295,7 +316,10 @@ data class PredictionRecord(
                 liveOddsSource = obj.optString("liveOddsSource").takeIf { it.isNotBlank() },
                 liveOddsCount = obj.optInt("liveOddsCount", 0).coerceAtLeast(0),
                 livePickOdds = livePickOdds,
-                sourceAppVersion = obj.optString("sourceAppVersion").takeIf { it.isNotBlank() }
+                sourceAppVersion = obj.optString("sourceAppVersion").takeIf { it.isNotBlank() },
+                livePickAiProbabilities = livePickAiProbabilities,
+                liveExpectedRoiPercent = liveExpectedRoiPercent,
+                decisionCapturedAt = if (obj.optLong("decisionCapturedAt") > 0L) obj.optLong("decisionCapturedAt") else null
             )
         }
     }

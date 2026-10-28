@@ -4,7 +4,8 @@ from copy import deepcopy
 import unittest
 
 from roi_recovery_diagnostic import (
-    analyze, expected_roi_reason_diagnostic, production_version, top_payout_sensitivity,
+    analyze, expected_roi_reason_diagnostic, production_version, structured_roi_diagnostic,
+    top_payout_sensitivity,
 )
 from v016_live_money_eval import evaluate
 from v016_live_money_eval_test import backup, bet, fixture
@@ -115,6 +116,41 @@ class RoiRecoveryDiagnosticTest(unittest.TestCase):
         diagnosis = expected_roi_reason_diagnostic(rows)
         self.assertEqual(diagnosis["coveredRaces"], 0)
         self.assertIsNone(diagnosis["overallWithReason"]["stakeWeightedEstimatedRoiPercent"])
+
+    def test_structured_probability_snapshot_reconciles_expected_and_observed(self):
+        hits = new_row(race=1, stake=1000, payout=300)
+        hits.update(
+            livePickAiProbabilities=[0.2],
+            livePickOdds=[5.0],
+            liveExpectedRoiPercent=100.0,
+            decisionCapturedAt=1790000000000,
+        )
+        misses = new_row(race=2, stake=2000, payout=300, winner="2-3-4")
+        misses.update(
+            livePickAiProbabilities=[0.1],
+            livePickOdds=[10.0],
+            liveExpectedRoiPercent=100.0,
+            decisionCapturedAt=1790000000000,
+        )
+        report = analyze(backup([hits, misses]), AS_OF)["prospectiveNewPolicy"]["structuredRoiDiagnostic"]
+        self.assertEqual(report["coveredRaces"], 2)
+        self.assertEqual((report["stakeYen"], report["payoutYen"]), (3000, 3000))
+        self.assertEqual(report["stakeWeightedEstimatedRoiPercent"], 100)
+        self.assertEqual(report["expectedHitCount"], 0.3)
+        self.assertEqual(report["actualHitCount"], 1)
+        self.assertEqual(report["expectedHitRatePercent"], 15)
+        self.assertEqual(report["actualHitRatePercent"], 50)
+
+    def test_structured_snapshot_missing_and_tampered_are_never_used(self):
+        missing = new_row(race=1)
+        forged = new_row(race=2)
+        forged.update(livePickAiProbabilities=[0.2], liveExpectedRoiPercent=900.0,
+                      decisionCapturedAt=1790000000000)
+        report = structured_roi_diagnostic([missing, forged])
+        self.assertEqual(report["coveredRaces"], 0)
+        self.assertEqual(report["missingRaces"], 1)
+        self.assertEqual(report["invalidRaces"], 1)
+        self.assertIsNone(report["realizedRoiPercent"])
 
 
 if __name__ == "__main__":
