@@ -83,6 +83,12 @@ class PredictionHistoryStore(context: Context) {
                 val values = picks.map { pick -> snapshot.odds[pick.combination] }
                 if (values.all { it != null && it.isFinite() && it > 0.0 }) values.map { it!! } else emptyList()
             }.orEmpty()
+            val plannedStakes = if (valueSelection?.recommendation == RaceRecommendation.BUY) {
+                picks.map { it.recommendedStake }
+            } else emptyList()
+            val evidence = if (valueSelection != null && decision.recommended) {
+                PreRaceValueEvidence.fromPicks(picks, livePickOdds, plannedStakes)
+            } else null
             val record = PredictionRecord(
                 id = race.id,
                 date = race.date,
@@ -102,17 +108,16 @@ class PredictionHistoryStore(context: Context) {
                 autoSkipReason = decision.reason.takeIf { !decision.recommended },
                 recommended = decision.recommended,
                 recommendationReason = decision.reason,
-                stakes = if (valueSelection?.recommendation == RaceRecommendation.BUY) {
-                    picks.map { it.recommendedStake }
-                } else {
-                    emptyList()
-                },
+                stakes = plannedStakes,
                 strategyId = if (valueSelection != null) "value-v1" else null,
                 liveOddsFetchedAt = audit?.fetchedAt,
                 liveOddsSource = audit?.source,
                 liveOddsCount = audit?.odds?.values?.count { it.isFinite() && it > 0.0 } ?: 0,
                 livePickOdds = livePickOdds,
-                sourceAppVersion = BuildConfig.VERSION_NAME
+                sourceAppVersion = BuildConfig.VERSION_NAME,
+                livePickAiProbabilities = evidence?.pickProbabilities.orEmpty(),
+                liveExpectedRoiPercent = evidence?.expectedRoiPercent,
+                decisionCapturedAt = if (valueSelection != null) now else null
             )
             if (index >= 0) current[index] = record else current += record
             changed = true
@@ -158,6 +163,9 @@ class PredictionHistoryStore(context: Context) {
             val values = storedPicks.map { pick -> snapshot.odds[pick.combination] }
             if (values.all { it != null && it.isFinite() && it > 0.0 }) values.map { it!! } else emptyList()
         }.orEmpty()
+        val evidence = if (strategyId == "value-v1" && decision.recommended) {
+            PreRaceValueEvidence.fromPicks(storedPicks, livePickOdds, validStakes)
+        } else null
 
         val record = PredictionRecord(
             id = race.id,
@@ -184,7 +192,10 @@ class PredictionHistoryStore(context: Context) {
             liveOddsSource = oddsResult?.source,
             liveOddsCount = oddsResult?.odds?.values?.count { it.isFinite() && it > 0.0 } ?: 0,
             livePickOdds = livePickOdds,
-            sourceAppVersion = BuildConfig.VERSION_NAME
+            sourceAppVersion = BuildConfig.VERSION_NAME,
+            livePickAiProbabilities = evidence?.pickProbabilities.orEmpty(),
+            liveExpectedRoiPercent = evidence?.expectedRoiPercent,
+            decisionCapturedAt = if (strategyId == "value-v1") System.currentTimeMillis() else null
         )
 
         if (index >= 0) current[index] = record else current += record

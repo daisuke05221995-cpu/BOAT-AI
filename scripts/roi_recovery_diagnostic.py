@@ -14,6 +14,7 @@ import argparse
 from collections import Counter, defaultdict
 from datetime import datetime
 import json
+import math
 from pathlib import Path
 import re
 
@@ -163,6 +164,65 @@ def expected_roi_reason_diagnostic(rows):
     }
 
 
+def structured_evidence(row):
+    """Validate a numerical snapshot that was written with the live decision."""
+    picks = row.get("combinations", [])
+    probabilities = row.get("livePickAiProbabilities")
+    odds = row.get("livePickOdds")
+    stakes = row.get("stakes")
+    expected_roi = row.get("liveExpectedRoiPercent")
+    captured_at = row.get("decisionCapturedAt")
+    if not (isinstance(picks, list) and picks and isinstance(probabilities, list)
+            and isinstance(odds, list) and isinstance(stakes, list)):
+        return None
+    if len(picks) != len(probabilities) or len(picks) != len(odds) or len(picks) != len(stakes):
+        return None
+    if (type(captured_at) is not int or captured_at <= 0
+            or type(expected_roi) not in (float, int) or not math.isfinite(expected_roi)
+            or expected_roi <= 0):
+        return None
+    if (any(type(p) not in (float, int) or not math.isfinite(p) or p <= 0 or p > 1
+            for p in probabilities) or sum(probabilities) > 1 + 1e-6):
+        return None
+    if any(type(o) not in (float, int) or not math.isfinite(o) or o <= 0 for o in odds):
+        return None
+    if any(type(stake) is not int or stake < 100 or stake % 100 for stake in stakes):
+        return None
+    budget = sum(stakes)
+    computed = 100 * sum(p * o * stake for p, o, stake in zip(probabilities, odds, stakes)) / budget
+    if not math.isclose(expected_roi, computed, rel_tol=1e-7, abs_tol=1e-6):
+        return None
+    return (float(expected_roi), sum(probabilities))
+
+
+def structured_roi_diagnostic(rows):
+    """Prospective numerical calibration; never chooses a purchase threshold."""
+    provided = [row for row in rows if "liveExpectedRoiPercent" in row]
+    valid = [(row, structured_evidence(row)) for row in rows]
+    valid = [(row, evidence) for row, evidence in valid if evidence is not None]
+    budget = sum(accounted(row)[0] for row, _ in valid)
+    payout = sum(accounted(row)[1] for row, _ in valid)
+    expected_money = sum(accounted(row)[0] * data[0] / 100 for row, data in valid)
+    expected_hits = sum(data[1] for _, data in valid)
+    hits = sum(row.get("resultCombination") in row["combinations"] for row, _ in valid)
+    return {
+        "evidence": "STRUCTURED_PRE_RACE_SELECTED_PICK_PROBABILITIES",
+        "coveredRaces": len(valid),
+        "missingRaces": len(rows) - len(provided),
+        "invalidRaces": len(provided) - len(valid),
+        "stakeYen": budget,
+        "payoutYen": payout,
+        "realizedRoiPercent": round(100 * payout / budget, 2) if budget else None,
+        "stakeWeightedEstimatedRoiPercent": round(100 * expected_money / budget, 2) if budget else None,
+        "expectedHitCount": round(expected_hits, 4) if valid else None,
+        "actualHitCount": hits,
+        "expectedHitRatePercent": round(100 * expected_hits / len(valid), 2) if valid else None,
+        "actualHitRatePercent": round(100 * hits / len(valid), 2) if valid else None,
+        "researchOnly": True,
+        "warning": "Only selected BUY outcomes are covered. This is not all-120-way Model A calibration or a policy-promotion test.",
+    }
+
+
 def analyze(payload, as_of):
     # Mandatory first step: reuse the unchanged frozen evaluator for validation,
     # duplicate detection and exact auditable-money reconciliation.
@@ -197,6 +257,7 @@ def analyze(payload, as_of):
         "prospectiveNewPolicy": {
             **cohort_stats(new),
             "expectedRoiReasonDiagnostic": expected_roi_reason_diagnostic(new),
+            "structuredRoiDiagnostic": structured_roi_diagnostic(new),
             "settledCandidateBuys": len(new_candidates),
             "incompleteAudits": len(new_candidates) - len(new),
             "auditFailureCounts": dict(sorted(failure_counts.items())),
@@ -219,6 +280,7 @@ def analyze(payload, as_of):
             "Only date >= 2026-10-15 AND row-level sourceAppVersion >= 0.18.15 is prospective.",
             "Missing version rows are quarantined, never inferred from the backup envelope.",
             "Estimated ROI from reason text is descriptive only; formal calibration requires immutable structured pre-race probabilities and odds.",
+            "Structured snapshots must be separately validated prospectively before any BUY/SKIP change.",
             "No single slice, payout concentration or same-sample threshold is a promotion criterion.",
             "No 2025 Q4 holdout or historical final-like odds are used.",
         ],
