@@ -1,5 +1,17 @@
 # BOAT AI Current Status
 
+Updated: 2026-10-28 (ROI recovery research kickoff)
+
+## P1 — 回収率改善を最優先
+
+- 凍結343監査BUY: ROI77.61%、損失171,220円。主因は配分よりBUY/value校正の可能性。点数4/6/7は旧データで合計ROI49.37%だが後付けルール化は禁止。
+- 研究記録: `data/ROI_RECOVERY_RESEARCH_KICKOFF_20261028.md`。
+- 個人バックアップ用の研究専用診断 `scripts/roi_recovery_diagnostic.py` を追加。凍結評価器に監査/損益を委譲し、2026-10-14以前とv0.18.15以降の前向き版付きBUYを分離。点数/1着予測/オッズ源/アプリ版/大当たり依存を集計。
+- テスト: 新規合成7件 + 凍結評価器18件、GitHub Actions Push Run `40620072725` SUCCESS / PR Run `40620078375` SUCCESS。PR #18 merge commit `df5ddb2a5d97cec9e88a3bdc99098a4c1193458c`。
+- 343件の非公開生バックアップはリポジトリ/ライブラリから取得できず、行単位の新分析はまだ未実施。次回非公開バックアップで前向き成績を評価。現行Android BUY/SKIP、Model A、APK版を変更していない。
+
+---
+
 Updated: 2026-10-27 (v0.18.21 signed release verified)
 
 ## v0.18.21 — データ欠損時の保護・エラー追跡
