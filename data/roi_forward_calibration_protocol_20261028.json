@@ -1,0 +1,56 @@
+{
+  "protocolVersion": "forward-selected-buy-v1",
+  "registeredDateJst": "2026-10-28",
+  "researchOnly": true,
+  "productionPromotionAllowed": false,
+  "privateDataPolicy": "Run locally on user-provided private Android backup; commit aggregated protocol and synthetic fixtures only, never individual race ledger.",
+  "minimumSourceAppVersion": "0.18.22",
+  "allowedSourceAppVersions": [
+    "0.18.22"
+  ],
+  "allowedStrategyIds": [
+    "value-v1"
+  ],
+  "firstEligibleRaceDateJst": "2026-10-29",
+  "conditions": [
+    "Row has its own exact allowed sourceAppVersion, not inferred from backup envelope.",
+    "Settled, evaluationEligible=true and recommended=true; SKIP is never counted as BUY.",
+    "Original v016_live_money_eval audit passes, with all 120 live odds recorded as available.",
+    "Selected pick probabilities align one-to-one with combinations, stakes and saved live pick odds.",
+    "Expected ROI is recomputed and exactly reconciled within floating-point tolerance.",
+    "decisionCapturedAt is positive and not before liveOddsFetchedAt."
+  ],
+  "predeclaredDescriptiveHitMassBandsPercent": [
+    "<10",
+    "10-19",
+    "20-29",
+    "30-39",
+    ">=40"
+  ],
+  "predeclaredDescriptiveExpectedRoiBandsPercent": [
+    "<120",
+    "120-139",
+    "140-159",
+    "160-199",
+    ">=200"
+  ],
+  "primaryMetrics": [
+    "actual hit rate versus sum of selected-pick model probabilities",
+    "Brier score and log loss of selected-pick hit indicator",
+    "stake-weighted expected ROI versus realized simulated ROI",
+    "decision coverage, audit completeness and numeric-evidence completeness"
+  ],
+  "sampleGoal": {
+    "minimumValidAuditedBuys": 360,
+    "minimumDistinctJstDays": 20
+  },
+  "postGoalAction": "Separate protocol review and untouched future evaluation; never auto-optimize or auto-promote a BUY/SKIP rule.",
+  "frozenReference": {
+    "lastRaceDateJst": "2026-10-14",
+    "auditedBuyCount": 343,
+    "mustRemainUnmodified": true
+  },
+  "neverInspect": [
+    "2025-10-01/2025-12-31 sealed model final holdout"
+  ]
+}
