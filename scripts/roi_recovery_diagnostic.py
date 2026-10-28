@@ -106,6 +106,63 @@ def breakdown(rows, dimension):
     ]
 
 
+def reason_expected_roi(row):
+    """Best-effort display-text extraction, never a model-calibration oracle."""
+    reason = row.get("recommendationReason")
+    if not isinstance(reason, str):
+        return None
+    match = re.search(r"推定期待回収率\s*([0-9]+(?:\.[0-9]+)?)\s*%", reason)
+    if not match:
+        return None
+    value = float(match.group(1))
+    return value if 0 <= value <= 10000 else None
+
+
+def reason_roi_band(roi):
+    if roi < 120:
+        return "<120%"
+    if roi < 140:
+        return "120-139%"
+    if roi < 160:
+        return "140-159%"
+    if roi < 200:
+        return "160-199%"
+    return ">=200%"
+
+
+def expected_roi_reason_diagnostic(rows):
+    """Describe retrospective estimated ROI vs actuals without finding a gate."""
+    parsed = [(row, reason_expected_roi(row)) for row in rows]
+    present = [(row, roi) for row, roi in parsed if roi is not None]
+
+    def summary(items):
+        stake = sum(accounted(row)[0] for row, _ in items)
+        payout = sum(accounted(row)[1] for row, _ in items)
+        estimated_payout = sum(accounted(row)[0] * roi / 100 for row, roi in items)
+        return {
+            "races": len(items),
+            "stakeYen": stake,
+            "payoutYen": payout,
+            "realizedRoiPercent": round(100 * payout / stake, 2) if stake else None,
+            "stakeWeightedEstimatedRoiPercent": round(100 * estimated_payout / stake, 2) if stake else None,
+        }
+
+    return {
+        "evidence": "UNSTRUCTURED_REASON_TEXT_ONLY_DESCRIPTIVE",
+        "coveredRaces": len(present),
+        "missingReasonRoiRaces": len(rows) - len(present),
+        "overallWithReason": summary(present),
+        "bands": [
+            {"label": label, **summary([(r, v) for r, v in present if reason_roi_band(v) == label])}
+            for label in ("<120%", "120-139%", "140-159%", "160-199%", ">=200%")
+        ],
+        "warning": (
+            "Expected ROI is parsed from a human-readable saved reason, not a structured "
+            "pre-race probability snapshot. Bands are descriptive, not BUY thresholds."
+        ),
+    }
+
+
 def analyze(payload, as_of):
     # Mandatory first step: reuse the unchanged frozen evaluator for validation,
     # duplicate detection and exact auditable-money reconciliation.
@@ -139,6 +196,7 @@ def analyze(payload, as_of):
         "oldDateAudited": cohort_stats(old),
         "prospectiveNewPolicy": {
             **cohort_stats(new),
+            "expectedRoiReasonDiagnostic": expected_roi_reason_diagnostic(new),
             "settledCandidateBuys": len(new_candidates),
             "incompleteAudits": len(new_candidates) - len(new),
             "auditFailureCounts": dict(sorted(failure_counts.items())),
@@ -160,7 +218,7 @@ def analyze(payload, as_of):
             "Old 343 BUYs are a frozen reference, not a fresh independent test.",
             "Only date >= 2026-10-15 AND row-level sourceAppVersion >= 0.18.15 is prospective.",
             "Missing version rows are quarantined, never inferred from the backup envelope.",
-            "No calibration of estimated ROI is possible without per-decision structured expected ROI.",
+            "Estimated ROI from reason text is descriptive only; formal calibration requires immutable structured pre-race probabilities and odds.",
             "No single slice, payout concentration or same-sample threshold is a promotion criterion.",
             "No 2025 Q4 holdout or historical final-like odds are used.",
         ],
