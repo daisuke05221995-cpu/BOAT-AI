@@ -1,0 +1,38 @@
+name: Verify ROI recovery diagnostics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'research/**'
+    paths:
+      - 'scripts/roi_recovery_diagnostic.py'
+      - 'scripts/roi_recovery_diagnostic_test.py'
+      - 'scripts/v016_live_money_eval.py'
+      - 'data/v016_live_money_protocol.json'
+      - '.github/workflows/roi-recovery-diagnostics.yml'
+  pull_request:
+    paths:
+      - 'scripts/roi_recovery_diagnostic.py'
+      - 'scripts/roi_recovery_diagnostic_test.py'
+      - 'scripts/v016_live_money_eval.py'
+      - 'data/v016_live_money_protocol.json'
+      - '.github/workflows/roi-recovery-diagnostics.yml'
+
+jobs:
+  test-roi-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Frozen evaluator and prospective diagnostic tests
+        run: |
+          python3 -m unittest discover -s scripts -p 'v016_live_money_eval_test.py' -v
+          python3 -m unittest discover -s scripts -p 'roi_recovery_diagnostic_test.py' -v
+      - name: Golden synthetic-backup smoke test
+        run: |
+          python3 scripts/roi_recovery_diagnostic.py data/v016_live_money_golden_backup.json --as-of 2026-10-28 > /tmp/boatai-roi-smoke.json
+          python3 -m json.tool /tmp/boatai-roi-smoke.json >/dev/null
