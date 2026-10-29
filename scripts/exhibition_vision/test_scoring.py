@@ -4,6 +4,7 @@ import unittest
 from exhibition_vision.scoring import evaluate_race
 from exhibition_vision.worker import ProviderError, process_manifest, validate_url
 from exhibition_vision.kinematics import InvalidTrack, measurements_from_tracks
+from exhibition_vision.reference import compare_original_exhibition
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
@@ -146,6 +147,36 @@ class KinematicsTest(unittest.TestCase):
     def test_pixels_are_not_accepted_as_meters(self):
         with self.assertRaises(InvalidTrack):
             measurements_from_tracks({"turn_marker_m": {"x": 20, "y": 30}, "boats": []})
+
+
+class OriginalReferenceTest(unittest.TestCase):
+    def reference(self):
+        return {
+            "race": sample_evidence()["race"],
+            "source": "official-original-exhibition", "permission_reference": "approved-reference",
+            "captured_at": "2026-10-29T15:23:00+09:00",
+            "boats": [{"lane": lane, "straight_time_s": 4.0 + lane * 0.1,
+                       "turn_time_s": 5.0 + lane * 0.1, "lap_time_s": 30.0 + lane * 0.1}
+                      for lane in range(1, 7)],
+        }
+
+    def test_perfect_reference_order_agreement(self):
+        result = compare_original_exhibition(evaluate_race(sample_evidence()), self.reference())
+        self.assertEqual(1.0, result["agreements"]["straight_time_s"]["nobiashi"])
+        self.assertEqual(1.0, result["agreements"]["turn_time_s"]["mawariashi"])
+        self.assertFalse(result["forecast_input_allowed"])
+
+    def test_post_deadline_reference_rejected(self):
+        reference = self.reference()
+        reference["captured_at"] = "2026-10-29T15:31:00+09:00"
+        with self.assertRaises(ValueError):
+            compare_original_exhibition(evaluate_race(sample_evidence()), reference)
+
+    def test_missing_original_field_is_unknown_not_zero(self):
+        reference = self.reference()
+        reference["boats"][0].pop("turn_time_s")
+        result = compare_original_exhibition(evaluate_race(sample_evidence()), reference)
+        self.assertIsNone(result["agreements"]["turn_time_s"]["mawariashi"])
 
 if __name__ == "__main__":
     unittest.main()
