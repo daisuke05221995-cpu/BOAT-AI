@@ -18,9 +18,10 @@ on:
       - 'data/EXHIBITION_PUBLIC_MODEL_B_PROTOCOL_20261030.json'
       - '.github/workflows/exhibition-vision-research.yml'
   # GitHub cron is best-effort (possibly delayed), not a realtime guarantee.
+  # A main-branch push also smoke-tests the public provider end to end.
   # A separate licensed video-detector poll remains opt-in below.
   schedule:
-    - cron: '2-57/5 23,0-13 * * *'
+    - cron: '*/5 23,0-13 * * *'
 
 permissions:
   contents: read
@@ -38,9 +39,12 @@ jobs:
         run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/exhibition_vision -p 'test_*.py' -v
 
   public-preview-poll:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 4
+    concurrency:
+      group: exhibition-public-preview
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
