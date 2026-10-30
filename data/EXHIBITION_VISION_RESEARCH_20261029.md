@@ -96,6 +96,33 @@ PYTHONPATH=scripts python3 -m exhibition_vision.worker --output-dir /tmp/exhibit
 - 検証対応: 直線タイム↔伸び足、まわり足タイム↔回り足/ターン性能、一周タイム↔総合指数。**出足・行き足については単独で直接対応する公式値が無いため、別の物理計測が必要。**
 - 公式計測値が締切後に取得された場合は比較対象から除外。数値の照合はあくまで計測精度の研究であり、予想精度やROIの向上を証明しない。
 
+## 公開リアルタイムCSVの自動取得（映像ではない別系統）
+
+問い合わせを行わず、公開のHTTPSダウンロード仕様が明記された [BoatraceCSV](https://boatracecsv.github.io/) のCSVを研究用に使う。プロジェクトREADMEは **MIT License** を表明し、機械学習・Agent利用向けのCSV URLと約5分間隔の更新を公開している。**ただしMITの表記だけで元の配信映像の著作権や利用許可まで得たことにはならない。映像は取り込まない。**
+
+`scripts/exhibition_vision/public_feed.py` は当日分の以下の4本の公開CSVだけを最大1回ずつ取得する（無限クロール・ストリームURL抽出・外部サイトへの自動問い合わせはしない）。リダイレクト禁止、1本2MiB上限、UTF-8検証、レースコード照合あり。
+
+| パス | 取得項目 | 目的 |
+|---|---|---|
+| `data/previews/original_exhibition/YYYY/MM/DD.csv` | 一周／半周ラップ・まわり足・直線 | 公表実測タイムの6艇順位、映像AIとの将来照合 |
+| `data/previews/tkz/YYYY/MM/DD.csv` | 展示タイム・チルト | 予想候補となり得る既存の直前データ |
+| `data/previews/stt/YYYY/MM/DD.csv` | 進入コース・スタート展示ST | 進入隊形、展示スタート |
+| `data/previews/sui/YYYY/MM/DD.csv` | 風速・波高 | 気象条件の研究 |
+
+- 2026-10-29の公開実データで `original_exhibition` は108レースを確認。3項目・2項目・半周ラップの会場差あり。江戸川のようにオリジナル展示のない会場でも、その他のソースだけでレースを残せる。
+- `retrieved_at` は **我々の取得時刻**、`source_captured_at` は **配信元の収集時刻**。両方が締切前のものだけ `PRE_CLOSE_OBSERVED` とする。締切後に昔のCSVを読んだだけなら必ず `ARCHIVE_ONLY`。締切を過ぎた原始ソースは欠損扱い。
+- `original_ranks` は公表タイムに基づく単純な順位（小さい順）で、**動画解析の5性能指数ではない**。出足・行き足・ターン性能は未測定、値は `null`。一周タイムと半周ラップも区別する。オッズ・着順・払戻は入力しない。
+- GitHub Actionsの公開CSV巡回はJST 08:00〜22:59に対応するUTC cronで約5分間隔の研究ジョブ。取得した締切前の数値JSONだけを3日保存（Actions Artifact）。GitHub Actionsの起動遅延・CSV公開ラグにより、締切前取得を保証できない。**scheduleイベントはワークフローがデフォルトブランチに取り込まれるまで起動しない。**
+- 既存の許可制「映像測定値プロバイダ」workerとは独立。映像権利の確認なしで公開CSVを映像AI扱いにしない。Androidの予想・購入フローも変更しない。
+
+単発で公開CSVを研究用に取り込むコマンド：
+
+```bash
+PYTHONPATH=scripts python3 -m exhibition_vision.public_feed --output-dir /tmp/exhibition-public --live-only
+```
+
+**次の研究:** 実行ログに締切前取得がどの程度あるかを集計し、その上で元のModel Aと対照比較できる「公開数値を追加したModel B（未本番）」の固定プロトコルを事前登録する。BOATCAST等の映像自動取得と物体検出は、このCSV取込とは別の未実装課題。
+
 ## 実装ロードマップと採用ゲート
 
 1. **映像取得権利・方式を確認:** 公式または許可された契約提供元。承認不能な場合は動画全自動取得を停止し、合法に利用できる数値情報のみ続行。

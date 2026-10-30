@@ -15,10 +15,10 @@ on:
       - 'scripts/exhibition_vision/**'
       - 'data/EXHIBITION_VISION_RESEARCH_20261029.md'
       - '.github/workflows/exhibition-vision-research.yml'
-  # Scheduled research polling stays inert until a separately authorized source
-  # is configured. GitHub cron is best-effort, not suitable for live deadlines.
+  # GitHub cron is best-effort (possibly delayed), not a realtime guarantee.
+  # A separate licensed video-detector poll remains opt-in below.
   schedule:
-    - cron: '*/15 0-13 * * *'
+    - cron: '2-57/5 23,0-13 * * *'
 
 permissions:
   contents: read
@@ -34,6 +34,25 @@ jobs:
           python-version: '3.11'
       - name: Video evidence and ranking tests
         run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/exhibition_vision -p 'test_*.py' -v
+
+  public-preview-poll:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch four documented public CSV snapshots (research only)
+        run: PYTHONPATH=scripts python3 -m exhibition_vision.public_feed --output-dir "$RUNNER_TEMP/public-preview" --live-only
+      - name: Save temporary numeric snapshots, not videos or BUY decisions
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-exhibition-preview-${{ github.run_id }}
+          path: ${{ runner.temp }}/public-preview/*.json
+          if-no-files-found: ignore
+          retention-days: 3
 
   approved-provider-poll:
     if: github.event_name == 'schedule' && vars.EXHIBITION_AI_FEED_URL != '' && vars.EXHIBITION_AI_ALLOWED_HOSTS != ''
