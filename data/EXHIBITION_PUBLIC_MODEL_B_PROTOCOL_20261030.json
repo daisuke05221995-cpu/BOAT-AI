@@ -1,0 +1,65 @@
+{
+  "protocol_version": "public_exhibition_model_b_prereg_v1",
+  "registered_date_jst": "2026-10-30",
+  "study_type": "prospective_public_exhibition_forecast_only",
+  "status": "PRE_REGISTERED_FEATURES_ONLY_NO_MODEL_TRAINED",
+  "hypothesis": "Pre-close original exhibition measurements improve forecast discrimination or calibration beyond frozen Model A when evaluated prospectively on identical races.",
+  "current_scope": {
+    "source": "BoatraceCSV documented public pre-race CSV snapshots",
+    "source_kinds": ["original_exhibition", "tkz", "stt", "sui"],
+    "feature_version": "public_exhibition_features_v1",
+    "actual_video_ai": false,
+    "forecast_input_allowed": false,
+    "purchase_decision_allowed": false,
+    "effective_collection_date_jst": "2026-10-30",
+    "source_capture_and_worker_retrieval_must_both_precede_deadline": true,
+    "source_captured_at_must_not_follow_retrieved_at": true
+  },
+  "data_governance": {
+    "excluded_holdout_periods": ["2025-10-01/2025-12-31"],
+    "outcomes_permitted_in_feature_pipeline": false,
+    "odds_permitted_in_feature_pipeline": false,
+    "post_close_retrieval_claimed_live": false,
+    "missing_values": "null_with_explicit_mask_no_zero_fill",
+    "same_race_all_six_boats": true,
+    "published_original_time_items_vary_by_venue": true,
+    "model_a": "freeze_preexisting_production_model_a_do_not_retrain_or_change_temperature",
+    "retrospective_and_live_profit_ledgers": "never_mix"
+  },
+  "phase_1_data_readiness": {
+    "target": "at_least_360_distinct_preclose_observed_races_on_5_or_more_calendar_days",
+    "metrics": [
+      "scheduled_job_run_success_fraction",
+      "preclose_observed_races_per_day",
+      "original_exhibition_available_fraction_by_venue",
+      "six_boat_complete_time_items_by_venue",
+      "source_capture_to_deadline_lag_minutes",
+      "worker_retrieval_to_deadline_lag_minutes",
+      "missing_venue_and_race_patterns"
+    ],
+    "gate": "do_not_train_model_b_before_readiness_report"
+  },
+  "phase_2_independent_forecast_evaluation": {
+    "not_started": true,
+    "minimum_matched_races": 1000,
+    "minimum_distinct_calendar_days": 14,
+    "time_split": "train_and_calibrate_on_earlier_chronological_days; freeze_candidates_before_later_days_are_opened",
+    "base_model": "production_Model_A_frozen_identical_race_set",
+    "candidate": "Model_B_numeric_additive_shadow_only",
+    "metrics": ["trifecta_120way_log_loss", "brier_score", "top1_hit_rate", "top4_hit_rate", "top8_hit_rate", "probability_calibration"],
+    "comparison_method": "paired_by_race_day_block_bootstrap_confidence_intervals",
+    "selection_rule": "only_predeclared_improvement_with_no_material_calibration_regression_proceeds_to_forward_pilot",
+    "negative_result": "retain_Model_A_and_document_failure"
+  },
+  "phase_3_commercial_logic": {
+    "not_started": true,
+    "require_new_preclose_odds_and_purchase_evidence": true,
+    "metrics": ["audited_buy_count", "hit_count", "hit_rate", "stake", "payout", "roi"],
+    "gate": "no_android_or_buy_skip_integration_before_independent_forecast_and_payout_evidence"
+  },
+  "limitations": [
+    "GitHub Actions cron is not a realtime service and may be delayed or skipped.",
+    "Published original exhibition times are not five video-derived performance traits.",
+    "No automated capture or vision tracking of third-party live video is present."
+  ]
+}
