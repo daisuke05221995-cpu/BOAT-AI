@@ -21,7 +21,7 @@ on:
   # A main-branch push also smoke-tests the public provider end to end.
   # A separate licensed video-detector poll remains opt-in below.
   schedule:
-    - cron: '*/5 23,0-13 * * *'
+    - cron: '3-58/5 23,0-13 * * *' # off the busy :00 minute; still best-effort
 
 permissions:
   contents: read
@@ -60,14 +60,14 @@ jobs:
           name: public-exhibition-preview-${{ github.run_id }}
           path: ${{ runner.temp }}/public-preview/*.json
           if-no-files-found: ignore
-          retention-days: 3
+          retention-days: 21
       - name: Save research-only feature evidence for prospective evaluation
         uses: actions/upload-artifact@v4
         with:
           name: public-exhibition-features-${{ github.run_id }}
           path: ${{ runner.temp }}/public-features/*.json
           if-no-files-found: ignore
-          retention-days: 3
+          retention-days: 21
 
   approved-provider-poll:
     if: github.event_name == 'schedule' && vars.EXHIBITION_AI_FEED_URL != '' && vars.EXHIBITION_AI_ALLOWED_HOSTS != ''

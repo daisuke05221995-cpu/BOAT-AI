@@ -22,6 +22,9 @@
     "post_close_retrieval_claimed_live": false,
     "missing_values": "null_with_explicit_mask_no_zero_fill",
     "same_race_all_six_boats": true,
+    "snapshot_rollup_selection": "latest_actual_preclose_retrieval_at_least_120_seconds_before_deadline_per_race; no_content_or_outcome_selection",
+    "snapshot_rollup_min_lead_seconds": 120,
+    "research_artifact_retention_days": 21,
     "published_original_time_items_vary_by_venue": true,
     "model_a": "freeze_preexisting_production_model_a_do_not_retrain_or_change_temperature",
     "retrospective_and_live_profit_ledgers": "never_mix"
