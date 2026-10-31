@@ -16,6 +16,7 @@ import json
 import math
 from pathlib import Path
 import re
+import sys
 from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from zoneinfo import ZoneInfo
@@ -181,7 +182,12 @@ def process_day(raw_by_source: dict[str, str], day: date, retrieved_at: datetime
         primary = next(iter(present.values()))
         deadline = primary["_deadline"]
         if any(row["_deadline"] != deadline for row in present.values()):
-            raise FeedError(f"{key}: inconsistent deadline between sources")
+            # A race can be postponed after an early weather/tilt snapshot.
+            # Never guess which cutoff is authoritative; exclude only this
+            # race, preserving unrelated races in the same daily CSV files.
+            deadlines = sorted({row["_deadline"].isoformat() for row in present.values()})
+            print(f"WARN skipped race {key}: inconsistent source deadlines {deadlines}", file=sys.stderr)
+            continue
         preclose_sources = {
             source: row for source, row in present.items()
             if row["_captured"] < deadline and row["_captured"] <= retrieved_at + timedelta(minutes=1)
@@ -258,13 +264,16 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--live-only", action="store_true", help="write only races observed before cutoff")
     args = parser.parse_args()
-    now = datetime.now(JST)
+    started_at = datetime.now(JST)
     try:
-        day = date.fromisoformat(args.date) if args.date else now.date()
+        day = date.fromisoformat(args.date) if args.date else started_at.date()
     except ValueError as exc:
         parser.error(str(exc))
     raw = {source: fetch_source(source, day) for source in SOURCES}
-    records = process_day(raw, day, now)
+    # Do not backdate an observation to the start of four network requests.
+    # One slow response can cross the deadline; use the time AFTER all fetches.
+    retrieved_at = datetime.now(JST)
+    records = process_day(raw, day, retrieved_at)
     print(json.dumps(write_records(records, args.output_dir, live_only=args.live_only)))
 
 

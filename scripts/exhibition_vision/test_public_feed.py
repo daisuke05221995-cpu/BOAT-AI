@@ -3,10 +3,14 @@
 from datetime import date, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
+from unittest.mock import patch
+import json
 import unittest
 from zoneinfo import ZoneInfo
 
-from exhibition_vision.public_feed import FeedError, feed_url, parse_source, process_day, write_records
+from exhibition_vision.public_feed import FeedError, feed_url, main, parse_source, process_day, write_records
 
 
 DAY = date(2026, 10, 29)
@@ -108,6 +112,32 @@ class PublicFeedTest(unittest.TestCase):
         future = original_csv().replace("15:17:20+09:00", "15:24:20+09:00")
         race = process_day({"original_exhibition": future}, DAY, BEFORE)[0]
         self.assertIn("original_exhibition", race["sources_missing_or_late"])
+
+    def test_one_changed_deadline_skips_only_affected_race(self):
+        original = original_csv().strip().split("\n")
+        other_race = original[1].replace("202610292309", "202610292310").replace(",09R,", ",10R,")
+        combined = "\n".join([*original, other_race, ""])
+        # A delayed cutoff in one source must not kill the whole job/day.
+        outdated_tkz = tkz_csv().replace(",15:30,", ",15:25,")
+        with redirect_stderr(StringIO()) as stderr:
+            races = process_day({"original_exhibition": combined, "tkz": outdated_tkz}, DAY, BEFORE)
+        self.assertEqual(["202610292310"], [race["race"]["code"] for race in races])
+        self.assertIn("skipped race 202610292309", stderr.getvalue())
+
+    def test_main_uses_end_of_fetch_time_not_start_for_live_claim(self):
+        with TemporaryDirectory() as directory:
+            args = ["public_feed", "--date", "2026-10-29", "--output-dir", directory, "--live-only"]
+            with (patch("sys.argv", args),
+                  patch("exhibition_vision.public_feed.datetime", wraps=datetime) as clock,
+                  patch("exhibition_vision.public_feed.fetch_source") as fetch,
+                  redirect_stdout(StringIO()) as stdout):
+                clock.now.side_effect = [BEFORE, AFTER]
+                fetch.side_effect = lambda source, day: original_csv() if source == "original_exhibition" else ""
+                main()
+            report = json.loads(stdout.getvalue())
+            self.assertEqual(0, report["saved"])
+            self.assertEqual(1, report["archive_only"])
+            self.assertEqual([], list(Path(directory).glob("*.json")))
 
 
 if __name__ == "__main__":
