@@ -25,6 +25,9 @@
     "snapshot_rollup_selection": "latest_actual_preclose_retrieval_at_least_120_seconds_before_deadline_per_race; no_content_or_outcome_selection",
     "snapshot_rollup_min_lead_seconds": 120,
     "research_artifact_retention_days": 21,
+    "rolling_audit_days": 3,
+    "rolling_audit_artifact_retention_days": 60,
+    "rolling_audit_cannot_certify_missing_cron_observations": true,
     "published_original_time_items_vary_by_venue": true,
     "model_a": "freeze_preexisting_production_model_a_do_not_retrain_or_change_temperature",
     "retrospective_and_live_profit_ledgers": "never_mix"

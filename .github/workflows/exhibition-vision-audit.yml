@@ -1,0 +1,57 @@
+name: Exhibition preview evidence audit (research-only)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/exhibition_vision/**'
+      - '.github/workflows/exhibition-vision-audit.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/exhibition_vision/artifact_fetch.py'
+      - 'scripts/exhibition_vision/rollup.py'
+      - 'scripts/exhibition_vision/test_artifact_fetch.py'
+      - '.github/workflows/exhibition-vision-audit.yml'
+  # Best-effort daily rollup of the preceding 72h; not a live collector.
+  schedule:
+    - cron: '43 15 * * *'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit-contract-tests:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/exhibition_vision -p 'test_*.py' -q
+
+  artifact-qa:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    concurrency:
+      group: exhibition-preview-daily-audit
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Roll up recent pre-close preview evidence using GitHub artifact API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: PYTHONPATH=scripts python3 -m exhibition_vision.artifact_fetch --days 3 --output-dir "$RUNNER_TEMP/public-audit"
+      - name: Preserve independent research QA result (no results, odds, videos)
+        uses: actions/upload-artifact@v4
+        with:
+          name: exhibition-preview-audit-${{ github.run_id }}
+          path: ${{ runner.temp }}/public-audit/*.json
+          if-no-files-found: error
+          retention-days: 60
