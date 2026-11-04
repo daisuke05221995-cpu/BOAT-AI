@@ -17,11 +17,9 @@ on:
       - 'data/EXHIBITION_VISION_RESEARCH_20261029.md'
       - 'data/EXHIBITION_PUBLIC_MODEL_B_PROTOCOL_20261030.json'
       - '.github/workflows/exhibition-vision-research.yml'
-  # GitHub cron is best-effort (possibly delayed), not a realtime guarantee.
-  # A main-branch push also smoke-tests the public provider end to end.
-  # A separate licensed video-detector poll remains opt-in below.
-  schedule:
-    - cron: '3-58/5 23,0-13 * * *' # off the busy :00 minute; still best-effort
+  # No repeated 5-minute polling: the Android pre-close forecast captures at T-8,
+  # and retries only if missing at T-5. GitHub cron cannot schedule individual
+  # race-specific times reliably. Research smoke tests remain manual/on main push.
 
 permissions:
   contents: read
@@ -39,7 +37,7 @@ jobs:
         run: PYTHONPATH=scripts python3 -m unittest discover -s scripts/exhibition_vision -p 'test_*.py' -v
 
   public-preview-poll:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 4
     concurrency:
@@ -70,7 +68,7 @@ jobs:
           retention-days: 21
 
   approved-provider-poll:
-    if: github.event_name == 'schedule' && vars.EXHIBITION_AI_FEED_URL != '' && vars.EXHIBITION_AI_ALLOWED_HOSTS != ''
+    if: github.event_name == 'workflow_dispatch' && vars.EXHIBITION_AI_FEED_URL != '' && vars.EXHIBITION_AI_ALLOWED_HOSTS != ''
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
