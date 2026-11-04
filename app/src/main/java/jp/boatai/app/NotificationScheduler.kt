@@ -61,20 +61,20 @@ class NotificationScheduler(private val context: Context) {
             if (race.hasResult) return@forEach
             val closeMillis = close.atZone(TOKYO).toInstant().toEpochMilli()
 
-            val evaluateTrigger = closeMillis - ALERT_LEAD_MINUTES * 60_000L
-            if (evaluateTrigger > now) {
-                val evaluateIntent = Intent(context, BoatNotificationReceiver::class.java).apply {
-                    action = ACTION_EVALUATE
-                    putExtra(EXTRA_RACE_ID, race.id)
-                    putExtra(EXTRA_DATE, race.date.take(10))
-                }
-                val evaluatePending = PendingIntent.getBroadcast(
-                    context,
-                    race.id.hashCode(),
-                    evaluateIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                scheduleAlarm(evaluateTrigger, evaluatePending)
+            // 事前予想・BUY通知はPredictionTrackingSchedulerが8分前に一括処理する。
+            // 旧バージョンで登録された5分前の重複取得アラームは取り消す。
+            val obsoleteIntent = Intent(context, BoatNotificationReceiver::class.java).apply {
+                action = ACTION_EVALUATE
+            }
+            val obsoletePending = PendingIntent.getBroadcast(
+                context,
+                race.id.hashCode(),
+                obsoleteIntent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
+            if (obsoletePending != null) {
+                alarmManager.cancel(obsoletePending)
+                obsoletePending.cancel()
             }
 
             val settleTrigger = closeMillis + SETTLE_DELAY_MINUTES * 60_000L
@@ -177,7 +177,7 @@ class NotificationScheduler(private val context: Context) {
         )
         val notification = NotificationCompat.Builder(context, ALERT_CHANNEL)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("購入推奨 🚤 ${race.venueName} ${race.raceNumber}R　締切約5分")
+            .setContentTitle("購入推奨 🚤 ${race.venueName} ${race.raceNumber}R　締切前")
             .setContentText(lines)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -213,7 +213,7 @@ class NotificationScheduler(private val context: Context) {
         )
         manager.createNotificationChannel(
             NotificationChannel(ALERT_CHANNEL, "購入推奨アラート（無音）", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "締切約5分前に、AI判定と最新公式オッズの両方を通過したレースだけ画面通知します"
+                description = "締切8分前を基本に展示情報と公式オッズで判定し、購入推奨を通知します"
                 setSound(null, null)
                 enableVibration(false)
             }
@@ -251,7 +251,6 @@ class NotificationScheduler(private val context: Context) {
         const val ACTION_BOOTSTRAP = "jp.boatai.app.action.BOOTSTRAP_ALERTS"
         const val EXTRA_RACE_ID = "alert_race_id"
         const val EXTRA_DATE = "alert_date"
-        const val ALERT_LEAD_MINUTES = 5
         const val SETTLE_DELAY_MINUTES = 20
         const val ALERT_NOTIFICATION_BASE = 10_000
         const val SERVICE_NOTIFICATION_ID = 9_901
@@ -266,6 +265,8 @@ class NotificationScheduler(private val context: Context) {
 
 class BoatNotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        // 旧アプリで予約された5分前アラームも予想再取得しない。
+        if (intent.action == NotificationScheduler.ACTION_EVALUATE) return
         val scheduler = NotificationScheduler(context)
         if (!scheduler.enabled) return
         runCatching {

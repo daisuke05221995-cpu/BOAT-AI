@@ -60,4 +60,18 @@ class PredictionTrackingPolicyTest {
     fun missingRecordDoesNotBlockEvaluation() {
         assertFalse(PredictionTrackingPolicy.shouldSkipEvaluation(null))
     }
+
+    @Test
+    fun exhibitionCaptureRunsEightMinutesBeforeCloseAndFallbackFiveMinutesBeforeClose() {
+        val closeMillis = 1_800_000_000_000L
+        assertTrue(ExhibitionCapturePolicy.primaryAt(closeMillis) == closeMillis - 480_000L)
+        assertTrue(ExhibitionCapturePolicy.retryAt(closeMillis) == closeMillis - 300_000L)
+        assertTrue(ExhibitionCapturePolicy.primaryAt(closeMillis) < ExhibitionCapturePolicy.retryAt(closeMillis))
+    }
+
+    @Test
+    fun completedExhibitionCaptureDoesNotFetchAgainAtFallback() {
+        assertTrue(ExhibitionCapturePolicy.shouldFetch(completed = false))
+        assertFalse(ExhibitionCapturePolicy.shouldFetch(completed = true))
+    }
 }

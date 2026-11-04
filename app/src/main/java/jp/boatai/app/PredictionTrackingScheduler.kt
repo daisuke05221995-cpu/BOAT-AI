@@ -59,26 +59,23 @@ class PredictionTrackingScheduler(private val context: Context) {
 
     fun scheduleRaces(races: List<RaceData>) {
         val now = System.currentTimeMillis()
+        val captureStore = ExhibitionCaptureStore(context)
         races.forEach { race ->
             if (race.hasResult) return@forEach
             val close = closeAt(race) ?: return@forEach
             val closeMillis = close.atZone(TOKYO).toInstant().toEpochMilli()
 
-            // BUY通知の5分前判定より少し後に動かす。既存アラート側が先に最終予想を
-            // 保存できていれば再取得を避け、アラートOFFならこちらが保存する。
-            val normalEvaluate = closeMillis - ALERT_LEAD_MINUTES * 60_000L + TRACKING_DELAY_MS
-            val evaluateAt = when {
-                normalEvaluate > now -> normalEvaluate
-                closeMillis - now > 30_000L -> now + 5_000L
-                else -> null
-            }
-            if (evaluateAt != null) {
-                schedule(
-                    evaluateAt,
-                    race.id.hashCode() xor EVALUATE_REQUEST_XOR,
-                    ACTION_EVALUATE,
-                    race
-                )
+            // 締切8分前に1回だけ取得・予想する。展示未取得時のみ5分前に再試行。
+            // 両方のアラームを登録しても、初回成功後は受信側で通信せず終了する。
+            if (ExhibitionCapturePolicy.shouldFetch(captureStore.isCompleted(race.id))) {
+                val primaryAt = ExhibitionCapturePolicy.primaryAt(closeMillis)
+                if (primaryAt > now) {
+                    schedule(primaryAt, race.id.hashCode() xor EVALUATE_REQUEST_XOR, ACTION_EVALUATE, race)
+                }
+                val retryAt = ExhibitionCapturePolicy.retryAt(closeMillis)
+                if (retryAt > now) {
+                    schedule(retryAt, race.id.hashCode() xor EVALUATE_RETRY_REQUEST_XOR, ACTION_EVALUATE, race)
+                }
             }
 
             val settleAt = closeMillis + SETTLE_DELAY_MINUTES * 60_000L
@@ -162,15 +159,42 @@ class PredictionTrackingScheduler(private val context: Context) {
         const val EXTRA_SETTLE_ATTEMPT = "tracking_settle_attempt"
         const val SERVICE_CHANNEL = "boat_ai_prediction_tracking_visual_only_v4"
         const val SERVICE_NOTIFICATION_ID = 9_911
-        private const val ALERT_LEAD_MINUTES = 5
-        private const val TRACKING_DELAY_MS = 30_000L
         private const val SETTLE_DELAY_MINUTES = 20
         private const val DAILY_REQUEST_CODE = 9_910
         private const val BOOTSTRAP_SOON_REQUEST_CODE = 9_912
         private const val BOOTSTRAP_RETRY_REQUEST_CODE = 9_913
         private const val EVALUATE_REQUEST_XOR = 0x36B1
+        private const val EVALUATE_RETRY_REQUEST_XOR = 0x36B2
         private const val SETTLE_REQUEST_XOR = 0x51A7
         private const val SETTLE_RETRY_REQUEST_XOR = 0x6C2D
+    }
+}
+
+internal object ExhibitionCapturePolicy {
+    const val PRIMARY_LEAD_MINUTES = 8L
+    const val RETRY_LEAD_MINUTES = 5L
+
+    fun primaryAt(closeMillis: Long): Long = closeMillis - PRIMARY_LEAD_MINUTES * 60_000L
+    fun retryAt(closeMillis: Long): Long = closeMillis - RETRY_LEAD_MINUTES * 60_000L
+    fun shouldFetch(completed: Boolean): Boolean = !completed
+}
+
+/** Persist across app restarts so that a completed race is never fetched again by the backup alarm. */
+internal class ExhibitionCaptureStore(context: Context) {
+    private val preferences = context.getSharedPreferences("boat_ai_exhibition_capture_v1", Context.MODE_PRIVATE)
+
+    init {
+        // One day's decisions only: avoid growing preferences by hundreds of race keys forever.
+        val today = LocalDate.now(PredictionTrackingScheduler.TOKYO).toString()
+        if (preferences.getString("capture_date", null) != today) {
+            preferences.edit().clear().putString("capture_date", today).commit()
+        }
+    }
+
+    fun isCompleted(raceId: String): Boolean = preferences.getBoolean("completed_$raceId", false)
+
+    fun markCompleted(raceId: String) {
+        preferences.edit().putBoolean("completed_$raceId", true).apply()
     }
 }
 
@@ -193,6 +217,10 @@ internal object PredictionTrackingPolicy {
 
 class PredictionTrackingReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == PredictionTrackingScheduler.ACTION_EVALUATE) {
+            val raceId = intent.getStringExtra(PredictionTrackingScheduler.EXTRA_RACE_ID)
+            if (raceId != null && !ExhibitionCapturePolicy.shouldFetch(ExhibitionCaptureStore(context).isCompleted(raceId))) return
+        }
         val serviceIntent = Intent(context, PredictionTrackingService::class.java).apply {
             action = intent.action
             putExtra(PredictionTrackingScheduler.EXTRA_RACE_ID, intent.getStringExtra(PredictionTrackingScheduler.EXTRA_RACE_ID))
@@ -413,11 +441,14 @@ class PredictionTrackingService : Service() {
 
     private suspend fun evaluateRace(dateText: String?, raceId: String?) {
         if (dateText.isNullOrBlank() || raceId.isNullOrBlank()) return
+        val captureStore = ExhibitionCaptureStore(this)
+        if (!ExhibitionCapturePolicy.shouldFetch(captureStore.isCompleted(raceId))) return
         val date = runCatching { LocalDate.parse(dateText.take(10)) }.getOrNull() ?: return
         val repository = BoatRaceRepository()
         val races = runCatching { repository.loadDate(date) }
             .getOrElse { error ->
                 CrashRecoveryStore(this).recordNonFatal("PredictionTrackingService.evaluateRace.loadDate", error)
+                NotificationScheduler(this).recordCheck(raceId, "展示データ取得失敗（予想未確定）")
                 return
             }
 
@@ -427,7 +458,10 @@ class PredictionTrackingService : Service() {
         OneTwoLockHistoryStore(this).settle(races)
 
         val race = races.firstOrNull { it.id == raceId } ?: return
-        if (!race.isPurchasable() || !PredictionEngine.isDecisionReady(race)) return
+        if (!race.isPurchasable() || !PredictionEngine.isDecisionReady(race)) {
+            NotificationScheduler(this).recordCheck(raceId, "展示情報待ち・締切済み（予想未確定）")
+            return
+        }
 
         val predictionStore = PredictionHistoryStore(this)
         val learning = LearningStore(this).load()
@@ -439,10 +473,17 @@ class PredictionTrackingService : Service() {
         PredictionEngine.restoreValueSelections(history)
 
         val existing = predictionStore.load().firstOrNull { it.id == race.id }
-        if (PredictionTrackingPolicy.shouldSkipEvaluation(existing)) return
+        if (PredictionTrackingPolicy.shouldSkipEvaluation(existing)) {
+            captureStore.markCompleted(raceId)
+            return
+        }
 
         val basePicks = PredictionEngine.predict(race, maxPicks = 4)
-        if (basePicks.isEmpty()) return
+        if (basePicks.isEmpty()) {
+            captureStore.markCompleted(raceId)
+            NotificationScheduler(this).recordCheck(raceId, "展示取得済み・予想候補なし")
+            return
+        }
 
         if (PredictionEngine.hasValueStrategyModel()) {
             val oddsResult = runCatching {
@@ -455,6 +496,8 @@ class PredictionTrackingService : Service() {
                     RecommendationDecision(RaceRecommendation.SKIP, "見送り：公式オッズ取得失敗"),
                     "value-v1"
                 )
+                captureStore.markCompleted(raceId)
+                NotificationScheduler(this).recordCheck(raceId, "展示取得済み・公式オッズ取得失敗")
                 return
             }
             PredictionEngine.applyValueOdds(race, oddsResult.odds, learning)
@@ -473,8 +516,11 @@ class PredictionTrackingService : Service() {
                 "value-v1",
                 oddsResult = oddsResult
             )
+            captureStore.markCompleted(raceId)
+            NotificationScheduler(this).recordCheck(raceId, if (decision.recommended) "購入推奨判定済み" else "見送り：${decision.reason}")
             if (decision.recommended) {
                 PurchaseAssistCoordinator.prepareIfEnabled(this, race, picks, "value-v1")
+                NotificationScheduler(this).notifyPurchaseRecommendation(race, picks, decision.reason)
             }
             return
         }
@@ -482,6 +528,8 @@ class PredictionTrackingService : Service() {
         val baseDecision = PredictionEngine.recommendation(race)
         if (!baseDecision.recommended) {
             predictionStore.upsertEvaluatedRace(race, basePicks, baseDecision, "legacy-final-v1")
+            captureStore.markCompleted(raceId)
+            NotificationScheduler(this).recordCheck(raceId, "見送り：${baseDecision.reason}")
             return
         }
 
@@ -495,6 +543,8 @@ class PredictionTrackingService : Service() {
                 RecommendationDecision(RaceRecommendation.SKIP, "見送り：公式オッズ取得失敗"),
                 "legacy-final-v1"
             )
+            captureStore.markCompleted(raceId)
+            NotificationScheduler(this).recordCheck(raceId, "展示取得済み・公式オッズ取得失敗")
             return
         }
         val picks = PredictionEngine.withOdds(
@@ -519,8 +569,11 @@ class PredictionTrackingService : Service() {
             "legacy-final-v1",
             oddsResult = oddsResult
         )
+        captureStore.markCompleted(raceId)
+        NotificationScheduler(this).recordCheck(raceId, if (finalDecision.recommended) "購入推奨判定済み" else "見送り：${finalDecision.reason}")
         if (finalDecision.recommended) {
             PurchaseAssistCoordinator.prepareIfEnabled(this, race, picks.ifEmpty { basePicks }, "legacy-final-v1")
+            NotificationScheduler(this).notifyPurchaseRecommendation(race, picks.ifEmpty { basePicks }, finalDecision.reason)
         }
     }
 
