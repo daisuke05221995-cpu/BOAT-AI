@@ -29,7 +29,7 @@ Androidを起動していなくても、Cloudflare Workersの定期実行でレ�
    - `CLOUDFLARE_API_TOKEN` : Workers Scripts 編集とD1操作に必要な範囲のみ認可したCloudflare APIトークン
    - `CLOUDFLARE_ACCOUNT_ID` : CloudflareアカウントID
    - `BOAT_AI_D1_DATABASE_ID` : 作成したD1データベースのID（UUID）
-6. GitHub `Actions → Deploy Cloud forecast manually → Run workflow` で、マイグレーション適用＋Worker公開を一括実行。**手動実行のみ**で、pushだけでは公開されない。公開URLを確認する。
+6. GitHub `Actions → Deploy Cloud forecast → Run workflow` でマイグレーション適用＋Worker公開を一括実行。以後は **mainのクラウド関連コードが更新されると自動再公開**される（PR・それ以外の変更では公開しない）。初期設定時に `workers.dev` アカウント用サブドメインが未登録なら、APIで一度だけ自動登録する。既存の登録名は変更しない。
    - 直接CLIを使う場合は `npx wrangler d1 migrations apply boat-ai-forecast --remote` → `npx wrangler deploy` でも可。
 7. まず数日間の取得時刻・漏れ・配信元制限を監査し、モデルパリティ実装・端末同期・段階リリースへ進む。
 
