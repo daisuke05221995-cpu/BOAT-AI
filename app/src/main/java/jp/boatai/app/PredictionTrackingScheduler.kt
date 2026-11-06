@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -281,6 +282,10 @@ class PredictionTrackingService : Service() {
                         intent.getIntExtra(PredictionTrackingScheduler.EXTRA_SETTLE_ATTEMPT, 0)
                     )
                 }
+            } catch (cancelled: CancellationException) {
+                // A service lifecycle cancellation is not an odds failure or a
+                // forecast decision. Keep the race eligible for its fallback.
+                throw cancelled
             } catch (error: Throwable) {
                 CrashRecoveryStore(this@PredictionTrackingService).recordNonFatal("PredictionTrackingService.${intent?.action}", error)
             } finally {
@@ -445,8 +450,9 @@ class PredictionTrackingService : Service() {
         if (!ExhibitionCapturePolicy.shouldFetch(captureStore.isCompleted(raceId))) return
         val date = runCatching { LocalDate.parse(dateText.take(10)) }.getOrNull() ?: return
         val repository = BoatRaceRepository()
-        val races = runCatching { repository.loadDate(date) }
+        val races = runCatching { repository.loadDateForPreclose(date) }
             .getOrElse { error ->
+                if (error is CancellationException) throw error
                 CrashRecoveryStore(this).recordNonFatal("PredictionTrackingService.evaluateRace.loadDate", error)
                 NotificationScheduler(this).recordCheck(raceId, "展示データ取得失敗（予想未確定）")
                 return
@@ -480,7 +486,6 @@ class PredictionTrackingService : Service() {
 
         val basePicks = PredictionEngine.predict(race, maxPicks = 4)
         if (basePicks.isEmpty()) {
-            captureStore.markCompleted(raceId)
             NotificationScheduler(this).recordCheck(raceId, "展示取得済み・予想候補なし")
             return
         }
@@ -489,15 +494,11 @@ class PredictionTrackingService : Service() {
             val oddsResult = runCatching {
                 repository.loadOfficialTrifectaOddsDetailed(race, PredictionEngine.valueOddsCombinations())
             }.getOrElse { error ->
+                if (error is CancellationException) throw error
                 CrashRecoveryStore(this).recordNonFatal("PredictionTrackingService.evaluateRace.valueOdds", error)
-                predictionStore.upsertEvaluatedRace(
-                    race,
-                    basePicks,
-                    RecommendationDecision(RaceRecommendation.SKIP, "見送り：公式オッズ取得失敗"),
-                    "value-v1"
-                )
-                captureStore.markCompleted(raceId)
-                NotificationScheduler(this).recordCheck(raceId, "展示取得済み・公式オッズ取得失敗")
+                predictionStore.upsertOddsUnavailable(race, basePicks, "value-v1")
+                // Do not mark capture complete: the T-5 alarm must try again.
+                NotificationScheduler(this).recordCheck(raceId, "公式オッズ未取得・5分前に再試行")
                 return
             }
             PredictionEngine.applyValueOdds(race, oddsResult.odds, learning)
@@ -536,15 +537,10 @@ class PredictionTrackingService : Service() {
         val oddsResult = runCatching {
             repository.loadOfficialTrifectaOddsDetailed(race, basePicks.map { it.combination })
         }.getOrElse { error ->
+            if (error is CancellationException) throw error
             CrashRecoveryStore(this).recordNonFatal("PredictionTrackingService.evaluateRace.legacyOdds", error)
-            predictionStore.upsertEvaluatedRace(
-                race,
-                basePicks,
-                RecommendationDecision(RaceRecommendation.SKIP, "見送り：公式オッズ取得失敗"),
-                "legacy-final-v1"
-            )
-            captureStore.markCompleted(raceId)
-            NotificationScheduler(this).recordCheck(raceId, "展示取得済み・公式オッズ取得失敗")
+            predictionStore.upsertOddsUnavailable(race, basePicks, "legacy-final-v1")
+            NotificationScheduler(this).recordCheck(raceId, "公式オッズ未取得・5分前に再試行")
             return
         }
         val picks = PredictionEngine.withOdds(

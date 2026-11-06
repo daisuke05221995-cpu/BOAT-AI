@@ -23,6 +23,22 @@ class BoatRaceRepository(context: Context? = null) : RaceDataProvider, OddsProvi
 
     suspend fun loadDate(date: LocalDate): List<RaceData> = loadDateDetailed(date).races
 
+    /**
+     * Lightweight, pre-close-only read. The near-deadline alarm needs the
+     * current start list/exhibition, not up to 24 additional official result
+     * page requests for already finished races elsewhere in the country.
+     * Do not substitute a potentially stale cache after a network failure:
+     * BUY/SKIP must be based on a successful current-date fetch.
+     */
+    suspend fun loadDateForPreclose(date: LocalDate): List<RaceData> = withContext(Dispatchers.IO) {
+        val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))
+        val fetched = fetchProgramJson(date, today)
+        val json = fetched.json ?: return@withContext emptyList()
+        val races = ProgramDataAvailability.keepRequestedDate(BoatRaceJsonParser.parse(json), date)
+        if (ProgramDataAvailability.shouldCache(races)) saveProgramCache(date, json)
+        races
+    }
+
     suspend fun loadCachedDateDetailed(date: LocalDate): DateLoadResult? = withContext(Dispatchers.IO) {
         val file = cacheFile(date) ?: return@withContext null
         val json = runCatching {
@@ -254,9 +270,18 @@ class BoatRaceRepository(context: Context? = null) : RaceDataProvider, OddsProvi
             "公式スマホ版" to "https://www.boatrace.jp/owsp/sp/race/odds3t?$suffix"
         )
         var lastError: Throwable? = null
+        var officialHostUnavailable = false
         val diagnostics = mutableListOf<DataSourceDiagnostic>()
 
         for ((source, url) in sources) {
+            if (officialHostUnavailable) {
+                diagnostics += DataSourceDiagnostic(
+                    source,
+                    DiagnosticStatus.WARNING,
+                    "同一公式ホストのDNS解決失敗を確認済み・重複アクセス省略"
+                )
+                continue
+            }
             val startedAt = System.currentTimeMillis()
             runCatching {
                 val fetched = fetchOfficialPageWithSession(url)
@@ -277,6 +302,7 @@ class BoatRaceRepository(context: Context? = null) : RaceDataProvider, OddsProvi
                 return@withContext result
             }.onFailure { error ->
                 lastError = error
+                if (OddsNetworkRetryPolicy.isDnsFailure(error)) officialHostUnavailable = true
                 diagnostics += DataSourceDiagnostic(
                     source,
                     DiagnosticStatus.WARNING,
@@ -324,13 +350,14 @@ class BoatRaceRepository(context: Context? = null) : RaceDataProvider, OddsProvi
 
     private fun fetchOfficialPageWithSession(url: String): SessionFetch {
         var lastError: Throwable? = null
-        repeat(3) { index ->
-            val attempt = index + 1
+        for (attempt in 1..3) {
             val session = Jsoup.newSession()
                 .userAgent(OFFICIAL_USER_AGENT)
                 .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .header("Accept-Language", "ja-JP,ja;q=0.9,en-US;q=0.7,en;q=0.5")
-                .timeout(20_000)
+                // T-8 evaluation must finish early enough for the independent
+                // T-5 fallback; 20 s per request could consume that entire gap.
+                .timeout(10_000)
                 .maxBodySize(0)
             try {
                 // 公式トップを先に開き、同一セッションのCookieを保持してからレースページへ進む。
@@ -348,6 +375,9 @@ class BoatRaceRepository(context: Context? = null) : RaceDataProvider, OddsProvi
                 return SessionFetch(document, attempt)
             } catch (error: Throwable) {
                 lastError = error
+                // All official layouts share the same host: a DNS outage will
+                // not be repaired by requesting the identical host six times.
+                if (OddsNetworkRetryPolicy.isDnsFailure(error)) break
                 if (attempt < 3) Thread.sleep(300L * attempt)
             }
         }

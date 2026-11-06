@@ -41,6 +41,20 @@ class PredictionTrackingPolicyTest {
         assertTrue(PredictionTrackingPolicy.shouldSkipEvaluation(record(settled = true)))
     }
 
+    @Test
+    fun unfinalizedOddsFailureRemainsEligibleForFiveMinuteRetry() {
+        val pending = record(settled = false).copy(
+            evaluationEligible = false,
+            autoSkipped = false,
+            recommended = false,
+            recommendationReason = "公式オッズ未取得・再試行待ち",
+            liveOddsFetchedAt = null
+        )
+        assertFalse(PredictionTrackingPolicy.shouldSkipEvaluation(pending))
+        assertFalse(ExhibitionCapturePolicy.shouldFetch(completed = true))
+        assertTrue(ExhibitionCapturePolicy.shouldFetch(completed = false))
+    }
+
 
     @Test
     fun bootstrapRetriesBeforeMorningCutoff() {
