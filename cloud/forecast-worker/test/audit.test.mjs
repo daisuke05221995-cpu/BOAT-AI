@@ -9,12 +9,19 @@ const fullOdds = Object.fromEntries(Array.from({ length: 6 }, (_, a) => a + 1)
     .flatMap(b => Array.from({ length: 6 }, (_, c) => c + 1)
       .filter(c => a !== b && b !== c && a !== c).map(c => [`${a}-${b}-${c}`, 20]))));
 const sixRacers = Object.fromEntries(Array.from({ length: 6 }, (_, i) => [String(i + 1), {
-  course_number: i + 1, exhibition_time: 6.75,
+  course_number: i + 1, exhibition_time: 6.75, start_timing: 0.12,
 }]));
+const weather = (observedMs = now - 150_000) => ({
+  wind_speed: 2, wind_direction_number: 5, wave_height: 3,
+  air_temperature: 19, water_temperature: 17,
+  weather_source: 'authorized-weather', weather_observed_at: new Date(observedMs).toISOString(),
+});
 const verified = {
   race_date: '2026-11-06', stadium_number: 1, race_number: 1,
-  preview_json: JSON.stringify({ date: '2026-11-06', stadium_number: 1, race_number: 1, racers: sixRacers }),
+  preview_json: JSON.stringify({ date: '2026-11-06', stadium_number: 1, race_number: 1,
+    racers: sixRacers, ...weather() }),
   preview_source: 'authorized-exhibition', preview_observed_ms: now - 150_000,
+  weather_source: 'authorized-weather', weather_observed_ms: now - 150_000,
   odds_json: JSON.stringify(fullOdds), odds_source: 'authorized-odds', odds_observed_ms: now - 150_000,
   captured_ms: now - 120_000,
 };
@@ -161,7 +168,7 @@ test('T-8 authorized provider snapshots persist both real source clocks but do n
       observed_at: new Date(Date.now() - 10_000).toISOString() };
     const content = u.pathname === '/preview'
       ? { ...common, source: 'authorized-exhibition', preview: { ...common,
-        racers: sixRacers } }
+        racers: sixRacers, ...weather(Date.now() - 10_000) } }
       : { ...common, source: 'authorized-odds', odds: fullOdds };
     return new Response(JSON.stringify(content), { status: 200 });
   };
@@ -185,9 +192,11 @@ test('T-8 authorized provider snapshots persist both real source clocks but do n
   assert.equal(saved.args[0], 2); // completed capture; model still not deployed
   assert.equal(saved.args[3], 'authorized-exhibition');
   assert.ok(Number.isFinite(saved.args[4]));
-  assert.equal(saved.args[6], 'authorized-odds');
-  assert.ok(Number.isFinite(saved.args[7]));
-  assert.equal(saved.args[8], null); // no acquisition error
+  assert.equal(saved.args[5], 'authorized-weather');
+  assert.ok(Number.isFinite(saved.args[6]));
+  assert.equal(saved.args[8], 'authorized-odds');
+  assert.ok(Number.isFinite(saved.args[9]));
+  assert.equal(saved.args[10], null); // no acquisition error
   assert.equal(saved.sql.includes('forecast_json'), false);
 });
 
@@ -212,7 +221,7 @@ test('same-deadline provider calls run concurrently with a strict four-race cap'
       observed_at: new Date(Date.now() - 10_000).toISOString() };
     const payload = u.pathname === '/preview'
       ? { ...common, source: 'authorized-exhibition', preview: { date, stadium_number: 1,
-        race_number: number, racers: sixRacers } }
+        race_number: number, racers: sixRacers, ...weather(Date.now() - 10_000) } }
       : { ...common, source: 'authorized-odds', odds: fullOdds };
     return new Response(JSON.stringify(payload));
   };

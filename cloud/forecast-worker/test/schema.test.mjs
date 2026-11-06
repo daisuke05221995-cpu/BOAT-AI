@@ -7,6 +7,7 @@ const migration = readFileSync(new URL('../migrations/0001_initial.sql', import.
 const auditMigration = readFileSync(new URL('../migrations/0002_operational_audit.sql', import.meta.url), 'utf8');
 const provenanceMigration = readFileSync(new URL('../migrations/0003_preclose_provenance.sql', import.meta.url), 'utf8');
 const historyMigration = readFileSync(new URL('../migrations/0004_model_a_history_generations.sql', import.meta.url), 'utf8');
+const weatherMigration = readFileSync(new URL('../migrations/0005_weather_provenance.sql', import.meta.url), 'utf8');
 
 test('D1 SQLite migration accepts actual race inserts, rejects duplicate loss', () => {
   const db = new DatabaseSync(':memory:');
@@ -94,5 +95,21 @@ test('immutable history checkpoint migration preserves existing forecast and res
   const row = db.prepare('SELECT result_json FROM race_schedule').get();
   assert.deepEqual(JSON.parse(row.result_json), { trifecta_combination: '1-2-3' });
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM model_a_history_active').get().n, 0);
+  db.close();
+});
+
+test('field-level weather provenance migration leaves old captures unverified, never invents timestamps', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(auditMigration);
+  db.exec(provenanceMigration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, preview_observed_ms)
+    VALUES ('2026-11-06-01-1', '2026-11-06', 1, 1, 100000, 0, 90000)`).run();
+  db.exec(weatherMigration);
+  const row = db.prepare('SELECT preview_observed_ms, weather_observed_ms, weather_source FROM race_schedule').get();
+  assert.equal(row.preview_observed_ms, 90000);
+  assert.equal(row.weather_observed_ms, null);
+  assert.equal(row.weather_source, null);
   db.close();
 });

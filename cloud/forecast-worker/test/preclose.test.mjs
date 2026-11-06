@@ -11,9 +11,13 @@ const row = {
   deadline_ms: now + 8 * 60_000, capture_stage: 2,
 };
 const racers = Object.fromEntries(Array.from({ length: 6 }, (_, index) => [String(index + 1), {
-  course_number: index + 1, exhibition_time: 6.75,
+  course_number: index + 1, exhibition_time: 6.75, start_timing: 0.12,
 }]));
-const preview = { date: row.race_date, stadium_number: 1, race_number: 1, racers };
+const preview = { date: row.race_date, stadium_number: 1, race_number: 1, racers,
+  wind_speed: 2, wave_height: 3, air_temperature: 19, water_temperature: 17,
+  wind_direction_number: 5, weather_source: 'licensed-weather',
+  weather_observed_at: new Date(now - 30_000).toISOString(),
+};
 const odds = Object.fromEntries(Array.from({ length: 6 }, (_, a) => a + 1)
   .flatMap(a => Array.from({ length: 6 }, (_, b) => b + 1)
     .flatMap(b => Array.from({ length: 6 }, (_, c) => c + 1)
@@ -28,14 +32,20 @@ test('six unique course observations and all 120 trifecta odds are accepted', ()
   const p = verifiedPreviewPayload(payload('preview', preview), row, now);
   const o = verifiedOddsPayload(payload('odds', odds), row, now);
   assert.equal(p.observedMs, now - 30_000);
+  assert.equal(p.weatherObservedMs, now - 30_000);
   assert.equal(o.observedMs, now - 30_000);
   const stored = { ...row, captured_ms: now,
     preview_json: JSON.stringify(p.preview), preview_source: p.source, preview_observed_ms: p.observedMs,
+    weather_source: p.weatherSource, weather_observed_ms: p.weatherObservedMs,
     odds_json: JSON.stringify(o.odds), odds_source: o.source, odds_observed_ms: o.observedMs,
   };
   assert.equal(verifiedStoredCapture(stored), true);
-  assert.equal(serializeForecast({ ...stored, model_version: 'model-a', decision: 'SKIP',
-    forecast_json: '{"combinations":[],"stakes":[]}' }, now).status, 'READY');
+  assert.equal(verifiedStoredCapture({ ...stored, weather_observed_ms: now - 29_000 }), false);
+  const served = serializeForecast({ ...stored, model_version: 'model-a', decision: 'SKIP',
+    forecast_json: '{"combinations":[],"stakes":[]}' }, now);
+  assert.equal(served.status, 'READY');
+  assert.equal(served.weather_source, 'licensed-weather');
+  assert.equal(served.weather_observed_at, new Date(now - 30_000).toISOString());
 });
 
 test('missing 1 trifecta entry fails closed before model use', () => {
@@ -49,6 +59,27 @@ test('wrong race, incomplete exhibition, or undeclared source cannot be accepted
   assert.throws(() => verifiedPreviewPayload(payload('preview', { ...preview, racers: { ...racers, 6: { course_number: 1, exhibition_time: 6.75 } } }), row, now), /PREVIEW_NOT_COMPLETE/);
   assert.throws(() => verifiedPreviewPayload({ ...payload('preview', preview), source: '' }, row, now), /PREVIEW_SOURCE_MISSING/);
   assert.throws(() => verifiedOddsPayload({ ...payload('odds', odds), stadium_number: 2 }, row, now), /ODDS_WRONG_RACE/);
+});
+
+test('missing preview ST or weather is incomplete, never silently promoted', () => {
+  const missingSt = structuredClone(preview);
+  delete missingSt.racers['3'].start_timing;
+  assert.throws(() => verifiedPreviewPayload(payload('preview', missingSt), row, now), /PREVIEW_NOT_COMPLETE/);
+  const missingWind = { ...preview, wind_speed: undefined };
+  assert.throws(() => verifiedPreviewPayload(payload('preview', missingWind), row, now), /PREVIEW_NOT_COMPLETE/);
+  const noWeatherTime = { ...preview, weather_observed_at: undefined };
+  assert.throws(() => verifiedPreviewPayload(payload('preview', noWeatherTime), row, now), /WEATHER_TIME_MISSING/);
+  assert.throws(() => verifiedPreviewPayload(payload('preview', { ...preview, weather_source: '' }), row, now), /WEATHER_SOURCE_MISSING/);
+  assert.throws(() => verifiedPreviewPayload(payload('preview', { ...preview,
+    weather_observed_at: new Date(now - 120_001).toISOString() }), row, now), /WEATHER_STALE/);
+});
+
+test('calm wind is explicit, negative flying exhibition ST is valid, non-finite values are not', () => {
+  const calm = { ...preview, wind_speed: 0, wind_direction_number: 0,
+    racers: { ...racers, 1: { ...racers['1'], start_timing: -0.03 } } };
+  assert.ok(verifiedPreviewPayload(payload('preview', calm), row, now));
+  const impossible = { ...calm, racers: { ...calm.racers, 1: { ...calm.racers['1'], start_timing: Infinity } } };
+  assert.throws(() => verifiedPreviewPayload(payload('preview', impossible), row, now), /PREVIEW_NOT_COMPLETE/);
 });
 
 test('provider timestamps must be present, fresh, before close, and not in the future', () => {

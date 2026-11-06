@@ -14,7 +14,7 @@ Androidを起動していなくても、Cloudflare Workersの定期実行でレ�
 - GitHub mainにクラウド関連コードが反映されると自動デプロイし、公開APIのhealthとauditをスモークテストする。
 - D1無料枠の1回の実行あたりのクエリ数制限に対応するため、開催表（最大288R）、同時刻のT-8/T-5取得、結果記録をまとめたD1 batchで保存する。外部展示・オッズのT-8/T-5取得タイミングは変更しない。
 - 同時刻の直前取得は最大4レースを並行処理。遅い1レースが後続の締切を圧迫するのを緩和し、取得先への集中アクセスは上限4で抑える。取得元の表示時刻が古い場合は並行化しても失敗扱いにする。
-- `0003_preclose_provenance.sql` で展示・オッズそれぞれの配信元と取得元観測時刻を保存。**6艇の展示と3連単120通りのオッズが揃い、同じレース・締切前・観測から2分以内**でなければ、直前データ完備と判定しない。時刻不明・不一致・期限切れ・欠損は理由コードを監査に記録し、`READY` を返さない。
+- `0003_preclose_provenance.sql` と**追加の `0005_weather_provenance.sql`** で展示・オッズ・気象それぞれの配信元と取得元観測時刻を別々に保存。**6艇の展示・進入・展示ST、事前気象の個別観測時刻と出典、3連単120通りのオッズ**が揃い、同じレース・締切前・観測から2分以内でなければ、直前データ完備と判定しない。時刻不明・不一致・期限切れ・欠損は理由コードを監査に記録し、`READY` を返さない。旧レコードの気象観測時刻は補完せず未確認のまま残す。
 - Android の凍結済み Model A と対応する**数値LightGBMテキスト評価器・3段階の条件付き確率エンジン**をクラウド用JavaScriptに移植。82特徴量×6艇＋24レース特徴量から**545/715/885**次元の段階別入力行を生成し、120通りの確率を計算する。数値ツリー・欠損ルーティング・順序・正規化と実アセットの読込をテスト済み。**本番Workerの予想判定にはまだ接続していない**。
 - Pythonの既存 `scripts/v016_r2_model.py` と固定LightGBM 4.6.0を独立実行し、人工特徴量4レース×120通り＝**480確率**のgolden fixtureを生成。クラウドJSと全値を突き合わせ、最大絶対誤差1e-7未満を自動テストする。元モデル3本のSHA-256一致も必須。**これは確率チェーンのパリティであり、Android選手履歴・特徴量生成の実データパリティ完了を意味しない**。2025年の未開封holdout・結果・オッズは取得しない。
 - Android `ModelAPlayerHistory` / 固定Python `v016_r4_player_history.py` を純JavaScriptに移植。**日別確定後に一括コミット**し、同日結果の先読みを禁止。独立Pythonコードによる合成38スナップショット（履歴32＋展示反応20）×52＝**1,976数値**と各フラグを照合し、最大誤差1e-6未満。途中失敗による履歴の部分更新も防ぐ。
@@ -23,6 +23,7 @@ Androidを起動していなくても、Cloudflare Workersの定期実行でレ�
 - `model-a-runtime.mjs` に、レース入力→履歴→特徴量→固定3段LightGBM→120通り確率の**副作用のない実行境界**を追加。日付が前日まで揃っていない履歴・欠損レース入力・未読込モデルなら確率推論自体を拒否する。独立Python LightGBM 4.6.0の合成**2レース×120通り=240確率**と全値1e-7未満で一致し、Androidの**実履歴×11月の合成レース**は `MODEL_A_HISTORY_STALE` により拒否することを検証。**まだ本番Worker APIに接続しておらず、BUY/SKIPや実レースでのパリティ完成を意味しない**。
 - `model-a-daily-reconcile.mjs` に**日別選手履歴更新の厳格な入力検証ゲート**を追加。外部から供給された確定開催マニフェスト（全レースID・件数・取得元・確定観測時刻）と終局結果のキーを完全照合し、欠損・重複・日付不連続・結果不確定・6艇着順不正・モデル用直前特徴量欠損を拒否する。確定中止は理由付きのみ0更新として記録。全レースの特徴量を**同じ前日履歴**で構築し、全件成功後にコピーした状態へ1日分をコミットするため、失敗時に元の履歴は変わらない。**現段階では純粋関数と合成テストのみで、実結果の取得・D1/R2保存・本番への適用は行わない**。
 - `model-a-history-codec.mjs` に Android BAH1の**バイナリ書き出し**を追加。固定Android履歴4,222,646バイトとの全バイト一致・SHA-256一致を検証。`0004_model_a_history_generations.sql` と `model-a-history-store.mjs` で約512KiBずつのD1チャンク、世代全体/各チャンクのSHA-256監査、原子的なステージングと検証後のCAS有効化を実装。途中失敗・破損・日付飛びでも既存の有効世代を維持する。**本番Cronには未接続で、固定履歴を最新と偽装しない**。
+- `model-a-historical-normalizer.mjs` に**非通信の過去日JSON正規化契約**を追加。出走表・展示・結果の3つのレースID、全6艇の登録番号・進入・展示ST・着順を照合し、後付け結果値を事前特徴量へ流し込まない。中止は明示された理由のみ受理。返す `SOURCE_COVERAGE_UNVERIFIED` は「全国全レースの網羅性・配信許諾・締切前時刻は未証明」の意味。**本番データ取得や履歴への自動適用はしていない**。
 
 ### 選手履歴の安全な日別更新ゲート（本番未接続）
 
@@ -52,21 +53,25 @@ Worker環境変数 `PREVIEW_API_URL`、`ODDS_API_URL` を**それぞれ認可済
   "observed_at": "2026-11-07T02:52:00Z",
   "preview": {
     "date": "2026-11-07", "stadium_number": 1, "race_number": 1,
+    "wind_speed": 2, "wind_direction_number": 5, "wave_height": 3,
+    "air_temperature": 19, "water_temperature": 17,
+    "weather_source": "licensed-weather-provider",
+    "weather_observed_at": "2026-11-07T02:51:50Z",
     "racers": {
-      "1": { "course_number": 1, "exhibition_time": 6.75 },
-      "2": { "course_number": 2, "exhibition_time": 6.77 },
-      "3": { "course_number": 3, "exhibition_time": 6.72 },
-      "4": { "course_number": 4, "exhibition_time": 6.74 },
-      "5": { "course_number": 5, "exhibition_time": 6.73 },
-      "6": { "course_number": 6, "exhibition_time": 6.76 }
+      "1": { "course_number": 1, "exhibition_time": 6.75, "start_timing": 0.12 },
+      "2": { "course_number": 2, "exhibition_time": 6.77, "start_timing": 0.13 },
+      "3": { "course_number": 3, "exhibition_time": 6.72, "start_timing": 0.11 },
+      "4": { "course_number": 4, "exhibition_time": 6.74, "start_timing": 0.14 },
+      "5": { "course_number": 5, "exhibition_time": 6.73, "start_timing": 0.10 },
+      "6": { "course_number": 6, "exhibition_time": 6.76, "start_timing": 0.15 }
     }
   }
 }
 ```
 
-オッズデータ：同じ上位の `date`、`stadium_number`、`race_number`、`source`、`observed_at` を持ち、`"odds": {"1-2-3": 12.4, ...}` に全**120通り**の正の有限小数を入れる。`observed_at` はキャッシュを配信した時刻ではなく、**配信元が該当レースの実データを観測した時刻**とする。UTC ISO8601 (`Z`) で指定。配信元をまたいでレースIDが一致しない場合も拒否する。値や時刻を推測で埋めない。
+オッズデータ：同じ上位の `date`、`stadium_number`、`race_number`、`source`、`observed_at` を持ち、`"odds": {"1-2-3": 12.4, ...}` に全**120通り**の正の有限小数を入れる。`observed_at` はキャッシュを配信した時刻ではなく、**配信元が該当レースの実データを観測した時刻**とする。UTC ISO8601 (`Z`) で指定。気象の観測は展示と異なる場合があるため、`weather_observed_at` / `weather_source` にそれぞれ実観測時刻・実出典を渡す。キャッシュ受信時刻を転記してはならない。配信元をまたいでレースIDが一致しない場合も拒否する。値や時刻を推測で埋めない。
 
-この契約はサーバーで検証するためのものであり、**配信元の利用許諾・鮮度・品質を保証するものではない**。提供先が決まるまでは `PREVIEW_PROVIDER_NOT_CONFIGURED` または `ODDS_PROVIDER_NOT_CONFIGURED` の取得失敗を記録し、クラウド予想完了扱いにしない。`GET /v1/forecasts` には `preview_source` / `preview_observed_at` / `odds_source` / `odds_observed_at` を含む。
+この契約はサーバーで検証するためのものであり、**配信元の利用許諾・鮮度・品質を保証するものではない**。提供先が決まるまでは `PREVIEW_PROVIDER_NOT_CONFIGURED` または `ODDS_PROVIDER_NOT_CONFIGURED` の取得失敗を記録し、クラウド予想完了扱いにしない。`GET /v1/forecasts` には展示・気象・オッズそれぞれの `*_source` / `*_observed_at` を含む。
 
 ## 現時点のブロッカー（推奨購入は返さない）
 
