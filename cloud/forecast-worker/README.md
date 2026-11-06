@@ -25,8 +25,13 @@ Androidを起動していなくても、Cloudflare Workersの定期実行でレ�
 2. 手元/CIから `npx wrangler login`、`npx wrangler d1 create boat-ai-forecast` を実行し、出力された `database_id` を `wrangler.toml` に設定する。
 3. `npx wrangler d1 migrations apply boat-ai-forecast --remote` で `migrations/0001_initial.sql` を適用する。
 4. 利用許可のある展示・オッズ配信先が決まった場合のみ、`ODDS_API_URL` をWorker環境変数、認証が必要なら `ODDS_API_TOKEN` を `wrangler secret put` で設定。契約: `GET ?date=YYYY-MM-DD&stadium=数字&race=数字` → `{ "odds": { "1-2-3": 12.4, ... }, "source": "provider-name" }`。3連単100点以上、正の数値でなければ不完全として扱う。
-5. `npx wrangler deploy`。GitHub Actionsによる自動デプロイを使う場合は、権限最小のトークンをGitHub Secretsに登録し、**別途デプロイWorkflowを追加**する。本PRのCIはテストのみで、秘密情報やデプロイ権限を使わない。
-6. まず数日間の取得時刻・漏れ・配信元制限を監査し、モデルパリティ実装・端末同期・段階リリースへ進む。
+5. **スマホからの公開ルート:** GitHubのリポジトリ `Settings → Secrets and variables → Actions` に以下の3つを登録する（このチャットには貼らない）：
+   - `CLOUDFLARE_API_TOKEN` : Workers Scripts 編集とD1操作に必要な範囲のみ認可したCloudflare APIトークン
+   - `CLOUDFLARE_ACCOUNT_ID` : CloudflareアカウントID
+   - `BOAT_AI_D1_DATABASE_ID` : 作成したD1データベースのID（UUID）
+6. GitHub `Actions → Deploy Cloud forecast manually → Run workflow` で、マイグレーション適用＋Worker公開を一括実行。**手動実行のみ**で、pushだけでは公開されない。公開URLを確認する。
+   - 直接CLIを使う場合は `npx wrangler d1 migrations apply boat-ai-forecast --remote` → `npx wrangler deploy` でも可。
+7. まず数日間の取得時刻・漏れ・配信元制限を監査し、モデルパリティ実装・端末同期・段階リリースへ進む。
 
 ## データと運用の注意
 
