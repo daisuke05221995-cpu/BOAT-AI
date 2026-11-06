@@ -3,6 +3,7 @@ import {
   japanDate, isValidDate, extractSchedule, nextCaptureStage,
   nextResultStage, validOdds,
 } from './policy.mjs';
+import { summarizeDailyAudit } from './audit.mjs';
 
 const allowedHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 const MAX_IMPORT_RACES = 288;
@@ -131,6 +132,9 @@ async function captureDueRaces(env, date, nowMs) {
       WHERE race_id=? AND capture_stage=? AND deadline_ms > ?`)
       .bind(stage, nowMs, nowMs, row.race_id, row.capture_stage, nowMs).run();
     if (!claimed.meta?.changes) continue;
+    await env.DB.prepare(`INSERT INTO capture_attempt (race_id, stage, started_ms)
+      VALUES (?, ?, ?) ON CONFLICT(race_id, stage) DO NOTHING`)
+      .bind(row.race_id, stage, nowMs).run();
     const observation = selectRace(program, row);
     let odds = null;
     let failure = programError ?? (!observation?.preview ? 'EXHIBITION_NOT_AVAILABLE' : null);
@@ -149,6 +153,9 @@ async function captureDueRaces(env, date, nowMs) {
         observation?.preview ? JSON.stringify(observation.preview) : null,
         captured ? JSON.stringify(odds.odds) : null,
         captured ? odds.source : null, failure, finishedAt, row.race_id, nowMs).run();
+    await env.DB.prepare(`UPDATE capture_attempt SET finished_ms=?, completed=?, failure_code=?
+      WHERE race_id=? AND stage=? AND started_ms=?`)
+      .bind(finishedAt, captured ? 1 : 0, failure, row.race_id, stage, nowMs).run();
     // Deliberately no BUY/SKIP until the Android Model A parity runner exists.
   }
 }
@@ -181,9 +188,25 @@ async function settleDueRaces(env, date, nowMs) {
 
 export async function runScheduled(env, nowMs = Date.now()) {
   const date = japanDate(nowMs);
-  await importDailySchedule(env, date, nowMs);
-  await captureDueRaces(env, date, nowMs);
-  await settleDueRaces(env, date, nowMs);
+  await env.DB.prepare(`INSERT INTO cron_heartbeat (race_date, last_started_ms, started_count)
+    VALUES (?, ?, 1)
+    ON CONFLICT(race_date) DO UPDATE SET
+      last_started_ms=MAX(cron_heartbeat.last_started_ms, excluded.last_started_ms),
+      started_count=cron_heartbeat.started_count+1`)
+    .bind(date, nowMs).run();
+  try {
+    await importDailySchedule(env, date, nowMs);
+    await captureDueRaces(env, date, nowMs);
+    await settleDueRaces(env, date, nowMs);
+    await env.DB.prepare(`UPDATE cron_heartbeat SET
+      last_completed_ms=MAX(COALESCE(last_completed_ms, 0), ?),
+      completed_count=completed_count+1, last_error_code=NULL WHERE race_date=?`)
+      .bind(Date.now(), date).run();
+  } catch (error) {
+    await env.DB.prepare('UPDATE cron_heartbeat SET last_error_code=? WHERE race_date=?')
+      .bind('SCHEDULED_RUN_FAILED', date).run();
+    throw error;
+  }
 }
 
 export default {
@@ -192,9 +215,21 @@ export default {
     const url = new URL(request.url);
     if (request.method !== 'GET') return jsonResponse({ error: 'METHOD_NOT_ALLOWED' }, 405);
     if (url.pathname === '/v1/health') return jsonResponse({ ok: true, service: 'boat-ai-cloud', schema_version: 1 });
-    if (url.pathname !== '/v1/forecasts') return jsonResponse({ error: 'NOT_FOUND' }, 404);
+    if (url.pathname !== '/v1/forecasts' && url.pathname !== '/v1/audit') return jsonResponse({ error: 'NOT_FOUND' }, 404);
     const date = url.searchParams.get('date');
     if (!isValidDate(date)) return jsonResponse({ error: 'INVALID_DATE' }, 400);
+    if (url.pathname === '/v1/audit') {
+      const [schedule, attempts, imported, heartbeat] = await Promise.all([
+        env.DB.prepare('SELECT * FROM race_schedule WHERE race_date=? ORDER BY deadline_ms LIMIT 288').bind(date).all(),
+        env.DB.prepare(`SELECT a.stage, a.started_ms, a.finished_ms, a.completed, a.failure_code
+          FROM capture_attempt a INNER JOIN race_schedule s ON s.race_id=a.race_id
+          WHERE s.race_date=? ORDER BY a.started_ms LIMIT 576`).bind(date).all(),
+        env.DB.prepare('SELECT * FROM daily_import WHERE race_date=?').bind(date).first(),
+        env.DB.prepare('SELECT * FROM cron_heartbeat WHERE race_date=?').bind(date).first(),
+      ]);
+      return jsonResponse(summarizeDailyAudit(date, Date.now(), schedule.results ?? [],
+        attempts.results ?? [], imported, heartbeat));
+    }
     const { results: rows } = await env.DB.prepare('SELECT * FROM race_schedule WHERE race_date=? ORDER BY deadline_ms, race_id LIMIT 288')
       .bind(date).all();
     return jsonResponse({ schema_version: 1, date, generated_at: new Date().toISOString(),

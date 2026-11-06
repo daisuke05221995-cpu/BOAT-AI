@@ -49,6 +49,7 @@ jobs:
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           npx --yes wrangler@4 d1 migrations apply boat-ai-forecast --remote
       - name: Ensure workers.dev account subdomain exists
+        id: workers_subdomain
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -76,6 +77,7 @@ jobs:
           fi
           if [[ -n "$existing" ]]; then
             echo "Existing workers.dev subdomain: ${existing}.workers.dev"
+            echo "subdomain=$existing" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           # Never overwrite an account's chosen subdomain. Only register when
@@ -93,9 +95,36 @@ jobs:
             exit 1
           fi
           echo "Registered ${proposal}.workers.dev"
+          echo "subdomain=$proposal" >> "$GITHUB_OUTPUT"
       - name: Publish Worker and enable deadline cron
         working-directory: cloud/forecast-worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx --yes wrangler@4 deploy
+      - name: Verify published health and daily audit endpoints
+        shell: bash
+        env:
+          WORKERS_SUBDOMAIN: ${{ steps.workers_subdomain.outputs.subdomain }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$WORKERS_SUBDOMAIN" =~ ^[a-zA-Z0-9-]+$ ]]; then
+            echo 'workers.dev subdomain is missing or malformed.' >&2
+            exit 1
+          fi
+          base="https://boat-ai-forecast.${WORKERS_SUBDOMAIN}.workers.dev"
+          date_jst="$(TZ=Asia/Tokyo date +%F)"
+          for attempt in {1..8}; do
+            if health="$(curl --silent --show-error --fail --connect-timeout 8 --max-time 12 "$base/v1/health")" \
+              && jq -e '.ok == true and .schema_version == 1' <<< "$health" >/dev/null; then
+              if audit="$(curl --silent --show-error --fail --connect-timeout 8 --max-time 12 "$base/v1/audit?date=$date_jst")" \
+                && jq -e --arg date "$date_jst" '.schema_version == 1 and .date == $date and (.scheduled_races | type == "number")' <<< "$audit" >/dev/null; then
+                echo "Worker health and read-only audit available at $base"
+                exit 0
+              fi
+            fi
+            echo "Worker not yet ready for health + audit check (attempt $attempt/8)."
+            sleep 4
+          done
+          echo 'Deployment finished, but the public API health/audit check did not pass.' >&2
+          exit 1

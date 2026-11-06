@@ -27,3 +27,25 @@ test('forecast listing returns a versioned empty schedule without making one up'
   assert.equal(payload.date, '2026-11-06');
   assert.deepEqual(payload.races, []);
 });
+
+test('audit route is read-only, date validated, and does not disclose row-level data', async () => {
+  const db = { prepare: sql => ({ bind: date => ({
+    all: async () => {
+      assert.equal(date, '2026-11-06');
+      return { results: sql.includes('capture_attempt') ? [] : [{
+        race_id: '2026-11-06-01-1', deadline_ms: Date.parse('2026-11-06T09:00:00Z'),
+        capture_stage: 2, failure_code: 'ODDS_PROVIDER_NOT_CONFIGURED',
+      }] };
+    },
+    first: async () => null,
+  }) }) };
+  const res = await worker.fetch(new Request('https://example.net/v1/audit?date=2026-11-06'), { DB: db });
+  assert.equal(res.status, 200);
+  const audit = await res.json();
+  assert.equal(audit.scheduled_races, 1);
+  assert.equal(audit.capture.forecasts_ready, 0);
+  assert.equal(audit.import.count, 0);
+  assert.equal(JSON.stringify(audit).includes('race_id'), false);
+  assert.equal((await worker.fetch(new Request('https://example.net/v1/audit?date=2026-11-31'), { DB: db })).status, 400);
+  assert.equal((await worker.fetch(new Request('https://example.net/v1/audit?date=2026-11-06', { method: 'POST' }), { DB: db })).status, 405);
+});
