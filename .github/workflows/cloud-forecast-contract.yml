@@ -1,0 +1,26 @@
+name: Cloud forecast contract tests
+
+on:
+  push:
+    paths:
+      - 'cloud/forecast-worker/**'
+      - '.github/workflows/cloud-forecast-contract.yml'
+  pull_request:
+    paths:
+      - 'cloud/forecast-worker/**'
+      - '.github/workflows/cloud-forecast-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify pure scheduler and HTTP contracts
+        run: npm test
+        working-directory: cloud/forecast-worker

@@ -1,0 +1,29 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import worker from '../src/worker.mjs';
+
+test('health route is read-only and excludes internal tokens', async () => {
+  const res = await worker.fetch(new Request('https://example.net/v1/health'), {});
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { ok: true, service: 'boat-ai-cloud', schema_version: 1 });
+  assert.equal(res.headers.get('cache-control'), 'no-store');
+});
+
+test('invalid dates, unknown routes and writes fail closed', async () => {
+  assert.equal((await worker.fetch(new Request('https://example.net/v1/forecasts?date=2026-02-30'), {})).status, 400);
+  assert.equal((await worker.fetch(new Request('https://example.net/v1/private'), {})).status, 404);
+  assert.equal((await worker.fetch(new Request('https://example.net/v1/health', { method: 'POST' }), {})).status, 405);
+});
+
+test('forecast listing returns a versioned empty schedule without making one up', async () => {
+  const db = { prepare: sql => ({ bind: date => ({ all: async () => {
+    assert.match(sql, /SELECT \* FROM race_schedule/);
+    assert.equal(date, '2026-11-06');
+    return { results: [] };
+  } }) }) };
+  const res = await worker.fetch(new Request('https://example.net/v1/forecasts?date=2026-11-06'), { DB: db });
+  const payload = await res.json();
+  assert.equal(payload.schema_version, 1);
+  assert.equal(payload.date, '2026-11-06');
+  assert.deepEqual(payload.races, []);
+});
