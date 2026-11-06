@@ -18,6 +18,7 @@ import subprocess
 from typing import Any, Iterable, Iterator
 
 from .kinematics import InvalidTrack, measurements_from_tracks
+from .phase_detection import PhaseDetectionError, apply_detected_phases
 from .scoring import evaluate_race
 
 
@@ -26,6 +27,22 @@ class VideoTrackingError(ValueError):
 
 
 PHASES = ("runup", "straight", "turn", "exit")
+
+
+def _abrupt_scene_change(previous: bytes, current: bytes, width: int, height: int) -> bool:
+    """Reject obvious shot changes, where a single camera homography is no longer valid.
+
+    This intentionally detects only gross cuts. Slow zoom and camera panning still
+    require separate calibration/motion validation on real recordings.
+    """
+    checked = changed = 0
+    for y in range(8, height, 24):
+        for x in range(8, width, 24):
+            offset = (y * width + x) * 3
+            delta = sum(abs(previous[offset + c] - current[offset + c]) for c in range(3))
+            checked += 1
+            changed += delta >= 180
+    return checked > 0 and changed / checked >= 0.75
 
 
 def _point(value: Any) -> tuple[float, float]:
@@ -172,7 +189,10 @@ def track_frames(
         raise VideoTrackingError("unsupported frame size")
     h, calibration_error = homography_from_anchors(config["calibration"])
     marker = project_point(h, _point(config["calibration"]["turn_marker_pixel"]))
-    windows = _phases(config)
+    phase_mode = config.get("phase_mode", "manual_windows")
+    if phase_mode not in ("manual_windows", "auto_turn_v1"):
+        raise VideoTrackingError("unknown phase recognition mode")
+    windows = _phases(config) if phase_mode == "manual_windows" else None
     entries = config.get("boats")
     if not isinstance(entries, list) or len(entries) != 6 or {b.get("lane") for b in entries if isinstance(b, dict)} != set(range(1, 7)):
         raise VideoTrackingError("six seeded boat colors/positions required")
@@ -196,13 +216,18 @@ def track_frames(
             "points": [], "confidence": [], "expected": 0, "detected": 0,
         }
     last_t = -1.0
+    previous_frame: bytes | None = None
     for t, frame in frames:
         if not math.isfinite(t) or t <= last_t:
             raise VideoTrackingError("video timestamps not increasing")
         last_t = t
         if len(frame) != width * height * 3:
             raise VideoTrackingError("corrupt RGB frame size")
-        phase = next((p for p, start, end in windows if start <= t < end), None)
+        if previous_frame is not None and _abrupt_scene_change(previous_frame, frame, width, height):
+            raise VideoTrackingError("abrupt camera scene change invalidates calibration")
+        previous_frame = frame
+        phase = (next((p for p, start, end in windows if start <= t < end), None)
+                 if windows is not None else "unclassified")
         if phase is None:
             continue
         for data in boats.values():
@@ -220,7 +245,7 @@ def track_frames(
             x_m, y_m = project_point(h, center)
             data["points"].append({"phase": phase, "t": round(t, 4),
                                    "x_m": round(x_m, 5), "y_m": round(y_m, 5)})
-    return {
+    result = {
         "turn_marker_m": {"x_m": round(marker[0], 5), "y_m": round(marker[1], 5)},
         "tracking_method": "seeded_color_components_v1_not_a_trained_detector",
         "boats": [
@@ -237,6 +262,14 @@ def track_frames(
             } for lane, data in sorted(boats.items())
         ],
     }
+    if phase_mode == "auto_turn_v1":
+        try:
+            result["phase_detection"] = apply_detected_phases(result["boats"])
+        except PhaseDetectionError as exc:
+            raise VideoTrackingError(f"automatic phase detection rejected: {exc}") from exc
+    else:
+        result["phase_detection"] = {"method": "manually_fixed_windows_v1"}
+    return result
 
 
 def decode_video(path: Path, width: int, height: int, fps: int, duration: int) -> Iterator[tuple[float, bytes]]:
@@ -325,6 +358,7 @@ def analyze_video(path: Path, config: dict[str, Any]) -> dict[str, Any]:
     }
     score = evaluate_race(evidence)
     score["video_analysis_method"] = tracks["tracking_method"]
+    score["phase_detection"] = tracks["phase_detection"]
     score["video_metadata_only"] = True
     return score
 
