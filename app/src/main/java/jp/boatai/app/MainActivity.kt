@@ -87,6 +87,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         vm.startLiveRefresh()
+        vm.refreshCloudForecasts(force = true)
         // PredictionTrackingService may have settled purchases while the UI process stayed
         // alive. Pull durable accounting back into the ViewModel before the user sees Profit.
         vm.syncStoredAccounting()
@@ -234,6 +235,7 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
         if (ui.date == LocalDate.now(ZoneId.of("Asia/Tokyo"))) {
             item { LiveOddsRefreshCard(ui.liveOddsRefresh) }
         }
+        item { CloudForecastCard(ui.cloudForecast, onRefresh = { vm.refreshCloudForecasts(force = true) }) }
         item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }
         item {
             OperationalIssueCard(
@@ -268,6 +270,7 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
                         items(deadlineRaces, key = { it.id }) { race ->
                             DeadlineRaceRow(
                                 race = race,
+                                cloud = ui.cloudForecast.batch?.races?.get(race.id),
                                 onDetail = { vm.selectRace(race) }
                             )
                         }
@@ -338,6 +341,7 @@ private fun PredictionModeBar(selected: Int, onSelect: (Int) -> Unit) {
 @Composable
 private fun DeadlineRaceRow(
     race: RaceData,
+    cloud: CloudRaceForecast?,
     onDetail: () -> Unit
 ) {
     val selection = if (PredictionEngine.hasValueStrategyModel()) {
@@ -372,6 +376,14 @@ private fun DeadlineRaceRow(
                     "締切 ${closeTime(race.closedAt)}  ${remainingTime(race)}",
                     style = MaterialTheme.typography.bodySmall
                 )
+                cloud?.let { snapshot ->
+                    val label = when (snapshot.status) {
+                        "READY" -> if (snapshot.decision == "BUY") "クラウド：購入推奨" else "クラウド：見送り"
+                        "UNAVAILABLE" -> "クラウド：取得不可"
+                        else -> "クラウド：待機中"
+                    }
+                    Text(label, style = MaterialTheme.typography.labelSmall)
+                }
             }
             Text(
                 status,
@@ -951,6 +963,14 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
                     }
                 }
             }
+        }
+
+        item {
+            CloudRaceDetailCard(
+                forecast = ui.cloudForecast.batch?.races?.get(race.id),
+                loading = ui.cloudForecast.loading,
+                onRefresh = { vm.refreshCloudForecasts(force = true) }
+            )
         }
 
         item {

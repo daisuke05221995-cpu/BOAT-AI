@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 70
-        versionName = "0.18.24"
-        // v0.18.24: Faster pre-close fetch; keep odds failures pending and retry at T-5m.
+        versionCode = 71
+        versionName = "0.18.25"
+        // v0.18.25: Read-only cloud forecast status sync; do not mingle with local bets.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
