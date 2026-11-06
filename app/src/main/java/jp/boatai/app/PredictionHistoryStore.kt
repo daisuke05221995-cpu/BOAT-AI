@@ -203,6 +203,60 @@ class PredictionHistoryStore(context: Context) {
         return current.sortedByDescending { it.createdAt }
     }
 
+    /**
+     * Persist the pre-close candidate even when the odds source is unreachable.
+     * A transport failure is NOT a strategy SKIP and must not enter ROI/hit
+     * denominators. The T-5 alarm may replace this pending record after recovery.
+     */
+    fun upsertOddsUnavailable(
+        race: RaceData,
+        candidatePicks: List<PredictionPick>,
+        strategyId: String,
+        reason: String = "公式オッズ未取得・再試行待ち"
+    ): List<PredictionRecord> {
+        if (!race.isPurchasable() || !PredictionEngine.isDecisionReady(race)) return load()
+        val current = load().toMutableList()
+        val index = current.indexOfFirst { it.id == race.id }
+        val previous = current.getOrNull(index)
+        if (previous?.settled == true) return current.sortedByDescending { it.createdAt }
+        // A transient later DNS failure must never erase an earlier verified
+        // odds snapshot or BUY decision already recorded for this race.
+        if (previous?.evaluationEligible == true && previous.liveOddsFetchedAt != null &&
+            previous.liveOddsCount > 0
+        ) return current.sortedByDescending { it.createdAt }
+        val record = PredictionRecord(
+            id = race.id,
+            date = race.date,
+            stadiumNumber = race.stadiumNumber,
+            raceNumber = race.raceNumber,
+            combinations = candidatePicks.map { it.combination },
+            stakePerPick = 0,
+            resultCombination = null,
+            trifectaPayout = 0,
+            settled = false,
+            createdAt = previous?.createdAt ?: System.currentTimeMillis(),
+            confidence = PredictionEngine.confidence(race),
+            rank = PredictionPerformanceProfile.rankFor(PredictionEngine.rawConfidence(race)),
+            firstLane = candidatePicks.firstOrNull()?.combination?.substringBefore("-")?.toIntOrNull(),
+            evaluationEligible = false,
+            autoSkipped = false,
+            autoSkipReason = null,
+            recommended = false,
+            recommendationReason = reason,
+            stakes = emptyList(),
+            strategyId = strategyId,
+            liveOddsFetchedAt = null,
+            liveOddsSource = null,
+            liveOddsCount = 0,
+            livePickOdds = emptyList(),
+            sourceAppVersion = BuildConfig.VERSION_NAME,
+            decisionCapturedAt = null
+        )
+        if (index >= 0) current[index] = record else current += record
+        save(current)
+        return current.sortedByDescending { it.createdAt }
+    }
+
     fun settle(races: List<RaceData>): List<PredictionRecord> {
         if (races.isEmpty()) return load()
         val resultMap = races.filter { it.hasResult }.associateBy { it.id }
