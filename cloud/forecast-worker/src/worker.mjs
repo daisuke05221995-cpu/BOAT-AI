@@ -1,9 +1,10 @@
 import {
   EIGHT_MIN, FIVE_MIN, SCHEDULE_REFRESH_MS,
   japanDate, isValidDate, extractSchedule, nextCaptureStage,
-  nextResultStage, validOdds,
+  nextResultStage,
 } from './policy.mjs';
 import { summarizeDailyAudit } from './audit.mjs';
+import { verifiedOddsPayload, verifiedPreviewPayload, verifiedStoredCapture } from './preclose.mjs';
 
 const allowedHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 const MAX_IMPORT_RACES = 288;
@@ -13,7 +14,9 @@ function jsonResponse(payload, status = 200) {
 }
 
 function unavailableReason(row, nowMs) {
-  if (row.forecast_json && row.model_version && (row.decision === 'BUY' || row.decision === 'SKIP')) return null;
+  if (row.forecast_json && row.model_version && (row.decision === 'BUY' || row.decision === 'SKIP')) {
+    return verifiedStoredCapture(row) ? null : 'CAPTURE_NOT_VERIFIED';
+  }
   if (nowMs < row.deadline_ms && row.capture_stage === 0) return 'NOT_DUE';
   if (row.failure_code) return row.failure_code;
   return row.captured_ms ? 'MODEL_NOT_DEPLOYED' : 'DATA_NOT_CAPTURED';
@@ -21,13 +24,16 @@ function unavailableReason(row, nowMs) {
 
 export function serializeForecast(row, nowMs) {
   const reason = unavailableReason(row, nowMs);
-  const ready = !reason && row.captured_ms < row.deadline_ms;
+  const ready = !reason && verifiedStoredCapture(row);
   return {
     race_id: row.race_id,
     deadline_at: new Date(row.deadline_ms).toISOString(),
     forecast_completed_at: ready ? new Date(row.captured_ms).toISOString() : null,
     model_version: ready ? row.model_version : null,
+    preview_source: row.preview_source ?? null,
+    preview_observed_at: Number.isFinite(row.preview_observed_ms) ? new Date(row.preview_observed_ms).toISOString() : null,
     odds_source: row.odds_source ?? null,
+    odds_observed_at: Number.isFinite(row.odds_observed_ms) ? new Date(row.odds_observed_ms).toISOString() : null,
     odds_fetched_at: row.captured_ms && row.odds_json ? new Date(row.captured_ms).toISOString() : null,
     status: ready ? 'READY' : nowMs >= row.deadline_ms || row.capture_stage === 2 ? 'UNAVAILABLE' : 'PENDING',
     decision: ready ? row.decision : null,
@@ -117,8 +123,31 @@ async function authorizedOdds(env, row) {
   url.searchParams.set('race', String(row.race_number));
   const headers = env.ODDS_API_TOKEN ? { authorization: `Bearer ${env.ODDS_API_TOKEN}` } : {};
   const response = await fetchJson(url.toString(), { headers });
-  if (!validOdds(response)) throw new Error('ODDS_NOT_COMPLETE');
-  return { odds: response.odds, source: response.source ?? 'configured-provider' };
+  return verifiedOddsPayload(response, row, Date.now());
+}
+
+async function authorizedPreview(env, row) {
+  if (!env.PREVIEW_API_URL) throw new Error('PREVIEW_PROVIDER_NOT_CONFIGURED');
+  const url = new URL(env.PREVIEW_API_URL);
+  if (url.protocol !== 'https:') throw new Error('PREVIEW_PROVIDER_MUST_BE_HTTPS');
+  url.searchParams.set('date', row.race_date);
+  url.searchParams.set('stadium', String(row.stadium_number));
+  url.searchParams.set('race', String(row.race_number));
+  const headers = env.PREVIEW_API_TOKEN ? { authorization: `Bearer ${env.PREVIEW_API_TOKEN}` } : {};
+  const response = await fetchJson(url.toString(), { headers });
+  return verifiedPreviewPayload(response, row, Date.now());
+}
+
+async function mapBounded(items, limit, work) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(items.length, limit) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await work(items[index]);
+    }
+  }));
+  return results;
 }
 
 async function captureDueRaces(env, date, nowMs) {
@@ -128,10 +157,8 @@ async function captureDueRaces(env, date, nowMs) {
     .bind(date, nowMs, nowMs + EIGHT_MIN).all();
   const due = (rows ?? []).map(row => ({ row, stage: nextCaptureStage(row, nowMs) })).filter(item => item.stage);
   if (!due.length) return;
-  // One upstream daily-feed request for every batch of due races; no polling.
-  let program;
-  let programError;
-  try { program = await loadProgram(env, date); } catch (error) { programError = String(error.message).slice(0, 100); }
+  // The public daily timetable feed can lag by 10–20 minutes. It is never
+  // authoritative for a T-8 exhibition snapshot or a BUY/SKIP decision.
   const claim = env.DB.prepare(`UPDATE race_schedule SET capture_stage=?, capture_started_ms=?, updated_ms=?
     WHERE race_id=? AND capture_stage=? AND deadline_ms > ?`);
   const claimResults = await env.DB.batch(due.map(({ row, stage }) =>
@@ -142,15 +169,20 @@ async function captureDueRaces(env, date, nowMs) {
     VALUES (?, ?, ?) ON CONFLICT(race_id, stage) DO NOTHING`);
   await env.DB.batch(claimed.map(({ row, stage }) => attempt.bind(row.race_id, stage, nowMs)));
   const save = env.DB.prepare(`UPDATE race_schedule SET
-    capture_stage=?, captured_ms=?, preview_json=?, odds_json=?, odds_source=?, failure_code=?, updated_ms=?
+    capture_stage=?, captured_ms=?, preview_json=?, preview_source=?, preview_observed_ms=?,
+    odds_json=?, odds_source=?, odds_observed_ms=?, failure_code=?, updated_ms=?
     WHERE race_id=? AND capture_started_ms=?`);
   const audit = env.DB.prepare(`UPDATE capture_attempt SET finished_ms=?, completed=?, failure_code=?
     WHERE race_id=? AND stage=? AND started_ms=?`);
-  const updates = [];
-  for (const { row, stage } of claimed) {
-    const observation = selectRace(program, row);
+  // Several races often share the same deadline. Bounded parallel fetches
+  // prevent one slow venue from making every subsequent T-8 attempt stale.
+  // Concurrency is capped to avoid a 30-race burst against the provider.
+  const observations = await mapBounded(claimed, 4, async ({ row, stage }) => {
+    let preview = null;
     let odds = null;
-    let failure = programError ?? (!observation?.preview ? 'EXHIBITION_NOT_AVAILABLE' : null);
+    let failure = null;
+    try { preview = await authorizedPreview(env, row); }
+    catch (error) { failure = String(error.message).slice(0, 100); }
     if (!failure) {
       try { odds = await authorizedOdds(env, row); }
       catch (error) { failure = String(error.message).slice(0, 100); }
@@ -158,11 +190,17 @@ async function captureDueRaces(env, date, nowMs) {
     // A slow network response cannot backfill a supposedly pre-close forecast.
     const finishedAt = Date.now();
     if (finishedAt >= row.deadline_ms) failure = 'CAPTURE_FINISHED_AFTER_DEADLINE';
-    const captured = !failure && odds;
+    const captured = !failure && preview && odds;
+    return { row, stage, preview, odds, failure, finishedAt, captured };
+  });
+  const updates = [];
+  for (const { row, stage, preview, odds, failure, finishedAt, captured } of observations) {
     updates.push(save.bind(captured ? 2 : stage, captured ? finishedAt : null,
-        observation?.preview ? JSON.stringify(observation.preview) : null,
+        preview ? JSON.stringify(preview.preview) : null,
+        preview?.source ?? null, preview?.observedMs ?? null,
         captured ? JSON.stringify(odds.odds) : null,
-        captured ? odds.source : null, failure, finishedAt, row.race_id, nowMs));
+        captured ? odds.source : null, captured ? odds.observedMs : null,
+        failure, finishedAt, row.race_id, nowMs));
     updates.push(audit.bind(finishedAt, captured ? 1 : 0, failure, row.race_id, stage, nowMs));
     // Deliberately no BUY/SKIP until the Android Model A parity runner exists.
   }

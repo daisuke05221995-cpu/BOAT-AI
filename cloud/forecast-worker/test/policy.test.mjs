@@ -71,6 +71,10 @@ test('incomplete odds can never mark a race actionable', () => {
   }
   assert.equal(Object.keys(complete).length, 120);
   assert.equal(validOdds({ odds: complete }), true);
+  const partial = { ...complete };
+  delete partial['1-2-3'];
+  assert.equal(Object.keys(partial).length, 119);
+  assert.equal(validOdds({ odds: partial }), false);
   assert.equal(validOdds({ odds: { '1-2-3': 10.1 } }), false);
   assert.equal(validOdds({ odds: { ...complete, '1-1-2': 1 } }), false);
   assert.equal(validOdds({ odds: { ...complete, '1-2-3': 0 } }), false);

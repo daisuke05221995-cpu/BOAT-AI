@@ -4,6 +4,20 @@ import { summarizeDailyAudit } from '../src/audit.mjs';
 import { runScheduled } from '../src/worker.mjs';
 
 const now = Date.parse('2026-11-06T12:00:00Z');
+const fullOdds = Object.fromEntries(Array.from({ length: 6 }, (_, a) => a + 1)
+  .flatMap(a => Array.from({ length: 6 }, (_, b) => b + 1)
+    .flatMap(b => Array.from({ length: 6 }, (_, c) => c + 1)
+      .filter(c => a !== b && b !== c && a !== c).map(c => [`${a}-${b}-${c}`, 20]))));
+const sixRacers = Object.fromEntries(Array.from({ length: 6 }, (_, i) => [String(i + 1), {
+  course_number: i + 1, exhibition_time: 6.75,
+}]));
+const verified = {
+  race_date: '2026-11-06', stadium_number: 1, race_number: 1,
+  preview_json: JSON.stringify({ date: '2026-11-06', stadium_number: 1, race_number: 1, racers: sixRacers }),
+  preview_source: 'authorized-exhibition', preview_observed_ms: now - 150_000,
+  odds_json: JSON.stringify(fullOdds), odds_source: 'authorized-odds', odds_observed_ms: now - 150_000,
+  captured_ms: now - 120_000,
+};
 const race = (id, extra = {}) => ({
   race_id: id, deadline_ms: now - 60_000, capture_stage: 2,
   captured_ms: null, preview_json: null, odds_json: null,
@@ -16,11 +30,11 @@ test('audit counts only verified pre-close forecasts as BUY or SKIP', () => {
   const rows = [
     race('r1', { deadline_ms: now + 60_000, capture_stage: 0 }),
     race('r2', { preview_json: '{}', failure_code: 'ODDS_PROVIDER_NOT_CONFIGURED' }),
-    race('r3', { preview_json: '{}', odds_json: '{}', captured_ms: now - 120_000,
+    race('r3', { ...verified,
       forecast_json: '{"combinations":[]}', model_version: 'model-a', decision: 'BUY' }),
-    race('r4', { preview_json: '{}', odds_json: '{}', captured_ms: now - 120_000,
+    race('r4', { ...verified,
       forecast_json: '{"combinations":[]}', model_version: 'model-a', decision: 'SKIP' }),
-    race('r5', { preview_json: '{}', odds_json: '{}', captured_ms: now + 1,
+    race('r5', { ...verified, captured_ms: now + 1,
       forecast_json: '{"combinations":[]}', model_version: 'model-a', decision: 'BUY' }),
   ];
   const attempts = [
@@ -131,4 +145,89 @@ test('simultaneous T-8 claims use D1 batch calls instead of per-race writes', as
   assert.deepEqual(batched.map(batch => batch.length), [25, 25, 50]);
   assert.equal(batched[2].filter(stmt => stmt.sql.includes('UPDATE race_schedule')).length, 25);
   assert.equal(batched[2].filter(stmt => stmt.sql.includes('UPDATE capture_attempt')).length, 25);
+});
+
+test('T-8 authorized provider snapshots persist both real source clocks but do not invent AI output', async () => {
+  const nowMs = Date.now();
+  const date = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(nowMs);
+  const dueRace = { race_id: `${date}-01-1`, race_date: date, stadium_number: 1, race_number: 1,
+    deadline_ms: nowMs + 7 * 60_000, capture_stage: 0 };
+  const originalFetch = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async url => {
+    const u = new URL(url);
+    seen.push(u.pathname);
+    const common = { date, stadium_number: 1, race_number: 1,
+      observed_at: new Date(Date.now() - 10_000).toISOString() };
+    const content = u.pathname === '/preview'
+      ? { ...common, source: 'authorized-exhibition', preview: { ...common,
+        racers: sixRacers } }
+      : { ...common, source: 'authorized-odds', odds: fullOdds };
+    return new Response(JSON.stringify(content), { status: 200 });
+  };
+  const batched = [];
+  const env = { PREVIEW_API_URL: 'https://test-provider.invalid/preview',
+    ODDS_API_URL: 'https://test-provider.invalid/odds', DB: {
+      prepare(sql) { return { bind(...args) { return {
+        sql, args,
+        first: async () => ({ race_count: 156, last_attempt_ms: nowMs }),
+        all: async () => ({ results: sql.includes('capture_stage < 2') ? [dueRace] : [] }),
+        run: async () => ({ meta: { changes: 1 } }),
+      }; } }; },
+      async batch(statements) { batched.push(statements); return statements.map(() => ({ meta: { changes: 1 } })); },
+    } };
+  try { await runScheduled(env, nowMs); }
+  finally { globalThis.fetch = originalFetch; }
+  assert.deepEqual(seen, ['/preview', '/odds']);
+  assert.deepEqual(batched.map(batch => batch.length), [1, 1, 2]);
+  const saved = batched[2].find(stmt => stmt.sql.includes('UPDATE race_schedule'));
+  assert.ok(saved);
+  assert.equal(saved.args[0], 2); // completed capture; model still not deployed
+  assert.equal(saved.args[3], 'authorized-exhibition');
+  assert.ok(Number.isFinite(saved.args[4]));
+  assert.equal(saved.args[6], 'authorized-odds');
+  assert.ok(Number.isFinite(saved.args[7]));
+  assert.equal(saved.args[8], null); // no acquisition error
+  assert.equal(saved.sql.includes('forecast_json'), false);
+});
+
+test('same-deadline provider calls run concurrently with a strict four-race cap', async () => {
+  const nowMs = Date.now();
+  const date = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(nowMs);
+  const races = Array.from({ length: 8 }, (_, i) => ({
+    race_id: `${date}-01-${i + 1}`, race_date: date, stadium_number: 1,
+    race_number: i + 1, deadline_ms: nowMs + 7 * 60_000, capture_stage: 0,
+  }));
+  const originalFetch = globalThis.fetch;
+  let active = 0, maxActive = 0, calls = 0;
+  globalThis.fetch = async url => {
+    const u = new URL(url);
+    active++;
+    calls++;
+    maxActive = Math.max(maxActive, active);
+    await new Promise(resolve => setTimeout(resolve, 8));
+    active--;
+    const number = Number(u.searchParams.get('race'));
+    const common = { date, stadium_number: 1, race_number: number,
+      observed_at: new Date(Date.now() - 10_000).toISOString() };
+    const payload = u.pathname === '/preview'
+      ? { ...common, source: 'authorized-exhibition', preview: { date, stadium_number: 1,
+        race_number: number, racers: sixRacers } }
+      : { ...common, source: 'authorized-odds', odds: fullOdds };
+    return new Response(JSON.stringify(payload));
+  };
+  const env = { PREVIEW_API_URL: 'https://test-provider.invalid/preview',
+    ODDS_API_URL: 'https://test-provider.invalid/odds', DB: {
+      prepare(sql) { return { bind() { return {
+        first: async () => ({ race_count: 156, last_attempt_ms: nowMs }),
+        all: async () => ({ results: sql.includes('capture_stage < 2') ? races : [] }),
+        run: async () => ({ meta: { changes: 1 } }),
+      }; } }; },
+      batch: async statements => statements.map(() => ({ meta: { changes: 1 } })),
+    } };
+  try { await runScheduled(env, nowMs); }
+  finally { globalThis.fetch = originalFetch; }
+  assert.equal(calls, 16);
+  assert.ok(maxActive > 1);
+  assert.ok(maxActive <= 4);
 });
