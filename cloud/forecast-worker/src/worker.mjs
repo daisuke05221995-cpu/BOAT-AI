@@ -61,9 +61,10 @@ async function loadProgram(env, date) {
 
 export function dailyImportDue(date, nowMs, previous) {
   // Only imports the published race timetable, not exhibition or odds.
-  // Retry a missing schedule at most hourly; no external request per cron tick.
+  // Retry a missing schedule at most hourly; recover after a late deployment or
+  // a morning outage. The capture path still forbids post-close predictions.
   const jstHour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Tokyo', hour: '2-digit', hourCycle: 'h23' }).format(nowMs));
-  return date === japanDate(nowMs) && jstHour >= 6 && jstHour <= 12 &&
+  return date === japanDate(nowMs) && jstHour >= 6 && jstHour <= 23 &&
     (!previous || (previous.race_count === 0 && nowMs - previous.last_attempt_ms >= SCHEDULE_REFRESH_MS));
 }
 
@@ -81,13 +82,17 @@ async function importDailySchedule(env, date, nowMs) {
     if (!races.length || races.length > MAX_IMPORT_RACES) throw new Error('INVALID_SCHEDULE_COUNT');
     // Preserve any already captured data and race deadlines; never overwrite a
     // race's original schedule after a capture attempt has started.
-    for (const race of races) {
-      await env.DB.prepare(`INSERT INTO race_schedule
+    const insert = env.DB.prepare(`INSERT INTO race_schedule
         (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms)
         VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(race_id) DO UPDATE SET deadline_ms=excluded.deadline_ms, updated_ms=excluded.updated_ms
-        WHERE race_schedule.capture_stage = 0 AND race_schedule.capture_started_ms IS NULL`)
-        .bind(race.race_id, race.race_date, race.stadium_number, race.race_number, race.deadline_ms, nowMs).run();
+        WHERE race_schedule.capture_stage = 0 AND race_schedule.capture_started_ms IS NULL`);
+    // D1 Free has a per-invocation query limit. Batch one-time timetable writes
+    // instead of issuing one D1 subrequest per race (up to 288 races/day).
+    for (let index = 0; index < races.length; index += 48) {
+      await env.DB.batch(races.slice(index, index + 48).map(race =>
+        insert.bind(race.race_id, race.race_date, race.stadium_number,
+          race.race_number, race.deadline_ms, nowMs)));
     }
     await env.DB.prepare('UPDATE daily_import SET race_count=?, last_success_ms=?, failure_code=NULL WHERE race_date=?')
       .bind(races.length, nowMs, date).run();
@@ -127,14 +132,22 @@ async function captureDueRaces(env, date, nowMs) {
   let program;
   let programError;
   try { program = await loadProgram(env, date); } catch (error) { programError = String(error.message).slice(0, 100); }
-  for (const { row, stage } of due) {
-    const claimed = await env.DB.prepare(`UPDATE race_schedule SET capture_stage=?, capture_started_ms=?, updated_ms=?
-      WHERE race_id=? AND capture_stage=? AND deadline_ms > ?`)
-      .bind(stage, nowMs, nowMs, row.race_id, row.capture_stage, nowMs).run();
-    if (!claimed.meta?.changes) continue;
-    await env.DB.prepare(`INSERT INTO capture_attempt (race_id, stage, started_ms)
-      VALUES (?, ?, ?) ON CONFLICT(race_id, stage) DO NOTHING`)
-      .bind(row.race_id, stage, nowMs).run();
+  const claim = env.DB.prepare(`UPDATE race_schedule SET capture_stage=?, capture_started_ms=?, updated_ms=?
+    WHERE race_id=? AND capture_stage=? AND deadline_ms > ?`);
+  const claimResults = await env.DB.batch(due.map(({ row, stage }) =>
+    claim.bind(stage, nowMs, nowMs, row.race_id, row.capture_stage, nowMs)));
+  const claimed = due.filter((_, index) => claimResults[index]?.meta?.changes);
+  if (!claimed.length) return;
+  const attempt = env.DB.prepare(`INSERT INTO capture_attempt (race_id, stage, started_ms)
+    VALUES (?, ?, ?) ON CONFLICT(race_id, stage) DO NOTHING`);
+  await env.DB.batch(claimed.map(({ row, stage }) => attempt.bind(row.race_id, stage, nowMs)));
+  const save = env.DB.prepare(`UPDATE race_schedule SET
+    capture_stage=?, captured_ms=?, preview_json=?, odds_json=?, odds_source=?, failure_code=?, updated_ms=?
+    WHERE race_id=? AND capture_started_ms=?`);
+  const audit = env.DB.prepare(`UPDATE capture_attempt SET finished_ms=?, completed=?, failure_code=?
+    WHERE race_id=? AND stage=? AND started_ms=?`);
+  const updates = [];
+  for (const { row, stage } of claimed) {
     const observation = selectRace(program, row);
     let odds = null;
     let failure = programError ?? (!observation?.preview ? 'EXHIBITION_NOT_AVAILABLE' : null);
@@ -146,18 +159,14 @@ async function captureDueRaces(env, date, nowMs) {
     const finishedAt = Date.now();
     if (finishedAt >= row.deadline_ms) failure = 'CAPTURE_FINISHED_AFTER_DEADLINE';
     const captured = !failure && odds;
-    await env.DB.prepare(`UPDATE race_schedule SET
-      capture_stage=?, captured_ms=?, preview_json=?, odds_json=?, odds_source=?, failure_code=?, updated_ms=?
-      WHERE race_id=? AND capture_started_ms=?`)
-      .bind(captured ? 2 : stage, captured ? finishedAt : null,
+    updates.push(save.bind(captured ? 2 : stage, captured ? finishedAt : null,
         observation?.preview ? JSON.stringify(observation.preview) : null,
         captured ? JSON.stringify(odds.odds) : null,
-        captured ? odds.source : null, failure, finishedAt, row.race_id, nowMs).run();
-    await env.DB.prepare(`UPDATE capture_attempt SET finished_ms=?, completed=?, failure_code=?
-      WHERE race_id=? AND stage=? AND started_ms=?`)
-      .bind(finishedAt, captured ? 1 : 0, failure, row.race_id, stage, nowMs).run();
+        captured ? odds.source : null, failure, finishedAt, row.race_id, nowMs));
+    updates.push(audit.bind(finishedAt, captured ? 1 : 0, failure, row.race_id, stage, nowMs));
     // Deliberately no BUY/SKIP until the Android Model A parity runner exists.
   }
+  await env.DB.batch(updates);
 }
 
 function parseResult(observation) {
@@ -174,16 +183,19 @@ async function settleDueRaces(env, date, nowMs) {
   if (!due.length) return;
   let program;
   try { program = await loadProgram(env, date); } catch { /* source may lag; second chance below */ }
-  for (const { row, stage } of due) {
-    const claimed = await env.DB.prepare(`UPDATE race_schedule SET result_stage=?, updated_ms=?
-      WHERE race_id=? AND result_stage=?`)
-      .bind(stage, nowMs, row.race_id, row.result_stage).run();
-    if (!claimed.meta?.changes) continue;
+  const claim = env.DB.prepare(`UPDATE race_schedule SET result_stage=?, updated_ms=?
+    WHERE race_id=? AND result_stage=?`);
+  const claimed = await env.DB.batch(due.map(({ row, stage }) =>
+    claim.bind(stage, nowMs, row.race_id, row.result_stage)));
+  const save = env.DB.prepare(`UPDATE race_schedule
+    SET result_json=?, result_recorded_ms=?, result_stage=2, updated_ms=? WHERE race_id=?`);
+  const updates = [];
+  for (const [index, { row }] of due.entries()) {
+    if (!claimed[index]?.meta?.changes) continue;
     const result = parseResult(selectRace(program, row));
-    if (result) await env.DB.prepare(`UPDATE race_schedule
-      SET result_json=?, result_recorded_ms=?, result_stage=2, updated_ms=? WHERE race_id=?`)
-      .bind(JSON.stringify(result), Date.now(), Date.now(), row.race_id).run();
+    if (result) updates.push(save.bind(JSON.stringify(result), Date.now(), Date.now(), row.race_id));
   }
+  if (updates.length) await env.DB.batch(updates);
 }
 
 export async function runScheduled(env, nowMs = Date.now()) {

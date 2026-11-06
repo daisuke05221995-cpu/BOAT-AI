@@ -78,7 +78,13 @@ test('incomplete odds can never mark a race actionable', () => {
 
 test('daily schedule is imported once after 06 JST; missing source gets hourly retry', () => {
   const at7 = Date.parse('2026-11-06T07:00:00+09:00');
+  const at21 = Date.parse('2026-11-06T21:00:00+09:00');
+  const before6 = Date.parse('2026-11-06T05:59:00+09:00');
+  const nextDay = Date.parse('2026-11-07T01:00:00+09:00');
   assert.equal(dailyImportDue('2026-11-06', at7, null), true);
+  assert.equal(dailyImportDue('2026-11-06', at21, null), true); // late deploy recovery
+  assert.equal(dailyImportDue('2026-11-06', before6, null), false);
+  assert.equal(dailyImportDue('2026-11-06', nextDay, null), false);
   assert.equal(dailyImportDue('2026-11-06', at7, { last_attempt_ms: at7 - 50_000, race_count: 0 }), false);
   assert.equal(dailyImportDue('2026-11-06', at7, { last_attempt_ms: at7 - 3_600_000, race_count: 0 }), true);
   assert.equal(dailyImportDue('2026-11-06', at7, { last_attempt_ms: at7 - 3_600_000, race_count: 120 }), false);
