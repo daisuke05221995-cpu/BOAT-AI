@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { LightGbmTextModel } from '../src/lightgbm.mjs';
 import { createModelAFeatureRows, predictModelA, modelACombinations } from '../src/model-a-chain.mjs';
 
@@ -97,4 +98,35 @@ test('real frozen three-stage models produce finite 120-way forecast on determin
   assert.equal(forecast.probabilities.length, 120);
   assert.ok(forecast.probabilities.every(p => Number.isFinite(p) && p >= 0));
   assert.ok(Math.abs(forecast.probabilities.reduce((sum, p) => sum + p, 0) - 1) < 1e-10);
+});
+
+test('all 120 Model A probabilities match independent Python LightGBM v4.6 goldens', () => {
+  const fixture = JSON.parse(readFileSync(new URL('./fixtures/python-model-a-parity.json', import.meta.url), 'utf8'));
+  assert.equal(fixture.schema_version, 1);
+  assert.equal(fixture.temperature, 1);
+  assert.equal(fixture.cases.length, 4);
+  const models = Array.from({ length: 3 }, (_, stage) => {
+    const content = readFileSync(new URL(`../../../app/src/main/assets/model_a_stage${stage}.txt`, import.meta.url));
+    const hash = createHash('sha256').update(content).digest('hex');
+    assert.equal(hash, fixture.model_sha256[`stage${stage}`]);
+    return LightGbmTextModel.parse(content.toString('utf8'));
+  });
+  let maxAbsoluteError = 0;
+  for (const sample of fixture.cases) {
+    const input = {
+      ...sample.input,
+      boat: sample.input.boat.map(lane => lane.map(value => value === null ? NaN : value)),
+      global: sample.input.global.map(value => value === null ? NaN : value),
+    };
+    const actual = predictModelA(input, {
+      stage0: values => models[0].predict(values),
+      stage1: values => models[1].predict(values),
+      stage2: values => models[2].predict(values),
+    });
+    assert.equal(actual.probabilities.length, 120);
+    sample.probabilities.forEach((expected, index) => {
+      maxAbsoluteError = Math.max(maxAbsoluteError, Math.abs(expected - actual.probabilities[index]));
+    });
+  }
+  assert.ok(maxAbsoluteError < 1e-7, `Python LightGBM discrepancy: ${maxAbsoluteError}`);
 });
