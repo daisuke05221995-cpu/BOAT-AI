@@ -1,3 +1,5 @@
+import { verifiedStoredCapture } from './preclose.mjs';
+
 const iso = value => Number.isFinite(value) ? new Date(value).toISOString() : null;
 
 export function summarizeDailyAudit(date, nowMs, races = [], attempts = [], imported = null, heartbeat = null) {
@@ -20,8 +22,7 @@ export function summarizeDailyAudit(date, nowMs, races = [], attempts = [], impo
     lastDeadline = lastDeadline == null ? deadline : Math.max(lastDeadline, deadline);
     if (row.preview_json) captures.preview_observed++;
     if (row.odds_json) captures.odds_observed++;
-    const complete = !!row.preview_json && !!row.odds_json &&
-      Number.isFinite(row.captured_ms) && row.captured_ms < deadline;
+    const complete = verifiedStoredCapture(row);
     if (complete) captures.complete_observations++;
     const ready = complete && !!row.forecast_json && !!row.model_version &&
       (row.decision === 'BUY' || row.decision === 'SKIP');

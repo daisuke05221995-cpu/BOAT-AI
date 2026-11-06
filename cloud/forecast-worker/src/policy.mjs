@@ -65,7 +65,9 @@ export function validOdds(snapshot) {
   const odds = snapshot?.odds;
   if (!odds || typeof odds !== 'object' || Array.isArray(odds)) return false;
   const keys = Object.keys(odds);
-  if (keys.length < 100 || keys.length > 120) return false;
+  // Model A/value selection needs every three-way combination. Never treat a
+  // partial 100–119-way book as complete, even if its selected picks are present.
+  if (keys.length !== 120) return false;
   return keys.every(k => {
     if (!/^[1-6]-[1-6]-[1-6]$/.test(k)) return false;
     const [a, b, c] = k.split('-');
