@@ -32,6 +32,8 @@ export function serializeForecast(row, nowMs) {
     model_version: ready ? row.model_version : null,
     preview_source: row.preview_source ?? null,
     preview_observed_at: Number.isFinite(row.preview_observed_ms) ? new Date(row.preview_observed_ms).toISOString() : null,
+    weather_source: row.weather_source ?? null,
+    weather_observed_at: Number.isFinite(row.weather_observed_ms) ? new Date(row.weather_observed_ms).toISOString() : null,
     odds_source: row.odds_source ?? null,
     odds_observed_at: Number.isFinite(row.odds_observed_ms) ? new Date(row.odds_observed_ms).toISOString() : null,
     odds_fetched_at: row.captured_ms && row.odds_json ? new Date(row.captured_ms).toISOString() : null,
@@ -170,6 +172,7 @@ async function captureDueRaces(env, date, nowMs) {
   await env.DB.batch(claimed.map(({ row, stage }) => attempt.bind(row.race_id, stage, nowMs)));
   const save = env.DB.prepare(`UPDATE race_schedule SET
     capture_stage=?, captured_ms=?, preview_json=?, preview_source=?, preview_observed_ms=?,
+    weather_source=?, weather_observed_ms=?,
     odds_json=?, odds_source=?, odds_observed_ms=?, failure_code=?, updated_ms=?
     WHERE race_id=? AND capture_started_ms=?`);
   const audit = env.DB.prepare(`UPDATE capture_attempt SET finished_ms=?, completed=?, failure_code=?
@@ -198,6 +201,7 @@ async function captureDueRaces(env, date, nowMs) {
     updates.push(save.bind(captured ? 2 : stage, captured ? finishedAt : null,
         preview ? JSON.stringify(preview.preview) : null,
         preview?.source ?? null, preview?.observedMs ?? null,
+        preview?.weatherSource ?? null, preview?.weatherObservedMs ?? null,
         captured ? JSON.stringify(odds.odds) : null,
         captured ? odds.source : null, captured ? odds.observedMs : null,
         failure, finishedAt, row.race_id, nowMs));
