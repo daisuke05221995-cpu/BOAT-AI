@@ -68,8 +68,67 @@ test('cron execution records started and completed without making forecasts up',
       };
     } };
   } } };
-  await runScheduled(env, Date.parse('2026-11-06T14:10:00Z'));
+  await runScheduled(env, Date.parse('2026-11-06T19:10:00Z')); // 04:10 JST, no upstream load
   assert.ok(statements.some(({ sql }) => sql.includes('INSERT INTO cron_heartbeat')));
   assert.ok(statements.some(({ sql }) => sql.includes('last_completed_ms')));
   assert.equal(statements.some(({ sql }) => sql.includes('forecast_json')), false);
+});
+
+test('late-night bootstrap batches a full 156-race timetable without backfilled forecasts', async () => {
+  const nowMs = Date.parse('2026-11-06T21:00:00+09:00');
+  const races = Object.fromEntries(Array.from({ length: 13 }, (_, venueIndex) => [String(venueIndex + 1), {
+    races: Object.fromEntries(Array.from({ length: 12 }, (_, raceIndex) => [String(raceIndex + 1), {
+      date: '2026-11-06', closed_at: `2026-11-06 ${String(9 + raceIndex).padStart(2, '0')}:30:00`,
+    }])) },
+  ]));
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ programs: { stadiums: races } }), { status: 200 });
+  const batched = [], singleWrites = [];
+  const env = { DB: {
+    prepare(sql) { return { bind(...args) { return {
+      sql, args,
+      first: async () => null,
+      all: async () => ({ results: [] }),
+      run: async () => { singleWrites.push({ sql, args }); return { meta: { changes: 1 } }; },
+    }; } }; },
+    async batch(statements) { batched.push(statements); return statements.map(() => ({ meta: { changes: 1 } })); },
+  } };
+  try {
+    await runScheduled(env, nowMs);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.deepEqual(batched.map(batch => batch.length), [48, 48, 48, 12]);
+  assert.equal(batched.flat().filter(stmt => stmt.sql.includes('INSERT INTO race_schedule')).length, 156);
+  assert.equal(singleWrites.some(stmt => stmt.sql.includes('UPDATE daily_import SET race_count') && stmt.args[0] === 156), true);
+  assert.equal(singleWrites.some(stmt => stmt.sql.includes('forecast_json')), false);
+});
+
+test('simultaneous T-8 claims use D1 batch calls instead of per-race writes', async () => {
+  const nowMs = Date.parse('2026-11-06T21:00:00+09:00');
+  const due = Array.from({ length: 25 }, (_, i) => ({
+    race_id: `2026-11-06-${String(1 + Math.floor(i / 12)).padStart(2, '0')}-${1 + i % 12}`,
+    race_date: '2026-11-06', stadium_number: 1 + Math.floor(i / 12), race_number: 1 + i % 12,
+    deadline_ms: nowMs + 7 * 60_000, capture_stage: 0,
+  }));
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ programs: { stadiums: {} } }), { status: 200 });
+  const batched = [];
+  const env = { DB: {
+    prepare(sql) { return { bind(...args) { return {
+      sql, args,
+      first: async () => ({ race_count: 156, last_attempt_ms: nowMs }),
+      all: async () => ({ results: sql.includes('capture_stage < 2') ? due : [] }),
+      run: async () => ({ meta: { changes: 1 } }),
+    }; } }; },
+    async batch(statements) { batched.push(statements); return statements.map(() => ({ meta: { changes: 1 } })); },
+  } };
+  try {
+    await runScheduled(env, nowMs);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.deepEqual(batched.map(batch => batch.length), [25, 25, 50]);
+  assert.equal(batched[2].filter(stmt => stmt.sql.includes('UPDATE race_schedule')).length, 25);
+  assert.equal(batched[2].filter(stmt => stmt.sql.includes('UPDATE capture_attempt')).length, 25);
 });
