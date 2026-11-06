@@ -966,6 +966,14 @@ private fun RaceDetailScreen(ui: BoatUiState, vm: BoatViewModel) {
         }
 
         item {
+            CloudRaceDetailCard(
+                forecast = ui.cloudForecast.batch?.races?.get(race.id),
+                loading = ui.cloudForecast.loading,
+                onRefresh = { vm.refreshCloudForecasts(force = true) }
+            )
+        }
+
+        item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
                     Text("AI購入判断", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)

@@ -36,6 +36,8 @@ class CloudForecastContractTest {
         assertEquals(1, batch.buyCount)
         assertEquals(0, batch.skipCount)
         assertEquals("BUY", batch.races.values.single().decision)
+        assertEquals(listOf("1-3-4"), batch.races.values.single().combinations)
+        assertEquals(listOf(300), batch.races.values.single().stakes)
     }
 
     @Test fun missingSourceOrTimestampsCannotBecomeBuy() {
@@ -46,6 +48,7 @@ class CloudForecastContractTest {
         assertEquals(0, batch.buyCount)
         assertEquals(3, batch.unavailableCount)
         assertTrue(batch.races.values.all { it.decision == null && it.reason == "CLOUD_READY_INVALID" })
+        assertTrue(batch.races.values.all { it.combinations.isEmpty() && it.stakes.isEmpty() })
     }
 
     @Test fun unavailableAndPendingNeverCountAsSkip() {

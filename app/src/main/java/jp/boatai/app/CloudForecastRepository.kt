@@ -14,7 +14,9 @@ data class CloudRaceForecast(
     val status: String,
     val decision: String?,
     val reason: String?,
-    val forecastCompletedAt: String?
+    val forecastCompletedAt: String?,
+    val combinations: List<String> = emptyList(),
+    val stakes: List<Int> = emptyList()
 )
 
 data class CloudForecastBatch(
@@ -87,8 +89,12 @@ internal object CloudForecastContract {
             val flags = row.optJSONArray("quality_flags")
             val reason = if (rawStatus == "READY" && !verifiedReady) "CLOUD_READY_INVALID" else
                 if (flags != null && flags.length() > 0) flags.optString(0).take(100) else null
+            val picks = if (verifiedReady && decision == "BUY")
+                (0 until combinations!!.length()).map { combinations.getString(it) } else emptyList()
+            val amounts = if (verifiedReady && decision == "BUY")
+                (0 until stakes!!.length()).map { stakes.getInt(it) } else emptyList()
             forecasts[id] = CloudRaceForecast(id, status, if (verifiedReady) decision else null,
-                reason, if (verifiedReady) completed else null)
+                reason, if (verifiedReady) completed else null, picks, amounts)
         }
         return CloudForecastBatch(date, generated, forecasts)
     }
