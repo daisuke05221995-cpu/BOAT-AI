@@ -67,11 +67,13 @@ data class BoatUiState(
     val update: AppUpdateState = AppUpdateState(),
     val purchaseLaunchHelpVisible: Boolean = false,
     val operationalIssues: List<OperationalIssue> = emptyList(),
-    val liveOddsRefresh: LiveOddsRefreshStatus = LiveOddsRefreshStatus()
+    val liveOddsRefresh: LiveOddsRefreshStatus = LiveOddsRefreshStatus(),
+    val cloudForecast: CloudForecastSyncState = CloudForecastSyncState()
 )
 
 class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = BoatRaceRepository(application)
+    private val cloudForecastRepository = CloudForecastRepository()
     private val betStore = BetStore(application)
     private val pendingPurchaseStore = PendingPurchaseStore(application)
     private val predictionStore = PredictionHistoryStore(application)
@@ -94,6 +96,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private var datePublicationRetryJob: Job? = null
     private var dateLoadJob: Job? = null
     private var liveRefreshJob: Job? = null
+    private var cloudSyncJob: Job? = null
+    private var lastCloudAttemptAt = 0L
     private val lastAutoOddsAttemptAt = mutableMapOf<String, Long>()
     // 0 = nationwide, 1..24 = venue. A single tap on recommended-only stays active
     // while official 120-way odds are resolved sequentially.
@@ -139,6 +143,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             appUpdateManager.checkForUpdates()
         }
         loadModelARecentVirtual()
+        refreshCloudForecasts(_ui.value.date, force = true)
         loadInitialDate()
     }
 
@@ -185,6 +190,36 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             while (isActive) {
                 delay(LiveRefreshPolicy.INTERVAL_MS)
                 refreshLiveDataIfDue()
+                if (_ui.value.date == currentToday()) refreshCloudForecasts(_ui.value.date)
+            }
+        }
+    }
+
+    /** The Worker continues collecting while Android is closed. The app only reads it. */
+    fun refreshCloudForecasts(date: LocalDate = _ui.value.date, force: Boolean = false) {
+        if (date != _ui.value.date) return
+        val now = System.currentTimeMillis()
+        if (!force && now - lastCloudAttemptAt < 60_000L) return
+        if (cloudSyncJob?.isActive == true) {
+            if (!force) return
+            cloudSyncJob?.cancel()
+        }
+        lastCloudAttemptAt = now
+        _ui.update { it.copy(cloudForecast = it.cloudForecast.copy(loading = true, error = null)) }
+        cloudSyncJob = viewModelScope.launch {
+            try {
+                val batch = cloudForecastRepository.load(date)
+                if (_ui.value.date == date) _ui.update {
+                    it.copy(cloudForecast = CloudForecastSyncState(
+                        loading = false, batch = batch, lastSyncAt = System.currentTimeMillis()))
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (_ui.value.date == date) _ui.update {
+                    it.copy(cloudForecast = it.cloudForecast.copy(
+                        loading = false, error = error.message ?: "クラウドに接続できません"))
+                }
             }
         }
     }
@@ -219,11 +254,13 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         datePublicationRetryJob = null
         val changingDate = date != _ui.value.date
         if (changingDate) {
+            cloudSyncJob?.cancel()
+            lastCloudAttemptAt = 0L
             valueRefreshJob?.cancel()
             oddsRefreshJob?.cancel()
             PredictionEngine.clearValueSelections()
             lastAutoOddsAttemptAt.clear()
-            _ui.update { it.copy(liveOddsRefresh = LiveOddsRefreshStatus()) }
+            _ui.update { it.copy(liveOddsRefresh = LiveOddsRefreshStatus(), cloudForecast = CloudForecastSyncState()) }
         }
         dateLoadJob = viewModelScope.launch {
             if (showLoading || changingDate || _ui.value.races.isEmpty()) {
@@ -249,6 +286,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
             }
+            refreshCloudForecasts(date, force = changingDate)
             runCatching { repository.loadDateDetailed(date) }
                 .onSuccess { loadResult ->
                     val races = loadResult.races
@@ -362,6 +400,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     fun nextDay() { val target = _ui.value.date.plusDays(1); if (!target.isAfter(currentToday())) loadDate(target) }
     fun refresh() {
         loadModelARecentVirtual()
+        refreshCloudForecasts(force = true)
         loadDate(_ui.value.date, forceValueRefresh = true)
     }
 
