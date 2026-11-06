@@ -6,6 +6,110 @@ const MAX_STRING_BYTES = 1_000_000;
 const MAX_ENTRIES = 1_000_000;
 const MAX_APPEARANCES = 30_000_000;
 const utf8 = new TextDecoder('utf-8', { fatal: true });
+const encoder = new TextEncoder();
+
+class ByteWriter {
+  constructor() { this.bytes = new Uint8Array(1024); this.size = 0; }
+  reserve(size) {
+    if (this.size + size <= this.bytes.length) return;
+    let capacity = this.bytes.length;
+    while (capacity < this.size + size) capacity *= 2;
+    const grown = new Uint8Array(capacity);
+    grown.set(this.bytes);
+    this.bytes = grown;
+  }
+  raw(bytes) { this.reserve(bytes.length); this.bytes.set(bytes, this.size); this.size += bytes.length; }
+  byte(value) { this.reserve(1); this.bytes[this.size++] = value; }
+  int(value) { this.reserve(4); new DataView(this.bytes.buffer).setInt32(this.size, value, false); this.size += 4; }
+  double(value) { this.reserve(8); new DataView(this.bytes.buffer).setFloat64(this.size, value, false); this.size += 8; }
+  varint(input) {
+    if (!Number.isSafeInteger(input) || input < 0 || input > 0x7fffffff) {
+      throw new Error('MODEL_A_HISTORY_BAD_VARINT');
+    }
+    let value = input;
+    while (value >= 128) { this.byte((value & 0x7f) | 0x80); value = Math.floor(value / 128); }
+    this.byte(value);
+  }
+  string(value) {
+    if (typeof value !== 'string') throw new Error('MODEL_A_HISTORY_INVALID_KEY');
+    const bytes = encoder.encode(value);
+    if (bytes.length > MAX_STRING_BYTES) throw new Error('MODEL_A_HISTORY_STRING_TOO_LARGE');
+    this.varint(bytes.length);
+    this.raw(bytes);
+  }
+  finish() { return this.bytes.slice(0, this.size); }
+}
+
+// Android ModelAHistoryStateCodec BAH1 writer: sorted stats/player keys,
+// BE doubles, unsigned delta varints and finish-flag bytes. Never replace the
+// immutable base asset in place. Seal a new generation with a digest first.
+export function encodeModelAHistoryAsset(state) {
+  if (!state || !Number.isInteger(state.lastDay) || state.lastDay < 0 ||
+      !Number.isInteger(state.updateRaces) || state.updateRaces < 0 ||
+      !state.stats || !state.recent ||
+      typeof state.stats !== 'object' || typeof state.recent !== 'object') {
+    throw new Error('MODEL_A_HISTORY_INVALID_STATE');
+  }
+  const stats = Object.keys(state.stats).sort();
+  const players = Object.keys(state.recent).sort();
+  if (stats.length > MAX_ENTRIES || players.length > MAX_ENTRIES) {
+    throw new Error('MODEL_A_HISTORY_BAD_ENTRY_COUNT');
+  }
+  const writer = new ByteWriter();
+  writer.raw(Uint8Array.from([66, 65, 72, 49]));
+  writer.int(1);
+  writer.int(state.lastDay);
+  writer.int(state.updateRaces);
+  writer.int(stats.length);
+  for (const key of stats) {
+    const row = state.stats[key];
+    if (!Array.isArray(row) || row.length !== 8 ||
+        row.some(value => typeof value !== 'number' || !Number.isFinite(value)) ||
+        !Number.isSafeInteger(row[0]) || row[0] < 0 ||
+        row.slice(1, 4).some(value => value < 0 || value > row[0])) {
+      throw new Error('MODEL_A_HISTORY_INVALID_STAT');
+    }
+    writer.string(key);
+    for (const value of row) writer.double(value);
+  }
+  writer.int(players.length);
+  let appearances = 0;
+  for (const player of players) {
+    const recent = state.recent[player];
+    if (!Array.isArray(recent?.days) || !Array.isArray(recent.cumulative) ||
+        recent.cumulative.length !== recent.days.length + 1 ||
+        !Array.isArray(recent.cumulative[0]) ||
+        recent.cumulative[0].length !== 3 ||
+        recent.cumulative[0].some(value => value !== 0)) {
+      throw new Error('MODEL_A_HISTORY_INVALID_RECENT');
+    }
+    appearances += recent.days.length;
+    if (appearances > MAX_APPEARANCES) throw new Error('MODEL_A_HISTORY_TOO_MANY_APPEARANCES');
+    writer.string(player);
+    writer.varint(recent.days.length);
+    let previousDay = 0, previous = [0, 0, 0];
+    for (let i = 0; i < recent.days.length; i++) {
+      const day = recent.days[i], current = recent.cumulative[i + 1];
+      if (!Number.isInteger(day) || day < previousDay || day > state.lastDay ||
+          !Array.isArray(current) || current.length !== 3) {
+        throw new Error('MODEL_A_HISTORY_INVALID_RECENT');
+      }
+      const increments = current.map((value, index) => value - previous[index]);
+      if (!increments.every(value => value === 0 || value === 1) ||
+          increments[0] > increments[1] || increments[1] > increments[2]) {
+        throw new Error('MODEL_A_HISTORY_INVALID_OUTCOME_FLAGS');
+      }
+      writer.varint(day - previousDay);
+      writer.byte(increments[0] | (increments[1] << 1) | (increments[2] << 2));
+      previousDay = day;
+      previous = current;
+    }
+  }
+  if (appearances !== state.updateRaces * 6) {
+    throw new Error('MODEL_A_HISTORY_APPEARANCE_MISMATCH');
+  }
+  return writer.finish();
+}
 
 function asBytes(input) {
   if (input instanceof Uint8Array) return input;

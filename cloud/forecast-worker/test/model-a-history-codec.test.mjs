@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { decodeModelAHistoryAsset, verifyModelAHistoryAsset } from '../src/model-a-history-codec.mjs';
+import { decodeModelAHistoryAsset, encodeModelAHistoryAsset, verifyModelAHistoryAsset } from '../src/model-a-history-codec.mjs';
 import { ModelAPlayerHistory } from '../src/model-a-history.mjs';
 
 const assetUrl = new URL('../../../app/src/main/assets/model_a_history.bin', import.meta.url);
@@ -43,4 +43,32 @@ test('unverified, corrupted and truncated Android assets are rejected', async ()
   assert.throws(() => decodeModelAHistoryAsset(badVersion), /UNSUPPORTED_VERSION/);
   const extra = Buffer.concat([source, Buffer.from([0])]);
   assert.throws(() => decodeModelAHistoryAsset(extra), /TRAILING_BYTES/);
+});
+
+test('cloud BAH1 writer reproduces every byte and SHA-256 of frozen Android history', () => {
+  const original = readFileSync(assetUrl);
+  const decoded = decodeModelAHistoryAsset(original);
+  const reencoded = encodeModelAHistoryAsset(decoded);
+  assert.equal(reencoded.byteLength, original.byteLength);
+  assert.equal(Buffer.compare(reencoded, original), 0);
+  assert.equal(createHash('sha256').update(reencoded).digest('hex'),
+    createHash('sha256').update(original).digest('hex'));
+});
+
+test('history writer refuses inconsistent appearance counts, bad deltas and invalid statistics', () => {
+  const valid = { lastDay: 10, updateRaces: 1, stats: { global: [6, 1, 2, 3, 40, 270, 1, 0.2] },
+    recent: Object.fromEntries(Array.from({ length: 6 }, (_, i) => [String(100 + i), {
+      days: [10], cumulative: [[0, 0, 0], [0, 0, 1]],
+    }])) };
+  const bytes = encodeModelAHistoryAsset(valid);
+  assert.deepEqual(decodeModelAHistoryAsset(bytes), {
+    lastDay: valid.lastDay, updateRaces: valid.updateRaces,
+    stats: Object.assign(Object.create(null), valid.stats),
+    recent: Object.assign(Object.create(null), valid.recent),
+  });
+  assert.throws(() => encodeModelAHistoryAsset({ ...valid, updateRaces: 2 }), /APPEARANCE_MISMATCH/);
+  assert.throws(() => encodeModelAHistoryAsset({ ...valid, stats: { global: [NaN] } }), /INVALID_STAT/);
+  const inconsistent = structuredClone(valid);
+  inconsistent.recent['100'].cumulative[1] = [1, 0, 0];
+  assert.throws(() => encodeModelAHistoryAsset(inconsistent), /INVALID_OUTCOME_FLAGS/);
 });

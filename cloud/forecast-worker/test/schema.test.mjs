@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 const migration = readFileSync(new URL('../migrations/0001_initial.sql', import.meta.url), 'utf8');
 const auditMigration = readFileSync(new URL('../migrations/0002_operational_audit.sql', import.meta.url), 'utf8');
 const provenanceMigration = readFileSync(new URL('../migrations/0003_preclose_provenance.sql', import.meta.url), 'utf8');
+const historyMigration = readFileSync(new URL('../migrations/0004_model_a_history_generations.sql', import.meta.url), 'utf8');
 
 test('D1 SQLite migration accepts actual race inserts, rejects duplicate loss', () => {
   const db = new DatabaseSync(':memory:');
@@ -77,5 +78,21 @@ test('strict pre-close provenance migration preserves existing capture and adds 
   db.prepare(`UPDATE race_schedule SET preview_source='licensed-provider',
     preview_observed_ms=90000, odds_observed_ms=92000 WHERE race_id='2026-11-06-01-1'`).run();
   assert.equal(db.prepare('SELECT odds_observed_ms FROM race_schedule').get().odds_observed_ms, 92000);
+  db.close();
+});
+
+test('immutable history checkpoint migration preserves existing forecast and result records', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(auditMigration);
+  db.exec(provenanceMigration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, result_json)
+    VALUES ('2026-11-06-01-1', '2026-11-06', 1, 1, 100000, 0, '{"trifecta_combination":"1-2-3"}')`).run();
+  db.exec(historyMigration);
+  db.exec(historyMigration);
+  const row = db.prepare('SELECT result_json FROM race_schedule').get();
+  assert.deepEqual(JSON.parse(row.result_json), { trifecta_combination: '1-2-3' });
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM model_a_history_active').get().n, 0);
   db.close();
 });
