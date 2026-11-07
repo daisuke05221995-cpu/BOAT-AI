@@ -20,6 +20,7 @@ Android v0.18.25に同梱された固定3本のLightGBMテキストモデルを�
 - `Stage frozen Model A assets in D1` はmainの当該workflowファイル更新時だけ自動起動（手動再試行も可）。PRや通常Androidビルドでは資産投入しない。
 - D1の100KB SQL文上限を守るため、256KiBの物理チャンクを64KiB以下のSQL行にしてappend。`length(base64_data)` を再試行用の条件とし、再実行時に二重連結しない。中断時の部分保存は後続のSHA検証で拒否され、予想に使えない。
 - GitHub Actionsだけで元の3モデルSHA・サイズ・LightGBM構造を検証→SQL作成→D1へ保存→D1から再取得→全12チャンクと全3ファイルのSHA・構造を検証する。
+- D1から復元した実モデル3本で、独立Python版の固定人工レース2件×120組の確率も照合する。実レースの鮮度証明ではなく、モデル計算互換性の試験である。
 - セキュリティ：既存Cloudflare API tokenはSecretsから使用し、モデルデータの一時SQL・D1 readbackはGitHub runnerの一時領域のみ。外部への送信・公開APIの変更・新たな認証情報の設定は行わない。
 
 ## 引き続きブロックするもの
