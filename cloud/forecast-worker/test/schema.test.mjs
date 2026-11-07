@@ -8,6 +8,7 @@ const auditMigration = readFileSync(new URL('../migrations/0002_operational_audi
 const provenanceMigration = readFileSync(new URL('../migrations/0003_preclose_provenance.sql', import.meta.url), 'utf8');
 const historyMigration = readFileSync(new URL('../migrations/0004_model_a_history_generations.sql', import.meta.url), 'utf8');
 const weatherMigration = readFileSync(new URL('../migrations/0005_weather_provenance.sql', import.meta.url), 'utf8');
+const resultMigration = readFileSync(new URL('../migrations/0006_result_reconciliation.sql', import.meta.url), 'utf8');
 
 test('D1 SQLite migration accepts actual race inserts, rejects duplicate loss', () => {
   const db = new DatabaseSync(':memory:');
@@ -111,5 +112,25 @@ test('field-level weather provenance migration leaves old captures unverified, n
   assert.equal(row.preview_observed_ms, 90000);
   assert.equal(row.weather_observed_ms, null);
   assert.equal(row.weather_source, null);
+  db.close();
+});
+
+test('result reconciliation migration preserves final results and makes exhausted legacy results retryable', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(auditMigration);
+  db.exec(provenanceMigration);
+  db.exec(weatherMigration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, result_stage)
+    VALUES ('2026-11-06-08-1', '2026-11-06', 8, 1, 100000, 0, 2)`).run();
+  db.exec(resultMigration);
+  const row = db.prepare('SELECT * FROM race_schedule').get();
+  assert.equal(row.result_stage, 2);
+  assert.equal(row.result_json, null);
+  assert.equal(row.result_last_attempt_ms, null);
+  assert.equal(row.result_failure_code, null);
+  db.prepare('UPDATE race_schedule SET result_last_attempt_ms=120000 WHERE race_id=?').run(row.race_id);
+  assert.equal(db.prepare('SELECT result_last_attempt_ms FROM race_schedule').get().result_last_attempt_ms, 120000);
   db.close();
 });

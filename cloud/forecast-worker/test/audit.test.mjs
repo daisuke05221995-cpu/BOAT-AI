@@ -78,6 +78,21 @@ test('audit marks absent or delayed cron as unobserved or stale', () => {
   assert.equal(stale.cron.status, 'STALE');
 });
 
+test('audit distinguishes win payouts, non-formation and postponement from missing results', () => {
+  const rows = [
+    race('settled', { result_json: JSON.stringify({ status: 'SETTLED', trifecta_combination: '1-2-3' }), result_recorded_ms: now }),
+    race('unformed', { result_json: JSON.stringify({ status: 'UNFORMED', refund_per_100: 100 }), result_recorded_ms: now }),
+    race('postponed', { result_json: JSON.stringify({ status: 'POSTPONED' }), result_recorded_ms: now }),
+    race('cancelled', { result_json: JSON.stringify({ status: 'CANCELLED' }), result_recorded_ms: now }),
+    race('legacy', { result_json: JSON.stringify({ trifecta_combination: '4-2-1', trifecta_payout: 1200 }), result_recorded_ms: now }),
+    race('missing', { result_failure_code: 'RESULT_NOT_FINAL' }),
+  ].map(row => ({ ...row, deadline_ms: now - 25 * 60_000 }));
+  const audit = summarizeDailyAudit('2026-11-06', now, rows);
+  assert.deepEqual(audit.results, { due: 6, recorded: 5, settled: 1, unformed: 1,
+    postponed: 1, cancelled: 1, legacy_settled: 1, unresolved_due: 1 });
+  assert.deepEqual(audit.result_failure_codes, { RESULT_NOT_FINAL: 1 });
+});
+
 test('cron execution records started and completed without making forecasts up', async () => {
   const statements = [];
   const env = { DB: { prepare(sql) {
