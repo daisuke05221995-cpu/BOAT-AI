@@ -86,6 +86,7 @@ internal fun CollectorDashboardScreen(
                             modifier = Modifier.fillMaxWidth()) {
                             Text("公式アプリ操作を緊急停止")
                         }
+                        Text("操作状態：${vm.collectorPurchaseAutomationStatus()}", style = MaterialTheme.typography.bodySmall)
                         Text("操作検証は締切まで2分以上・合計5,000円以内。実画面に対応した設定があるときのみ買い目入力を試験します。投票確定はまだ行いません。",
                             style = MaterialTheme.typography.bodySmall)
                         Text("注意：これは購入準備です。公式サイトでご自身が投票を確定してください。投票結果は1台目で記録します。",

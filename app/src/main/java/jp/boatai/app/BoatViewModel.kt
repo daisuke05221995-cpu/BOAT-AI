@@ -429,6 +429,13 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun hasCollectorPurchaseProfile(): Boolean = officialPurchaseProfileStore.hasValidProfile()
 
+    fun collectorPurchaseAutomationStatus(): String = when (val state = BoatPurchaseAccessibilityService.automationStatus()) {
+        PurchaseAutomationRunner.State.Idle -> "未実行"
+        is PurchaseAutomationRunner.State.Running -> "入力中 ${state.stepIndex + 1}/${state.totalSteps} 操作"
+        is PurchaseAutomationRunner.State.AwaitingReview -> "入力完了・確認画面の照合待ち（${state.expectedTotal}円）"
+        is PurchaseAutomationRunner.State.Stopped -> "停止：${state.reason}"
+    }
+
     fun importCollectorPurchaseProfile(raw: String) {
         if (!_ui.value.collectorModeEnabled) return
         val saved = officialPurchaseProfileStore.save(raw)
