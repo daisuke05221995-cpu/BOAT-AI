@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../src/worker.mjs';
-import { normalizeDeviceHeartbeat, collectorKeyMatches, ingestCollectorHeartbeat } from '../src/device-collector.mjs';
+import { normalizeDeviceHeartbeat, collectorKeyMatches, ingestCollectorHeartbeat,
+  summarizeCollectorHealth } from '../src/device-collector.mjs';
 
 const now = Date.parse('2026-11-07T05:01:00Z');
 const date = '2026-11-07';
@@ -74,4 +75,35 @@ test('public device status reports aggregate only; never leaks device identifier
   assert.equal(result.latest_device_odds_succeeded, 2);
   assert.equal(JSON.stringify(result).includes('device_id'), false);
   assert.equal((await worker.fetch(new Request('https://example.net/v1/device-collector/status?date=no'), { DB: db })).status, 400);
+});
+
+test('cross-day health detects ACTIVE, STALE, and NEVER_CONNECTED without false SKIP', () => {
+  const rows = [{ received_ms: now - 2 * 60_000, race_date: '2026-11-06', race_count: 132,
+    odds_attempted: 0, odds_succeeded: 0, odds_failed: 0 }];
+  assert.equal(summarizeCollectorHealth(rows, now).monitoring_state, 'ACTIVE');
+  const stale = summarizeCollectorHealth(rows, now + 3 * 60_000 + 1);
+  assert.equal(stale.monitoring_state, 'STALE');
+  assert.equal(stale.active_devices_10m, 1);
+  assert.equal(stale.eligible_for_forecast, false);
+  const never = summarizeCollectorHealth([], now);
+  assert.equal(never.monitoring_state, 'NEVER_CONNECTED');
+  assert.equal(never.last_received_at, null);
+  assert.equal(never.active_devices_10m, 0);
+  assert.equal(summarizeCollectorHealth([{ received_ms: now + 50_000 }], now).monitoring_state, 'NEVER_CONNECTED');
+});
+
+test('monitor endpoint exposes only anonymous receipt state across midnight', async () => {
+  const db = { prepare: sql => {
+    assert.match(sql, /SELECT received_ms, race_date, race_count/);
+    assert.doesNotMatch(sql, /device_id/);
+    return { all: async () => ({ results: [{ received_ms: Date.now() - 60_000,
+      race_date: '2026-11-07', race_count: 132, odds_attempted: 0,
+      odds_succeeded: 0, odds_failed: 0, device_id: 'never-output-this' }] }) };
+  } };
+  const result = await (await worker.fetch(new Request('https://example.net/v1/device-collector/health'), { DB: db })).json();
+  assert.equal(result.monitoring_state, 'ACTIVE');
+  assert.equal(result.mode, 'DEVICE_RECEIPT_ONLY');
+  assert.equal(result.eligible_for_forecast, false);
+  assert.equal(JSON.stringify(result).includes('device_id'), false);
+  assert.equal(JSON.stringify(result).includes('never-output-this'), false);
 });

@@ -1,5 +1,7 @@
 # BOAT AI 引継ぎメモ
 
+> **2026-11-08 Android v0.18.28 / 2台目の通信停止を1台目で監視**：`GET /v1/device-collector/health` でサーバー受信時刻をJST日跨ぎでも評価し、5分以内 `ACTIVE`・5分超 `STALE`・未受信 `NEVER_CONNECTED` を判定。Android通常の予想画面と設定に状態カードを表示し、起動・復帰時と最大2分間隔で自動更新。通信確認不能は `UNKNOWN`、予想のBUY/SKIPとは独立。`data/ANDROID_COLLECTOR_HEALTH_MONITOR_20261108.md`。v0.18.27の2台目は更新不要。**アプリ終了中のプッシュ通知は別工程**。映像のJST日付判定境界バグも修正、合成動画PoCの63テスト成功。ただし実映像検証未完。
+
 > **2026-11-07 Android v0.18.27 / 2台目クラウド監査通信（新規実装）**：常時取得端末から、件数と端末受信時刻だけを共有キー認証のHTTPSでWorkerに送信する。端末側の共有キーはAndroid Keystoreで暗号化しバックアップ対象外、未設定なら送信しない。D1は直近1件/端末の受信監査だけ保存し、`GET /v1/device-collector/status` に個体識別子を出さず表示。**これは本物の取得元観測時刻の証明ではないのでオッズ・展示の本体や購入記録を送らず、Model A / BUY / SKIPには一切接続しない**。初期状態でWorker Secret `COLLECTOR_INGEST_TOKEN` は未設定のため運用OFF。端末とWorkerへ同じ32文字以上のキーを別途セット後に連携可能。詳細 `data/ANDROID_COLLECTOR_CLOUD_TELEMETRY_20261107.md`。既存v0.18.26が動いている場合は上書き更新し、データ削除しない。
 
 > **2026-11-07 Android v0.18.26（2台目Android用）**：設定から端末限定の「常時取得モード」をONにすると、既存60秒前面取得を維持し、画面消灯防止・日付跨ぎのJST当日自動切替・取得監視画面が使える。デフォルトOFF、実購入履歴と他端末は変更しない。**端末→Cloudflareへの生データ送信は未実装**、配信元の更新時刻が不明のデータは認証済み予想に昇格しない。`data/ANDROID_COLLECTOR_MODE_20261107.md` 参照。これより下の旧バージョン記述は過去記録。

@@ -90,6 +90,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         vm.startLiveRefresh()
         vm.refreshCloudForecasts(force = true)
+        vm.refreshCollectorMonitor(force = true)
         // PredictionTrackingService may have settled purchases while the UI process stayed
         // alive. Pull durable accounting back into the ViewModel before the user sees Profit.
         vm.syncStoredAccounting()
@@ -244,6 +245,9 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
     ) {
         item { AppUpdateCard(ui.update, vm) }
         item { DateSelectorCard(ui, vm) }
+        if (ui.date == LocalDate.now(ZoneId.of("Asia/Tokyo"))) {
+            item { CollectorCloudMonitorCard(ui.collectorMonitor, onRefresh = { vm.refreshCollectorMonitor(force = true) }) }
+        }
         if (ui.date == LocalDate.now(ZoneId.of("Asia/Tokyo"))) {
             item { LiveOddsRefreshCard(ui.liveOddsRefresh) }
         }

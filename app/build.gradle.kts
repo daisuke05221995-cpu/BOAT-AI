@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 73
-        versionName = "0.18.27"
-        // v0.18.27: authenticated device heartbeat only; no live odds payload or bet sync.
+        versionCode = 74
+        versionName = "0.18.28"
+        // v0.18.28: read-only cross-day collector heartbeat monitoring; no bet/forecast sync.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
