@@ -1,9 +1,14 @@
 name: Stage frozen Model A assets in D1
 
-# Explicit run only. PRs and ordinary cloud deployments never populate or
-# activate model assets. No result/odds fetch and no purchase operations.
+# Only this workflow's main-branch changes trigger staging automatically;
+# ordinary deploys/PRs never populate or activate assets. Manual retries are
+# supported. No result/odds fetch and no purchase operations.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cloud-model-a-frozen-bootstrap.yml'
 
 permissions:
   contents: read

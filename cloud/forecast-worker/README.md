@@ -91,7 +91,7 @@ Worker環境変数 `PREVIEW_API_URL`、`ODDS_API_URL` を**それぞれ認可済
 
 ### 固定Model AのD1ステージング（予想OFFのまま）
 
-- GitHub Actionsの `Stage frozen Model A assets in D1` を**明示的に1回起動**する。既存のCloudflare Secretsを利用し、Android同梱の3本だけをSHA-256・長さ・特徴量幅で検証する。
+- GitHub Actionsの `Stage frozen Model A assets in D1` は、**このworkflowファイル自体のmain更新時のみ自動起動**（手動再実行も可）。通常のコード更新・デプロイ・PRでは起動しない。既存のCloudflare Secretsを利用し、Android同梱の3本だけをSHA-256・長さ・特徴量幅で検証する。
 - `tools/build_frozen_model_d1_sql.mjs` が一時SQLを生成する。D1の**SQL文100KB上限**を守るため、3モデルの256KiB以下のチャンクをさらに64KiB以下のSQLリテラルに分割して段階的に追加。実行途中で停止・再実行しても二重連結しない。SQLファイルをGitHubにコミットしない。
 - 書き込み後、`tools/verify_frozen_model_d1_export.mjs` が認証付きD1の該当チャンクを読み返し、各チャンクSHA、3ファイルの全体SHA、実LightGBMパース・特徴量幅を検証する。モデル内容・秘密トークンは公開APIに返さない。
 - この操作は**モデルの保存だけ**であり、固定モデルの再学習、D1選手履歴の活性化、予想APIへの接続、`BUY/SKIP` 有効化はしない。モデル保存成功とレース予想稼働を区別する。
