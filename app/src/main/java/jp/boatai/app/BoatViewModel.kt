@@ -68,7 +68,8 @@ data class BoatUiState(
     val purchaseLaunchHelpVisible: Boolean = false,
     val operationalIssues: List<OperationalIssue> = emptyList(),
     val liveOddsRefresh: LiveOddsRefreshStatus = LiveOddsRefreshStatus(),
-    val cloudForecast: CloudForecastSyncState = CloudForecastSyncState()
+    val cloudForecast: CloudForecastSyncState = CloudForecastSyncState(),
+    val collectorModeEnabled: Boolean = false
 )
 
 class BoatViewModel(application: Application) : AndroidViewModel(application) {
@@ -86,6 +87,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val operationalSelfCheckStore = OperationalSelfCheckStore(application)
     private val crashRecoveryStore = CrashRecoveryStore(application)
     private val fetchAuditStore = DataFetchAuditStore(application)
+    private val collectorModeStore = CollectorModeStore(application)
     private val operationalMonitoringStartedAt = operationalSelfCheckStore.monitoringStartedAt()
     private fun currentToday(): LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo"))
     private fun earliestBrowsableDate(): LocalDate = currentToday().minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
@@ -111,7 +113,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             pendingPurchase = pendingPurchaseStore.load(),
             predictionHistory = initialPredictionHistory,
             performance = initialPerformance,
-            notificationsEnabled = notificationScheduler.enabled
+            notificationsEnabled = notificationScheduler.enabled,
+            collectorModeEnabled = collectorModeStore.isEnabled()
         )
     )
     val ui: StateFlow<BoatUiState> = _ui.asStateFlow()
@@ -182,6 +185,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     fun startLiveRefresh() {
         if (liveRefreshJob?.isActive == true) return
         liveRefreshJob = viewModelScope.launch {
+            reloadCollectorTodayIfNeeded()
             // On returning to an existing screen, do not wait a full minute for fresh data.
             val initial = _ui.value
             if (initial.races.isNotEmpty() && initial.programUpdatedAt != null &&
@@ -189,9 +193,33 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             ) refreshLiveDataIfDue()
             while (isActive) {
                 delay(LiveRefreshPolicy.INTERVAL_MS)
+                if (reloadCollectorTodayIfNeeded()) continue
                 refreshLiveDataIfDue()
                 if (_ui.value.date == currentToday()) refreshCloudForecasts(_ui.value.date)
             }
+        }
+    }
+
+    private fun reloadCollectorTodayIfNeeded(): Boolean {
+        val state = _ui.value
+        val today = currentToday()
+        if (!CollectorModePolicy.needsTodayReload(state.collectorModeEnabled, state.date, today)) return false
+        loadDate(today, showLoading = false)
+        return true
+    }
+
+    /** Opt-in on this Android only. Other devices and real bet records are untouched. */
+    fun setCollectorModeEnabled(enabled: Boolean) {
+        collectorModeStore.setEnabled(enabled)
+        _ui.update { state -> state.copy(
+            collectorModeEnabled = enabled,
+            selectedRace = if (enabled) null else state.selectedRace,
+            selectedVenue = if (enabled) null else state.selectedVenue,
+            selectedForBulk = if (enabled) emptySet() else state.selectedForBulk,
+            tab = if (enabled) 0 else state.tab
+        ) }
+        if (enabled) {
+            if (!reloadCollectorTodayIfNeeded()) refreshLiveDataIfDue()
         }
     }
 
