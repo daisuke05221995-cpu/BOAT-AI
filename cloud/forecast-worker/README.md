@@ -1,5 +1,15 @@
 # BOAT AI クラウド実行基盤（段階1：データ収集・監査・直前品質検証）
 
+## 2026-11-07 2台目Androidからの取得監査通信（v0.18.27）
+
+2台目の「常時取得モード」がONの間、Androidアプリは取得した**件数と端末受信時刻のみ**を約2分ごとに `POST /v1/device-collector/heartbeat` に送る機能を持つ。D1 migration `0012_device_collector_heartbeat.sql` は端末ごとの直近1行を保存する。`GET /v1/device-collector/status?date=YYYY-MM-DD` はデバイス識別子を公開せず、当日のアクティブ台数（直近10分）、直近の取得件数と受信時刻を表示する。
+
+- 送信側とWorker側の**両方を設定するまで完全にOFF**。Workerには `COLLECTOR_INGEST_TOKEN` という32〜200文字のASCII英数字・`-`・`_`のSecretを登録。CLIなら `wrangler secret put COLLECTOR_INGEST_TOKEN`、Cloudflare管理画面なら該当Workerの「Settings → Variables and Secrets」からSecretとして追加。通常のGitHubリポジトリやチャットには値を貼らない。同じキーを2台目のBOAT AI「設定 → クラウド監査送信用の共有キー」に入力・保存する。
+- 認証ヘッダーが無い/誤っている場合401、Secret未設定なら503。各payloadは最大2KiB、JST当日・端末時刻の近さ・項目集合・件数と時刻を検証し、未知の項目を拒否する。成功時202、`classification=DEVICE_RECEIPT_ONLY` と `eligible_for_forecast=false` を返す。
+- 実購入履歴、オッズ値、展示値、選手ID、予想、アカウント情報は送らない。端末受信時刻は元サイトの観測時刻を証明しないため、**本経路を使って予想/BUY/SKIPを出してはいけない**。許諾済みのライブフィードによる別の本番予想経路は従来どおり必要。
+- 端末側の共有キーはAndroid Keystoreで暗号化して保持、OSバックアップ/端末転送から除外。端末側をOFFにするかキー削除すれば送信停止。画面が前面にないと既存取得も停止する。利用者端末の購入記録・バックアップは従来のまま。
+
+
 ## 2026-11-07 Model A 前日までの履歴を自動確定する経路
 
 `model-a-history-auto.mjs` + `0011_model_a_history_auto.sql` に、明示的に承認された全開催履歴APIから**連続した1日分だけ**取得し、全レースと6艇の着順・結果出典・時刻・締切前出走/展示/気象の生観測時刻を検証して、D1の固定BAH1履歴を1日ずつ更新する処理を追加。Workerの1分Cronで1回につき最大1日を処理し、失敗時は同日を1時間以上空けて再試行する。D1アクティブ履歴は完全検証・SHA照合・連続世代確認後だけ切り替え、不完全日は切り替えない。端末にある購入履歴やAndroid公式オッズ取得には触れない。
@@ -163,7 +173,7 @@ Worker環境変数 `PREVIEW_API_URL`、`ODDS_API_URL` を**それぞれ認可済
 - プログラムJSONはAndroidが参照する `boatraceopenapi.github.io/api/v1/YYYY/YYYYMMDD.json` の公開日付フィードと同形式を期待。`closed_at` をJSTとして解釈する。この**低頻度更新の日付フィードは開催表と結果専用**とし、T-8の展示・オッズの代替には使わない。
 - 取得不能は `failure_code` で記録。`UNAVAILABLE` は見送り (`SKIP`) と区別し、的中率・ROIの分母へ入れない。
 - 当日/前日 `result_json` の再照合は結果・払戻表示の回復処理のみで、Model Aの選手履歴更新ゲートには接続していない。締切後の実データを事前特徴量に入れない。`UNFORMED` / `POSTPONED` / `CANCELLED` は勝ちレースと数えず、通常配当扱いにも変換しない。
-- `POST` を含む外部書き込みAPIは提供しない。公開APIにはレース情報のみを返す。必要に応じてCloudflare側のレート制限とアクセス制御を追加。
+- 通常の公開APIは読み取り専用。例外として `POST /v1/device-collector/heartbeat` は共有キー認証で**監査件数のみ**保存し、予想・オッズ原本・購入履歴の書き込みは提供しない。必要に応じてCloudflare側で追加のレート制限を設定する。
 - D1スキーマは **初期構築用**。本番データがある場合、後から `0001` を再適用してデータ移行するのではなく、追加のmigrationを作る。
 
 ## ローカル検証

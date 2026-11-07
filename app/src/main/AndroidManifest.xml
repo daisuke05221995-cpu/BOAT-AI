@@ -15,6 +15,8 @@
     <application
         android:name=".BoatAiApplication"
         android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="BOAT AI"
         android:supportsRtl="true"
         android:theme="@style/Theme.BoatAI"

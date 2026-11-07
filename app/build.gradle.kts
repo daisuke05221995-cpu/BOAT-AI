@@ -12,9 +12,9 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 72
-        versionName = "0.18.26"
-        // v0.18.26: Opt-in dedicated foreground collector; cloud data remains read-only.
+        versionCode = 73
+        versionName = "0.18.27"
+        // v0.18.27: authenticated device heartbeat only; no live odds payload or bet sync.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

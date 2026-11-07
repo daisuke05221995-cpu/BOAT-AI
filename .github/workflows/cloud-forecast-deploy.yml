@@ -119,8 +119,11 @@ jobs:
               && jq -e '.ok == true and .schema_version == 1' <<< "$health" >/dev/null; then
               if audit="$(curl --silent --show-error --fail --connect-timeout 8 --max-time 12 "$base/v1/audit?date=$date_jst")" \
                 && jq -e --arg date "$date_jst" '.schema_version == 1 and .date == $date and (.scheduled_races | type == "number")' <<< "$audit" >/dev/null; then
-                echo "Worker health and read-only audit available at $base"
-                exit 0
+                if collector="$(curl --silent --show-error --fail --connect-timeout 8 --max-time 12 "$base/v1/device-collector/status?date=$date_jst")" \
+                  && jq -e --arg date "$date_jst" '.schema_version == 1 and .date == $date and .mode == "DEVICE_RECEIPT_ONLY" and .eligible_for_forecast == false' <<< "$collector" >/dev/null; then
+                  echo "Worker health, audit and device collector status available at $base"
+                  exit 0
+                fi
               fi
             fi
             echo "Worker not yet ready for health + audit check (attempt $attempt/8)."

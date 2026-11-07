@@ -11,6 +11,7 @@ import { evaluateModelAShadow, parseShadowApprovals } from './model-a-shadow.mjs
 import { SOURCE_MAX_AGE_MS } from './preclose.mjs';
 import { FROZEN_MODEL_A_BUNDLE_SHA256 } from './model-a-model-store.mjs';
 import { runAutomaticHistoryCatchup } from './model-a-history-auto.mjs';
+import { ingestCollectorHeartbeat, readCollectorStatus } from './device-collector.mjs';
 
 const allowedHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 const MAX_IMPORT_RACES = 288;
@@ -366,8 +367,17 @@ export default {
   async scheduled(_event, env, ctx) { ctx.waitUntil(runScheduled(env)); },
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === '/v1/device-collector/heartbeat' && request.method === 'POST') {
+      const response = await ingestCollectorHeartbeat(request, env);
+      return jsonResponse(response.payload, response.status);
+    }
     if (request.method !== 'GET') return jsonResponse({ error: 'METHOD_NOT_ALLOWED' }, 405);
     if (url.pathname === '/v1/health') return jsonResponse({ ok: true, service: 'boat-ai-cloud', schema_version: 1 });
+    if (url.pathname === '/v1/device-collector/status') {
+      const date = url.searchParams.get('date') ?? japanDate(Date.now());
+      if (!isValidDate(date)) return jsonResponse({ error: 'INVALID_DATE' }, 400);
+      return jsonResponse(await readCollectorStatus(env, date));
+    }
     if (url.pathname === '/v1/history-status') {
       const [active, attempts] = await Promise.all([
         env.DB.prepare('SELECT through_day FROM model_a_history_active WHERE singleton=1').first(),
