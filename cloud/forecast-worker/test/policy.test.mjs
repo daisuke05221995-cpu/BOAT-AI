@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   EIGHT_MIN, FIVE_MIN, japanDate, parseJstDeadline, raceId,
-  isValidDate, extractSchedule, nextCaptureStage, nextResultStage, validOdds,
+  isValidDate, extractSchedule, nextCaptureStage, validOdds,
 } from '../src/policy.mjs';
 import { dailyImportDue, serializeForecast } from '../src/worker.mjs';
 
@@ -42,14 +42,6 @@ test('T-8 exactly once; T-5 only after failed first attempt', () => {
   assert.equal(nextCaptureStage(first, deadline - FIVE_MIN), 2); // missed T-8
   assert.equal(nextCaptureStage(completed, deadline - FIVE_MIN), null);
   assert.equal(nextCaptureStage(retriable, deadline), null);
-});
-
-test('result collection starts after 20 minutes, one fallback after 45', () => {
-  assert.equal(nextResultStage({ result_stage: 0, deadline_ms: deadline }, deadline + 20 * 60_000 - 1), null);
-  assert.equal(nextResultStage({ result_stage: 0, deadline_ms: deadline }, deadline + 20 * 60_000), 1);
-  assert.equal(nextResultStage({ result_stage: 1, deadline_ms: deadline }, deadline + 44 * 60_000), null);
-  assert.equal(nextResultStage({ result_stage: 1, deadline_ms: deadline }, deadline + 45 * 60_000), 2);
-  assert.equal(nextResultStage({ result_stage: 2, deadline_ms: deadline }, deadline + 46 * 60_000), null);
 });
 
 test('schedule parsing preserves only complete date-matched races', () => {

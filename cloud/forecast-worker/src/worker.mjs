@@ -1,10 +1,10 @@
 import {
   EIGHT_MIN, FIVE_MIN, SCHEDULE_REFRESH_MS,
   japanDate, isValidDate, extractSchedule, nextCaptureStage,
-  nextResultStage,
 } from './policy.mjs';
 import { summarizeDailyAudit } from './audit.mjs';
 import { verifiedOddsPayload, verifiedPreviewPayload, verifiedStoredCapture } from './preclose.mjs';
+import { normalizePublishedResult, resultRetryDue } from './result.mjs';
 
 const allowedHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 const MAX_IMPORT_RACES = 288;
@@ -211,31 +211,45 @@ async function captureDueRaces(env, date, nowMs) {
   await env.DB.batch(updates);
 }
 
-function parseResult(observation) {
-  const payout = observation?.result?.payouts?.trifecta?.[0];
-  if (!payout || !/^\d-\d-\d$/.test(String(payout.combination)) || !Number.isFinite(Number(payout.amount))) return null;
-  return { trifecta_combination: payout.combination, trifecta_payout: Number(payout.amount) };
-}
-
 async function settleDueRaces(env, date, nowMs) {
+  const yesterday = japanDate(nowMs - 24 * 60 * 60_000);
+  const retryCutoff = nowMs - 15 * 60_000;
+  // D1 can contain legacy result_stage=2 rows without results. Check the
+  // actual persisted result, not the old two-attempt flag. Reconcile yesterday
+  // as well, since delayed final dividends and postponed meetings are common.
   const { results: rows } = await env.DB.prepare(`SELECT * FROM race_schedule
-    WHERE race_date=? AND result_stage < 2 AND deadline_ms <= ? ORDER BY deadline_ms LIMIT 30`)
-    .bind(date, nowMs - 20 * 60_000).all();
-  const due = (rows ?? []).map(row => ({ row, stage: nextResultStage(row, nowMs) })).filter(item => item.stage);
+    WHERE race_date IN (?, ?) AND result_json IS NULL AND deadline_ms <= ?
+      AND (result_last_attempt_ms IS NULL OR result_last_attempt_ms <= ?)
+    ORDER BY deadline_ms LIMIT 30`)
+    .bind(yesterday, date, nowMs - 20 * 60_000, retryCutoff).all();
+  const due = (rows ?? []).filter(row => resultRetryDue(row, nowMs));
   if (!due.length) return;
-  let program;
-  try { program = await loadProgram(env, date); } catch { /* source may lag; second chance below */ }
-  const claim = env.DB.prepare(`UPDATE race_schedule SET result_stage=?, updated_ms=?
-    WHERE race_id=? AND result_stage=?`);
-  const claimed = await env.DB.batch(due.map(({ row, stage }) =>
-    claim.bind(stage, nowMs, row.race_id, row.result_stage)));
+  const claim = env.DB.prepare(`UPDATE race_schedule SET
+    result_stage=1, result_last_attempt_ms=?, updated_ms=?
+    WHERE race_id=? AND result_json IS NULL
+      AND (result_last_attempt_ms IS NULL OR result_last_attempt_ms <= ?)`);
+  const claimed = await env.DB.batch(due.map(row =>
+    claim.bind(nowMs, nowMs, row.race_id, retryCutoff)));
+  const claimedRows = due.filter((_, index) => claimed[index]?.meta?.changes);
+  if (!claimedRows.length) return;
+  const programs = new Map(await Promise.all([...new Set(claimedRows.map(row => row.race_date))]
+    .map(async raceDate => {
+      try { return [raceDate, await loadProgram(env, raceDate)]; }
+      catch { return [raceDate, null]; }
+    })));
   const save = env.DB.prepare(`UPDATE race_schedule
-    SET result_json=?, result_recorded_ms=?, result_stage=2, updated_ms=? WHERE race_id=?`);
+    SET result_json=?, result_recorded_ms=?, result_stage=2,
+      result_failure_code=NULL, updated_ms=? WHERE race_id=? AND result_last_attempt_ms=?
+      AND result_json IS NULL`);
+  const fail = env.DB.prepare(`UPDATE race_schedule SET result_failure_code=?, updated_ms=?
+    WHERE race_id=? AND result_last_attempt_ms=? AND result_json IS NULL`);
   const updates = [];
-  for (const [index, { row }] of due.entries()) {
-    if (!claimed[index]?.meta?.changes) continue;
-    const result = parseResult(selectRace(program, row));
-    if (result) updates.push(save.bind(JSON.stringify(result), Date.now(), Date.now(), row.race_id));
+  for (const row of claimedRows) {
+    const program = programs.get(row.race_date);
+    const result = normalizePublishedResult(selectRace(program, row), row);
+    if (result) updates.push(save.bind(JSON.stringify(result), Date.now(), Date.now(), row.race_id, nowMs));
+    else updates.push(fail.bind(program ? 'RESULT_NOT_FINAL' : 'RESULT_SOURCE_UNAVAILABLE',
+      Date.now(), row.race_id, nowMs));
   }
   if (updates.length) await env.DB.batch(updates);
 }

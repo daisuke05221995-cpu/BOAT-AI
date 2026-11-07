@@ -10,7 +10,11 @@ export function summarizeDailyAudit(date, nowMs, races = [], attempts = [], impo
     forecasts_ready: 0, buy: 0, skip: 0,
     missed_after_deadline: 0, due_without_attempt: 0,
   };
-  const results = { due: 0, recorded: 0 };
+  const results = {
+    due: 0, recorded: 0, settled: 0, unformed: 0,
+    postponed: 0, cancelled: 0, legacy_settled: 0, unresolved_due: 0,
+  };
+  const resultFailures = {};
   let deadlinesPassed = 0;
   let firstDeadline = null;
   let lastDeadline = null;
@@ -37,8 +41,23 @@ export function summarizeDailyAudit(date, nowMs, races = [], attempts = [], impo
     } else if (nowMs >= deadline - 8 * 60_000 && row.capture_stage === 0) {
       captures.due_without_attempt++;
     }
-    if (nowMs >= deadline + 20 * 60_000) results.due++;
-    if (row.result_json && row.result_recorded_ms) results.recorded++;
+    const resultDue = nowMs >= deadline + 20 * 60_000;
+    if (resultDue) results.due++;
+    if (row.result_json && row.result_recorded_ms) {
+      results.recorded++;
+      let terminal;
+      try { terminal = JSON.parse(row.result_json); } catch { terminal = null; }
+      const key = ({ SETTLED: 'settled', UNFORMED: 'unformed',
+        POSTPONED: 'postponed', CANCELLED: 'cancelled' })[terminal?.status];
+      if (key) results[key]++;
+      else if (terminal?.trifecta_combination) results.legacy_settled++;
+    } else if (resultDue) {
+      results.unresolved_due++;
+      if (row.result_failure_code) {
+        const code = String(row.result_failure_code).slice(0, 100);
+        resultFailures[code] = (resultFailures[code] ?? 0) + 1;
+      }
+    }
   }
 
   for (const attempt of attempts) {
@@ -72,5 +91,6 @@ export function summarizeDailyAudit(date, nowMs, races = [], attempts = [], impo
       failure_code: imported?.failure_code ?? null,
     },
     cron, capture: captures, results, capture_failure_codes: failures,
+    result_failure_codes: resultFailures,
   };
 }
