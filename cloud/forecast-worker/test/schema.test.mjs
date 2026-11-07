@@ -15,6 +15,26 @@ const finishMigration = readFileSync(new URL('../migrations/0009_six_finish_cand
 const shadowMigration = readFileSync(new URL('../migrations/0010_model_a_shadow.sql', import.meta.url), 'utf8');
 const autoHistoryMigration = readFileSync(new URL('../migrations/0011_model_a_history_auto.sql', import.meta.url), 'utf8');
 const collectorMigration = readFileSync(new URL('../migrations/0012_device_collector_heartbeat.sql', import.meta.url), 'utf8');
+const remoteMigration = readFileSync(new URL('../migrations/0013_collector_remote_refresh.sql', import.meta.url), 'utf8');
+
+test('remote refresh schema is one-command-only and keeps forecasts untouched', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(collectorMigration);
+  db.exec(remoteMigration);
+  db.exec(remoteMigration);
+  db.prepare(`INSERT INTO collector_remote_refresh
+    (command_id, device_id, action, status, requested_ms, expires_ms)
+    VALUES ('one', 'paired', 'REFRESH_NOW', 'PENDING', 100, 200)`).run();
+  assert.throws(() => db.prepare(`INSERT INTO collector_remote_refresh
+    (command_id, device_id, action, status, requested_ms, expires_ms)
+    VALUES ('two', 'paired', 'REFRESH_NOW', 'PENDING', 110, 210)`).run());
+  assert.throws(() => db.prepare(`INSERT INTO collector_remote_refresh
+    (command_id, device_id, action, status, requested_ms, expires_ms)
+    VALUES ('bad', 'another', 'BUY', 'PENDING', 100, 200)`).run());
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM race_schedule').get().n, 0);
+  db.close();
+});
 
 test('device receipt migration never touches a user bet or forecast', () => {
   const db = new DatabaseSync(':memory:');

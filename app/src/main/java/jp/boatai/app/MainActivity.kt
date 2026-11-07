@@ -246,7 +246,11 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
         item { AppUpdateCard(ui.update, vm) }
         item { DateSelectorCard(ui, vm) }
         if (ui.date == LocalDate.now(ZoneId.of("Asia/Tokyo"))) {
-            item { CollectorCloudMonitorCard(ui.collectorMonitor, onRefresh = { vm.refreshCollectorMonitor(force = true) }) }
+            item { CollectorCloudMonitorCard(ui.collectorMonitor,
+                onRefresh = { vm.refreshCollectorMonitor(force = true) },
+                remote = ui.collectorRemote, remoteConfigured = ui.collectorUpload.configured,
+                collectorMode = ui.collectorModeEnabled,
+                onRemoteRefresh = vm::requestCollectorRemoteRefresh) }
         }
         if (ui.date == LocalDate.now(ZoneId.of("Asia/Tokyo"))) {
             item { LiveOddsRefreshCard(ui.liveOddsRefresh) }
