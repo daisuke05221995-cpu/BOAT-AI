@@ -130,7 +130,11 @@ test('authenticated Wrangler JSON audit fully checks all remote bytes, not only 
   ], { encoding: 'utf8', stdio: 'pipe' });
   try {
     writeFileSync(file, JSON.stringify([{ success: true, results: rows }]));
-    assert.equal(JSON.parse(run()).verified, true);
+    const result = JSON.parse(run());
+    assert.equal(result.verified, true);
+    assert.equal(result.parityCases, 2);
+    assert.equal(result.parityProbabilities, 240);
+    assert.ok(result.maxAbsoluteError < 1e-7);
     rows[5].base64_data = 'AA==';
     writeFileSync(file, JSON.stringify([{ success: true, results: rows }]));
     assert.throws(run);

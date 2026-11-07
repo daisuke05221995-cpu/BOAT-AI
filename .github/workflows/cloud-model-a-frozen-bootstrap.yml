@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/cloud-model-a-frozen-bootstrap.yml'
+      - 'cloud/forecast-worker/tools/verify_frozen_model_d1_export.mjs'
 
 permissions:
   contents: read
