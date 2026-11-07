@@ -12,6 +12,7 @@ const resultMigration = readFileSync(new URL('../migrations/0006_result_reconcil
 const modelAssetMigration = readFileSync(new URL('../migrations/0007_model_a_frozen_assets.sql', import.meta.url), 'utf8');
 const rosterMigration = readFileSync(new URL('../migrations/0008_program_roster_candidate.sql', import.meta.url), 'utf8');
 const finishMigration = readFileSync(new URL('../migrations/0009_six_finish_candidate.sql', import.meta.url), 'utf8');
+const shadowMigration = readFileSync(new URL('../migrations/0010_model_a_shadow.sql', import.meta.url), 'utf8');
 
 test('D1 SQLite migration accepts actual race inserts, rejects duplicate loss', () => {
   const db = new DatabaseSync(':memory:');
@@ -190,5 +191,27 @@ test('result-only full-six candidate migration requires validated state without 
     candidate_json=NULL`).run());
   assert.throws(() => db.prepare(`INSERT INTO six_finish_candidate
     (race_id, checked_ms, status) VALUES ('unknown', 130000, 'NON_SETTLED')`).run());
+  db.close();
+});
+
+test('shadow migration keeps forecast and purchases untouched and rejects invented forecasts', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, result_json)
+    VALUES ('2026-11-07-01-2', '2026-11-07', 1, 2, 100000, 0, '{"status":"SETTLED"}')`).run();
+  db.exec(shadowMigration);
+  db.exec(shadowMigration);
+  db.prepare(`INSERT INTO model_a_shadow_attempt
+    (race_id,capture_stage,checked_ms,status,reason)
+    VALUES ('2026-11-07-01-2',1,90000,'UNAVAILABLE','MODEL_A_HISTORY_STALE')`).run();
+  assert.equal(db.prepare('SELECT decision FROM race_schedule').get().decision, null);
+  assert.equal(db.prepare('SELECT result_json FROM race_schedule').get().result_json, '{"status":"SETTLED"}');
+  assert.throws(() => db.prepare(`INSERT INTO model_a_shadow_attempt
+    (race_id,capture_stage,checked_ms,status,reason)
+    VALUES ('2026-11-07-01-2',2,95000,'FORECAST_ONLY',NULL)`).run());
+  assert.throws(() => db.prepare(`INSERT INTO model_a_shadow_attempt
+    (race_id,capture_stage,checked_ms,status,reason)
+    VALUES ('unknown',2,95000,'UNAVAILABLE','NONE')`).run());
   db.close();
 });

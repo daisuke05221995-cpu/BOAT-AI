@@ -8,6 +8,10 @@ export const FROZEN_MODEL_A_STAGE_MANIFEST = Object.freeze([
   Object.freeze({ bytes: 866899, sha256: 'ad8425277311dd7080b0a05f719a322632d5993ab4382cadc721f152ddcfb1e7', featureCount: 715 }),
   Object.freeze({ bytes: 847788, sha256: '23e78898a8229794d5c1b819297d2cb77d23ec07edeb4ab6cb07a7d5758eac8a', featureCount: 885 }),
 ]);
+// SHA-256(JSON.stringify(3 frozen stage manifests, each with 4 chunks)).
+// This is an identity for the exact Android model, not a tunable model choice.
+export const FROZEN_MODEL_A_BUNDLE_SHA256 =
+  'c6d44a4bc9e2f27a4066c25ef0d375ec47055c566695ebfc30043c90433a4f2e';
 
 export const MODEL_ASSET_CHUNK_BYTES = 256 * 1024;
 // D1 limits each SQL statement to 100KB, even when the row itself can hold

@@ -51,3 +51,20 @@ test('audit route is read-only, date validated, and does not disclose row-level 
   assert.equal((await worker.fetch(new Request('https://example.net/v1/audit?date=2026-11-31'), { DB: db })).status, 400);
   assert.equal((await worker.fetch(new Request('https://example.net/v1/audit?date=2026-11-06', { method: 'POST' }), { DB: db })).status, 405);
 });
+
+test('shadow status is aggregate-only, never presented as BUY/SKIP', async () => {
+  const db = { prepare: sql => ({ bind: date => ({ all: async () => {
+    assert.match(sql, /FROM model_a_shadow_attempt/);
+    assert.equal(date, '2026-11-07');
+    return { results: [{ status: 'UNAVAILABLE', reason: 'MODEL_A_HISTORY_STALE', count: 8 },
+      { status: 'FORECAST_ONLY', reason: null, count: 2 }] };
+  } }) }) };
+  const response = await worker.fetch(new Request('https://example.net/v1/model-a-shadow?date=2026-11-07'), { DB: db });
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.mode, 'FORECAST_ONLY');
+  assert.equal(payload.buy_skip_enabled, false);
+  assert.equal(payload.attempts, 10);
+  assert.equal(JSON.stringify(payload).includes('probabilities'), false);
+  assert.equal((await worker.fetch(new Request('https://example.net/v1/model-a-shadow?date=invalid'), { DB: db })).status, 400);
+});

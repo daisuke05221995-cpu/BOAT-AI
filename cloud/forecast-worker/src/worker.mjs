@@ -7,6 +7,9 @@ import { verifiedOddsPayload, verifiedPreviewPayload, verifiedStoredCapture } fr
 import { normalizePublishedResult, resultRetryDue } from './result.mjs';
 import { inspectProgramRosterCandidate } from './program-roster-candidate.mjs';
 import { inspectSixFinishCandidate } from './six-finish-candidate.mjs';
+import { evaluateModelAShadow, parseShadowApprovals } from './model-a-shadow.mjs';
+import { SOURCE_MAX_AGE_MS } from './preclose.mjs';
+import { FROZEN_MODEL_A_BUNDLE_SHA256 } from './model-a-model-store.mjs';
 
 const allowedHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 const MAX_IMPORT_RACES = 288;
@@ -157,6 +160,17 @@ async function authorizedPreview(env, row) {
   return verifiedPreviewPayload(response, row, Date.now());
 }
 
+async function authorizedRoster(env, row) {
+  if (!env.ROSTER_API_URL) throw new Error('ROSTER_PROVIDER_NOT_CONFIGURED');
+  const url = new URL(env.ROSTER_API_URL);
+  if (url.protocol !== 'https:') throw new Error('ROSTER_PROVIDER_MUST_BE_HTTPS');
+  url.searchParams.set('date', row.race_date);
+  url.searchParams.set('stadium', String(row.stadium_number));
+  url.searchParams.set('race', String(row.race_number));
+  const headers = env.ROSTER_API_TOKEN ? { authorization: `Bearer ${env.ROSTER_API_TOKEN}` } : {};
+  return fetchJson(url.toString(), { headers });
+}
+
 async function mapBounded(items, limit, work) {
   const results = new Array(items.length);
   let cursor = 0;
@@ -194,29 +208,62 @@ async function captureDueRaces(env, date, nowMs) {
     WHERE race_id=? AND capture_started_ms=?`);
   const audit = env.DB.prepare(`UPDATE capture_attempt SET finished_ms=?, completed=?, failure_code=?
     WHERE race_id=? AND stage=? AND started_ms=?`);
+  const shadowSave = env.DB.prepare(`INSERT INTO model_a_shadow_attempt
+    (race_id, capture_stage, checked_ms, status, reason, history_sha256,
+      model_bundle_sha256, source_provenance_json, probabilities_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(race_id, capture_stage) DO NOTHING`);
+  let approvals = null;
+  let approvalFailure = null;
+  try { approvals = parseShadowApprovals(env.MODEL_A_APPROVED_SOURCES_JSON); }
+  catch { approvalFailure = 'MODEL_A_APPROVALS_INVALID'; }
+  const assetCache = new Map();
   // Several races often share the same deadline. Bounded parallel fetches
   // prevent one slow venue from making every subsequent T-8 attempt stale.
   // Concurrency is capped to avoid a 30-race burst against the provider.
   const observations = await mapBounded(claimed, 4, async ({ row, stage }) => {
     let preview = null;
     let odds = null;
+    let roster = null;
     const failures = [];
+    // Preserve the existing cap of four total simultaneous external fetches.
+    // Each source is attempted independently; one failure cannot suppress
+    // another source, and the optional roster is never a timetable cache.
     try { preview = await authorizedPreview(env, row); }
     catch (error) { failures.push(String(error.message)); }
-    // Preview and odds are independent observations. A missing/invalid preview
-    // must not suppress an otherwise authorized odds acquisition, or vice versa.
-    // Only their jointly verified snapshot may become a complete capture.
     try { odds = await authorizedOdds(env, row); }
     catch (error) { failures.push(String(error.message)); }
+    if (approvals && env.ROSTER_API_URL) {
+      try { roster = await authorizedRoster(env, row); } catch { /* shadow remains unavailable */ }
+    }
     // A slow network response cannot backfill a supposedly pre-close forecast.
     const finishedAt = Date.now();
     if (finishedAt >= row.deadline_ms) failures.push('CAPTURE_FINISHED_AFTER_DEADLINE');
     const failure = failures.length ? failures.join('|').slice(0, 100) : null;
     const captured = !failure && preview != null && odds != null;
-    return { row, stage, preview, odds, failure, finishedAt, captured };
+    let shadow = { status: 'UNAVAILABLE', reason: approvalFailure ?? 'MODEL_A_LIVE_SOURCES_INCOMPLETE' };
+    if (captured && roster && !approvalFailure) {
+      shadow = await evaluateModelAShadow({ db: env.DB, row, nowMs: finishedAt,
+        rosterSnapshot: roster,
+        previewSnapshot: { date: row.race_date, stadium_number: row.stadium_number,
+          race_number: row.race_number, source: preview.source,
+          observed_at: new Date(preview.observedMs).toISOString(), preview: preview.preview },
+        oddsSnapshot: { date: row.race_date, stadium_number: row.stadium_number,
+          race_number: row.race_number, source: odds.source,
+          observed_at: new Date(odds.observedMs).toISOString(), odds: odds.odds },
+        approvals, bundleSha256: FROZEN_MODEL_A_BUNDLE_SHA256, cache: assetCache });
+    }
+    // Computing the model may take time. Never persist a probability that was
+    // first completed after close or using observations that have gone stale.
+    const shadowCheckedMs = Date.now();
+    if (shadow.status === 'FORECAST_ONLY' && (shadowCheckedMs >= row.deadline_ms ||
+        ['rosterObservedMs', 'previewObservedMs', 'weatherObservedMs', 'oddsObservedMs']
+          .some(key => shadowCheckedMs - shadow.provenance[key] > SOURCE_MAX_AGE_MS))) {
+      shadow = { status: 'UNAVAILABLE', reason: 'MODEL_A_SHADOW_FINISHED_TOO_LATE' };
+    }
+    return { row, stage, preview, odds, failure, finishedAt, captured, shadow, shadowCheckedMs };
   });
   const updates = [];
-  for (const { row, stage, preview, odds, failure, finishedAt, captured } of observations) {
+  for (const { row, stage, preview, odds, failure, finishedAt, captured, shadow, shadowCheckedMs } of observations) {
     updates.push(save.bind(captured ? 2 : stage, captured ? finishedAt : null,
         preview ? JSON.stringify(preview.preview) : null,
         preview?.source ?? null, preview?.observedMs ?? null,
@@ -225,7 +272,11 @@ async function captureDueRaces(env, date, nowMs) {
         odds?.source ?? null, odds?.observedMs ?? null,
         failure, finishedAt, row.race_id, nowMs));
     updates.push(audit.bind(finishedAt, captured ? 1 : 0, failure, row.race_id, stage, nowMs));
-    // Deliberately no BUY/SKIP until the Android Model A parity runner exists.
+    updates.push(shadowSave.bind(row.race_id, stage, shadowCheckedMs, shadow.status,
+      shadow.reason ?? null, shadow.historySha256 ?? null, shadow.modelBundleSha256 ?? null,
+      shadow.provenance ? JSON.stringify(shadow.provenance) : null,
+      shadow.forecast ? JSON.stringify(shadow.forecast) : null));
+    // Shadow probabilities never produce Android-visible BUY/SKIP decisions.
   }
   await env.DB.batch(updates);
 }
@@ -312,9 +363,21 @@ export default {
     const url = new URL(request.url);
     if (request.method !== 'GET') return jsonResponse({ error: 'METHOD_NOT_ALLOWED' }, 405);
     if (url.pathname === '/v1/health') return jsonResponse({ ok: true, service: 'boat-ai-cloud', schema_version: 1 });
-    if (url.pathname !== '/v1/forecasts' && url.pathname !== '/v1/audit') return jsonResponse({ error: 'NOT_FOUND' }, 404);
+    if (url.pathname !== '/v1/forecasts' && url.pathname !== '/v1/audit' &&
+        url.pathname !== '/v1/model-a-shadow') return jsonResponse({ error: 'NOT_FOUND' }, 404);
     const date = url.searchParams.get('date');
     if (!isValidDate(date)) return jsonResponse({ error: 'INVALID_DATE' }, 400);
+    if (url.pathname === '/v1/model-a-shadow') {
+      const { results: rows } = await env.DB.prepare(`SELECT a.status, a.reason, COUNT(*) AS count
+        FROM model_a_shadow_attempt a JOIN race_schedule s ON a.race_id=s.race_id
+        WHERE s.race_date=? GROUP BY a.status, a.reason ORDER BY count DESC LIMIT 100`)
+        .bind(date).all();
+      // Aggregate-only visibility: never expose model probabilities, entrants,
+      // tokens, source payloads or per-race purchase-like predictions.
+      return jsonResponse({ date, mode: 'FORECAST_ONLY', buy_skip_enabled: false,
+        attempts: (rows ?? []).reduce((sum, row) => sum + row.count, 0),
+        outcomes: rows ?? [] });
+    }
     if (url.pathname === '/v1/audit') {
       const [schedule, attempts, imported, heartbeat] = await Promise.all([
         env.DB.prepare(`SELECT s.*, p.status AS program_candidate_status,

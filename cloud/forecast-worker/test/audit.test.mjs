@@ -237,9 +237,10 @@ test('simultaneous T-8 claims use D1 batch calls instead of per-race writes', as
   } finally {
     globalThis.fetch = originalFetch;
   }
-  assert.deepEqual(batched.map(batch => batch.length), [25, 25, 50]);
+  assert.deepEqual(batched.map(batch => batch.length), [25, 25, 75]);
   assert.equal(batched[2].filter(stmt => stmt.sql.includes('UPDATE race_schedule')).length, 25);
   assert.equal(batched[2].filter(stmt => stmt.sql.includes('UPDATE capture_attempt')).length, 25);
+  assert.equal(batched[2].filter(stmt => stmt.sql.includes('INSERT INTO model_a_shadow_attempt')).length, 25);
 });
 
 test('T-8 authorized provider snapshots persist both real source clocks but do not invent AI output', async () => {
@@ -274,7 +275,7 @@ test('T-8 authorized provider snapshots persist both real source clocks but do n
   try { await runScheduled(env, nowMs); }
   finally { globalThis.fetch = originalFetch; }
   assert.deepEqual(seen, ['/preview', '/odds']);
-  assert.deepEqual(batched.map(batch => batch.length), [1, 1, 2]);
+  assert.deepEqual(batched.map(batch => batch.length), [1, 1, 3]);
   const saved = batched[2].find(stmt => stmt.sql.includes('UPDATE race_schedule'));
   assert.ok(saved);
   assert.equal(saved.args[0], 2); // completed capture; model still not deployed
