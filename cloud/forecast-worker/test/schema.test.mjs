@@ -11,6 +11,7 @@ const weatherMigration = readFileSync(new URL('../migrations/0005_weather_proven
 const resultMigration = readFileSync(new URL('../migrations/0006_result_reconciliation.sql', import.meta.url), 'utf8');
 const modelAssetMigration = readFileSync(new URL('../migrations/0007_model_a_frozen_assets.sql', import.meta.url), 'utf8');
 const rosterMigration = readFileSync(new URL('../migrations/0008_program_roster_candidate.sql', import.meta.url), 'utf8');
+const finishMigration = readFileSync(new URL('../migrations/0009_six_finish_candidate.sql', import.meta.url), 'utf8');
 
 test('D1 SQLite migration accepts actual race inserts, rejects duplicate loss', () => {
   const db = new DatabaseSync(':memory:');
@@ -170,5 +171,24 @@ test('diagnostic program roster snapshot migration never mutates a race forecast
     (race_id, checked_ms, status, candidate_json)
     VALUES ('missing-race', 90000, 'SHAPE_ONLY_UNVERIFIED', '{}')`).run());
   assert.throws(() => db.prepare(`UPDATE program_roster_candidate SET status='SHAPE_ONLY_UNVERIFIED', candidate_json=NULL`).run());
+  db.close();
+});
+
+test('result-only full-six candidate migration requires validated state without touching dividends', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, result_json)
+    VALUES ('2026-11-07-01-2', '2026-11-07', 1, 2, 100000, 0, '{"trifecta_payout":1200}')`).run();
+  db.exec(finishMigration);
+  db.exec(finishMigration);
+  db.prepare(`INSERT INTO six_finish_candidate (race_id, checked_ms, status, candidate_json)
+    VALUES ('2026-11-07-01-2', 130000, 'SHAPE_ONLY_UNVERIFIED', '{"finishOrder":[1,2,3,4,5,6]}')`).run();
+  assert.equal(db.prepare('SELECT result_json FROM race_schedule').get().result_json,
+    '{"trifecta_payout":1200}');
+  assert.throws(() => db.prepare(`UPDATE six_finish_candidate SET status='SHAPE_ONLY_UNVERIFIED',
+    candidate_json=NULL`).run());
+  assert.throws(() => db.prepare(`INSERT INTO six_finish_candidate
+    (race_id, checked_ms, status) VALUES ('unknown', 130000, 'NON_SETTLED')`).run());
   db.close();
 });

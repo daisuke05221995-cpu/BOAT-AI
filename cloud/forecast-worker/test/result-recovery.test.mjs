@@ -7,7 +7,8 @@ import { runScheduled } from '../src/worker.mjs';
 function d1Sqlite() {
   const db = new DatabaseSync(':memory:');
   for (const n of ['0001_initial', '0002_operational_audit', '0003_preclose_provenance',
-    '0004_model_a_history_generations', '0005_weather_provenance', '0006_result_reconciliation']) {
+    '0004_model_a_history_generations', '0005_weather_provenance', '0006_result_reconciliation',
+    '0008_program_roster_candidate', '0009_six_finish_candidate']) {
     db.exec(readFileSync(new URL(`../migrations/${n}.sql`, import.meta.url), 'utf8'));
   }
   const wrap = (statement, args) => ({
@@ -58,6 +59,7 @@ test('cron recovers yesterday postponed and today unformed outcomes, then retrie
     const read = key => db.prepare('SELECT * FROM race_schedule WHERE race_id=?').get(key);
     assert.equal(JSON.parse(read('2026-11-06-08-1').result_json).status, 'POSTPONED');
     assert.equal(JSON.parse(read('2026-11-07-03-2').result_json).status, 'UNFORMED');
+    assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM six_finish_candidate WHERE status='NON_SETTLED'`).get().n, 2);
     assert.equal(read('2026-11-07-12-3').result_json, null);
     assert.equal(read('2026-11-07-12-3').result_failure_code, 'RESULT_NOT_FINAL');
     assert.equal(calls.length, 2); // one source request per day, not per race
@@ -70,6 +72,8 @@ test('cron recovers yesterday postponed and today unformed outcomes, then retrie
     assert.equal(JSON.parse(read('2026-11-07-12-3').result_json).trifecta_payout, 1820);
     assert.equal(read('2026-11-07-12-3').result_failure_code, null);
     assert.equal(read('2026-11-07-12-3').result_stage, 2);
+    assert.equal(db.prepare(`SELECT failure_code FROM six_finish_candidate WHERE race_id='2026-11-07-12-3'`).get().failure_code,
+      'RESULT_SIX_RACERS_MISSING');
     assert.equal(db.prepare('SELECT COUNT(*) AS n FROM race_schedule WHERE forecast_json IS NOT NULL').get().n, 0);
   } finally {
     globalThis.fetch = original;

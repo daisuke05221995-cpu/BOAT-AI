@@ -95,6 +95,23 @@ test('research-only roster candidates are never counted as trusted forecast inpu
   assert.equal(audit.capture.forecasts_ready, 0);
 });
 
+test('full six-finisher shape diagnostics exclude unformed/postponed and never certify history', () => {
+  const rows = [
+    race('final-1', { six_finish_candidate_status: 'SHAPE_ONLY_UNVERIFIED' }),
+    race('final-2', { six_finish_candidate_status: 'NON_SETTLED' }),
+    race('invalid', { six_finish_candidate_status: 'UNAVAILABLE',
+      six_finish_candidate_failure_code: 'RESULT_SIX_RACERS_MISSING' }),
+    race('unchecked'),
+  ];
+  const audit = summarizeDailyAudit('2026-11-06', now, rows);
+  assert.deepEqual(audit.six_finish_candidate, {
+    shape_complete_unverified: 1, non_settled: 1, unavailable: 1,
+    not_checked: 1, certified_for_history: 0,
+    failure_codes: { RESULT_SIX_RACERS_MISSING: 1 },
+  });
+  assert.equal(audit.capture.forecasts_ready, 0);
+});
+
 test('audit distinguishes win payouts, non-formation and postponement from missing results', () => {
   const rows = [
     race('settled', { result_json: JSON.stringify({ status: 'SETTLED', trifecta_combination: '1-2-3' }), result_recorded_ms: now }),

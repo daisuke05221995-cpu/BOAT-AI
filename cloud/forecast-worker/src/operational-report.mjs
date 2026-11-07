@@ -43,6 +43,14 @@ export function summarizeOperationalDay(audit) {
       !candidate.failure_codes || typeof candidate.failure_codes !== 'object')) {
     fail('PROGRAM_CANDIDATE_INCONSISTENT');
   }
+  const six = audit.six_finish_candidate;
+  if (six && (!int(six.shape_complete_unverified) || !int(six.unavailable) ||
+      !int(six.non_settled) || !int(six.not_checked) ||
+      six.shape_complete_unverified + six.unavailable + six.non_settled +
+      six.not_checked !== audit.scheduled_races || six.certified_for_history !== 0 ||
+      !six.failure_codes || typeof six.failure_codes !== 'object')) {
+    fail('SIX_FINISH_CANDIDATE_INCONSISTENT');
+  }
 
   const scheduleStatus = audit.scheduled_races === 0 ?
     (audit.import.failure_code ? 'SCHEDULE_IMPORT_FAILED' : 'NO_SCHEDULE_OBSERVED') :
@@ -75,6 +83,14 @@ export function summarizeOperationalDay(audit) {
       eligible_for_forecast: 0, failure_codes: candidate.failure_codes,
     } : { status: 'NOT_OBSERVED', complete: 0, unavailable: 0,
       not_checked: audit.scheduled_races, eligible_for_forecast: 0, failure_codes: {} },
+    six_finish_candidate: six ? {
+      status: 'SHAPE_ONLY_UNVERIFIED', complete: six.shape_complete_unverified,
+      unavailable: six.unavailable, non_settled: six.non_settled,
+      not_checked: six.not_checked, certified_for_history: 0,
+      failure_codes: six.failure_codes,
+    } : { status: 'NOT_OBSERVED', complete: 0, unavailable: 0,
+      non_settled: 0, not_checked: audit.scheduled_races,
+      certified_for_history: 0, failure_codes: {} },
     results: { status: resultStatus, due: counts.due, recorded: counts.recorded,
       unresolved_due: counts.unresolved_due, settled: counts.settled,
       unformed: counts.unformed, postponed: counts.postponed,
@@ -127,12 +143,13 @@ export function buildOperationalReport(yesterday, today, candidateHistory = null
 
 export function operationalMarkdown(report) {
   const lines = ['## BOAT AI D1 cloud acquisition audit', '',
-    '| JST day | Schedule | Cron | Program shape only (UNVERIFIED) | Preclose verified/scheduled | AI BUY/SKIP | Result due coverage |',
-    '| --- | --- | --- | --- | --- | --- | --- |'];
+    '| JST day | Schedule | Cron | Program shape only (UNVERIFIED) | Final 6 shape only (UNVERIFIED) | Preclose verified/scheduled | AI BUY/SKIP | Result due coverage |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- |'];
   for (const day of report.days) {
     const coverage = day.results.due_coverage == null ? 'N/A' : `${(day.results.due_coverage * 100).toFixed(1)}%`;
     const p = day.program_roster_candidate;
-    lines.push(`| ${day.date} | ${day.scheduled_races} (${day.import.status}) | ${day.cron.status} | ${p.complete}/${day.scheduled_races} (${p.status}) | ${day.preclose.verified}/${day.scheduled_races} (${day.preclose.status}) | ${day.recommendations.buy}/${day.recommendations.skip} (${day.recommendations.status}) | ${coverage} (${day.results.status}) |`);
+    const f = day.six_finish_candidate;
+    lines.push(`| ${day.date} | ${day.scheduled_races} (${day.import.status}) | ${day.cron.status} | ${p.complete}/${day.scheduled_races} (${p.status}) | ${f.complete}/${day.scheduled_races} (${f.status}) | ${day.preclose.verified}/${day.scheduled_races} (${day.preclose.status}) | ${day.recommendations.buy}/${day.recommendations.skip} (${day.recommendations.status}) | ${coverage} (${day.results.status}) |`);
   }
   lines.push('', 'Incomplete preclose/forecast data is **UNAVAILABLE**, not SKIP. Missing history/permission cannot be inferred from HTTP success.');
   if (report.days.some(day => day.history_candidate)) {

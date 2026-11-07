@@ -20,6 +20,8 @@ export function summarizeDailyAudit(date, nowMs, races = [], attempts = [], impo
     source_timestamp_verified: 0, eligible_for_forecast: 0,
     failure_codes: {},
   };
+  const sixFinishCandidate = { shape_complete_unverified: 0, unavailable: 0,
+    non_settled: 0, not_checked: 0, certified_for_history: 0, failure_codes: {} };
   let deadlinesPassed = 0;
   let firstDeadline = null;
   let lastDeadline = null;
@@ -33,6 +35,17 @@ export function summarizeDailyAudit(date, nowMs, races = [], attempts = [], impo
       programCandidate.failure_codes[reason] = (programCandidate.failure_codes[reason] ?? 0) + 1;
     } else {
       programCandidate.not_checked++;
+    }
+    if (row.six_finish_candidate_status === 'SHAPE_ONLY_UNVERIFIED') {
+      sixFinishCandidate.shape_complete_unverified++;
+    } else if (row.six_finish_candidate_status === 'NON_SETTLED') {
+      sixFinishCandidate.non_settled++;
+    } else if (row.six_finish_candidate_status === 'UNAVAILABLE') {
+      sixFinishCandidate.unavailable++;
+      const reason = String(row.six_finish_candidate_failure_code ?? 'UNKNOWN').slice(0, 100);
+      sixFinishCandidate.failure_codes[reason] = (sixFinishCandidate.failure_codes[reason] ?? 0) + 1;
+    } else {
+      sixFinishCandidate.not_checked++;
     }
     const deadline = Number(row.deadline_ms);
     if (!Number.isFinite(deadline)) continue;
@@ -105,6 +118,7 @@ export function summarizeDailyAudit(date, nowMs, races = [], attempts = [], impo
       failure_code: imported?.failure_code ?? null,
     },
     cron, capture: captures, results, program_roster_candidate: programCandidate,
+    six_finish_candidate: sixFinishCandidate,
     capture_failure_codes: failures,
     result_failure_codes: resultFailures,
   };
