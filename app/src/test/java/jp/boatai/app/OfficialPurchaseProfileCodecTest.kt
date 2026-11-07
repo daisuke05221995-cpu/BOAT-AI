@@ -54,4 +54,18 @@ class OfficialPurchaseProfileCodecTest {
         json.getJSONObject("finalization").remove("submit")
         assertNull(OfficialPurchaseProfileCodec.decode(json.toString()))
     }
+
+    @Test fun receiptRequiresIndependentlyCalibratedScreenEvidence() {
+        val json = JSONObject(validJson()).put("receipt", JSONObject()
+            .put("title", JSONObject().put("label", "投票結果"))
+            .put("contractId", "official:contract")
+            .put("contractPattern", "契約番号 ([0-9]+)")
+            .put("rowId", "official:receipt_row")
+            .put("rowPattern", "(.+?) ([0-9]+)R ([1-6]-[1-6]-[1-6]) ([0-9,]+)円 (成立|不成立)")
+            .put("totalId", "official:receipt_total")
+            .put("totalPattern", "合計 ([0-9,]+)円"))
+        assertNotNull(OfficialPurchaseProfileCodec.decode(json.toString())?.receipt)
+        json.getJSONObject("receipt").put("totalId", "official:receipt_row")
+        assertNull(OfficialPurchaseProfileCodec.decode(json.toString()))
+    }
 }

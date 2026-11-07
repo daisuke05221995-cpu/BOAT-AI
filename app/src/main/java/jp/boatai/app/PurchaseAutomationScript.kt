@@ -13,7 +13,8 @@ internal data class OfficialPurchaseScreenProfile(
     val addTicket: PurchaseUiSelector,
     val reviewList: PurchaseUiSelector,
     /** Absent until a real official-app confirmation screen has been mapped and tested. */
-    val finalization: OfficialPurchaseReviewProfile? = null
+    val finalization: OfficialPurchaseReviewProfile? = null,
+    val receipt: OfficialPurchaseReceiptProfile? = null
 ) {
     fun isFullyMapped(races: List<PendingPurchaseRace>): Boolean =
         races.all { venueSelectors.containsKey(it.stadiumNumber) && raceSelectors.containsKey(it.raceNumber) } &&

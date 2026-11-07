@@ -44,6 +44,28 @@ internal object OfficialPurchaseProfileCodec {
             )
         }
 
+        val receipt = root.optJSONObject("receipt")?.let { config ->
+            val contractId = config.getString("contractId").trim()
+            val rowId = config.getString("rowId").trim()
+            val totalId = config.getString("totalId").trim()
+            val contractPattern = config.getString("contractPattern")
+            val rowPattern = config.getString("rowPattern")
+            val totalPattern = config.getString("totalPattern")
+            require(listOf(contractId, rowId, totalId).all { it.length in 5..180 } &&
+                setOf(contractId, rowId, totalId).size == 3 &&
+                contractPattern.length in 5..180 && rowPattern.length in 10..250 &&
+                totalPattern.length in 5..140)
+            OfficialPurchaseReceiptProfile(
+                resultTitle = selector(config.getJSONObject("title")),
+                contractNumberResourceId = contractId,
+                contractNumberPattern = Regex(contractPattern),
+                ticketResultResourceId = rowId,
+                ticketResultPattern = Regex(rowPattern),
+                totalResourceId = totalId,
+                totalPattern = Regex(totalPattern)
+            )
+        }
+
         val laneRoot = root.getJSONObject("lanes")
         val laneMap = laneRoot.keys().asSequence().associate { rawKey ->
             val position = rawKey.toInt()
@@ -60,7 +82,8 @@ internal object OfficialPurchaseProfileCodec {
             amountInput = selector(root.getJSONObject("amount")),
             addTicket = selector(root.getJSONObject("add")),
             reviewList = selector(root.getJSONObject("review")),
-            finalization = finalization
+            finalization = finalization,
+            receipt = receipt
         ).also { profile ->
             require(profile.venueSelectors.keys.all { it in 1..24 })
             require(profile.raceSelectors.keys.all { it in 1..12 })

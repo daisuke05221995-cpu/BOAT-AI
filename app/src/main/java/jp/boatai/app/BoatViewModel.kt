@@ -399,9 +399,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         }
         val calibration = officialPurchaseProfileStore.load()
         val script = calibration?.let { PurchaseAutomationScriptCompiler.compile(handoff.session, it, check) }
-        if (submitRequested && (calibration?.finalization == null || script == null)) {
+        if (submitRequested && (calibration?.finalization == null || calibration.receipt == null || script == null)) {
             _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
-                error = "公式アプリの確認・投票ボタンが実画面に対応付けられていません")) }
+                error = "公式アプリの確認・投票ボタン・受付結果が実画面に対応付けられていません")) }
             return
         }
         val context = getApplication<Application>()
@@ -449,7 +449,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     fun hasCollectorPurchaseProfile(): Boolean = officialPurchaseProfileStore.hasValidProfile()
 
     fun hasCollectorPurchaseSubmissionProfile(): Boolean =
-        officialPurchaseProfileStore.load()?.finalization != null
+        officialPurchaseProfileStore.load()?.let { it.finalization != null && it.receipt != null } ?: false
 
     fun collectorPurchaseAutomationStatus(): String = when (val state = BoatPurchaseAccessibilityService.automationStatus()) {
         PurchaseAutomationRunner.State.Idle -> "未実行"
@@ -457,6 +457,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         is PurchaseAutomationRunner.State.Running -> "入力中 ${state.stepIndex + 1}/${state.totalSteps} 操作"
         is PurchaseAutomationRunner.State.AwaitingReview -> "入力完了・確認画面の照合待ち（${state.expectedTotal}円）"
         is PurchaseAutomationRunner.State.AwaitingReceipt -> "投票ボタン操作済み・公式受付結果の確認待ち"
+        is PurchaseAutomationRunner.State.ReceiptVerified -> "公式受付結果を照合済み（${state.ticketCount}点、${state.totalYen}円）"
         is PurchaseAutomationRunner.State.Stopped -> "停止：${state.reason}"
     }
 

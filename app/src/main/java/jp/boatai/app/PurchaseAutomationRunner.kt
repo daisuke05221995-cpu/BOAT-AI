@@ -15,6 +15,7 @@ internal class PurchaseAutomationRunner(
         data class Running(val stepIndex: Int, val totalSteps: Int) : State
         data class AwaitingReview(val expectedTotal: Int) : State
         data class AwaitingReceipt(val attemptedAtMs: Long) : State
+        data class ReceiptVerified(val ticketCount: Int, val totalYen: Int) : State
         data class Stopped(val reason: String) : State
     }
 
@@ -74,5 +75,10 @@ internal class PurchaseAutomationRunner(
         if (state !is State.AwaitingReview) return
         script = null
         state = State.AwaitingReceipt(atMs)
+    }
+
+    fun markReceiptVerified(receipt: OfficialPurchaseReceipt) {
+        if (state !is State.AwaitingReceipt) return
+        state = State.ReceiptVerified(receipt.lines.size, receipt.totalYen)
     }
 }

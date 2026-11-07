@@ -23,6 +23,9 @@ class PurchaseAutomationRunnerTest {
         assertNull(runner.currentStep(301L))
         runner.markSubmissionAttempted(302L)
         assertEquals(PurchaseAutomationRunner.State.AwaitingReceipt(302L), runner.state)
+        runner.markReceiptVerified(OfficialPurchaseReceipt("session", "12345", 310L,
+            listOf(OfficialPurchaseLine(1, 1, "1-3-5", 500)), 500))
+        assertEquals(PurchaseAutomationRunner.State.ReceiptVerified(1, 500), runner.state)
     }
 
     @Test fun errorsAndTimeoutsStopWithoutRepeatingAnAction() {

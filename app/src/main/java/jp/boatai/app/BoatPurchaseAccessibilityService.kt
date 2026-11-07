@@ -55,6 +55,34 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
         val submitRequested: Boolean
     )
     private var finalizationContext: FinalizationContext? = null
+    private var activeReceiptProfile: OfficialPurchaseReceiptProfile? = null
+    private data class PendingReceiptContext(
+        val session: PendingPurchaseSession,
+        val profile: OfficialPurchaseReceiptProfile,
+        val attemptedAtMs: Long
+    )
+    private var pendingReceiptContext: PendingReceiptContext? = null
+    private val receiptTimeout = Runnable {
+        if (pendingReceiptContext != null) {
+            stopWithReason("公式アプリの受付結果を30秒以内に照合できませんでした。投票履歴を手動確認してください（再送禁止）")
+        }
+    }
+    private fun maybeRecordOfficialReceipt() {
+        val pending = pendingReceiptContext ?: return
+        val observed = collectElements() ?: return
+        val receipt = OfficialPurchaseReceiptParser.parse(
+            OFFICIAL_APP_PACKAGE, observed.second, pending.session, pending.profile,
+            pending.attemptedAtMs, System.currentTimeMillis()
+        ) ?: return
+        if (!OfficialPurchaseReceiptStore(this).save(receipt)) {
+            stopWithReason("公式の受付結果は一致しましたが、端末への保存に失敗しました。履歴を確認してください")
+            return
+        }
+        mainHandler.removeCallbacks(receiptTimeout)
+        pendingReceiptContext = null
+        runner?.markReceiptVerified(receipt)
+        lastRunState = runner?.state ?: PurchaseAutomationRunner.State.Idle
+    }
     private var reviewReadAttempts = 0
 
     private val verifyOfficialReview = object : Runnable {
@@ -111,10 +139,18 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
                 is PurchaseSubmissionResult.Rejected -> stopWithReason(result.reason)
                 PurchaseSubmissionResult.TapFailedDoNotRetry -> stopWithReason("投票操作の結果が不明です。公式購入履歴を確認してください（再送禁止）")
                 PurchaseSubmissionResult.TapAttemptedReceiptPending -> {
-                    runner?.markSubmissionAttempted(System.currentTimeMillis())
+                    val attemptedAt = System.currentTimeMillis()
+                    runner?.markSubmissionAttempted(attemptedAt)
                     lastRunState = runner?.state ?: PurchaseAutomationRunner.State.Idle
                     armedUntilMs = 0L
                     finalizationContext = null
+                    // Never claim that a successful Android click means a wager was accepted.
+                    pendingReceiptContext = activeReceiptProfile?.let { receiptProfile ->
+                        PendingReceiptContext(context.session, receiptProfile, attemptedAt)
+                    }
+                    if (pendingReceiptContext == null) {
+                        stopWithReason("公式の受付結果画面が未設定です。投票履歴を手動確認してください（再送禁止）")
+                    } else mainHandler.postDelayed(receiptTimeout, 30_000L)
                 }
             }
         }
@@ -124,10 +160,13 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
         mainHandler.removeCallbacks(runNextStep)
         mainHandler.removeCallbacks(verifyOfficialReview)
         mainHandler.removeCallbacks(foregroundWaitExpired)
+        mainHandler.removeCallbacks(receiptTimeout)
         pendingForegroundStart = null
+        pendingReceiptContext = null
         runner?.stop(reason)
         lastRunState = runner?.state ?: PurchaseAutomationRunner.State.Stopped(reason)
         finalizationContext = null
+        activeReceiptProfile = null
         armedUntilMs = 0L
     }
 
@@ -178,6 +217,7 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
         // A user has already armed one local script. Returning to the already-open official
         // app is the only event that can advance it; other apps are ignored.
         maybeStartOnOfficialForeground(event.packageName?.toString())
+        maybeRecordOfficialReceipt()
     }
 
     override fun onInterrupt() = stopWithReason("Androidのユーザー補助が中断されました")
@@ -186,8 +226,11 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
         mainHandler.removeCallbacks(runNextStep)
         mainHandler.removeCallbacks(verifyOfficialReview)
         mainHandler.removeCallbacks(foregroundWaitExpired)
+        mainHandler.removeCallbacks(receiptTimeout)
         pendingForegroundStart = null
+        pendingReceiptContext = null
         finalizationContext = null
+        activeReceiptProfile = null
         runner?.stop("Androidの操作サービスが終了しました")
         lastRunState = runner?.state ?: PurchaseAutomationRunner.State.Idle
         armedUntilMs = 0L
@@ -280,8 +323,11 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
                 service.mainHandler.removeCallbacks(service.runNextStep)
                 service.mainHandler.removeCallbacks(service.verifyOfficialReview)
                 service.mainHandler.removeCallbacks(service.foregroundWaitExpired)
+                service.mainHandler.removeCallbacks(service.receiptTimeout)
                 service.pendingForegroundStart = null
+                service.pendingReceiptContext = null
                 service.finalizationContext = null
+                service.activeReceiptProfile = null
                 service.runner?.stop("ユーザーが操作を停止しました")
                 lastRunState = service.runner?.state ?: PurchaseAutomationRunner.State.Idle
             }
@@ -302,7 +348,7 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
         ): Boolean {
             if (System.currentTimeMillis() >= armedUntilMs || Looper.myLooper() != Looper.getMainLooper()) return false
             if (!check.allowed || PurchaseAutomationScriptCompiler.compile(session, profile, check) != plan ||
-                (submitRequested && profile.finalization == null)) return false
+                (submitRequested && (profile.finalization == null || profile.receipt == null))) return false
             val service = active?.get() ?: return false
             if (service.pendingForegroundStart != null ||
                 service.runner?.state is PurchaseAutomationRunner.State.Running ||
@@ -337,7 +383,7 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
             val service = active?.get() ?: return false
             if (Looper.myLooper() != Looper.getMainLooper()) return false
             if (PurchaseAutomationScriptCompiler.compile(session, profile, check) != plan) return false
-            if (submitRequested && profile.finalization == null) return false
+            if (submitRequested && (profile.finalization == null || profile.receipt == null)) return false
             val sequence = PurchaseAutomationRunner()
             if (!sequence.start(plan, check, System.currentTimeMillis())) return false
             if (service.runner?.state is PurchaseAutomationRunner.State.Running ||
@@ -347,6 +393,7 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
             service.finalizationContext = profile.finalization?.let {
                 FinalizationContext(session, it, liveRaces, liveDataFetchedAtMs, submitRequested)
             }
+            service.activeReceiptProfile = if (submitRequested) profile.receipt else null
             lastRunState = sequence.state
             service.mainHandler.postDelayed(service.runNextStep, 700L)
             return true
