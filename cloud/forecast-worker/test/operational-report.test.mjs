@@ -33,6 +33,8 @@ test('read-only daily report keeps no preclose data UNAVAILABLE, never calls it 
   assert.equal(report.recommendations.status, 'UNAVAILABLE');
   assert.deepEqual([report.recommendations.buy, report.recommendations.skip], [0, 0]);
   assert.equal(report.recommendations.unavailable_excluded, true);
+  assert.equal(report.program_roster_candidate.status, 'SHAPE_ONLY_UNVERIFIED');
+  assert.equal(report.program_roster_candidate.eligible_for_forecast, 0);
   assert.equal(report.results.status, 'RESULTS_INCOMPLETE');
   assert.equal(report.results.due_coverage, 0.5);
   assert.equal(report.results.failure_codes.RESULT_NOT_FINAL, 1);
@@ -61,6 +63,9 @@ test('contract inconsistency or spoofed date pairs fail closed', () => {
     results: { ...raw.results, settled: 2 },
   }), /RESULT_INCONSISTENT/);
   assert.throws(() => buildOperationalReport(raw, raw), /DAY_PAIR_MISMATCH/);
+  assert.throws(() => summarizeOperationalDay({ ...raw, program_roster_candidate: {
+    ...raw.program_roster_candidate, shape_complete_unverified: 2,
+  } }), /PROGRAM_CANDIDATE_INCONSISTENT/);
 });
 
 test('two-date artifact reports accurate collection gates in Actions summary', () => {
@@ -69,6 +74,7 @@ test('two-date artifact reports accurate collection gates in Actions summary', (
   assert.equal(report.days[0].import.status, 'NO_SCHEDULE_OBSERVED');
   assert.equal(report.days[0].results.due_coverage, null);
   assert.ok(operationalMarkdown(report).includes('UNAVAILABLE'));
+  assert.ok(operationalMarkdown(report).includes('Program shape only (UNVERIFIED)'));
   assert.ok(operationalMarkdown(report).includes(earlier));
 });
 

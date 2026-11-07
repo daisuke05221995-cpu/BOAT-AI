@@ -15,11 +15,25 @@ export function summarizeDailyAudit(date, nowMs, races = [], attempts = [], impo
     postponed: 0, cancelled: 0, legacy_settled: 0, unresolved_due: 0,
   };
   const resultFailures = {};
+  const programCandidate = {
+    shape_complete_unverified: 0, unavailable: 0, not_checked: 0,
+    source_timestamp_verified: 0, eligible_for_forecast: 0,
+    failure_codes: {},
+  };
   let deadlinesPassed = 0;
   let firstDeadline = null;
   let lastDeadline = null;
 
   for (const row of races) {
+    if (row.program_candidate_status === 'SHAPE_ONLY_UNVERIFIED') {
+      programCandidate.shape_complete_unverified++;
+    } else if (row.program_candidate_status === 'UNAVAILABLE') {
+      programCandidate.unavailable++;
+      const reason = String(row.program_candidate_failure_code ?? 'UNKNOWN').slice(0, 100);
+      programCandidate.failure_codes[reason] = (programCandidate.failure_codes[reason] ?? 0) + 1;
+    } else {
+      programCandidate.not_checked++;
+    }
     const deadline = Number(row.deadline_ms);
     if (!Number.isFinite(deadline)) continue;
     firstDeadline = firstDeadline == null ? deadline : Math.min(firstDeadline, deadline);
@@ -90,7 +104,8 @@ export function summarizeDailyAudit(date, nowMs, races = [], attempts = [], impo
       count: imported?.race_count ?? 0,
       failure_code: imported?.failure_code ?? null,
     },
-    cron, capture: captures, results, capture_failure_codes: failures,
+    cron, capture: captures, results, program_roster_candidate: programCandidate,
+    capture_failure_codes: failures,
     result_failure_codes: resultFailures,
   };
 }

@@ -44,6 +44,8 @@ test('audit route is read-only, date validated, and does not disclose row-level 
   const audit = await res.json();
   assert.equal(audit.scheduled_races, 1);
   assert.equal(audit.capture.forecasts_ready, 0);
+  assert.equal(audit.program_roster_candidate.not_checked, 1);
+  assert.equal(audit.program_roster_candidate.eligible_for_forecast, 0);
   assert.equal(audit.import.count, 0);
   assert.equal(JSON.stringify(audit).includes('race_id'), false);
   assert.equal((await worker.fetch(new Request('https://example.net/v1/audit?date=2026-11-31'), { DB: db })).status, 400);
