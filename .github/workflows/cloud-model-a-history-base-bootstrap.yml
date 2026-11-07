@@ -1,0 +1,83 @@
+name: Stage frozen Model A history base in D1
+
+# Only this workflow's main update triggers staging automatically. Ordinary
+# PRs/builds/deploys never write history. Safe authenticated manual retries.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cloud-model-a-history-base-bootstrap.yml'
+      - 'cloud/forecast-worker/tools/verify_frozen_history_d1_export.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: boat-ai-model-a-frozen-history-base-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify immutable Model A history and runtime contracts
+        working-directory: cloud/forecast-worker
+        run: npm test
+      - name: Configure D1 database from encrypted GitHub secret
+        env:
+          BOAT_AI_D1_DATABASE_ID: ${{ secrets.BOAT_AI_D1_DATABASE_ID }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$BOAT_AI_D1_DATABASE_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo 'Invalid/missing BOAT_AI_D1_DATABASE_ID secret' >&2
+            exit 1
+          fi
+          sed -i "s/REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID/${BOAT_AI_D1_DATABASE_ID}/" cloud/forecast-worker/wrangler.toml
+      - name: Create sealed temporary BAH1 history SQL
+        id: seal
+        working-directory: cloud/forecast-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          temp_dir="$(mktemp -d)"
+          chmod 700 "$temp_dir"
+          sql_file="${temp_dir}/frozen-history.sql"
+          node tools/build_frozen_history_d1_sql.mjs "$sql_file" > "${temp_dir}/manifest.json"
+          base_sha="$(jq -er '.sha256 | select(test("^[0-9a-f]{64}$"))' "${temp_dir}/manifest.json")"
+          test "$(jq -r '.chunks' "${temp_dir}/manifest.json")" = 9
+          test "$(jq -r '.throughDay' "${temp_dir}/manifest.json")" = 739882
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+          echo "sql_file=$sql_file" >> "$GITHUB_OUTPUT"
+          echo "Verified historical base SHA: $base_sha (2026-09-23; NOT current)"
+      - name: Import immutable frozen history to D1 (no promotion)
+        working-directory: cloud/forecast-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SQL_FILE: ${{ steps.seal.outputs.sql_file }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -f "$SQL_FILE"
+          npx --yes wrangler@4 d1 execute boat-ai-forecast --remote --file="$SQL_FILE" --yes
+      - name: Re-read and verify full frozen history without activating it
+        working-directory: cloud/forecast-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BASE_SHA: ${{ steps.seal.outputs.base_sha }}
+        run: |
+          set -euo pipefail
+          query="SELECT g.sha256, g.previous_sha256, g.kind, g.through_day, g.update_races, g.byte_length, g.chunk_count, g.audit_json, g.audit_sha256, c.chunk_index, c.chunk_sha256, c.base64_data FROM model_a_history_chunk c JOIN model_a_history_generation g ON g.sha256=c.sha256 WHERE g.sha256='${BASE_SHA}' ORDER BY c.chunk_index"
+          export_file="$(mktemp)"
+          chmod 600 "$export_file"
+          npx --yes wrangler@4 d1 execute boat-ai-forecast --remote --command "$query" --json > "$export_file"
+          node tools/verify_frozen_history_d1_export.mjs "$export_file" "$BASE_SHA"
+          echo "Frozen 2026-09-23 base SHA verified; active history pointer untouched."
