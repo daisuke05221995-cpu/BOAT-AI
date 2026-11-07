@@ -1,0 +1,52 @@
+name: Diagnose one historical Model A candidate gap (read-only)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/model-a-history-gap-readonly.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate offline diagnostic contracts
+        working-directory: cloud/forecast-worker
+        run: npm test
+      - name: Read exact 2026-11-06 published program (no licensed preclose claim)
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --location --connect-timeout 8 --max-time 35 \
+            --output "$RUNNER_TEMP/published-20261106.json" \
+            https://boatraceopenapi.github.io/api/v1/2026/20261106.json
+          test "$(wc -c < "$RUNNER_TEMP/published-20261106.json")" -le 12000000
+      - name: Compare read-only published result shapes with existing research candidate
+        working-directory: cloud/forecast-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/history_gap_diagnostic.mjs 2026-11-06 \
+            "$RUNNER_TEMP/published-20261106.json" \
+            ../../data/model_a_recent_history.bin --json \
+            > "$RUNNER_TEMP/history-gap-diagnostic.json"
+          node tools/history_gap_diagnostic.mjs 2026-11-06 \
+            "$RUNNER_TEMP/published-20261106.json" \
+            ../../data/model_a_recent_history.bin --markdown \
+            >> "$GITHUB_STEP_SUMMARY"
+          jq -e '.status=="RESEARCH_SOURCE_AND_HISTORY_UNCERTIFIED" and .candidate_history_races==132' \
+            "$RUNNER_TEMP/history-gap-diagnostic.json" >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boat-ai-20261106-history-gap-research-only
+          path: ${{ runner.temp }}/history-gap-diagnostic.json
+          retention-days: 30
