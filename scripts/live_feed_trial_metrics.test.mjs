@@ -1,0 +1,18 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {evaluate} from './live_feed_trial_metrics.mjs';
+const deadline=1000000;
+const a=(stage,overrides={})=>({stage,request_ms:500000,received_ms:501000,complete:true,permission_verified:true,race_identity_verified:true,preview_6_st_weather_complete:true,odds_120_positive_complete:true,preview_observed_ms:500000,weather_observed_ms:500000,odds_observed_ms:500000,...overrides});
+const t=(id,attempts)=>({id,deadline_ms:deadline,attempts});
+test('zero population yields null rates',()=>assert.equal(evaluate([]).final_complete_rate,null));
+test('T8 complete',()=>assert.equal(evaluate([t('a',[a('T8')])]).final_complete,1));
+test('T5 rescue',()=>assert.equal(evaluate([t('a',[a('T8',{complete:false}),a('T5')])]).t5_rescued,1));
+test('unattempted remains unavailable, not SKIP',()=>{const x=evaluate([t('a',[])]);assert.equal(x.unavailable,1);assert.equal(x.skips,0);});
+test('unknown odds source time rejected',()=>assert.equal(evaluate([t('a',[a('T8',{odds_observed_ms:null})])]).final_complete,0));
+test('stale weather rejected',()=>assert.equal(evaluate([t('a',[a('T8',{weather_observed_ms:370000})])]).final_complete,0));
+test('permission absent rejected',()=>assert.equal(evaluate([t('a',[a('T8',{permission_verified:false})])]).final_complete,0));
+test('late response rejected',()=>assert.equal(evaluate([t('a',[a('T8',{received_ms:deadline})])]).final_complete,0));
+test('duplicate race rejected',()=>assert.throws(()=>evaluate([t('a',[]),t('a',[])])));
+test('duplicate stage rejected',()=>assert.throws(()=>evaluate([t('a',[a('T8'),a('T8')])])));
+test('unnecessary T5 rejected',()=>assert.throws(()=>evaluate([t('a',[a('T8'),a('T5')])])));
+test('incomplete odds rejected',()=>assert.equal(evaluate([t('a',[a('T8',{odds_120_positive_complete:false})])]).final_complete,0));
