@@ -1,5 +1,18 @@
 # BOAT AI クラウド実行基盤（段階1：データ収集・監査・直前品質検証）
 
+## 2026-11-07 Model A shadow 接続（購入判定OFF）
+
+`0010_model_a_shadow.sql` と `model-a-shadow.mjs` で、Cron のT-8/T-5試行から、**取得元が明示的に承認された出走6艇・展示・気象・120オッズ → 前日まで連続検証済みのD1履歴 → SHA検証済み固定LightGBM3本 → 120通りの純粋な予想確率**までを1回で実行できる経路を接続した。予想確率と各出典時刻は `model_a_shadow_attempt` に隔離して記録し、公開するのは `/v1/model-a-shadow?date=YYYY-MM-DD` の件数・理由別集計のみ。Android側の購入予想、既存の結果、実購入履歴、BUY/SKIPには一切反映しない。
+
+- `MODEL_A_APPROVED_SOURCES_JSON` は、roster/preview/weather/odds ごとに事前確認済みの `source` ID配列を指定する必須の環境変数。JSON例: `{"roster":["approved-roster-id"],"preview":["approved-preview-id"],"weather":["approved-weather-id"],"odds":["approved-odds-id"]}`。**例のIDは許諾を意味せず、本番登録してはいけない。**
+- 出走元のHTTPS `ROSTER_API_URL` と必要時 `ROSTER_API_TOKEN` を追加。既存 `PREVIEW_API_URL`/`ODDS_API_URL` は変更せず、各取得は独立して実施。日付フィードの候補出走表は観測時刻を確定できないため代用しない。
+- 承認元だけでは十分でない。4取得元すべてに正確な実観測時刻・同一レースID・観測2分以内・全6艇ID一致が必要。締切後に計算が終わった場合も予想は保存しない。
+- 固定D1モデルのbundle IDはAndroidの3本から確定した `c6d44a4bc9e2f27a4066c25ef0d375ec47055c566695ebfc30043c90433a4f2e`。任意のモデル差し替えや再学習は行わない。
+- `model_a_history_active` のSHAをD1の全チャンクと再照合し、予想日**前日の暦日まで**完全に監査済みであることが必須。2026-09-23までの凍結履歴だけでは2026-11-07の予想は**必ず `MODEL_A_HISTORY_STALE` / `MODEL_A_HISTORY_NOT_ACTIVE`**。研究用11月履歴を認証なしに昇格しない。
+- D1失敗、120確率の和が1でない、許諾/観測元の欠損、期限切れ等は`UNAVAILABLE`の監査記録のみ。`FORECAST_ONLY` は実購入可能なBUY推奨ではない。
+
+現時点では本番用の直前情報提供元4種類と検証済み前日履歴が未接続であり、**実レースのshadow成功 / BUY/SKIP稼働を意味しない**。本番データでの同一入力Androidパリティを確認後に別工程で購入判定を審査する。
+
 Androidを起動していなくても、Cloudflare Workersの定期実行でレース情報を蓄積するための基礎実装。**2026-11-06にCloudflareへ初期デプロイ成功**（GitHub Actions `42216781153`）。ただし、**クラウドAI購入予想は未実装**。`READY` を偽装せず、必要なモデル同等性検証が終わるまで `PENDING` / `UNAVAILABLE` とする。
 
 ## 実装済み
