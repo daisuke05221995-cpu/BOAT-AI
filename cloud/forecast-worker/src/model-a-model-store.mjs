@@ -10,6 +10,10 @@ export const FROZEN_MODEL_A_STAGE_MANIFEST = Object.freeze([
 ]);
 
 export const MODEL_ASSET_CHUNK_BYTES = 256 * 1024;
+// D1 limits each SQL statement to 100KB, even when the row itself can hold
+// 2MB. SQL-file imports use small idempotent appends; Worker-bound parameters
+// in stageFrozenModelABundle are not subject to large SQL *text* statements.
+export const MODEL_SQL_LITERAL_CHARS = 64 * 1024;
 const HEX = /^[0-9a-f]{64}$/;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
@@ -68,6 +72,41 @@ export async function sealFrozenModelABundle(bytesByStage) {
     chunks: chunks.filter(chunk => chunk.stage === index).length }));
   const bundleSha256 = await sha256(encoder.encode(JSON.stringify(manifest)));
   return { bundleSha256, manifest, chunks };
+}
+
+// CLI import path for an authenticated GitHub Actions deployment. Wrangler
+// imports SQL files without explicit BEGIN/COMMIT directives; each immutable
+// entry is inserted only when absent, so interrupted imports are resumable.
+// No active model pointer exists and no forecast is enabled by this SQL.
+export function renderFrozenModelABundleSql(bundle, stagedMs = Date.now()) {
+  if (!HEX.test(bundle?.bundleSha256 ?? '') ||
+      !Array.isArray(bundle?.manifest) || bundle.manifest.length !== 3 ||
+      !Array.isArray(bundle?.chunks) || bundle.chunks.length !== 12 ||
+      !Number.isSafeInteger(stagedMs) || stagedMs < 0) fail('INVALID_SQL_EXPORT');
+  for (let stage = 0; stage < 3; stage++) {
+    const value = bundle.manifest[stage];
+    const expected = FROZEN_MODEL_A_STAGE_MANIFEST[stage];
+    if (value.bytes !== expected.bytes || value.sha256 !== expected.sha256 ||
+        value.featureCount !== expected.featureCount || value.chunks !== 4) fail('INVALID_SQL_EXPORT');
+  }
+  const q = value => `'${String(value).replaceAll("'", "''")}'`;
+  const statements = [
+    `INSERT OR IGNORE INTO model_a_frozen_bundle (bundle_sha256, stage_manifest_json, staged_ms) VALUES (${q(bundle.bundleSha256)}, ${q(JSON.stringify(bundle.manifest))}, ${stagedMs});`,
+  ];
+  for (let stage = 0; stage < 3; stage++) for (let index = 0; index < 4; index++) {
+    const chunk = bundle.chunks[stage * 4 + index];
+    if (chunk?.stage !== stage || chunk?.index !== index ||
+        !HEX.test(chunk.sha256 ?? '') ||
+        typeof chunk.base64 !== 'string' ||
+        !/^[A-Za-z0-9+/]+={0,2}$/.test(chunk.base64)) fail('INVALID_SQL_EXPORT');
+    statements.push(`INSERT OR IGNORE INTO model_a_frozen_chunk (bundle_sha256, stage_index, chunk_index, chunk_sha256, base64_data) VALUES (${q(bundle.bundleSha256)}, ${stage}, ${index}, ${q(chunk.sha256)}, '');`);
+    for (let at = 0; at < chunk.base64.length; at += MODEL_SQL_LITERAL_CHARS) {
+      const piece = chunk.base64.slice(at, at + MODEL_SQL_LITERAL_CHARS);
+      statements.push(`UPDATE model_a_frozen_chunk SET base64_data=base64_data || ${q(piece)} WHERE bundle_sha256=${q(bundle.bundleSha256)} AND stage_index=${stage} AND chunk_index=${index} AND length(base64_data)=${at};`);
+    }
+  }
+  if (statements.some(statement => encoder.encode(statement).length > 100_000)) fail('SQL_STATEMENT_TOO_LARGE');
+  return `${statements.join('\n')}\n`;
 }
 
 // A single D1 batch gives atomic staging, not activation. Existing generations

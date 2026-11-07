@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { LightGbmTextModel } from '../src/lightgbm.mjs';
 import { FROZEN_MODEL_A_STAGE_MANIFEST, MODEL_ASSET_CHUNK_BYTES,
   sealFrozenModelABundle, stageFrozenModelABundle,
-  loadVerifiedFrozenModelABundle } from '../src/model-a-model-store.mjs';
+  loadVerifiedFrozenModelABundle, renderFrozenModelABundleSql } from '../src/model-a-model-store.mjs';
 
 const schema = readFileSync(new URL('../migrations/0007_model_a_frozen_assets.sql', import.meta.url), 'utf8');
 const assets = () => Array.from({ length: 3 }, (_, index) => readFileSync(
@@ -87,4 +90,49 @@ test('staging remains atomic on a duplicate chunk failure', async () => {
     assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM model_a_frozen_bundle').get().n, 0);
     assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM model_a_frozen_chunk').get().n, 0);
   } finally { db.sqlite.close(); }
+});
+
+test('Wrangler SQL export is idempotent, faithfully restores all frozen stages and never activates them', async () => {
+  const bundle = await sealFrozenModelABundle(assets());
+  const sql = renderFrozenModelABundleSql(bundle, 1700000000000);
+  assert.equal((sql.match(/INSERT OR IGNORE/g) ?? []).length, 13);
+  assert.ok((sql.match(/UPDATE model_a_frozen_chunk/g) ?? []).length >= 60);
+  assert.ok(sql.split('\n').every(line => Buffer.byteLength(line, 'utf8') <= 100_000));
+  assert.equal(sql.includes('BEGIN TRANSACTION'), false);
+  assert.equal(sql.includes('UPDATE race_schedule'), false);
+  const db = d1();
+  try {
+    // Simulate an interrupted Wrangler file import and a subsequent retry.
+    const half = sql.split('\n').slice(0, 40).join('\n');
+    db.sqlite.exec(half);
+    db.sqlite.exec(sql); // repeat an interrupted or successful deployment safely
+    db.sqlite.exec(sql); // a fully successful repeat must not append duplicates
+    assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM model_a_frozen_bundle').get().n, 1);
+    assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM model_a_frozen_chunk').get().n, 12);
+    const loaded = await loadVerifiedFrozenModelABundle(db, bundle.bundleSha256);
+    assert.equal(loaded.bundleSha256, bundle.bundleSha256);
+    assert.deepEqual(loaded.models.map(m => m.featureCount), [545, 715, 885]);
+  } finally { db.sqlite.close(); }
+});
+
+test('authenticated Wrangler JSON audit fully checks all remote bytes, not only row count', async () => {
+  const bundle = await sealFrozenModelABundle(assets());
+  const rows = bundle.chunks.map(chunk => ({
+    bundle_sha256: bundle.bundleSha256, stage_index: chunk.stage, chunk_index: chunk.index,
+    chunk_sha256: chunk.sha256, base64_data: chunk.base64,
+    stage_manifest_json: JSON.stringify(bundle.manifest),
+  }));
+  const directory = mkdtempSync(join(tmpdir(), 'boat-ai-frozen-d1-'));
+  const file = join(directory, 'wrangler.json');
+  const run = () => execFileSync(process.execPath, [
+    new URL('../tools/verify_frozen_model_d1_export.mjs', import.meta.url).pathname,
+    file, bundle.bundleSha256,
+  ], { encoding: 'utf8', stdio: 'pipe' });
+  try {
+    writeFileSync(file, JSON.stringify([{ success: true, results: rows }]));
+    assert.equal(JSON.parse(run()).verified, true);
+    rows[5].base64_data = 'AA==';
+    writeFileSync(file, JSON.stringify([{ success: true, results: rows }]));
+    assert.throws(run);
+  } finally { rmSync(directory, { recursive: true }); }
 });
