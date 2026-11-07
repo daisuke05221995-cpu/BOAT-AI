@@ -70,12 +70,41 @@ export function summarizeOperationalDay(audit) {
   };
 }
 
-export function buildOperationalReport(yesterday, today) {
+// An untrusted rolling research BAH1 can be used for a COUNTS-ONLY audit,
+// never to certify nationwide coverage, activate a checkpoint, or forecast.
+// Each historical race contributes exactly six racer appearances. A matching
+// count is necessary but NEVER sufficient for per-race completeness.
+export function compareHistoryCandidateCounts(day, state) {
+  if (!state || !Number.isInteger(state.lastDay) || !Number.isInteger(state.updateRaces) ||
+      !state.recent || typeof state.recent !== 'object') fail('CANDIDATE_INVALID');
+  const ordinal = Math.trunc(Date.parse(`${day.date}T00:00:00Z`) / 86_400_000) + 719_163;
+  const terminalSettled = day.results.settled + day.results.legacy_settled;
+  const base = { source: 'RESEARCH_CANDIDATE_NOT_CERTIFIED',
+    history_last_day_ordinal: state.lastDay, date_ordinal: ordinal, terminal_settled: terminalSettled };
+  if (state.lastDay < ordinal) return { ...base, candidate_races: null,
+    terminal_minus_candidate: null, status: 'CANDIDATE_NOT_UPDATED' };
+  let appearances = 0;
+  for (const player of Object.values(state.recent)) {
+    if (!Array.isArray(player.days)) fail('CANDIDATE_INVALID');
+    appearances += player.days.filter(value => value === ordinal).length;
+  }
+  if (appearances % 6 !== 0) fail('CANDIDATE_APPEARANCE_INCONSISTENT');
+  const candidate = appearances / 6;
+  if (candidate > 288) fail('CANDIDATE_OVERSIZED');
+  const difference = terminalSettled - candidate;
+  return { ...base, candidate_races: candidate, terminal_minus_candidate: difference,
+    status: difference === 0 ? 'COUNT_MATCH_BUT_UNCERTIFIED' : 'COUNT_DISCREPANCY_UNCERTIFIED' };
+}
+
+export function buildOperationalReport(yesterday, today, candidateHistory = null) {
   const older = summarizeOperationalDay(yesterday);
   const newer = summarizeOperationalDay(today);
   const milliseconds = Date.parse(`${newer.date}T00:00:00Z`) - Date.parse(`${older.date}T00:00:00Z`);
   if (milliseconds !== 86_400_000 || Date.parse(older.observed_at) > Date.parse(newer.observed_at) + 30_000) {
     fail('DAY_PAIR_MISMATCH');
+  }
+  if (candidateHistory) for (const day of [older, newer]) {
+    day.history_candidate = compareHistoryCandidateCounts(day, candidateHistory);
   }
   return { schema_version: 1, audit_type: 'READ_ONLY_POSTED_CLOUD_EVIDENCE',
     created_at: new Date().toISOString(), days: [older, newer],
@@ -91,5 +120,12 @@ export function operationalMarkdown(report) {
     lines.push(`| ${day.date} | ${day.scheduled_races} (${day.import.status}) | ${day.cron.status} | ${day.preclose.verified}/${day.scheduled_races} (${day.preclose.status}) | ${day.recommendations.buy}/${day.recommendations.skip} (${day.recommendations.status}) | ${coverage} (${day.results.status}) |`);
   }
   lines.push('', 'Incomplete preclose/forecast data is **UNAVAILABLE**, not SKIP. Missing history/permission cannot be inferred from HTTP success.');
+  if (report.days.some(day => day.history_candidate)) {
+    lines.push('', '### Research history count comparison (NOT a completeness certificate)');
+    for (const day of report.days) if (day.history_candidate) {
+      const h = day.history_candidate;
+      lines.push(`- ${day.date}: candidate ${h.candidate_races ?? 'not updated'}, terminal settled ${h.terminal_settled}; ${h.status}, difference ${h.terminal_minus_candidate ?? 'N/A'}.`);
+    }
+  }
   return `${lines.join('\n')}\n`;
 }

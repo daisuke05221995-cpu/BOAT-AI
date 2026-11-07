@@ -107,6 +107,7 @@ Worker環境変数 `PREVIEW_API_URL`、`ODDS_API_URL` を**それぞれ認可済
 - GitHub Actions `Audit live Cloud collection and results` は毎日11:15/翌01:10 JSTと該当workflow/監査コードのmain更新時に、公開の**読み取り専用** `/v1/audit` から当日・前日の取得実績を収集する。直前データ提供元へのアクセス・過去予想補完・D1更新は行わない。
 - `tools/cloud_audit_report.mjs` が開催取込、Cron、締切前に検証できた展示・オッズ、`BUY/SKIP` 件数、結果回収率と失敗理由を照合。`UNAVAILABLE` は `SKIP` に計上しない。完備率ゼロでもjob成功は可能であり、**job成功とデータ取得成功を混同しない**。
 - 監査JSONをGitHub Actions artifactとして30日保存し、ActionsのSummaryに日別表を掲載。欠損や提供元未設定はそのまま表示し、架空の時刻・オッズ・購入推奨で埋めない。
+- 研究用 `data/model_a_recent_history.bin` も**読み取り専用**でBAH1デコードし、日別選手出走数÷6とD1の日別終端成立件数を比較して差を報告する。研究用は全国履歴の完全性が未証明で、件数が一致しても本番履歴へ昇格しない。差が出た日は `COUNT_DISCREPANCY_UNCERTIFIED` として記録する。
 
 前日までの履歴を満たすには単に `lastDay` を更新するだけでは不十分。開催レース・全6艇の**結果確定・重複/欠損照合が完了した日だけ**コミットし、その監査結果を永続化すること。事故・欠損時は `MODEL_A_HISTORY_STALE` または履歴未完了として保留。新鮮なデータが揃わない日も予想を捏造しない。
 
