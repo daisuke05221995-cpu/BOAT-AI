@@ -369,6 +369,36 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             .onFailure { error -> _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = error.message ?: "投票画面を開けません")) } }
     }
 
+    /** Stage a five-minute local test of the official Android app UI, without wager submission. */
+    fun startCollectorPurchaseAutomationTest() {
+        val handoff = _ui.value.collectorPurchaseInbox ?: return
+        if (!_ui.value.collectorModeEnabled) return
+        val check = PurchaseAutomationSafety.validate(handoff.session, _ui.value.races)
+        if (!check.allowed) {
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = check.reason)) }
+            return
+        }
+        if (!BoatPurchaseAccessibilityService.armForLocalTest(check)) {
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                error = "ユーザー補助の『BOAT AI』を2台目で有効にしてください")) }
+            return
+        }
+        val context = getApplication<Application>()
+        val launch = context.packageManager.getLaunchIntentForPackage(BoatPurchaseAccessibilityService.OFFICIAL_APP_PACKAGE)
+        if (launch == null) {
+            BoatPurchaseAccessibilityService.disarm()
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "公式BOATRACEアプリが見つかりません")) }
+            return
+        }
+        runCatching { context.startActivity(launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            .onSuccess { _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                message = "公式アプリを起動しました。現在は画面認識の検証段階で、自動投票は行いません", error = null)) } }
+            .onFailure { error ->
+                BoatPurchaseAccessibilityService.disarm()
+                _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = error.message ?: "公式アプリを起動できません")) }
+            }
+    }
+
     fun dismissCollectorPurchaseHandoff() {
         collectorPurchaseInboxStore.clear()
         _ui.update { it.copy(collectorPurchaseInbox = null,

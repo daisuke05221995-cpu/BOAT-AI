@@ -1,5 +1,7 @@
 package jp.boatai.app
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -71,6 +74,12 @@ internal fun CollectorDashboardScreen(
                         Button(onClick = vm::openCollectorPurchaseHandoff, modifier = Modifier.fillMaxWidth()) {
                             Text("買い目をコピーして公式投票へ")
                         }
+                        OutlinedButton(onClick = vm::startCollectorPurchaseAutomationTest,
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("公式Androidアプリの操作検証")
+                        }
+                        Text("操作検証は締切まで2分以上・合計5,000円以内で開始できます。現段階で買い目入力や投票確定は自動実行しません。",
+                            style = MaterialTheme.typography.bodySmall)
                         Text("注意：これは購入準備です。公式サイトでご自身が投票を確定してください。投票結果は1台目で記録します。",
                             style = MaterialTheme.typography.bodySmall)
                         OutlinedButton(onClick = vm::dismissCollectorPurchaseHandoff, modifier = Modifier.fillMaxWidth()) {
@@ -136,6 +145,7 @@ internal fun CollectorDashboardScreen(
 @Composable
 internal fun CollectorModeSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
     var tokenInput by remember { mutableStateOf("") }
+    val context = LocalContext.current
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -165,6 +175,11 @@ internal fun CollectorModeSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
             Text("保存状況：${if (ui.collectorUpload.configured) "設定済み（端末内で暗号化）" else "未設定"}", style = MaterialTheme.typography.bodySmall)
             ui.collectorUpload.error?.let { Text("設定／送信エラー：$it", style = MaterialTheme.typography.bodySmall) }
             Text("2台目は監査送信・指示受信、1台目は遠隔再取得に使います。両端末でクラウド側のCOLLECTOR_INGEST_TOKENと同じキーを保存してください。チャットやGitHubには貼らないでください。", style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = {
+                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }, modifier = Modifier.fillMaxWidth()) { Text("Androidのユーザー補助でBOAT AIを有効にする") }
+            Text("画面操作機能は2台目でのみ有効にしてください。表示中の公式アプリの画面を読み取れる権限です。確認作業が終わったら無効にできます。",
+                style = MaterialTheme.typography.bodySmall)
         }
     }
 }
