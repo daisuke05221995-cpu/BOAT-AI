@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "assignment_date": "2026-11-06",
+  "investigation_date_jst": "2026-11-07",
+  "recorded_at": "2026-11-06T16:59:05.889Z",
+  "base_commit": "dd3634d5b2934d81452134f7a941f090511ef6fc",
+  "branch": "research/licensed-live-feeds-20261106",
+  "decision": "BLOCKED_PENDING_LICENSE_AND_FRESHNESS",
+  "qualified_live_provider_count": 0,
+  "provider_contract_verified": false,
+  "live_measurement_performed": false,
+  "live_metrics": [
+    {
+      "provider": "BOATRACE_INDIVIDUAL_PERMISSION_ROUTE",
+      "live_request_attempts": 0,
+      "eligible_live_races": 0,
+      "status": "UNTESTED",
+      "t8_success_rate": null,
+      "t5_rescue_rate": null,
+      "source_to_deadline_seconds": null,
+      "preview_6_boats_st_weather_complete_rate": null,
+      "odds_120_positive_complete_rate": null,
+      "response_ms_p50": null,
+      "response_ms_p95": null
+    },
+    {
+      "provider": "TEAM_NAVE_BRDB_API",
+      "live_request_attempts": 0,
+      "eligible_live_races": 0,
+      "status": "UNTESTED",
+      "t8_success_rate": null,
+      "t5_rescue_rate": null,
+      "source_to_deadline_seconds": null,
+      "preview_6_boats_st_weather_complete_rate": null,
+      "odds_120_positive_complete_rate": null,
+      "response_ms_p50": null,
+      "response_ms_p95": null
+    },
+    {
+      "provider": "BOATRACECSV",
+      "live_request_attempts": 0,
+      "eligible_live_races": 0,
+      "status": "UNTESTED",
+      "t8_success_rate": null,
+      "t5_rescue_rate": null,
+      "source_to_deadline_seconds": null,
+      "preview_6_boats_st_weather_complete_rate": null,
+      "odds_120_positive_complete_rate": null,
+      "response_ms_p50": null,
+      "response_ms_p95": null
+    }
+  ],
+  "operational_checkpoint": {
+    "latest_cloud_deploy_run": 42226848701,
+    "latest_cloud_deploy_commit": "e15ff4159aa07052902dd4d1f2df7f353f7cb9da",
+    "conclusion": "success",
+    "cloud_contract_run": 42226848761,
+    "active_runs_at_initial_check": {
+      "in_progress": 0,
+      "queued": 0
+    },
+    "runs_listed": 100
+  },
+  "offline_audit": {
+    "schema_version": 1,
+    "kind": "OFFLINE_SYNTHETIC_CONTRACT_AUDIT",
+    "executed_at": "2026-11-06T16:59:05.889Z",
+    "runtime": "v24.22.1",
+    "live_measurement": false,
+    "source_files": [
+      {
+        "path": "cloud/forecast-worker/src/preclose.mjs",
+        "sha256": "0cb149172b01978e31440f2bdca7b7ad663ec395cba56f8386d95aed87a7af0e"
+      },
+      {
+        "path": "cloud/forecast-worker/src/policy.mjs",
+        "sha256": "ee8eac3fc8c163853d09114b4d2c3af2e0e2c6b3b955a0b4f7a9dca831e86029"
+      }
+    ],
+    "case_count": 15,
+    "cases": [
+      {
+        "id": "minimal_preview_without_st_weather_is_accepted",
+        "result": "PASS"
+      },
+      {
+        "id": "missing_source_time_rejected",
+        "result": "PASS"
+      },
+      {
+        "id": "source_age_121s_rejected",
+        "result": "PASS"
+      },
+      {
+        "id": "source_age_120s_accepted",
+        "result": "PASS"
+      },
+      {
+        "id": "source_clock_16s_future_rejected",
+        "result": "PASS"
+      },
+      {
+        "id": "wrong_race_rejected",
+        "result": "PASS"
+      },
+      {
+        "id": "duplicate_course_rejected",
+        "result": "PASS"
+      },
+      {
+        "id": "five_boats_rejected",
+        "result": "PASS"
+      },
+      {
+        "id": "all_120_positive_odds_accepted",
+        "result": "PASS"
+      },
+      {
+        "id": "119_odds_rejected",
+        "result": "PASS"
+      },
+      {
+        "id": "zero_odds_rejected",
+        "result": "PASS"
+      },
+      {
+        "id": "at_deadline_source_observation_rejected",
+        "result": "PASS"
+      },
+      {
+        "id": "t_minus_8_initial_stage",
+        "result": "PASS"
+      },
+      {
+        "id": "t_minus_5_retry_stage",
+        "result": "PASS"
+      },
+      {
+        "id": "no_capture_at_deadline",
+        "result": "PASS"
+      }
+    ],
+    "findings": [
+      "Current preview gate accepts absent exhibition ST and weather; full assignment completeness requires additional validation before integration."
+    ]
+  },
+  "blockers": [
+    "Documented authority for cloud acquisition, retention, redistribution and derived forecasts is not established.",
+    "No provider verified for all preview/ST/weather and 120 positive odds at T-8 with source observation times.",
+    "Current preview gate accepts missing exhibition ST and weather.",
+    "Real input/history/inference/purchase parity remains outside this investigation."
+  ],
+  "actions_not_performed": [
+    "Provider live API requests",
+    "Paid subscriptions or purchases",
+    "External inquiry messages",
+    "Adapter implementation",
+    "Production configuration changes",
+    "Android or Worker source edits",
+    "Model retraining or threshold changes",
+    "2025-Q4 raw data or private purchase history access"
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "url": "https://www.boatrace.jp/owpc/pc/extra/policy.html"
+    },
+    {
+      "id": "S2",
+      "url": "https://www.boatrace.jp/owpc/pc/extra/about.html"
+    },
+    {
+      "id": "S3",
+      "url": "https://boatrace.jp/owpc/pc/support/opinion"
+    },
+    {
+      "id": "S4",
+      "url": "https://www.team-nave.com/system/jp/products/brdbapi/"
+    },
+    {
+      "id": "S5",
+      "url": "https://www.team-nave.com/system/jp/products/brdbapi/help_function.html"
+    },
+    {
+      "id": "S6",
+      "url": "https://www.team-nave.com/system/jp/products/brdbapi/help_limit.html"
+    },
+    {
+      "id": "S7",
+      "url": "https://boatracecsv.github.io/docs/data/previews.html"
+    },
+    {
+      "id": "S8",
+      "url": "https://boatracecsv.github.io/"
+    },
+    {
+      "id": "S9",
+      "url": "https://boatracecsv.github.io/docs/operations.html"
+    },
+    {
+      "id": "S10",
+      "url": "https://www.jlc.ne.jp/service/solution-3/"
+    },
+    {
+      "id": "S11",
+      "url": "https://www.team-nave.com/system/jp/products/brapi/"
+    },
+    {
+      "id": "S12",
+      "url": "https://github.com/boatraceopenapi/api",
+      "additional_url": "https://boatraceopenapi.github.io/"
+    },
+    {
+      "id": "S13",
+      "url": "https://github.com/turnmark/api"
+    },
+    {
+      "id": "S14",
+      "url": "https://boatrace-db.jp/about/data/"
+    },
+    {
+      "id": "S15",
+      "url": "https://www.team-nave.com/system/jp/inquiry/"
+    }
+  ]
+}
