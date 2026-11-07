@@ -13,6 +13,7 @@ const modelAssetMigration = readFileSync(new URL('../migrations/0007_model_a_fro
 const rosterMigration = readFileSync(new URL('../migrations/0008_program_roster_candidate.sql', import.meta.url), 'utf8');
 const finishMigration = readFileSync(new URL('../migrations/0009_six_finish_candidate.sql', import.meta.url), 'utf8');
 const shadowMigration = readFileSync(new URL('../migrations/0010_model_a_shadow.sql', import.meta.url), 'utf8');
+const autoHistoryMigration = readFileSync(new URL('../migrations/0011_model_a_history_auto.sql', import.meta.url), 'utf8');
 
 test('D1 SQLite migration accepts actual race inserts, rejects duplicate loss', () => {
   const db = new DatabaseSync(':memory:');
@@ -213,5 +214,21 @@ test('shadow migration keeps forecast and purchases untouched and rejects invent
   assert.throws(() => db.prepare(`INSERT INTO model_a_shadow_attempt
     (race_id,capture_stage,checked_ms,status,reason)
     VALUES ('unknown',2,95000,'UNAVAILABLE','NONE')`).run());
+  db.close();
+});
+
+test('history auto migration keeps previous state and marks only attested complete days promoted', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(historyMigration);
+  db.exec(autoHistoryMigration);
+  db.exec(autoHistoryMigration);
+  db.prepare(`INSERT INTO model_a_history_day_attempt (race_date,last_started_ms,status)
+    VALUES ('2026-11-06',100000,'RUNNING')`).run();
+  assert.throws(() => db.prepare(`UPDATE model_a_history_day_attempt SET status='PROMOTED',
+    promoted_sha256='bad' WHERE race_date='2026-11-06'`).run());
+  db.prepare(`UPDATE model_a_history_day_attempt SET status='UNAVAILABLE',
+    reason='NATIONAL_MANIFEST_UNVERIFIED' WHERE race_date='2026-11-06'`).run();
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM model_a_history_active').get().n, 0);
   db.close();
 });

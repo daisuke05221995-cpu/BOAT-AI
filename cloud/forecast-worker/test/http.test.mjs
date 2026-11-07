@@ -68,3 +68,16 @@ test('shadow status is aggregate-only, never presented as BUY/SKIP', async () =>
   assert.equal(JSON.stringify(payload).includes('probabilities'), false);
   assert.equal((await worker.fetch(new Request('https://example.net/v1/model-a-shadow?date=invalid'), { DB: db })).status, 400);
 });
+
+test('history status reports the certified day without exposing any player records', async () => {
+  const db = { prepare: sql => sql.includes('model_a_history_active') ?
+    { first: async () => ({ through_day: 739882 }) } :
+    { all: async () => ({ results: [{ race_date: '2026-11-06', status: 'UNAVAILABLE',
+      reason: 'NATIONAL_MANIFEST_UNVERIFIED', expected_races: null }] }) } };
+  const response = await worker.fetch(new Request('https://example.net/v1/history-status'), { DB: db });
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.history_through_date, '2026-09-23');
+  assert.equal(payload.ready_for_today, false);
+  assert.equal(JSON.stringify(payload).includes('registrationNumber'), false);
+});
