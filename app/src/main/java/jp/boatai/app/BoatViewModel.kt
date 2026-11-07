@@ -72,7 +72,9 @@ data class BoatUiState(
     val collectorModeEnabled: Boolean = false,
     val collectorUpload: CollectorUploadStatus = CollectorUploadStatus(),
     val collectorMonitor: CollectorCloudMonitorState = CollectorCloudMonitorState(),
-    val collectorRemote: CollectorRemoteState = CollectorRemoteState()
+    val collectorRemote: CollectorRemoteState = CollectorRemoteState(),
+    val purchaseHandoff: PurchaseHandoffStatus = PurchaseHandoffStatus(),
+    val collectorPurchaseInbox: CollectorPurchaseHandoff? = null
 )
 
 class BoatViewModel(application: Application) : AndroidViewModel(application) {
@@ -96,6 +98,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val collectorCloudMonitorRepository = CollectorCloudMonitorRepository()
     private val collectorRemoteRepository = CollectorRemoteRepository()
     private val collectorRemoteCommandStore = CollectorRemoteCommandStore(application)
+    private val collectorPurchaseHandoffRepository = CollectorPurchaseHandoffRepository()
+    private val collectorPurchaseInboxStore = CollectorPurchaseInboxStore(application)
     private val operationalMonitoringStartedAt = operationalSelfCheckStore.monitoringStartedAt()
     private fun currentToday(): LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo"))
     private fun earliestBrowsableDate(): LocalDate = currentToday().minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
@@ -115,6 +119,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private var collectorRemoteJob: Job? = null
     private var collectorRemoteRequestJob: Job? = null
     private var lastRemotePollAt = 0L
+    private var collectorPurchasePollJob: Job? = null
+    private var collectorPurchaseSendJob: Job? = null
+    private var lastPurchasePollAt = 0L
     private val lastAutoOddsAttemptAt = mutableMapOf<String, Long>()
     // 0 = nationwide, 1..24 = venue. A single tap on recommended-only stays active
     // while official 120-way odds are resolved sequentially.
@@ -130,7 +137,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             performance = initialPerformance,
             notificationsEnabled = notificationScheduler.enabled,
             collectorModeEnabled = collectorModeStore.isEnabled(),
-            collectorUpload = CollectorUploadStatus(configured = collectorAuthStore.hasToken())
+            collectorUpload = CollectorUploadStatus(configured = collectorAuthStore.hasToken()),
+            collectorPurchaseInbox = collectorPurchaseInboxStore.load()
         )
     )
     val ui: StateFlow<BoatUiState> = _ui.asStateFlow()
@@ -204,6 +212,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         liveRefreshJob = viewModelScope.launch {
             reloadCollectorTodayIfNeeded()
             maybePollCollectorRemote(force = true)
+            maybePollCollectorPurchaseHandoff(force = true)
             // On returning to an existing screen, do not wait a full minute for fresh data.
             val initial = _ui.value
             if (initial.races.isNotEmpty() && initial.programUpdatedAt != null &&
@@ -216,6 +225,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 if (_ui.value.date == currentToday()) refreshCloudForecasts(_ui.value.date)
                 maybeUploadCollectorHeartbeat()
                 maybePollCollectorRemote()
+                maybePollCollectorPurchaseHandoff()
                 refreshCollectorMonitor()
             }
         }
@@ -243,6 +253,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             if (!reloadCollectorTodayIfNeeded()) refreshLiveDataIfDue()
             maybeUploadCollectorHeartbeat(force = true)
             maybePollCollectorRemote(force = true)
+            maybePollCollectorPurchaseHandoff(force = true)
         }
     }
 
@@ -254,6 +265,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 _ui.update { it.copy(collectorUpload = it.collectorUpload.copy(configured = true, error = null)) }
                 maybeUploadCollectorHeartbeat(force = true)
                 maybePollCollectorRemote(force = true)
+                maybePollCollectorPurchaseHandoff(force = true)
             }
             .onFailure { error ->
                 _ui.update { it.copy(collectorUpload = it.collectorUpload.copy(error = error.message ?: "共有キーを保存できません")) }
@@ -264,6 +276,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         collectorUploadJob?.cancel()
         collectorRemoteJob?.cancel()
         collectorRemoteRequestJob?.cancel()
+        collectorPurchasePollJob?.cancel()
+        collectorPurchaseSendJob?.cancel()
         collectorAuthStore.removeToken()
         _ui.update { it.copy(collectorUpload = CollectorUploadStatus(), collectorRemote = CollectorRemoteState()) }
     }
@@ -289,6 +303,77 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                     submitting = false, error = error.message ?: "再取得を依頼できませんでした")) }
             }
         }
+    }
+
+    /** The first phone sends a fixed list of proposed tickets, never a buy instruction. */
+    fun sendPendingPurchaseToCollector() {
+        if (_ui.value.collectorModeEnabled || collectorPurchaseSendJob?.isActive == true) return
+        val session = _ui.value.pendingPurchase ?: return
+        if (session.selectedRaces.isEmpty()) return
+        if (session.selectedRaces.size > 12) {
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "一度に転送できるのは12レースまでです")) }
+            return
+        }
+        val token = collectorAuthStore.readToken() ?: run {
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "この端末にも共有キーを設定してください")) }
+            return
+        }
+        // Do not send unticked races or any Teleboat credential.
+        val selected = session.copy(races = session.selectedRaces,
+            selectedRaceIds = session.selectedRaces.mapTo(linkedSetOf()) { it.raceId })
+        _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(sending = true, error = null, message = null)) }
+        collectorPurchaseSendJob = viewModelScope.launch {
+            try {
+                collectorPurchaseHandoffRepository.stage(token, selected)
+                _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                    sending = false, sentAt = System.currentTimeMillis(),
+                    message = "買い目を2台目に送信しました。2台目で内容を確認して公式投票へ進めます")) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                    sending = false, error = error.message ?: "買い目を転送できませんでした")) }
+            }
+        }
+    }
+
+    /** The collector receives proposed tickets only. It never presses an official buy button. */
+    private fun maybePollCollectorPurchaseHandoff(force: Boolean = false) {
+        if (!_ui.value.collectorModeEnabled || !_ui.value.collectorUpload.configured) return
+        if (collectorPurchasePollJob?.isActive == true || _ui.value.collectorPurchaseInbox != null) return
+        val now = System.currentTimeMillis()
+        if (!force && now - lastPurchasePollAt < 45_000L) return
+        val token = collectorAuthStore.readToken() ?: return
+        lastPurchasePollAt = now
+        collectorPurchasePollJob = viewModelScope.launch {
+            try {
+                val deviceId = collectorAuthStore.deviceId()
+                val handoff = collectorPurchaseHandoffRepository.next(token, deviceId) ?: return@launch
+                collectorPurchaseInboxStore.save(handoff)
+                _ui.update { it.copy(collectorPurchaseInbox = handoff,
+                    purchaseHandoff = it.purchaseHandoff.copy(message = "1台目から買い目を受信しました", error = null)) }
+                collectorPurchaseHandoffRepository.acknowledge(token, deviceId, handoff.handoffId)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                    error = "買い目受信エラー：${error.message ?: "通信失敗"}")) }
+            }
+        }
+    }
+
+    fun openCollectorPurchaseHandoff() {
+        val handoff = _ui.value.collectorPurchaseInbox ?: return
+        runCatching { OfficialBetLauncher.launch(getApplication(), handoff.session) }
+            .onSuccess { result -> _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(message = result.message, error = null)) } }
+            .onFailure { error -> _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = error.message ?: "投票画面を開けません")) } }
+    }
+
+    fun dismissCollectorPurchaseHandoff() {
+        collectorPurchaseInboxStore.clear()
+        _ui.update { it.copy(collectorPurchaseInbox = null,
+            purchaseHandoff = it.purchaseHandoff.copy(message = "受信した買い目を閉じました", error = null)) }
+        maybePollCollectorPurchaseHandoff(force = true)
     }
 
     /** Foreground-only, one-shot command polling. No accessibility or third-party UI control. */

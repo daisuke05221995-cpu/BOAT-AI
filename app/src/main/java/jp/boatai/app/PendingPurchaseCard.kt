@@ -16,6 +16,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -29,6 +31,7 @@ fun PendingPurchaseCard(
     showLaunchFallback: Boolean = false
 ) {
     val selected = session.selectedRaces
+    val state by vm.ui.collectAsState()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -115,6 +118,23 @@ fun PendingPurchaseCard(
                     Text("購入画面が開かない場合：別の公式投票サイト")
                 }
             }
+            Spacer(Modifier.height(6.dp))
+            OutlinedButton(
+                onClick = vm::sendPendingPurchaseToCollector,
+                enabled = selected.isNotEmpty() && !state.purchaseHandoff.sending,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (state.purchaseHandoff.sending) "2台目に転送中…" else "買い目を2台目へ送る")
+            }
+            state.purchaseHandoff.message?.let {
+                Text(it, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+            }
+            state.purchaseHandoff.error?.let {
+                Text(it, color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+            }
+            Text("2台目に投票予定を表示する機能です。舟券は購入されません。公式サイトで投票してから、1台目で実購入を確定してください。",
+                style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(6.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
