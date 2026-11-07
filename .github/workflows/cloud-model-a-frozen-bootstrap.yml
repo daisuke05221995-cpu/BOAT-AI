@@ -1,0 +1,77 @@
+name: Stage frozen Model A assets in D1
+
+# Explicit run only. PRs and ordinary cloud deployments never populate or
+# activate model assets. No result/odds fetch and no purchase operations.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: boat-ai-model-a-frozen-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify immutable Model A contracts
+        working-directory: cloud/forecast-worker
+        run: npm test
+      - name: Configure D1 database from encrypted GitHub secret
+        env:
+          BOAT_AI_D1_DATABASE_ID: ${{ secrets.BOAT_AI_D1_DATABASE_ID }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$BOAT_AI_D1_DATABASE_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo 'Invalid/missing BOAT_AI_D1_DATABASE_ID secret' >&2
+            exit 1
+          fi
+          sed -i "s/REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID/${BOAT_AI_D1_DATABASE_ID}/" cloud/forecast-worker/wrangler.toml
+      - name: Generate temporary sealed SQL import
+        id: seal
+        working-directory: cloud/forecast-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          temp_dir="$(mktemp -d)"
+          chmod 700 "$temp_dir"
+          sql_file="${temp_dir}/model-a-frozen.sql"
+          node tools/build_frozen_model_d1_sql.mjs "$sql_file" > "${temp_dir}/manifest.json"
+          bundle_sha="$(jq -er '.bundleSha256 | select(test("^[0-9a-f]{64}$"))' "${temp_dir}/manifest.json")"
+          test "$(jq -r '.chunks' "${temp_dir}/manifest.json")" = 12
+          echo "bundle_sha=$bundle_sha" >> "$GITHUB_OUTPUT"
+          echo "sql_file=$sql_file" >> "$GITHUB_OUTPUT"
+          echo "Verified frozen bundle SHA: $bundle_sha"
+      - name: Import immutable model chunks to D1
+        working-directory: cloud/forecast-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SQL_FILE: ${{ steps.seal.outputs.sql_file }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -f "$SQL_FILE"
+          npx --yes wrangler@4 d1 execute boat-ai-forecast --remote --file="$SQL_FILE" --yes
+      - name: Re-read and SHA-verify every remote model chunk (no activation)
+        working-directory: cloud/forecast-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BUNDLE_SHA: ${{ steps.seal.outputs.bundle_sha }}
+        run: |
+          set -euo pipefail
+          query="SELECT c.bundle_sha256, c.stage_index, c.chunk_index, c.chunk_sha256, c.base64_data, b.stage_manifest_json FROM model_a_frozen_chunk c JOIN model_a_frozen_bundle b ON b.bundle_sha256=c.bundle_sha256 WHERE c.bundle_sha256='${BUNDLE_SHA}' ORDER BY c.stage_index, c.chunk_index"
+          export_file="$(mktemp)"
+          chmod 600 "$export_file"
+          npx --yes wrangler@4 d1 execute boat-ai-forecast --remote --command "$query" --json > "$export_file"
+          node tools/verify_frozen_model_d1_export.mjs "$export_file" "$BUNDLE_SHA"
+          echo "D1 frozen model SHA verification succeeded; forecasting remains disabled."
