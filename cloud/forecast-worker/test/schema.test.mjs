@@ -10,6 +10,7 @@ const historyMigration = readFileSync(new URL('../migrations/0004_model_a_histor
 const weatherMigration = readFileSync(new URL('../migrations/0005_weather_provenance.sql', import.meta.url), 'utf8');
 const resultMigration = readFileSync(new URL('../migrations/0006_result_reconciliation.sql', import.meta.url), 'utf8');
 const modelAssetMigration = readFileSync(new URL('../migrations/0007_model_a_frozen_assets.sql', import.meta.url), 'utf8');
+const rosterMigration = readFileSync(new URL('../migrations/0008_program_roster_candidate.sql', import.meta.url), 'utf8');
 
 test('D1 SQLite migration accepts actual race inserts, rejects duplicate loss', () => {
   const db = new DatabaseSync(':memory:');
@@ -150,5 +151,24 @@ test('frozen Model A asset migration preserves results and does not enable produ
   assert.equal(db.prepare('SELECT result_json FROM race_schedule').get().result_json, '{"status":"SETTLED"}');
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM model_a_frozen_bundle').get().n, 0);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM model_a_frozen_chunk').get().n, 0);
+  db.close();
+});
+
+test('diagnostic program roster snapshot migration never mutates a race forecast or result', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, result_json)
+    VALUES ('2026-11-07-01-1', '2026-11-07', 1, 1, 100000, 0, '{"status":"SETTLED"}')`).run();
+  db.exec(rosterMigration);
+  db.exec(rosterMigration);
+  db.prepare(`INSERT INTO program_roster_candidate (race_id, checked_ms, status, candidate_json)
+    VALUES ('2026-11-07-01-1', 90000, 'SHAPE_ONLY_UNVERIFIED', '{"racers":[]}')`).run();
+  assert.equal(db.prepare('SELECT result_json FROM race_schedule').get().result_json, '{"status":"SETTLED"}');
+  assert.equal(db.prepare('SELECT decision FROM race_schedule').get().decision, null);
+  assert.throws(() => db.prepare(`INSERT INTO program_roster_candidate
+    (race_id, checked_ms, status, candidate_json)
+    VALUES ('missing-race', 90000, 'SHAPE_ONLY_UNVERIFIED', '{}')`).run());
+  assert.throws(() => db.prepare(`UPDATE program_roster_candidate SET status='SHAPE_ONLY_UNVERIFIED', candidate_json=NULL`).run());
   db.close();
 });

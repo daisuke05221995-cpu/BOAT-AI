@@ -5,6 +5,7 @@ import {
 import { summarizeDailyAudit } from './audit.mjs';
 import { verifiedOddsPayload, verifiedPreviewPayload, verifiedStoredCapture } from './preclose.mjs';
 import { normalizePublishedResult, resultRetryDue } from './result.mjs';
+import { inspectProgramRosterCandidate } from './program-roster-candidate.mjs';
 
 const allowedHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 const MAX_IMPORT_RACES = 288;
@@ -86,7 +87,9 @@ async function importDailySchedule(env, date, nowMs) {
     .bind(date, nowMs, nowMs - SCHEDULE_REFRESH_MS).run();
   if (!claim.meta?.changes) return;
   try {
-    const races = extractSchedule(await loadProgram(env, date), date);
+    const program = await loadProgram(env, date);
+    const fetchedAt = Date.now();
+    const races = extractSchedule(program, date);
     if (!races.length || races.length > MAX_IMPORT_RACES) throw new Error('INVALID_SCHEDULE_COUNT');
     // Preserve any already captured data and race deadlines; never overwrite a
     // race's original schedule after a capture attempt has started.
@@ -101,6 +104,19 @@ async function importDailySchedule(env, date, nowMs) {
       await env.DB.batch(races.slice(index, index + 48).map(race =>
         insert.bind(race.race_id, race.race_date, race.stadium_number,
           race.race_number, race.deadline_ms, nowMs)));
+    }
+    // Store a diagnostic candidate separately from the prediction table. The
+    // program feed's actual observation/publishing time is unknown; even a
+    // complete six-boat roster here is NOT a verified forecast input.
+    const saveCandidate = env.DB.prepare(`INSERT INTO program_roster_candidate
+        (race_id, checked_ms, status, failure_code, candidate_json)
+        VALUES (?, ?, ?, ?, ?) ON CONFLICT(race_id) DO NOTHING`);
+    for (let index = 0; index < races.length; index += 48) {
+      await env.DB.batch(races.slice(index, index + 48).map(race => {
+        const observation = inspectProgramRosterCandidate(selectRace(program, race), race, fetchedAt);
+        return saveCandidate.bind(race.race_id, fetchedAt, observation.status,
+          observation.failureCode, observation.candidate ? JSON.stringify(observation.candidate) : null);
+      }));
     }
     await env.DB.prepare('UPDATE daily_import SET race_count=?, last_success_ms=?, failure_code=NULL WHERE race_date=?')
       .bind(races.length, nowMs, date).run();
@@ -288,7 +304,10 @@ export default {
     if (!isValidDate(date)) return jsonResponse({ error: 'INVALID_DATE' }, 400);
     if (url.pathname === '/v1/audit') {
       const [schedule, attempts, imported, heartbeat] = await Promise.all([
-        env.DB.prepare('SELECT * FROM race_schedule WHERE race_date=? ORDER BY deadline_ms LIMIT 288').bind(date).all(),
+        env.DB.prepare(`SELECT s.*, p.status AS program_candidate_status,
+            p.failure_code AS program_candidate_failure_code
+          FROM race_schedule s LEFT JOIN program_roster_candidate p ON s.race_id=p.race_id
+          WHERE s.race_date=? ORDER BY s.deadline_ms LIMIT 288`).bind(date).all(),
         env.DB.prepare(`SELECT a.stage, a.started_ms, a.finished_ms, a.completed, a.failure_code
           FROM capture_attempt a INNER JOIN race_schedule s ON s.race_id=a.race_id
           WHERE s.race_date=? ORDER BY a.started_ms LIMIT 576`).bind(date).all(),

@@ -1,6 +1,6 @@
 # BOAT AI Current Status
 
-Updated: 2026-11-07 (Cloud Worker Model A D1 groundwork and live-data audit)
+Updated: 2026-11-07 (Cloud Worker Model A D1 groundwork, audit and program-roster diagnostics)
 
 ## Current cloud implementation — Android release remains v0.18.25
 
@@ -12,6 +12,8 @@ Updated: 2026-11-07 (Cloud Worker Model A D1 groundwork and live-data audit)
 - The new `Audit live Cloud collection and results` scheduled Action tracks actual read-only daily schedule/Cron/T-8/T-5/results coverage with JSON artifacts. A green workflow cannot be interpreted as a successful live capture or actual forecast. `UNAVAILABLE != SKIP`.
 - Initial production audit Run `42359413922` (2026-11-07 18:21 JST): Nov 6 schedule/results 156/156 (144 legacy settled, 12 postponed); Nov 7 132 scheduled, 114/115 due results recorded, T-8/T-5 attempted 118 times each but **0 complete observations**, `PREVIEW_PROVIDER_NOT_CONFIGURED` 236 failures. Cron active Nov 7. Model A cloud BUY=0, SKIP=0.
 - Rolling research BAH1 contains **132 race updates on Nov 6**, while D1 has 144 terminal settled; 12-count discrepancy (not yet proven which races/data fields failed). A read-only count comparison is being included in recurring audits; count parity alone is not a national coverage certificate.
+- Follow-up production audit Run `42359840160`: Nov 7 **116/116 due results recorded**, but `PREVIEW_PROVIDER_NOT_CONFIGURED` **238 attempted-capture failures** and 0 verified T-8/T-5 pairs; no cloud BUY/SKIP. Earlier pending result recovered. Cloud deploy `42359840094` and Android build `42359840091` succeeded.
+- Program feed 6-racer diagnostic candidate: `0008_program_roster_candidate.sql` stores only a pre-deadline shape check separate from real forecast data. Six registration IDs plus national win rates must match the scheduled identity; missing/duplicate/out-of-time rejects. Valid shape is **`SHAPE_ONLY_UNVERIFIED`**, never licensed/preclose certified or eligible for Model A. Counts and errors appear in the read-only `/v1/audit` and the nightly Actions summary; no Android behavior changes. Candidate coverage will first be observable on a *new* day's schedule import after this deploy; past races will not be backfilled.
 - Next: review the first actual audit report, diagnose result/capture gaps, then pursue the 2026-09-24 onward **independently certified** six-finish national history chain. Only after authorized preclose source and real race parity can cloud BUY/SKIP be enabled.
 
 ---

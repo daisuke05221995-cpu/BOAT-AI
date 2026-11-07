@@ -78,6 +78,23 @@ test('audit marks absent or delayed cron as unobserved or stale', () => {
   assert.equal(stale.cron.status, 'STALE');
 });
 
+test('research-only roster candidates are never counted as trusted forecast inputs', () => {
+  const rows = [
+    race('candidate-1', { program_candidate_status: 'SHAPE_ONLY_UNVERIFIED' }),
+    race('candidate-2', { program_candidate_status: 'SHAPE_ONLY_UNVERIFIED' }),
+    race('missing-1', { program_candidate_status: 'UNAVAILABLE',
+      program_candidate_failure_code: 'PROGRAM_SIX_RACERS_MISSING' }),
+    race('not-checked'),
+  ];
+  const audit = summarizeDailyAudit('2026-11-06', now, rows);
+  assert.deepEqual(audit.program_roster_candidate, {
+    shape_complete_unverified: 2, unavailable: 1, not_checked: 1,
+    source_timestamp_verified: 0, eligible_for_forecast: 0,
+    failure_codes: { PROGRAM_SIX_RACERS_MISSING: 1 },
+  });
+  assert.equal(audit.capture.forecasts_ready, 0);
+});
+
 test('audit distinguishes win payouts, non-formation and postponement from missing results', () => {
   const rows = [
     race('settled', { result_json: JSON.stringify({ status: 'SETTLED', trifecta_combination: '1-2-3' }), result_recorded_ms: now }),
@@ -134,10 +151,49 @@ test('late-night bootstrap batches a full 156-race timetable without backfilled 
   } finally {
     globalThis.fetch = originalFetch;
   }
-  assert.deepEqual(batched.map(batch => batch.length), [48, 48, 48, 12]);
+  assert.deepEqual(batched.map(batch => batch.length), [48, 48, 48, 12, 48, 48, 48, 12]);
   assert.equal(batched.flat().filter(stmt => stmt.sql.includes('INSERT INTO race_schedule')).length, 156);
+  const candidates = batched.flat().filter(stmt => stmt.sql.includes('INSERT INTO program_roster_candidate'));
+  assert.equal(candidates.length, 156);
+  assert.equal(candidates.every(stmt => stmt.args[2] === 'UNAVAILABLE' &&
+    stmt.args[3] === 'PROGRAM_CHECKED_AFTER_DEADLINE' && stmt.args[4] === null), true);
   assert.equal(singleWrites.some(stmt => stmt.sql.includes('UPDATE daily_import SET race_count') && stmt.args[0] === 156), true);
   assert.equal(singleWrites.some(stmt => stmt.sql.includes('forecast_json')), false);
+});
+
+test('morning import stages only six-entrant program shape, never a BUY or source-time assertion', async () => {
+  const nowMs = Date.parse('2026-11-07T07:00:00+09:00');
+  const racers = Object.fromEntries(Array.from({ length: 6 }, (_, i) => [String(i + 1), {
+    entry_number: i + 1, number: i + 4000, rank_number: 3, national_win_rate: 4.8,
+  }]));
+  const program = { programs: { stadiums: { '1': { races: { '1': {
+    date: '2026-11-07', stadium_number: 1, race_number: 1,
+    closed_at: '2026-11-07 10:30:00', racers,
+    preview: { racers: { '1': { start_timing: 0.2 } } },
+    result: { trifecta_combination: '4-2-1' },
+  } } } } } };
+  const saved = [], originals = { fetch: globalThis.fetch, now: Date.now };
+  globalThis.fetch = async () => new Response(JSON.stringify(program), { status: 200 });
+  Date.now = () => nowMs;
+  const env = { DB: {
+    prepare(sql) { return { bind(...args) { return {
+      sql, args,
+      first: async () => null,
+      all: async () => ({ results: [] }),
+      run: async () => ({ meta: { changes: 1 } }),
+    }; } }; },
+    async batch(statements) { saved.push(...statements); return statements.map(() => ({ meta: { changes: 1 } })); },
+  } };
+  try { await runScheduled(env, nowMs); }
+  finally { globalThis.fetch = originals.fetch; Date.now = originals.now; }
+  const candidate = saved.find(stmt => stmt.sql.includes('INSERT INTO program_roster_candidate'));
+  assert.ok(candidate);
+  assert.equal(candidate.args[2], 'SHAPE_ONLY_UNVERIFIED');
+  assert.equal(candidate.args[3], null);
+  assert.equal(JSON.parse(candidate.args[4]).racers.length, 6);
+  assert.equal(candidate.args[4].includes('start_timing'), false);
+  assert.equal(candidate.args[4].includes('trifecta_combination'), false);
+  assert.equal(saved.some(stmt => stmt.sql.includes('forecast_json')), false);
 });
 
 test('simultaneous T-8 claims use D1 batch calls instead of per-race writes', async () => {

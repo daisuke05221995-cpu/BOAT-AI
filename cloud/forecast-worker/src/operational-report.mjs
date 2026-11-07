@@ -35,6 +35,14 @@ export function summarizeOperationalDay(audit) {
       !audit.result_failure_codes || typeof audit.result_failure_codes !== 'object') {
     fail('FAILURE_CODES_MISSING');
   }
+  const candidate = audit.program_roster_candidate;
+  if (candidate && (!int(candidate.shape_complete_unverified) || !int(candidate.unavailable) ||
+      !int(candidate.not_checked) || candidate.shape_complete_unverified + candidate.unavailable +
+      candidate.not_checked !== audit.scheduled_races ||
+      candidate.source_timestamp_verified !== 0 || candidate.eligible_for_forecast !== 0 ||
+      !candidate.failure_codes || typeof candidate.failure_codes !== 'object')) {
+    fail('PROGRAM_CANDIDATE_INCONSISTENT');
+  }
 
   const scheduleStatus = audit.scheduled_races === 0 ?
     (audit.import.failure_code ? 'SCHEDULE_IMPORT_FAILED' : 'NO_SCHEDULE_OBSERVED') :
@@ -61,6 +69,12 @@ export function summarizeOperationalDay(audit) {
       failure_codes: audit.capture_failure_codes },
     recommendations: { status: recommendationStatus, buy: audit.capture.buy,
       skip: audit.capture.skip, unavailable_excluded: true },
+    program_roster_candidate: candidate ? {
+      status: 'SHAPE_ONLY_UNVERIFIED', complete: candidate.shape_complete_unverified,
+      unavailable: candidate.unavailable, not_checked: candidate.not_checked,
+      eligible_for_forecast: 0, failure_codes: candidate.failure_codes,
+    } : { status: 'NOT_OBSERVED', complete: 0, unavailable: 0,
+      not_checked: audit.scheduled_races, eligible_for_forecast: 0, failure_codes: {} },
     results: { status: resultStatus, due: counts.due, recorded: counts.recorded,
       unresolved_due: counts.unresolved_due, settled: counts.settled,
       unformed: counts.unformed, postponed: counts.postponed,
@@ -113,11 +127,12 @@ export function buildOperationalReport(yesterday, today, candidateHistory = null
 
 export function operationalMarkdown(report) {
   const lines = ['## BOAT AI D1 cloud acquisition audit', '',
-    '| JST day | Schedule | Cron | Preclose verified/scheduled | AI BUY/SKIP | Result due coverage |',
-    '| --- | --- | --- | --- | --- | --- |'];
+    '| JST day | Schedule | Cron | Program shape only (UNVERIFIED) | Preclose verified/scheduled | AI BUY/SKIP | Result due coverage |',
+    '| --- | --- | --- | --- | --- | --- | --- |'];
   for (const day of report.days) {
     const coverage = day.results.due_coverage == null ? 'N/A' : `${(day.results.due_coverage * 100).toFixed(1)}%`;
-    lines.push(`| ${day.date} | ${day.scheduled_races} (${day.import.status}) | ${day.cron.status} | ${day.preclose.verified}/${day.scheduled_races} (${day.preclose.status}) | ${day.recommendations.buy}/${day.recommendations.skip} (${day.recommendations.status}) | ${coverage} (${day.results.status}) |`);
+    const p = day.program_roster_candidate;
+    lines.push(`| ${day.date} | ${day.scheduled_races} (${day.import.status}) | ${day.cron.status} | ${p.complete}/${day.scheduled_races} (${p.status}) | ${day.preclose.verified}/${day.scheduled_races} (${day.preclose.status}) | ${day.recommendations.buy}/${day.recommendations.skip} (${day.recommendations.status}) | ${coverage} (${day.results.status}) |`);
   }
   lines.push('', 'Incomplete preclose/forecast data is **UNAVAILABLE**, not SKIP. Missing history/permission cannot be inferred from HTTP success.');
   if (report.days.some(day => day.history_candidate)) {
