@@ -14,11 +14,11 @@ export function evaluate(trials) {
     const valid=a=>!!a&&a.received_ms<t.deadline_ms&&a.complete===true&&a.permission_verified===true&&a.race_identity_verified===true&&a.preview_6_st_weather_complete===true&&a.odds_120_positive_complete===true&&['preview_observed_ms','weather_observed_ms','odds_observed_ms'].every(k=>Number.isFinite(a[k])&&a[k]<=a.received_ms&&a.received_ms-a[k]<=120000&&a[k]<t.deadline_ms);
     const t8=stages.get('T8'),t5=stages.get('T5');if(t8)result.t8_attempted++;
     const good8=valid(t8);if(good8)result.t8_complete++;else result.t5_eligible++;
-    if(t5){if(good8)throw Error('unnecessary T5 after complete T8');result.t5_attempted++;}
+    if(t5){if(good8)throw Error('unnecessary T5 after complete T8');if(t8&&t5.request_ms<t8.request_ms)throw Error('T5 request precedes T8');result.t5_attempted++;}
     const good5=!good8&&valid(t5);if(good5)result.t5_rescued++;
     if(good8||good5)result.final_complete++;else result.unavailable++;
   }
   const rate=(n,d)=>d===0?null:n/d;
-  return {...result,t8_complete_rate:rate(result.t8_complete,result.registered),t5_rescue_rate:rate(result.t5_rescued,result.t5_eligible),final_complete_rate:rate(result.final_complete,result.registered)};
+  return {...result,t8_complete_rate:rate(result.t8_complete,result.registered),t5_rescue_rate:rate(result.t5_rescued,result.t5_attempted),t5_attempt_rate:rate(result.t5_attempted,result.t5_eligible),final_complete_rate:rate(result.final_complete,result.registered)};
 }
 if(process.argv[1]&&import.meta.url===new URL('file://'+process.argv[1]).href)console.log(JSON.stringify(evaluate(JSON.parse(readFileSync(process.argv[2],'utf8')).trials),null,2));
