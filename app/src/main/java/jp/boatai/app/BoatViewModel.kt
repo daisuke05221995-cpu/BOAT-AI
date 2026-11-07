@@ -69,7 +69,8 @@ data class BoatUiState(
     val operationalIssues: List<OperationalIssue> = emptyList(),
     val liveOddsRefresh: LiveOddsRefreshStatus = LiveOddsRefreshStatus(),
     val cloudForecast: CloudForecastSyncState = CloudForecastSyncState(),
-    val collectorModeEnabled: Boolean = false
+    val collectorModeEnabled: Boolean = false,
+    val collectorUpload: CollectorUploadStatus = CollectorUploadStatus()
 )
 
 class BoatViewModel(application: Application) : AndroidViewModel(application) {
@@ -88,6 +89,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val crashRecoveryStore = CrashRecoveryStore(application)
     private val fetchAuditStore = DataFetchAuditStore(application)
     private val collectorModeStore = CollectorModeStore(application)
+    private val collectorAuthStore = CollectorAuthStore(application)
+    private val collectorHeartbeatUploader = CollectorHeartbeatUploader()
     private val operationalMonitoringStartedAt = operationalSelfCheckStore.monitoringStartedAt()
     private fun currentToday(): LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo"))
     private fun earliestBrowsableDate(): LocalDate = currentToday().minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
@@ -100,6 +103,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private var liveRefreshJob: Job? = null
     private var cloudSyncJob: Job? = null
     private var lastCloudAttemptAt = 0L
+    private var collectorUploadJob: Job? = null
+    private var lastCollectorUploadAttemptAt = 0L
     private val lastAutoOddsAttemptAt = mutableMapOf<String, Long>()
     // 0 = nationwide, 1..24 = venue. A single tap on recommended-only stays active
     // while official 120-way odds are resolved sequentially.
@@ -114,7 +119,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             predictionHistory = initialPredictionHistory,
             performance = initialPerformance,
             notificationsEnabled = notificationScheduler.enabled,
-            collectorModeEnabled = collectorModeStore.isEnabled()
+            collectorModeEnabled = collectorModeStore.isEnabled(),
+            collectorUpload = CollectorUploadStatus(configured = collectorAuthStore.hasToken())
         )
     )
     val ui: StateFlow<BoatUiState> = _ui.asStateFlow()
@@ -196,6 +202,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 if (reloadCollectorTodayIfNeeded()) continue
                 refreshLiveDataIfDue()
                 if (_ui.value.date == currentToday()) refreshCloudForecasts(_ui.value.date)
+                maybeUploadCollectorHeartbeat()
             }
         }
     }
@@ -220,6 +227,53 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         ) }
         if (enabled) {
             if (!reloadCollectorTodayIfNeeded()) refreshLiveDataIfDue()
+            maybeUploadCollectorHeartbeat(force = true)
+        }
+    }
+
+    /** Call only from settings on the collection phone; never expose the key to UI or logs. */
+    fun configureCollectorToken(input: String) {
+        runCatching { collectorAuthStore.saveToken(input.trim()) }
+            .onSuccess {
+                lastCollectorUploadAttemptAt = 0L
+                _ui.update { it.copy(collectorUpload = it.collectorUpload.copy(configured = true, error = null)) }
+                maybeUploadCollectorHeartbeat(force = true)
+            }
+            .onFailure { error ->
+                _ui.update { it.copy(collectorUpload = it.collectorUpload.copy(error = error.message ?: "共有キーを保存できません")) }
+            }
+    }
+
+    fun clearCollectorToken() {
+        collectorUploadJob?.cancel()
+        collectorAuthStore.removeToken()
+        _ui.update { it.copy(collectorUpload = CollectorUploadStatus()) }
+    }
+
+    private fun maybeUploadCollectorHeartbeat(force: Boolean = false) {
+        val state = _ui.value
+        if (!state.collectorModeEnabled || state.date != currentToday() || !state.collectorUpload.configured) return
+        if (collectorUploadJob?.isActive == true) return
+        val now = System.currentTimeMillis()
+        if (!force && now - lastCollectorUploadAttemptAt < 120_000L) return
+        val token = collectorAuthStore.readToken() ?: run {
+            _ui.update { it.copy(collectorUpload = CollectorUploadStatus(error = "共有キーの読込に失敗しました")) }
+            return
+        }
+        lastCollectorUploadAttemptAt = now
+        val body = CollectorHeartbeatContract.encode(collectorAuthStore.deviceId(), state, now).toString()
+        _ui.update { it.copy(collectorUpload = it.collectorUpload.copy(uploading = true)) }
+        collectorUploadJob = viewModelScope.launch {
+            try {
+                val acceptedAt = collectorHeartbeatUploader.upload(body, token)
+                _ui.update { it.copy(collectorUpload = it.collectorUpload.copy(
+                    uploading = false, lastAcceptedAt = acceptedAt, error = null)) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _ui.update { it.copy(collectorUpload = it.collectorUpload.copy(
+                    uploading = false, error = error.message ?: "クラウド送信に失敗しました")) }
+            }
         }
     }
 

@@ -14,6 +14,25 @@ const rosterMigration = readFileSync(new URL('../migrations/0008_program_roster_
 const finishMigration = readFileSync(new URL('../migrations/0009_six_finish_candidate.sql', import.meta.url), 'utf8');
 const shadowMigration = readFileSync(new URL('../migrations/0010_model_a_shadow.sql', import.meta.url), 'utf8');
 const autoHistoryMigration = readFileSync(new URL('../migrations/0011_model_a_history_auto.sql', import.meta.url), 'utf8');
+const collectorMigration = readFileSync(new URL('../migrations/0012_device_collector_heartbeat.sql', import.meta.url), 'utf8');
+
+test('device receipt migration never touches a user bet or forecast', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, forecast_json)
+    VALUES ('2026-11-07-01-1', '2026-11-07', 1, 1, 100000, 0, '{"prior":"untouched"}')`).run();
+  db.exec(collectorMigration);
+  db.exec(collectorMigration);
+  db.prepare(`INSERT INTO collector_device_heartbeat
+    (device_id,race_date,device_sent_ms,received_ms,app_version,race_count,odds_attempted,odds_succeeded,odds_failed)
+    VALUES ('a4bc0020-16cc-4db5-9448-a709029b2017','2026-11-07',10,11,'0.18.27',144,3,2,1)`).run();
+  assert.equal(db.prepare('SELECT odds_succeeded FROM collector_device_heartbeat').get().odds_succeeded, 2);
+  assert.equal(db.prepare('SELECT forecast_json FROM race_schedule').get().forecast_json, '{"prior":"untouched"}');
+  assert.throws(() => db.prepare(`UPDATE collector_device_heartbeat SET race_count=999`).run());
+  assert.equal(db.prepare('PRAGMA table_info(collector_device_heartbeat)').all().some(x => /odds_json|forecast|bet/i.test(x.name)), false);
+  db.close();
+});
 
 test('D1 SQLite migration accepts actual race inserts, rejects duplicate loss', () => {
   const db = new DatabaseSync(':memory:');

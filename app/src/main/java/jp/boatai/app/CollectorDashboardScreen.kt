@@ -11,13 +11,19 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -76,7 +82,10 @@ internal fun CollectorDashboardScreen(
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("クラウドとの接続", fontWeight = FontWeight.Bold)
                     Text("クラウド読取 ${collectorTime(ui.cloudForecast.lastSyncAt)}")
-                    Text("端末からクラウドへのデータ送信：未接続。取得成功をクラウド予想の成功とは扱いません。", style = MaterialTheme.typography.bodySmall)
+                    Text("取得監査の送信：${if (!ui.collectorUpload.configured) "共有キー未設定" else if (ui.collectorUpload.uploading) "送信中" else "待機中"}")
+                    Text("最後の受信確認 ${collectorTime(ui.collectorUpload.lastAcceptedAt)}", style = MaterialTheme.typography.bodySmall)
+                    Text("件数・端末受信時刻のみを送信。オッズ値・展示値・購入履歴は送らず、クラウド予想にも採用しません。", style = MaterialTheme.typography.bodySmall)
+                    ui.collectorUpload.error?.let { Text("送信エラー：$it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     ui.cloudForecast.error?.let { Text("クラウド読取エラー：$it", style = MaterialTheme.typography.bodySmall) }
                 }
             }
@@ -92,7 +101,8 @@ internal fun CollectorDashboardScreen(
 }
 
 @Composable
-internal fun CollectorModeSettingsCard(enabled: Boolean, onChanged: (Boolean) -> Unit) {
+internal fun CollectorModeSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
+    var tokenInput by remember { mutableStateOf("") }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -100,9 +110,28 @@ internal fun CollectorModeSettingsCard(enabled: Boolean, onChanged: (Boolean) ->
                     Text("2台目スマホ：常時取得モード", fontWeight = FontWeight.Bold)
                     Text("この端末でのみ有効。通常の購入記録やもう1台の設定は変更しません。", style = MaterialTheme.typography.bodySmall)
                 }
-                Switch(checked = enabled, onCheckedChange = onChanged)
+                Switch(checked = ui.collectorModeEnabled, onCheckedChange = vm::setCollectorModeEnabled)
             }
-            Text("画面点灯維持・本日データへの自動切替・取得状況の表示。クラウドへの書込や自動投票はまだ行いません。", style = MaterialTheme.typography.bodySmall)
+            Text("画面点灯維持・本日データへの自動切替・取得状況の表示。予想や実購入履歴は別管理です。", style = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(
+                value = tokenInput,
+                onValueChange = { tokenInput = it.take(200) },
+                label = { Text("クラウド監査送信用の共有キー") },
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { vm.configureCollectorToken(tokenInput); tokenInput = "" }, enabled = tokenInput.length >= 32) {
+                    Text("共有キーを保存")
+                }
+                OutlinedButton(onClick = vm::clearCollectorToken, enabled = ui.collectorUpload.configured) {
+                    Text("キー削除")
+                }
+            }
+            Text("保存状況：${if (ui.collectorUpload.configured) "設定済み（端末内で暗号化）" else "未設定"}", style = MaterialTheme.typography.bodySmall)
+            ui.collectorUpload.error?.let { Text("設定／送信エラー：$it", style = MaterialTheme.typography.bodySmall) }
+            Text("クラウド側のCOLLECTOR_INGEST_TOKENと同じ32文字以上のキーを設定してください。キーはチャットやGitHubコードに貼らないでください。", style = MaterialTheme.typography.bodySmall)
         }
     }
 }

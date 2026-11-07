@@ -1,5 +1,7 @@
 # BOAT AI 引継ぎメモ
 
+> **2026-11-07 Android v0.18.27 / 2台目クラウド監査通信（新規実装）**：常時取得端末から、件数と端末受信時刻だけを共有キー認証のHTTPSでWorkerに送信する。端末側の共有キーはAndroid Keystoreで暗号化しバックアップ対象外、未設定なら送信しない。D1は直近1件/端末の受信監査だけ保存し、`GET /v1/device-collector/status` に個体識別子を出さず表示。**これは本物の取得元観測時刻の証明ではないのでオッズ・展示の本体や購入記録を送らず、Model A / BUY / SKIPには一切接続しない**。初期状態でWorker Secret `COLLECTOR_INGEST_TOKEN` は未設定のため運用OFF。端末とWorkerへ同じ32文字以上のキーを別途セット後に連携可能。詳細 `data/ANDROID_COLLECTOR_CLOUD_TELEMETRY_20261107.md`。既存v0.18.26が動いている場合は上書き更新し、データ削除しない。
+
 > **2026-11-07 Android v0.18.26（2台目Android用）**：設定から端末限定の「常時取得モード」をONにすると、既存60秒前面取得を維持し、画面消灯防止・日付跨ぎのJST当日自動切替・取得監視画面が使える。デフォルトOFF、実購入履歴と他端末は変更しない。**端末→Cloudflareへの生データ送信は未実装**、配信元の更新時刻が不明のデータは認証済み予想に昇格しない。`data/ANDROID_COLLECTOR_MODE_20261107.md` 参照。これより下の旧バージョン記述は過去記録。
 
 > **2026-11-07 履歴自動更新の追加**：クラウドCronに、承認済み全国履歴の完備・結果・締切前観測時刻を確認してBAH1世代を1日ずつSHA検証・D1保存・CASで昇格させる経路を実装。`GET /v1/history-status` で進捗監査できる。**取得元未設定のため現在は自動更新OFF・最新実履歴ではない**。`data/CLOUD_PROGRESS_20261107_AUTO_HISTORY.md` と `cloud/forecast-worker/README.md` の先頭参照。

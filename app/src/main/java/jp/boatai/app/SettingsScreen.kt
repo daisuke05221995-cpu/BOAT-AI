@@ -30,7 +30,7 @@ fun SettingsScreen(ui: BoatUiState, vm: BoatViewModel) {
                 }
             }
         }
-        item { CollectorModeSettingsCard(ui.collectorModeEnabled, vm::setCollectorModeEnabled) }
+        item { CollectorModeSettingsCard(ui, vm) }
         item { Text("通知・購入", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
         item { NotificationSettingsCard(ui, vm) }
         item { Text("データ・バックアップ", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
