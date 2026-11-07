@@ -10,6 +10,7 @@ import { inspectSixFinishCandidate } from './six-finish-candidate.mjs';
 import { evaluateModelAShadow, parseShadowApprovals } from './model-a-shadow.mjs';
 import { SOURCE_MAX_AGE_MS } from './preclose.mjs';
 import { FROZEN_MODEL_A_BUNDLE_SHA256 } from './model-a-model-store.mjs';
+import { runAutomaticHistoryCatchup } from './model-a-history-auto.mjs';
 
 const allowedHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 const MAX_IMPORT_RACES = 288;
@@ -346,6 +347,10 @@ export async function runScheduled(env, nowMs = Date.now()) {
     await importDailySchedule(env, date, nowMs);
     await captureDueRaces(env, date, nowMs);
     await settleDueRaces(env, date, nowMs);
+    // At most one historical day per cron, never before its JST day-end.
+    // A missing authorized feed is a no-op; old results and live capture
+    // continue even if a history day cannot be certified.
+    await runAutomaticHistoryCatchup(env, nowMs);
     await env.DB.prepare(`UPDATE cron_heartbeat SET
       last_completed_ms=MAX(COALESCE(last_completed_ms, 0), ?),
       completed_count=completed_count+1, last_error_code=NULL WHERE race_date=?`)
@@ -363,6 +368,18 @@ export default {
     const url = new URL(request.url);
     if (request.method !== 'GET') return jsonResponse({ error: 'METHOD_NOT_ALLOWED' }, 405);
     if (url.pathname === '/v1/health') return jsonResponse({ ok: true, service: 'boat-ai-cloud', schema_version: 1 });
+    if (url.pathname === '/v1/history-status') {
+      const [active, attempts] = await Promise.all([
+        env.DB.prepare('SELECT through_day FROM model_a_history_active WHERE singleton=1').first(),
+        env.DB.prepare(`SELECT race_date, last_finished_ms, status, reason, expected_races,
+            committed_races FROM model_a_history_day_attempt ORDER BY race_date DESC LIMIT 7`).all(),
+      ]);
+      const day = active?.through_day ?? null;
+      return jsonResponse({ mode: 'STRICT_DAILY_HISTORY', history_through_date: day ?
+        new Date((day - 719_163) * 86_400_000).toISOString().slice(0, 10) : null,
+        ready_for_today: day === Math.floor(Date.parse(`${japanDate(Date.now())}T00:00:00Z`) / 86_400_000) + 719_163 - 1,
+        recent_attempts: attempts.results ?? [] });
+    }
     if (url.pathname !== '/v1/forecasts' && url.pathname !== '/v1/audit' &&
         url.pathname !== '/v1/model-a-shadow') return jsonResponse({ error: 'NOT_FOUND' }, 404);
     const date = url.searchParams.get('date');

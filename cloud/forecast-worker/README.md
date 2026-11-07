@@ -1,5 +1,18 @@
 # BOAT AI クラウド実行基盤（段階1：データ収集・監査・直前品質検証）
 
+## 2026-11-07 Model A 前日までの履歴を自動確定する経路
+
+`model-a-history-auto.mjs` + `0011_model_a_history_auto.sql` に、明示的に承認された全開催履歴APIから**連続した1日分だけ**取得し、全レースと6艇の着順・結果出典・時刻・締切前出走/展示/気象の生観測時刻を検証して、D1の固定BAH1履歴を1日ずつ更新する処理を追加。Workerの1分Cronで1回につき最大1日を処理し、失敗時は同日を1時間以上空けて再試行する。D1アクティブ履歴は完全検証・SHA照合・連続世代確認後だけ切り替え、不完全日は切り替えない。端末にある購入履歴やAndroid公式オッズ取得には触れない。
+
+**本番運用設定はデフォルトOFF。** 以下すべてが、許諾と履歴完全性を確認済みの場合のみWorker環境へ設定する。
+
+- `HISTORY_DAILY_FEED_URL`：HTTPSの全国確定結果・過去の締切前入力の保存済み観測証跡を返すAPI。`date=YYYY-MM-DD` を付与する。必要な場合は `HISTORY_DAILY_FEED_TOKEN` をsecret登録。
+- `HISTORY_APPROVED_SOURCES_JSON`：配信元IDごとの明示的な承認リスト。キーは `coverage`,`schedule`,`result`,`roster`,`preview`,`weather` の6つ。例示の文字列を本番設定しても許諾・正しさの根拠にならない。
+- フィード返却は `{ "manifest": { "date", "scheduledRaceIds", "expectedRaceCount", "scheduleSource", "resultSource", "confirmedAt", "coverageSource", "coverageStatus":"NATIONAL_ALL_VENUES_COMPLETE", "coverageConfirmedAt" }, "races": [...] }`。各SETTLEDの `race` は既存 `reconcileModelAHistoryDay` が要求するModel A入力と6艇全着順を持ち、`sourceEvidence` に観測元・`capturedAt`・`rosterObservedAt`・`previewObservedAt`・`weatherObservedAt`・`resultObservedAt`・`resultRecordId`・`resultRaceId`・`registrationNumbersByLane` が必須。**歴史を後から閲覧した時刻を締切前観測として扱わない**。現行の日付プログラムフィードや未監査の研究履歴ではこの条件を満たさない。
+- `GET /v1/history-status` は認証済み履歴の最終日・今日の予想に使えるか・直近7日分の失敗理由だけを公開。選手の情報、トークン、実購入履歴、未検証予想は公開しない。
+
+全国網羅性の宣言だけをモデル精度の保証とは扱わず、明示承認済みのcoverage sourceと公開日付フィードの既存スケジュール（ある日だけ）を突合する。日付フィード未収録の過去日も、認可済みcoverage manifestが必要。凍結履歴の9月23日から今日まで欠損せず昇格した場合だけ、前日の予想に使用できる。**現時点でこの履歴元は未設定で、実データの更新成功を示すものではない。**
+
 ## 2026-11-07 Model A shadow 接続（購入判定OFF）
 
 `0010_model_a_shadow.sql` と `model-a-shadow.mjs` で、Cron のT-8/T-5試行から、**取得元が明示的に承認された出走6艇・展示・気象・120オッズ → 前日まで連続検証済みのD1履歴 → SHA検証済み固定LightGBM3本 → 120通りの純粋な予想確率**までを1回で実行できる経路を接続した。予想確率と各出典時刻は `model_a_shadow_attempt` に隔離して記録し、公開するのは `/v1/model-a-shadow?date=YYYY-MM-DD` の件数・理由別集計のみ。Android側の購入予想、既存の結果、実購入履歴、BUY/SKIPには一切反映しない。

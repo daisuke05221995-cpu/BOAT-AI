@@ -1,5 +1,7 @@
 # BOAT AI 引継ぎメモ
 
+> **2026-11-07 履歴自動更新の追加**：クラウドCronに、承認済み全国履歴の完備・結果・締切前観測時刻を確認してBAH1世代を1日ずつSHA検証・D1保存・CASで昇格させる経路を実装。`GET /v1/history-status` で進捗監査できる。**取得元未設定のため現在は自動更新OFF・最新実履歴ではない**。`data/CLOUD_PROGRESS_20261107_AUTO_HISTORY.md` と `cloud/forecast-worker/README.md` の先頭参照。
+
 > **2026-11-07 クラウドの最新差分**：固定Model Aの3モデル・履歴をD1から検証ロードし、利用許可済みの4種直前入力が揃った場合にだけ120通り確率を計算する **forecast-only shadow経路** をCronへ接続。`cloud/forecast-worker/README.md` の先頭と `data/CLOUD_PROGRESS_20261107_SHADOW_WIRING.md` を参照。2026-09-23以降の全国履歴が未認証、直前提供元も未設定なので、現時点のクラウドBUY/SKIPは**未稼働**。この下の2026-09-26時点のAndroid v0.16.5記録は過去のスナップショットであり、最新版はv0.18.25。
 
 更新日: 2026-09-26
