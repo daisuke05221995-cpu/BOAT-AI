@@ -16,6 +16,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -29,6 +31,7 @@ fun PendingPurchaseCard(
     showLaunchFallback: Boolean = false
 ) {
     val selected = session.selectedRaces
+    val state by vm.ui.collectAsState()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -118,15 +121,15 @@ fun PendingPurchaseCard(
             Spacer(Modifier.height(6.dp))
             OutlinedButton(
                 onClick = vm::sendPendingPurchaseToCollector,
-                enabled = selected.isNotEmpty() && !vm.ui.value.purchaseHandoff.sending,
+                enabled = selected.isNotEmpty() && !state.purchaseHandoff.sending,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (vm.ui.value.purchaseHandoff.sending) "2台目に転送中…" else "買い目を2台目へ送る")
+                Text(if (state.purchaseHandoff.sending) "2台目に転送中…" else "買い目を2台目へ送る")
             }
-            vm.ui.value.purchaseHandoff.message?.let {
+            state.purchaseHandoff.message?.let {
                 Text(it, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
             }
-            vm.ui.value.purchaseHandoff.error?.let {
+            state.purchaseHandoff.error?.let {
                 Text(it, color = androidx.compose.material3.MaterialTheme.colorScheme.error,
                     style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
             }
