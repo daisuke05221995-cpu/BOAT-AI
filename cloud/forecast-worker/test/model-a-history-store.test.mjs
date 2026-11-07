@@ -1,13 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { ModelAPlayerHistory } from '../src/model-a-history.mjs';
 import { encodeModelAHistoryAsset } from '../src/model-a-history-codec.mjs';
 import { HISTORY_CHUNK_BYTES, sealAndroidHistoryBase, sealReconciledHistoryDay,
   stageHistoryCheckpoint, loadVerifiedHistoryCheckpoint,
-  activateVerifiedHistoryCheckpoint } from '../src/model-a-history-store.mjs';
+  activateVerifiedHistoryCheckpoint, FROZEN_ANDROID_HISTORY_BASE,
+  renderFrozenHistoryBaseSql } from '../src/model-a-history-store.mjs';
 
 const schema = readFileSync(new URL('../migrations/0004_model_a_history_generations.sql', import.meta.url), 'utf8');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -126,4 +130,56 @@ test('frozen Android 4.22 MB history is sealed in D1-safe chunks and reconstitut
   assert.equal(restored.state.updateRaces, 141_542);
   // Stored 2026-09-23 history remains dated 2026-09-23, not artificially current.
   db.sqlite.close();
+});
+
+test('frozen BAH1 SQL bootstrap survives interrupted/repeated D1 imports without activating stale history', async () => {
+  const bytes = readFileSync(new URL('../../../app/src/main/assets/model_a_history.bin', import.meta.url));
+  const base = await sealAndroidHistoryBase(bytes, {
+    bytes: FROZEN_ANDROID_HISTORY_BASE.bytes, sha256: FROZEN_ANDROID_HISTORY_BASE.sha256,
+  });
+  const sql = renderFrozenHistoryBaseSql(base, 1700000000000);
+  assert.equal((sql.match(/INSERT OR IGNORE/g) ?? []).length, FROZEN_ANDROID_HISTORY_BASE.chunkCount + 1);
+  assert.ok(sql.split('\n').every(line => Buffer.byteLength(line, 'utf8') <= 100_000));
+  const db = mockD1();
+  try {
+    db.sqlite.exec(sql.split('\n').slice(0, 27).join('\n'));
+    db.sqlite.exec(sql);
+    db.sqlite.exec(sql);
+    const restored = await loadVerifiedHistoryCheckpoint(db, base.sha256);
+    assert.equal(restored.sha256, FROZEN_ANDROID_HISTORY_BASE.sha256);
+    assert.equal(Buffer.compare(restored.bytes, bytes), 0);
+    assert.equal(restored.state.lastDay, 739_882);
+    assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM model_a_history_chunk').get().n, 9);
+    assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM model_a_history_active').get().n, 0);
+  } finally { db.sqlite.close(); }
+});
+
+test('remote Wrangler BAH1 audit checks complete bytes and rejects modified chunks', async () => {
+  const bytes = readFileSync(new URL('../../../app/src/main/assets/model_a_history.bin', import.meta.url));
+  const base = await sealAndroidHistoryBase(bytes, {
+    bytes: FROZEN_ANDROID_HISTORY_BASE.bytes, sha256: FROZEN_ANDROID_HISTORY_BASE.sha256,
+  });
+  const rows = base.chunks.map(chunk => ({
+    sha256: base.sha256, previous_sha256: null, kind: base.kind,
+    through_day: base.throughDay, update_races: base.updateRaces,
+    byte_length: base.byteLength, chunk_count: base.chunks.length,
+    audit_json: JSON.stringify(base.audit), audit_sha256: base.auditSha256,
+    chunk_index: chunk.index, chunk_sha256: chunk.sha256, base64_data: chunk.base64,
+  }));
+  const folder = mkdtempSync(join(tmpdir(), 'boat-ai-frozen-history-d1-'));
+  const file = join(folder, 'wrangler.json');
+  const run = () => execFileSync(process.execPath, [
+    new URL('../tools/verify_frozen_history_d1_export.mjs', import.meta.url).pathname,
+    file, base.sha256,
+  ], { encoding: 'utf8', stdio: 'pipe', maxBuffer: 16 * 1024 * 1024 });
+  try {
+    writeFileSync(file, JSON.stringify([{ success: true, results: rows }]));
+    const result = JSON.parse(run());
+    assert.equal(result.verified, true);
+    assert.equal(result.active, false);
+    assert.equal(result.updateRaces, 141_542);
+    rows[2].base64_data = 'AA==';
+    writeFileSync(file, JSON.stringify([{ success: true, results: rows }]));
+    assert.throws(run);
+  } finally { rmSync(folder, { recursive: true }); }
 });

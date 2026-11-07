@@ -4,6 +4,14 @@ import { encodeModelAHistoryAsset, decodeModelAHistoryAsset,
   verifyModelAHistoryAsset } from './model-a-history-codec.mjs';
 
 export const HISTORY_CHUNK_BYTES = 512 * 1024;
+export const HISTORY_SQL_LITERAL_CHARS = 64 * 1024;
+export const FROZEN_ANDROID_HISTORY_BASE = Object.freeze({
+  bytes: 4_222_646,
+  sha256: 'a180aa722ad0520b5d86705bac742ff588309e72a49bed373eabf102f257acc3',
+  throughDay: 739_882,
+  updateRaces: 141_542,
+  chunkCount: 9,
+});
 const HEX64 = /^[0-9a-f]{64}$/;
 const fail = code => { throw new Error(`MODEL_A_CHECKPOINT_${code}`); };
 const digest = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)),
@@ -55,6 +63,42 @@ export async function sealAndroidHistoryBase(bytes, expectedManifest) {
       sourceAssetSha256: expectedManifest.sha256 } });
   if (checkpoint.sha256 !== expectedManifest.sha256) fail('BASE_DIGEST_MISMATCH');
   return checkpoint;
+}
+
+// Authenticated Wrangler bootstrap for the exact frozen Android BAH1 history
+// only. No active pointer, cron registration, history-day promotion or forecast
+// mutation. D1 SQL text is limited to 100KB per statement. Repeated partial
+// imports are safe: each append requires the expected existing string length.
+export function renderFrozenHistoryBaseSql(checkpoint, stagedMs = Date.now()) {
+  const fixed = FROZEN_ANDROID_HISTORY_BASE;
+  if (checkpoint?.sha256 !== fixed.sha256 || checkpoint?.kind !== 'FROZEN_BASE' ||
+      checkpoint.previousSha256 !== null || checkpoint.throughDay !== fixed.throughDay ||
+      checkpoint.updateRaces !== fixed.updateRaces || checkpoint.byteLength !== fixed.bytes ||
+      checkpoint.chunks?.length !== fixed.chunkCount ||
+      checkpoint.audit?.status !== 'VERIFIED_ANDROID_BASE' ||
+      checkpoint.audit?.sourceAssetSha256 !== fixed.sha256 ||
+      checkpoint.audit?.historyLastDay !== fixed.throughDay ||
+      !HEX64.test(checkpoint.auditSha256 ?? '') ||
+      !Number.isSafeInteger(stagedMs) || stagedMs < 0) fail('INVALID_SQL_EXPORT');
+  const quote = value => `'${String(value).replaceAll("'", "''")}'`;
+  const statements = [
+    `INSERT OR IGNORE INTO model_a_history_generation (sha256, previous_sha256, kind, through_day, update_races, byte_length, chunk_count, audit_json, audit_sha256, staged_ms) VALUES (${quote(checkpoint.sha256)}, NULL, 'FROZEN_BASE', ${fixed.throughDay}, ${fixed.updateRaces}, ${fixed.bytes}, ${fixed.chunkCount}, ${quote(JSON.stringify(checkpoint.audit))}, ${quote(checkpoint.auditSha256)}, ${stagedMs});`,
+  ];
+  for (let index = 0; index < fixed.chunkCount; index++) {
+    const part = checkpoint.chunks[index];
+    if (part?.index !== index || !HEX64.test(part.sha256 ?? '') ||
+        typeof part.base64 !== 'string' ||
+        !/^[A-Za-z0-9+/]+={0,2}$/.test(part.base64)) fail('INVALID_SQL_EXPORT');
+    statements.push(`INSERT OR IGNORE INTO model_a_history_chunk (sha256, chunk_index, chunk_sha256, base64_data) VALUES (${quote(fixed.sha256)}, ${index}, ${quote(part.sha256)}, '');`);
+    for (let offset = 0; offset < part.base64.length; offset += HISTORY_SQL_LITERAL_CHARS) {
+      const value = part.base64.slice(offset, offset + HISTORY_SQL_LITERAL_CHARS);
+      statements.push(`UPDATE model_a_history_chunk SET base64_data=base64_data || ${quote(value)} WHERE sha256=${quote(fixed.sha256)} AND chunk_index=${index} AND length(base64_data)=${offset};`);
+    }
+  }
+  if (statements.some(statement => new TextEncoder().encode(statement).length > 100_000)) {
+    fail('SQL_STATEMENT_TOO_LARGE');
+  }
+  return `${statements.join('\n')}\n`;
 }
 
 export async function sealReconciledHistoryDay({ state, audit }, previousSha256) {
