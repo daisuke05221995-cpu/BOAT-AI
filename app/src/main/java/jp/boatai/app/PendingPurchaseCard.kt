@@ -116,6 +116,23 @@ fun PendingPurchaseCard(
                 }
             }
             Spacer(Modifier.height(6.dp))
+            OutlinedButton(
+                onClick = vm::sendPendingPurchaseToCollector,
+                enabled = selected.isNotEmpty() && !vm.ui.value.purchaseHandoff.sending,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (vm.ui.value.purchaseHandoff.sending) "2台目に転送中…" else "買い目を2台目へ送る")
+            }
+            vm.ui.value.purchaseHandoff.message?.let {
+                Text(it, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+            }
+            vm.ui.value.purchaseHandoff.error?.let {
+                Text(it, color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+            }
+            Text("2台目に投票予定を表示する機能です。舟券は購入されません。公式サイトで投票してから、1台目で実購入を確定してください。",
+                style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.height(6.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)

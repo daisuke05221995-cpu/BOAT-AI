@@ -16,6 +16,22 @@ const shadowMigration = readFileSync(new URL('../migrations/0010_model_a_shadow.
 const autoHistoryMigration = readFileSync(new URL('../migrations/0011_model_a_history_auto.sql', import.meta.url), 'utf8');
 const collectorMigration = readFileSync(new URL('../migrations/0012_device_collector_heartbeat.sql', import.meta.url), 'utf8');
 const remoteMigration = readFileSync(new URL('../migrations/0013_collector_remote_refresh.sql', import.meta.url), 'utf8');
+const purchaseHandoffMigration = readFileSync(new URL('../migrations/0014_collector_purchase_handoff.sql', import.meta.url), 'utf8');
+
+test('purchase handoff is a proposal-only inbox with one pending item per collector', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(purchaseHandoffMigration);
+  db.exec(purchaseHandoffMigration);
+  db.prepare(`INSERT INTO collector_purchase_handoff
+    (handoff_id, device_id, session_json, status, requested_ms, expires_ms)
+    VALUES ('one','paired','{}','PENDING',100,200)`).run();
+  assert.throws(() => db.prepare(`INSERT INTO collector_purchase_handoff
+    (handoff_id, device_id, session_json, status, requested_ms, expires_ms)
+    VALUES ('two','paired','{}','PENDING',110,210)`).run());
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM race_schedule').get().n, 0);
+  db.close();
+});
 
 test('remote refresh schema is one-command-only and keeps forecasts untouched', () => {
   const db = new DatabaseSync(':memory:');

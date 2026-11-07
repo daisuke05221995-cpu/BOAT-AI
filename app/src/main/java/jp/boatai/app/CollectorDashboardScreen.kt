@@ -54,6 +54,37 @@ internal fun CollectorDashboardScreen(
         }
         item {
             Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("1台目からの購入準備", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    val handoff = ui.collectorPurchaseInbox
+                    if (handoff == null) {
+                        Text("買い目の受信待機中。1台目の『買い目を2台目へ送る』で転送できます。",
+                            style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        Text("${handoff.session.selectedRaces.size}レース / ${handoff.session.selectedTicketCount}点 / 合計${handoff.session.selectedStake}円",
+                            fontWeight = FontWeight.Bold)
+                        handoff.session.selectedRaces.forEach { race ->
+                            Text("${race.venueName} ${race.raceNumber}R：" +
+                                race.tickets.joinToString(" / ") { "${it.combination} ${it.amount}円" },
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        Button(onClick = vm::openCollectorPurchaseHandoff, modifier = Modifier.fillMaxWidth()) {
+                            Text("買い目をコピーして公式投票へ")
+                        }
+                        Text("注意：これは購入準備です。公式サイトでご自身が投票を確定してください。投票結果は1台目で記録します。",
+                            style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(onClick = vm::dismissCollectorPurchaseHandoff, modifier = Modifier.fillMaxWidth()) {
+                            Text("この買い目を閉じる")
+                        }
+                    }
+                    ui.purchaseHandoff.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    ui.purchaseHandoff.error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall) }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("開催・展示の取得", fontWeight = FontWeight.Bold)
                     Text("対象日 ${ui.date} / 開催データ ${ui.races.size}R / 締切前 $available R")
