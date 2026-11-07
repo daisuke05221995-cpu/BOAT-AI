@@ -13,6 +13,7 @@ internal class PurchaseAutomationRunner(
         data object Idle : State
         data class Running(val stepIndex: Int, val totalSteps: Int) : State
         data class AwaitingReview(val expectedTotal: Int) : State
+        data class AwaitingReceipt(val attemptedAtMs: Long) : State
         data class Stopped(val reason: String) : State
     }
 
@@ -66,5 +67,11 @@ internal class PurchaseAutomationRunner(
     fun stop(reason: String) {
         script = null
         state = State.Stopped(reason)
+    }
+
+    fun markSubmissionAttempted(atMs: Long) {
+        if (state !is State.AwaitingReview) return
+        script = null
+        state = State.AwaitingReceipt(atMs)
     }
 }

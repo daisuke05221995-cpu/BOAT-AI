@@ -18,6 +18,80 @@ import java.lang.ref.WeakReference
 class BoatPurchaseAccessibilityService : AccessibilityService() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var runner: PurchaseAutomationRunner? = null
+    private data class FinalizationContext(
+        val session: PendingPurchaseSession,
+        val profile: OfficialPurchaseReviewProfile,
+        val liveRaces: List<RaceData>,
+        val liveDataFetchedAtMs: Long,
+        val submitRequested: Boolean
+    )
+    private var finalizationContext: FinalizationContext? = null
+    private var reviewReadAttempts = 0
+
+    private val verifyOfficialReview = object : Runnable {
+        override fun run() {
+            if (runner?.state !is PurchaseAutomationRunner.State.AwaitingReview) return
+            val context = finalizationContext ?: return
+            if (System.currentTimeMillis() >= armedUntilMs) return stopWithReason("画面照合前に操作許可が失効しました")
+            val observed = collectElements()
+            val review = observed?.let { (_, elements) ->
+                OfficialPurchaseReviewParser.parse(
+                    OFFICIAL_APP_PACKAGE, elements, context.profile, System.currentTimeMillis())
+            }
+            if (review == null) {
+                if (++reviewReadAttempts < 8) mainHandler.postDelayed(this, 500L)
+                else stopWithReason("公式アプリの投票確認画面を完全に読み取れませんでした")
+                return
+            }
+            // Recheck at the time of submission, not when the Android app was launched.
+            val currentCheck = PurchaseAutomationSafety.validate(context.session, context.liveRaces)
+            val gate = PurchaseSubmitGate.validate(
+                context.session, review, currentCheck,
+                System.currentTimeMillis(), context.liveDataFetchedAtMs
+            )
+            if (!gate.allowed) return stopWithReason(gate.reason)
+            if (!context.submitRequested) {
+                // Dry-run stops at a fully matched confirmation screen.
+                armedUntilMs = 0L
+                finalizationContext = null
+                lastRunState = runner?.state ?: PurchaseAutomationRunner.State.Idle
+                return
+            }
+            val (nodes, elements) = observed
+            val buttonIndex = PurchaseUiMatching.uniqueVisibleMatch(elements, context.profile.submitButton)
+                ?: return stopWithReason("投票確定ボタンを一意に確認できません")
+            val button = nodes[buttonIndex]
+            if (button.packageName?.toString() != OFFICIAL_APP_PACKAGE || button.isPassword) {
+                return stopWithReason("公式アプリの投票確定ボタンではありません")
+            }
+            val result = PurchaseSubmissionController(AndroidPurchaseAttemptReservation(this@BoatPurchaseAccessibilityService))
+                .submitOnce(context.session, review, currentCheck, System.currentTimeMillis(),
+                    context.liveDataFetchedAtMs) {
+                    // One click at most. A failed/unknown result is never automatically retried.
+                    button.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                }
+            when (result) {
+                is PurchaseSubmissionResult.Rejected -> stopWithReason(result.reason)
+                PurchaseSubmissionResult.TapFailedDoNotRetry -> stopWithReason("投票操作の結果が不明です。公式購入履歴を確認してください（再送禁止）")
+                PurchaseSubmissionResult.TapAttemptedReceiptPending -> {
+                    runner?.markSubmissionAttempted(System.currentTimeMillis())
+                    lastRunState = runner?.state ?: PurchaseAutomationRunner.State.Idle
+                    armedUntilMs = 0L
+                    finalizationContext = null
+                }
+            }
+        }
+    }
+
+    private fun stopWithReason(reason: String) {
+        mainHandler.removeCallbacks(runNextStep)
+        mainHandler.removeCallbacks(verifyOfficialReview)
+        runner?.stop(reason)
+        lastRunState = runner?.state ?: PurchaseAutomationRunner.State.Stopped(reason)
+        finalizationContext = null
+        armedUntilMs = 0L
+    }
+
     private val runNextStep = object : Runnable {
         override fun run() {
             val sequence = runner ?: return
@@ -35,10 +109,15 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
             // An ambiguous/missing control stops the script; no failed click is retried.
             sequence.acknowledge(performVerifiedStep(step), System.currentTimeMillis())
             lastRunState = sequence.state
-            if (sequence.state is PurchaseAutomationRunner.State.Running) {
-                mainHandler.postDelayed(this, 700L)
-            } else {
-                armedUntilMs = 0L
+            when (sequence.state) {
+                is PurchaseAutomationRunner.State.Running -> mainHandler.postDelayed(this, 700L)
+                is PurchaseAutomationRunner.State.AwaitingReview -> {
+                    if (finalizationContext != null) {
+                        reviewReadAttempts = 0
+                        mainHandler.postDelayed(verifyOfficialReview, 800L)
+                    } else armedUntilMs = 0L
+                }
+                else -> armedUntilMs = 0L
             }
         }
     }
@@ -64,6 +143,8 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         mainHandler.removeCallbacks(runNextStep)
+        mainHandler.removeCallbacks(verifyOfficialReview)
+        finalizationContext = null
         runner?.stop("Androidの操作サービスが終了しました")
         lastRunState = runner?.state ?: PurchaseAutomationRunner.State.Idle
         armedUntilMs = 0L
@@ -154,6 +235,8 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
             armedUntilMs = 0L
             active?.get()?.let { service ->
                 service.mainHandler.removeCallbacks(service.runNextStep)
+                service.mainHandler.removeCallbacks(service.verifyOfficialReview)
+                service.finalizationContext = null
                 service.runner?.stop("ユーザーが操作を停止しました")
                 lastRunState = service.runner?.state ?: PurchaseAutomationRunner.State.Idle
             }
@@ -163,15 +246,29 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
          * Runs an already calibrated, locally compiled script. There is no remote command path,
          * no guessed selector, and no wager submission step. Explicit user activation is needed.
          */
-        internal fun startPreparedScript(plan: PurchaseAutomationScript, check: PurchaseAutomationCheck): Boolean {
+        internal fun startPreparedScript(
+            plan: PurchaseAutomationScript,
+            check: PurchaseAutomationCheck,
+            session: PendingPurchaseSession,
+            profile: OfficialPurchaseScreenProfile,
+            liveRaces: List<RaceData>,
+            liveDataFetchedAtMs: Long,
+            submitRequested: Boolean = false
+        ): Boolean {
             if (System.currentTimeMillis() >= armedUntilMs) return false
             val service = active?.get() ?: return false
             if (Looper.myLooper() != Looper.getMainLooper()) return false
+            if (PurchaseAutomationScriptCompiler.compile(session, profile, check) != plan) return false
+            if (submitRequested && profile.finalization == null) return false
             val sequence = PurchaseAutomationRunner()
             if (!sequence.start(plan, check, System.currentTimeMillis())) return false
             if (service.runner?.state is PurchaseAutomationRunner.State.Running ||
-                service.runner?.state is PurchaseAutomationRunner.State.AwaitingReview) return false
+                service.runner?.state is PurchaseAutomationRunner.State.AwaitingReview ||
+                service.runner?.state is PurchaseAutomationRunner.State.AwaitingReceipt) return false
             service.runner = sequence
+            service.finalizationContext = profile.finalization?.let {
+                FinalizationContext(session, it, liveRaces, liveDataFetchedAtMs, submitRequested)
+            }
             lastRunState = sequence.state
             service.mainHandler.postDelayed(service.runNextStep, 700L)
             return true

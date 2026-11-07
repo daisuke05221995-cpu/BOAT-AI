@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -64,6 +65,7 @@ internal fun CollectorDashboardScreen(
                         Text("買い目の受信待機中。1台目の『買い目を2台目へ送る』で転送できます。",
                             style = MaterialTheme.typography.bodySmall)
                     } else {
+                        var purchaseAcknowledged by remember(handoff.handoffId) { mutableStateOf(false) }
                         Text("${handoff.session.selectedRaces.size}レース / ${handoff.session.selectedTicketCount}点 / 合計${handoff.session.selectedStake}円",
                             fontWeight = FontWeight.Bold)
                         handoff.session.selectedRaces.forEach { race ->
@@ -78,6 +80,21 @@ internal fun CollectorDashboardScreen(
                             modifier = Modifier.fillMaxWidth()) {
                             Text("公式Androidアプリの操作検証")
                         }
+                        if (vm.hasCollectorPurchaseSubmissionProfile()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = purchaseAcknowledged,
+                                    onCheckedChange = { purchaseAcknowledged = it })
+                                Text("上記の買い目と合計金額を確認し、公式アプリへの実投票を許可する",
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                            Button(onClick = {
+                                purchaseAcknowledged = false
+                                vm.startCollectorPurchaseAutoBet()
+                            }, enabled = purchaseAcknowledged,
+                                modifier = Modifier.fillMaxWidth()) {
+                                Text("確認した買い目を公式アプリで実投票する")
+                            }
+                        }
                         OutlinedButton(onClick = vm::copyOfficialAppControlMap,
                             modifier = Modifier.fillMaxWidth()) {
                             Text("公式アプリ画面の操作項目をコピー")
@@ -89,7 +106,7 @@ internal fun CollectorDashboardScreen(
                         Text("操作状態：${vm.collectorPurchaseAutomationStatus()}", style = MaterialTheme.typography.bodySmall)
                         Text("操作検証は締切まで2分以上・合計5,000円以内。実画面に対応した設定があるときのみ買い目入力を試験します。投票確定はまだ行いません。",
                             style = MaterialTheme.typography.bodySmall)
-                        Text("注意：これは購入準備です。公式サイトでご自身が投票を確定してください。投票結果は1台目で記録します。",
+                        Text("実投票ボタンは実画面の操作設定が確認できた場合だけ表示します。投票ボタン操作後も公式の購入履歴で受付結果を確認してください。二重送信はしません。",
                             style = MaterialTheme.typography.bodySmall)
                         OutlinedButton(onClick = vm::dismissCollectorPurchaseHandoff, modifier = Modifier.fillMaxWidth()) {
                             Text("この買い目を閉じる")

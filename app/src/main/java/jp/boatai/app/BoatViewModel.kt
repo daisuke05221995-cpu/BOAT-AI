@@ -372,7 +372,12 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** Stage a five-minute local test of the official Android app UI, without wager submission. */
-    fun startCollectorPurchaseAutomationTest() {
+    fun startCollectorPurchaseAutomationTest() = startCollectorPurchaseAutomation(submitRequested = false)
+
+    /** The deliberate one-session user action that may lead to a real wager. */
+    fun startCollectorPurchaseAutoBet() = startCollectorPurchaseAutomation(submitRequested = true)
+
+    private fun startCollectorPurchaseAutomation(submitRequested: Boolean) {
         val handoff = _ui.value.collectorPurchaseInbox ?: return
         if (!_ui.value.collectorModeEnabled) return
         val check = PurchaseAutomationSafety.validate(handoff.session, _ui.value.races)
@@ -380,13 +385,24 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = check.reason)) }
             return
         }
+        val latestDataAt = _ui.value.programUpdatedAt ?: 0L
+        if (submitRequested && (latestDataAt <= 0L || System.currentTimeMillis() - latestDataAt > 60_000L)) {
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "公式投票前に開催情報を更新してください")) }
+            return
+        }
         if (BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.Running ||
-            BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.AwaitingReview) {
+            BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.AwaitingReview ||
+            BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.AwaitingReceipt) {
             _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "前の操作が進行中または照合待ちです。停止してから再実行してください")) }
             return
         }
         val calibration = officialPurchaseProfileStore.load()
         val script = calibration?.let { PurchaseAutomationScriptCompiler.compile(handoff.session, it, check) }
+        if (submitRequested && (calibration?.finalization == null || script == null)) {
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                error = "公式アプリの確認・投票ボタンが実画面に対応付けられていません")) }
+            return
+        }
         if (!BoatPurchaseAccessibilityService.armForLocalTest(check)) {
             _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
                 error = "ユーザー補助の『BOAT AI』を2台目で有効にしてください")) }
@@ -403,10 +419,13 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             .onSuccess {
                 _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
                     message = if (script == null) "公式アプリを起動しました。実画面の操作設定が未登録のため、入力はしません"
+                    else if (submitRequested) "公式アプリを起動しました。買い目入力と確認画面の照合後、条件が合えば投票を1回だけ試みます"
                     else "公式アプリを起動しました。調整済み画面で買い目入力の検証を始めます（投票確定なし）", error = null)) }
                 if (script != null) viewModelScope.launch {
                     delay(2_500L)
-                    if (!BoatPurchaseAccessibilityService.startPreparedScript(script, check)) {
+                    if (!BoatPurchaseAccessibilityService.startPreparedScript(
+                            script, check, handoff.session, calibration!!, _ui.value.races,
+                            latestDataAt, submitRequested)) {
                         _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "画面操作を開始できません。表示中の公式アプリと設定を確認してください")) }
                     }
                 }
@@ -429,10 +448,14 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun hasCollectorPurchaseProfile(): Boolean = officialPurchaseProfileStore.hasValidProfile()
 
+    fun hasCollectorPurchaseSubmissionProfile(): Boolean =
+        officialPurchaseProfileStore.load()?.finalization != null
+
     fun collectorPurchaseAutomationStatus(): String = when (val state = BoatPurchaseAccessibilityService.automationStatus()) {
         PurchaseAutomationRunner.State.Idle -> "未実行"
         is PurchaseAutomationRunner.State.Running -> "入力中 ${state.stepIndex + 1}/${state.totalSteps} 操作"
         is PurchaseAutomationRunner.State.AwaitingReview -> "入力完了・確認画面の照合待ち（${state.expectedTotal}円）"
+        is PurchaseAutomationRunner.State.AwaitingReceipt -> "投票ボタン操作済み・公式受付結果の確認待ち"
         is PurchaseAutomationRunner.State.Stopped -> "停止：${state.reason}"
     }
 

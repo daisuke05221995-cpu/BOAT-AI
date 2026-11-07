@@ -39,4 +39,17 @@ class OfficialPurchaseProfileCodecTest {
         json.getJSONObject("lanes").getJSONObject("1").remove("6")
         assertNull(OfficialPurchaseProfileCodec.decode(json.toString()))
     }
+
+    @Test fun readsOptionalFinalizationOnlyWhenAllFieldsPresent() {
+        val json = JSONObject(validJson()).put("finalization", JSONObject()
+            .put("rowId", "official:ticket_row")
+            .put("totalId", "official:total")
+            .put("rowPattern", "(.+?) (\\d{1,2})R ([1-6]-[1-6]-[1-6]) ([0-9]+)円")
+            .put("totalPattern", "合計 ([0-9]+)円")
+            .put("title", JSONObject().put("id", "official:review_title"))
+            .put("submit", JSONObject().put("id", "official:submit")))
+        assertNotNull(OfficialPurchaseProfileCodec.decode(json.toString())?.finalization)
+        json.getJSONObject("finalization").remove("submit")
+        assertNull(OfficialPurchaseProfileCodec.decode(json.toString()))
+    }
 }

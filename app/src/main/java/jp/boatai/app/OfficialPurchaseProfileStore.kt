@@ -25,6 +25,23 @@ internal object OfficialPurchaseProfileCodec {
                 index to selector(value.getJSONObject(rawKey))
             }
 
+        val finalization = root.optJSONObject("finalization")?.let { config ->
+            val rowId = config.getString("rowId").trim()
+            val totalId = config.getString("totalId").trim()
+            val rowPattern = config.getString("rowPattern")
+            val totalPattern = config.getString("totalPattern")
+            require(rowId.length in 5..180 && totalId.length in 5..180 &&
+                rowPattern.length in 10..220 && totalPattern.length in 5..140)
+            OfficialPurchaseReviewProfile(
+                rowResourceId = rowId,
+                totalResourceId = totalId,
+                ticketRowPattern = Regex(rowPattern),
+                totalPattern = Regex(totalPattern),
+                submitButton = selector(config.getJSONObject("submit")),
+                reviewTitle = selector(config.getJSONObject("title"))
+            )
+        }
+
         val laneRoot = root.getJSONObject("lanes")
         val laneMap = laneRoot.keys().asSequence().associate { rawKey ->
             val position = rawKey.toInt()
@@ -40,7 +57,8 @@ internal object OfficialPurchaseProfileCodec {
             laneSelectors = laneMap,
             amountInput = selector(root.getJSONObject("amount")),
             addTicket = selector(root.getJSONObject("add")),
-            reviewList = selector(root.getJSONObject("review"))
+            reviewList = selector(root.getJSONObject("review")),
+            finalization = finalization
         ).also { profile ->
             require(profile.venueSelectors.keys.all { it in 1..24 })
             require(profile.raceSelectors.keys.all { it in 1..12 })

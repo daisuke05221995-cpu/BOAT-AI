@@ -21,6 +21,8 @@ class PurchaseAutomationRunnerTest {
         runner.acknowledge(PurchaseUiStepResult.Performed, 300L)
         assertEquals(PurchaseAutomationRunner.State.AwaitingReview(500), runner.state)
         assertNull(runner.currentStep(301L))
+        runner.markSubmissionAttempted(302L)
+        assertEquals(PurchaseAutomationRunner.State.AwaitingReceipt(302L), runner.state)
     }
 
     @Test fun errorsAndTimeoutsStopWithoutRepeatingAnAction() {
