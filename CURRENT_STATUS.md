@@ -1,5 +1,19 @@
 # BOAT AI Current Status
 
+Updated: 2026-11-07 (Cloud Worker Model A D1 groundwork and live-data audit)
+
+## Current cloud implementation — Android release remains v0.18.25
+
+- Cloud main has safe T-8/T-5 capture scheduling, results recovery, D1 audit API and Android read-only forecast sync. The Android's private real-purchase data remains on-device; no automatic betting.
+- Frozen 3-stage Model A has been staged and SHA-revalidated in production D1. The actual restored model matches independent Python goldens for 2 synthetic races × 120 trifecta probabilities, max error `2.0816681711721685e-17`. PRs #49-#51; this is **NOT a proven real-race BUY**.
+- The immutable Android historical base through **2026-09-23** (141,542 races, SHA `a180aa722ad0520b5d86705bac742ff588309e72a49bed373eabf102f257acc3`) has been staged and re-read in D1; the active checkpoint pointer was **not** advanced. PR #52, Action `42358371110` success.
+- Research rolling history through 2026-11-06 does **not** certify national day-by-day completeness. Do not activate or label as current. The program archive parser is offline-only, not a licensed live adapter.
+- Live previews/120 odds lack a verified permissioned high-freshness Worker provider. Work research PR #42 remains the source-investigation owner. Android's existing private official odds acquisition is preserved and unchanged.
+- The new `Audit live Cloud collection and results` scheduled Action tracks actual read-only daily schedule/Cron/T-8/T-5/results coverage with JSON artifacts. A green workflow cannot be interpreted as a successful live capture or actual forecast. `UNAVAILABLE != SKIP`.
+- Next: review the first actual audit report, diagnose result/capture gaps, then pursue the 2026-09-24 onward **independently certified** six-finish national history chain. Only after authorized preclose source and real race parity can cloud BUY/SKIP be enabled.
+
+---
+
 Updated: 2026-10-28 (ROI recovery research kickoff)
 
 ## P1 — 回収率改善を最優先
