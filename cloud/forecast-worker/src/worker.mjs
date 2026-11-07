@@ -12,6 +12,7 @@ import { SOURCE_MAX_AGE_MS } from './preclose.mjs';
 import { FROZEN_MODEL_A_BUNDLE_SHA256 } from './model-a-model-store.mjs';
 import { runAutomaticHistoryCatchup } from './model-a-history-auto.mjs';
 import { ingestCollectorHeartbeat, readCollectorStatus, readCollectorHealth } from './device-collector.mjs';
+import { requestRemoteRefresh, pollRemoteRefresh, acknowledgeRemoteRefresh } from './collector-remote.mjs';
 
 const allowedHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 const MAX_IMPORT_RACES = 288;
@@ -369,6 +370,18 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/v1/device-collector/heartbeat' && request.method === 'POST') {
       const response = await ingestCollectorHeartbeat(request, env);
+      return jsonResponse(response.payload, response.status);
+    }
+    if (url.pathname === '/v1/device-collector/remote/refresh' && request.method === 'POST') {
+      const response = await requestRemoteRefresh(request, env);
+      return jsonResponse(response.payload, response.status);
+    }
+    if (url.pathname === '/v1/device-collector/remote/ack' && request.method === 'POST') {
+      const response = await acknowledgeRemoteRefresh(request, env);
+      return jsonResponse(response.payload, response.status);
+    }
+    if (url.pathname === '/v1/device-collector/remote/next' && request.method === 'GET') {
+      const response = await pollRemoteRefresh(request, env);
       return jsonResponse(response.payload, response.status);
     }
     if (request.method !== 'GET') return jsonResponse({ error: 'METHOD_NOT_ALLOWED' }, 405);

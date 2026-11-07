@@ -71,7 +71,8 @@ data class BoatUiState(
     val cloudForecast: CloudForecastSyncState = CloudForecastSyncState(),
     val collectorModeEnabled: Boolean = false,
     val collectorUpload: CollectorUploadStatus = CollectorUploadStatus(),
-    val collectorMonitor: CollectorCloudMonitorState = CollectorCloudMonitorState()
+    val collectorMonitor: CollectorCloudMonitorState = CollectorCloudMonitorState(),
+    val collectorRemote: CollectorRemoteState = CollectorRemoteState()
 )
 
 class BoatViewModel(application: Application) : AndroidViewModel(application) {
@@ -93,6 +94,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val collectorAuthStore = CollectorAuthStore(application)
     private val collectorHeartbeatUploader = CollectorHeartbeatUploader()
     private val collectorCloudMonitorRepository = CollectorCloudMonitorRepository()
+    private val collectorRemoteRepository = CollectorRemoteRepository()
+    private val collectorRemoteCommandStore = CollectorRemoteCommandStore(application)
     private val operationalMonitoringStartedAt = operationalSelfCheckStore.monitoringStartedAt()
     private fun currentToday(): LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo"))
     private fun earliestBrowsableDate(): LocalDate = currentToday().minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
@@ -109,6 +112,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private var lastCollectorUploadAttemptAt = 0L
     private var collectorMonitorJob: Job? = null
     private var lastCollectorMonitorAttemptAt = 0L
+    private var collectorRemoteJob: Job? = null
+    private var collectorRemoteRequestJob: Job? = null
+    private var lastRemotePollAt = 0L
     private val lastAutoOddsAttemptAt = mutableMapOf<String, Long>()
     // 0 = nationwide, 1..24 = venue. A single tap on recommended-only stays active
     // while official 120-way odds are resolved sequentially.
@@ -197,6 +203,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         if (liveRefreshJob?.isActive == true) return
         liveRefreshJob = viewModelScope.launch {
             reloadCollectorTodayIfNeeded()
+            maybePollCollectorRemote(force = true)
             // On returning to an existing screen, do not wait a full minute for fresh data.
             val initial = _ui.value
             if (initial.races.isNotEmpty() && initial.programUpdatedAt != null &&
@@ -208,6 +215,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 refreshLiveDataIfDue()
                 if (_ui.value.date == currentToday()) refreshCloudForecasts(_ui.value.date)
                 maybeUploadCollectorHeartbeat()
+                maybePollCollectorRemote()
                 refreshCollectorMonitor()
             }
         }
@@ -234,6 +242,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         if (enabled) {
             if (!reloadCollectorTodayIfNeeded()) refreshLiveDataIfDue()
             maybeUploadCollectorHeartbeat(force = true)
+            maybePollCollectorRemote(force = true)
         }
     }
 
@@ -244,6 +253,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 lastCollectorUploadAttemptAt = 0L
                 _ui.update { it.copy(collectorUpload = it.collectorUpload.copy(configured = true, error = null)) }
                 maybeUploadCollectorHeartbeat(force = true)
+                maybePollCollectorRemote(force = true)
             }
             .onFailure { error ->
                 _ui.update { it.copy(collectorUpload = it.collectorUpload.copy(error = error.message ?: "共有キーを保存できません")) }
@@ -252,8 +262,64 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearCollectorToken() {
         collectorUploadJob?.cancel()
+        collectorRemoteJob?.cancel()
+        collectorRemoteRequestJob?.cancel()
         collectorAuthStore.removeToken()
-        _ui.update { it.copy(collectorUpload = CollectorUploadStatus()) }
+        _ui.update { it.copy(collectorUpload = CollectorUploadStatus(), collectorRemote = CollectorRemoteState()) }
+    }
+
+    /** The primary phone requests only a fixed, non-monetary refresh on the paired collector. */
+    fun requestCollectorRemoteRefresh() {
+        if (_ui.value.collectorModeEnabled || collectorRemoteRequestJob?.isActive == true) return
+        val token = collectorAuthStore.readToken() ?: run {
+            _ui.update { it.copy(collectorRemote = it.collectorRemote.copy(error = "1台目にも共有キーを設定してください")) }
+            return
+        }
+        _ui.update { it.copy(collectorRemote = it.collectorRemote.copy(submitting = true, message = null, error = null)) }
+        collectorRemoteRequestJob = viewModelScope.launch {
+            try {
+                collectorRemoteRepository.requestRefresh(token)
+                _ui.update { it.copy(collectorRemote = it.collectorRemote.copy(
+                    submitting = false, lastRequestedAt = System.currentTimeMillis(),
+                    message = "2台目に再取得を依頼しました（最長約60秒で受信）")) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _ui.update { it.copy(collectorRemote = it.collectorRemote.copy(
+                    submitting = false, error = error.message ?: "再取得を依頼できませんでした")) }
+            }
+        }
+    }
+
+    /** Foreground-only, one-shot command polling. No accessibility or third-party UI control. */
+    private fun maybePollCollectorRemote(force: Boolean = false) {
+        val state = _ui.value
+        if (!state.collectorModeEnabled || state.date != currentToday() || !state.collectorUpload.configured) return
+        if (collectorRemoteJob?.isActive == true) return
+        val now = System.currentTimeMillis()
+        if (!force && now - lastRemotePollAt < 45_000L) return
+        val token = collectorAuthStore.readToken() ?: return
+        lastRemotePollAt = now
+        collectorRemoteJob = viewModelScope.launch {
+            try {
+                val deviceId = collectorAuthStore.deviceId()
+                val command = collectorRemoteRepository.next(token, deviceId) ?: return@launch
+                if (collectorRemoteCommandStore.lastProcessed() != command.id) {
+                    // Never interrupt an in-flight refresh, and never acknowledge an action we skipped.
+                    if (dateLoadJob?.isActive == true || !_ui.value.collectorModeEnabled) return@launch
+                    collectorRemoteCommandStore.markProcessed(command.id)
+                    loadDate(currentToday(), showLoading = false, forceValueRefresh = true)
+                    _ui.update { it.copy(collectorRemote = it.collectorRemote.copy(
+                        lastAcceptedAt = System.currentTimeMillis(), message = "1台目からの再取得指示を受信しました", error = null)) }
+                }
+                collectorRemoteRepository.acknowledge(token, deviceId, command.id)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _ui.update { it.copy(collectorRemote = it.collectorRemote.copy(
+                    error = "指示確認エラー：${error.message ?: "通信失敗"}")) }
+            }
+        }
     }
 
     private fun maybeUploadCollectorHeartbeat(force: Boolean = false) {

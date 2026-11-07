@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -20,7 +21,14 @@ import java.time.format.DateTimeFormatter
 
 /** Shown on the normal-use Android; this is not a prompt to buy a race. */
 @Composable
-internal fun CollectorCloudMonitorCard(status: CollectorCloudMonitorState, onRefresh: () -> Unit) {
+internal fun CollectorCloudMonitorCard(
+    status: CollectorCloudMonitorState,
+    onRefresh: () -> Unit,
+    remote: CollectorRemoteState = CollectorRemoteState(),
+    remoteConfigured: Boolean = false,
+    collectorMode: Boolean = false,
+    onRemoteRefresh: () -> Unit = {}
+) {
     val title = when (status.monitoringState) {
         "ACTIVE" -> "2台目の取得監視：正常"
         "STALE" -> "2台目の取得監視：通信停止の可能性"
@@ -54,6 +62,20 @@ internal fun CollectorCloudMonitorCard(status: CollectorCloudMonitorState, onRef
             }
             Text("確認：${monitorTime(status.lastCheckedAt)} / この表示は取得状況のみ。予想の推奨・見送りには使用しません。",
                 style = MaterialTheme.typography.bodySmall)
+            if (!collectorMode) {
+                Button(onClick = onRemoteRefresh,
+                    enabled = remoteConfigured && status.monitoringState == "ACTIVE" && !remote.submitting,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text(if (remote.submitting) "指示を送信中" else "2台目に今すぐ再取得を指示")
+                }
+                if (!remoteConfigured) Text("遠隔再取得には、設定で1台目にも同じ共有キーを保存してください。",
+                    style = MaterialTheme.typography.bodySmall)
+                remote.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                remote.error?.let { Text("遠隔指示：$it", color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall) }
+                Text("BOAT AI内のデータ更新のみ実行します。投票・購入・他アプリの操作は行いません。",
+                    style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

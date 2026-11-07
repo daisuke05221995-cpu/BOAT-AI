@@ -87,6 +87,8 @@ internal fun CollectorDashboardScreen(
                     Text("件数・端末受信時刻のみを送信。オッズ値・展示値・購入履歴は送らず、クラウド予想にも採用しません。", style = MaterialTheme.typography.bodySmall)
                     ui.collectorUpload.error?.let { Text("送信エラー：$it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     ui.cloudForecast.error?.let { Text("クラウド読取エラー：$it", style = MaterialTheme.typography.bodySmall) }
+                    Text("遠隔再取得指示：${collectorTime(ui.collectorRemote.lastAcceptedAt)}", style = MaterialTheme.typography.bodySmall)
+                    ui.collectorRemote.error?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 }
             }
         }
@@ -116,7 +118,7 @@ internal fun CollectorModeSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
             OutlinedTextField(
                 value = tokenInput,
                 onValueChange = { tokenInput = it.take(200) },
-                label = { Text("クラウド監査送信用の共有キー") },
+                label = { Text("クラウド接続の共有キー") },
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -131,7 +133,7 @@ internal fun CollectorModeSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
             }
             Text("保存状況：${if (ui.collectorUpload.configured) "設定済み（端末内で暗号化）" else "未設定"}", style = MaterialTheme.typography.bodySmall)
             ui.collectorUpload.error?.let { Text("設定／送信エラー：$it", style = MaterialTheme.typography.bodySmall) }
-            Text("クラウド側のCOLLECTOR_INGEST_TOKENと同じ32文字以上のキーを設定してください。キーはチャットやGitHubコードに貼らないでください。", style = MaterialTheme.typography.bodySmall)
+            Text("2台目は監査送信・指示受信、1台目は遠隔再取得に使います。両端末でクラウド側のCOLLECTOR_INGEST_TOKENと同じキーを保存してください。チャットやGitHubには貼らないでください。", style = MaterialTheme.typography.bodySmall)
         }
     }
 }

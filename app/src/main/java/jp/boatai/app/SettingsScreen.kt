@@ -31,7 +31,10 @@ fun SettingsScreen(ui: BoatUiState, vm: BoatViewModel) {
             }
         }
         item { CollectorModeSettingsCard(ui, vm) }
-        item { CollectorCloudMonitorCard(ui.collectorMonitor, onRefresh = { vm.refreshCollectorMonitor(force = true) }) }
+        item { CollectorCloudMonitorCard(ui.collectorMonitor,
+            onRefresh = { vm.refreshCollectorMonitor(force = true) },
+            remote = ui.collectorRemote, remoteConfigured = ui.collectorUpload.configured,
+            collectorMode = ui.collectorModeEnabled, onRemoteRefresh = vm::requestCollectorRemoteRefresh) }
         item { Text("通知・購入", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
         item { NotificationSettingsCard(ui, vm) }
         item { Text("データ・バックアップ", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
