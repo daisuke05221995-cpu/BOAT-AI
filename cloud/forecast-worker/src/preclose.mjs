@@ -6,7 +6,7 @@ import { validOdds } from './policy.mjs';
 export const SOURCE_MAX_AGE_MS = 2 * 60_000;
 const FUTURE_CLOCK_SKEW_MS = 15_000;
 
-function sourceTime(value, nowMs, deadlineMs, kind) {
+export function sourceTime(value, nowMs, deadlineMs, kind) {
   if (typeof value !== 'string' ||
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value)) {
     throw new Error(`${kind}_TIME_MISSING`);
