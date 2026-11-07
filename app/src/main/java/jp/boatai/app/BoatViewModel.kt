@@ -70,7 +70,8 @@ data class BoatUiState(
     val liveOddsRefresh: LiveOddsRefreshStatus = LiveOddsRefreshStatus(),
     val cloudForecast: CloudForecastSyncState = CloudForecastSyncState(),
     val collectorModeEnabled: Boolean = false,
-    val collectorUpload: CollectorUploadStatus = CollectorUploadStatus()
+    val collectorUpload: CollectorUploadStatus = CollectorUploadStatus(),
+    val collectorMonitor: CollectorCloudMonitorState = CollectorCloudMonitorState()
 )
 
 class BoatViewModel(application: Application) : AndroidViewModel(application) {
@@ -91,6 +92,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val collectorModeStore = CollectorModeStore(application)
     private val collectorAuthStore = CollectorAuthStore(application)
     private val collectorHeartbeatUploader = CollectorHeartbeatUploader()
+    private val collectorCloudMonitorRepository = CollectorCloudMonitorRepository()
     private val operationalMonitoringStartedAt = operationalSelfCheckStore.monitoringStartedAt()
     private fun currentToday(): LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo"))
     private fun earliestBrowsableDate(): LocalDate = currentToday().minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
@@ -105,6 +107,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private var lastCloudAttemptAt = 0L
     private var collectorUploadJob: Job? = null
     private var lastCollectorUploadAttemptAt = 0L
+    private var collectorMonitorJob: Job? = null
+    private var lastCollectorMonitorAttemptAt = 0L
     private val lastAutoOddsAttemptAt = mutableMapOf<String, Long>()
     // 0 = nationwide, 1..24 = venue. A single tap on recommended-only stays active
     // while official 120-way odds are resolved sequentially.
@@ -153,6 +157,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         }
         loadModelARecentVirtual()
         refreshCloudForecasts(_ui.value.date, force = true)
+        refreshCollectorMonitor(force = true)
         loadInitialDate()
     }
 
@@ -203,6 +208,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 refreshLiveDataIfDue()
                 if (_ui.value.date == currentToday()) refreshCloudForecasts(_ui.value.date)
                 maybeUploadCollectorHeartbeat()
+                refreshCollectorMonitor()
             }
         }
     }
@@ -273,6 +279,32 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             } catch (error: Exception) {
                 _ui.update { it.copy(collectorUpload = it.collectorUpload.copy(
                     uploading = false, error = error.message ?: "クラウド送信に失敗しました")) }
+            }
+        }
+    }
+
+    /** Both phones can read cloud health; no pairing secret or personal purchases required. */
+    fun refreshCollectorMonitor(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastCollectorMonitorAttemptAt < 120_000L) return
+        if (collectorMonitorJob?.isActive == true) {
+            if (!force) return
+            collectorMonitorJob?.cancel()
+        }
+        lastCollectorMonitorAttemptAt = now
+        _ui.update { it.copy(collectorMonitor = it.collectorMonitor.copy(loading = true, error = null)) }
+        collectorMonitorJob = viewModelScope.launch {
+            try {
+                val state = collectorCloudMonitorRepository.load()
+                _ui.update { it.copy(collectorMonitor = state) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                // Unknown network health is not proof that the collection phone stopped.
+                _ui.update { it.copy(collectorMonitor = CollectorCloudMonitorState(
+                    error = error.message ?: "監視の取得に失敗しました",
+                    lastCheckedAt = System.currentTimeMillis()
+                )) }
             }
         }
     }

@@ -1,6 +1,8 @@
 import { japanDate } from './policy.mjs';
 
 const MAX_AGE_MS = 5 * 60_000;
+const HEALTH_STALE_AFTER_MS = 5 * 60_000;
+const HEALTH_ACTIVE_WINDOW_MS = 10 * 60_000;
 const ACCEPTED_FIELDS = new Set([
   'schema_version', 'date', 'device_id', 'app_version', 'sent_at',
   'program_received_at', 'race_count', 'odds_attempted', 'odds_succeeded',
@@ -117,4 +119,38 @@ export async function readCollectorStatus(env, date, nowMs = Date.now()) {
     latest_device_odds_failed: latest?.odds_failed ?? null,
     latest_device_odds_success_at: latest?.odds_last_success_ms ? new Date(latest.odds_last_success_ms).toISOString() : null,
   };
+}
+
+/** Crosses JST midnight without creating a false healthy/failed day boundary. */
+export function summarizeCollectorHealth(rows, nowMs = Date.now()) {
+  const valid = rows.filter(row => Number.isSafeInteger(row.received_ms) &&
+    row.received_ms >= 0 && row.received_ms <= nowMs);
+  const latest = valid[0] ?? null;
+  const ageMs = latest ? nowMs - latest.received_ms : null;
+  const monitoringState = ageMs === null ? 'NEVER_CONNECTED' :
+    ageMs <= HEALTH_STALE_AFTER_MS ? 'ACTIVE' : 'STALE';
+  return {
+    schema_version: 1,
+    mode: 'DEVICE_RECEIPT_ONLY',
+    eligible_for_forecast: false,
+    evaluated_at: new Date(nowMs).toISOString(),
+    monitoring_state: monitoringState,
+    stale_after_seconds: HEALTH_STALE_AFTER_MS / 1_000,
+    active_devices_10m: valid.filter(row => nowMs - row.received_ms <= HEALTH_ACTIVE_WINDOW_MS).length,
+    last_received_at: latest ? new Date(latest.received_ms).toISOString() : null,
+    last_received_age_seconds: ageMs === null ? null : Math.floor(ageMs / 1_000),
+    last_race_date: latest?.race_date ?? null,
+    latest_device_race_count: latest?.race_count ?? null,
+    latest_device_odds_attempted: latest?.odds_attempted ?? null,
+    latest_device_odds_succeeded: latest?.odds_succeeded ?? null,
+    latest_device_odds_failed: latest?.odds_failed ?? null,
+  };
+}
+
+/** Read-only public aggregate; never includes device identifiers or credentials. */
+export async function readCollectorHealth(env, nowMs = Date.now()) {
+  const { results } = await env.DB.prepare(`SELECT received_ms, race_date, race_count,
+      odds_attempted, odds_succeeded, odds_failed
+      FROM collector_device_heartbeat ORDER BY received_ms DESC LIMIT 20`).all();
+  return summarizeCollectorHealth(results ?? [], nowMs);
 }
