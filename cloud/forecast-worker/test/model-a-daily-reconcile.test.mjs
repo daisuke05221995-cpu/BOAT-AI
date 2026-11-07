@@ -26,7 +26,8 @@ test('complete cross-referenced day advances only the copied history, once', () 
   assert.deepEqual(state, before);
   assert.deepEqual({ ...result.audit }, {
     status: 'VALIDATED_AGAINST_SUPPLIED_MANIFEST', date, dayOrdinal: 739926,
-    expectedRaces: 2, settledRaces: 2, cancelledRaces: 0, committedRaces: 2,
+    expectedRaces: 2, settledRaces: 2, cancelledRaces: 0,
+    excludedTerminalRaces: 0, excludedReasonCounts: {}, committedRaces: 2,
     previousLastDay: 739925, historyLastDay: 739926,
     scheduleSource: manifest.scheduleSource, resultSource: manifest.resultSource,
     confirmedAt: manifest.confirmedAt,
@@ -76,4 +77,44 @@ test('explicitly documented cancellations count as terminal but never become syn
   assert.throws(() => run(state, manifest, [races[0], {
     ...cancelled, result: { status: 'CANCELLED' },
   }]), /CANCELLATION_UNVERIFIED/);
+});
+
+test('documented non-six terminal race counts toward full-day coverage but adds no synthetic player outcomes', () => {
+  const excluded = { ...races[1], deadlineMs: Date.parse('2026-11-06T06:00:00Z'),
+    result: { status: 'EXCLUDED_TERMINAL', reason: 'RANKING_NOT_SIX_UNIQUE',
+      evidence: { source: manifest.resultSource, raceId: races[1].raceId,
+        recordId: '2026-11-06-04-8/result',
+        sourceObservedAt: '2026-11-06T08:00:00Z' } } };
+  const before = clone(state);
+  const output = run(state, manifest, [races[0], excluded]);
+  assert.equal(output.audit.expectedRaces, 2);
+  assert.equal(output.audit.settledRaces, 1);
+  assert.equal(output.audit.excludedTerminalRaces, 1);
+  assert.deepEqual(output.audit.excludedReasonCounts, { RANKING_NOT_SIX_UNIQUE: 1 });
+  assert.equal(output.audit.committedRaces, 1);
+  assert.equal(output.state.updateRaces, state.updateRaces + 1);
+  assert.deepEqual(state, before);
+  const noEvidence = { ...excluded, result: { status: 'EXCLUDED_TERMINAL',
+    reason: 'RANKING_NOT_SIX_UNIQUE' } };
+  assert.throws(() => run(state, manifest, [races[0], noEvidence]), /EXCLUSION_UNVERIFIED/);
+  const fakeSource = { ...excluded, result: { ...excluded.result,
+    evidence: { ...excluded.result.evidence, source: 'unknown-source' } } };
+  assert.throws(() => run(state, manifest, [races[0], fakeSource]), /EXCLUSION_UNVERIFIED/);
+  const wrongRace = { ...excluded, result: { ...excluded.result,
+    evidence: { ...excluded.result.evidence, raceId: races[0].raceId } } };
+  assert.throws(() => run(state, manifest, [races[0], wrongRace]), /EXCLUSION_UNVERIFIED/);
+  const unknownReason = { ...excluded, result: { ...excluded.result,
+    reason: 'OTHER' } };
+  assert.throws(() => run(state, manifest, [races[0], unknownReason]), /EXCLUSION_UNVERIFIED/);
+  const noRecord = { ...excluded, result: { ...excluded.result,
+    evidence: { ...excluded.result.evidence, recordId: '' } } };
+  assert.throws(() => run(state, manifest, [races[0], noRecord]), /EXCLUSION_UNVERIFIED/);
+  const preclose = { ...excluded, result: { ...excluded.result,
+    evidence: { ...excluded.result.evidence, sourceObservedAt: '2026-11-06T05:59:59Z' } } };
+  assert.throws(() => run(state, manifest, [races[0], preclose]), /EXCLUSION_UNVERIFIED/);
+  const futureObservation = { ...excluded, result: { ...excluded.result,
+    evidence: { ...excluded.result.evidence, sourceObservedAt: '2026-11-06T16:01:00Z' } } };
+  assert.throws(() => run(state, manifest, [races[0], futureObservation]), /EXCLUSION_UNVERIFIED/);
+  const forgedOrder = { ...excluded, result: { ...excluded.result, finishOrder: [1, 2, 3, 4, 5, 6] } };
+  assert.throws(() => run(state, manifest, [races[0], forgedOrder]), /EXCLUSION_UNVERIFIED/);
 });

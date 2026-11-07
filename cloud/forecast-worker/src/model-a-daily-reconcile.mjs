@@ -7,6 +7,10 @@ import { buildModelAFeatures } from './model-a-features.mjs';
 import { isValidDate, japanDate, raceId } from './policy.mjs';
 
 const MAX_RACES = 24 * 12;
+const EXCLUDED_REASONS = new Set([
+  'RANKING_NOT_SIX_UNIQUE', 'DISQUALIFICATION', 'FLYING_START',
+  'LATE_START', 'UNFORMED_RESULT',
+]);
 const fail = code => { throw new Error(`MODEL_A_DAY_${code}`); };
 const dayOrdinal = date => Math.trunc(Date.parse(`${date}T00:00:00Z`) / 86400000) + 719163;
 
@@ -23,7 +27,8 @@ function identity(race, date) {
  *   scheduledRaceIds, expectedRaceCount, scheduleSource, resultSource,
  *   confirmedAt (ISO UTC, after the target day has ended in JST).
  * @param {object[]} races Normalized full-race inputs with result.status
- *   SETTLED + a six-lane finishOrder, or CANCELLED + a documented reason.
+ *   SETTLED + a six-lane finishOrder, CANCELLED + a documented reason, or
+ *   EXCLUDED_TERMINAL + reason + per-race terminal source/time evidence.
  * @param {number} nowMs Testable clock. No future-day confirmation permitted.
  * @returns {{state: object, audit: object}} Candidate state, NOT a deployment.
  */
@@ -55,7 +60,8 @@ export function reconcileModelAHistoryDay(historyState, manifest, races, nowMs =
   const expected = new Set(scheduled);
   const seen = new Set();
   const pending = [];
-  let settled = 0, cancelled = 0;
+  let settled = 0, cancelled = 0, excluded = 0;
+  const excludedReasonCounts = {};
   for (const race of [...races].sort((a, b) =>
     (a?.stadiumNumber ?? 0) - (b?.stadiumNumber ?? 0) ||
     (a?.raceNumber ?? 0) - (b?.raceNumber ?? 0))) {
@@ -67,6 +73,28 @@ export function reconcileModelAHistoryDay(historyState, manifest, races, nowMs =
       if (typeof race.result.reason !== 'string' || !race.result.reason.trim() ||
           race.result.finishOrder?.length) fail('CANCELLATION_UNVERIFIED');
       cancelled++;
+      continue;
+    }
+    // Some legitimately settled payouts have no complete 1..6 finish order
+    // (F/L/disqualification etc). A separately evidenced terminal exclusion
+    // counts toward full-day reconciliation but NEVER updates a player's
+    // outcome. An invalid SETTLED race is still rejected by default.
+    if (race.result?.status === 'EXCLUDED_TERMINAL') {
+      const evidence = race.result.evidence;
+      const observed = Date.parse(evidence?.sourceObservedAt);
+      if (!EXCLUDED_REASONS.has(race.result.reason) ||
+          race.result.finishOrder != null ||
+          typeof evidence?.source !== 'string' || evidence.source !== manifest.resultSource ||
+          evidence.raceId !== key ||
+          typeof evidence?.recordId !== 'string' || !/^[\w.:/-]{6,180}$/.test(evidence.recordId) ||
+          typeof evidence?.sourceObservedAt !== 'string' ||
+          !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(evidence.sourceObservedAt) ||
+          !Number.isFinite(observed) || !Number.isFinite(race.deadlineMs) ||
+          observed <= race.deadlineMs || observed > confirmedMs || observed > nowMs) {
+        fail('EXCLUSION_UNVERIFIED');
+      }
+      excluded++;
+      excludedReasonCounts[race.result.reason] = (excludedReasonCounts[race.result.reason] ?? 0) + 1;
       continue;
     }
     if (race.result?.status !== 'SETTLED' ||
@@ -94,6 +122,7 @@ export function reconcileModelAHistoryDay(historyState, manifest, races, nowMs =
     state: history.exportState(),
     audit: { status: 'VALIDATED_AGAINST_SUPPLIED_MANIFEST', date, dayOrdinal: day,
       expectedRaces: scheduled.length, settledRaces: settled, cancelledRaces: cancelled,
+      excludedTerminalRaces: excluded, excludedReasonCounts,
       committedRaces: pending.length / 6, previousLastDay: day - 1, historyLastDay: day,
       scheduleSource: manifest.scheduleSource, resultSource: manifest.resultSource,
       confirmedAt: manifest.confirmedAt },
