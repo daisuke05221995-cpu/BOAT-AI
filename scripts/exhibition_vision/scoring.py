@@ -8,7 +8,7 @@ indices, NOT estimated winning probabilities or calibrated predictive effects.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import math
@@ -25,6 +25,7 @@ METRIC_KEYS = (
     "turn_marker_clearance_m",   # Turn-performance component
 )
 TRAITS = ("deashi", "yukiashi", "nobiashi", "mawariashi", "turn_performance")
+JST = timezone(timedelta(hours=9))
 
 # Minimum physically meaningful spread for provisional within-race scores.
 # These are research settings, not learned thresholds or BUY gates.
@@ -117,7 +118,9 @@ def evaluate_race(evidence: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(date, str) or not (isinstance(venue, int) and 1 <= venue <= 24) or not (isinstance(number, int) and 1 <= number <= 12):
             raise InvalidEvidence("invalid race key")
         deadline = _timestamp(race.get("deadline"), "deadline")
-        if deadline.date().isoformat() != date:
+        # Race dates belong to the Japanese schedule, not to a UTC API clock.
+        # A deadline near 00:00 JST is still the next Japanese calendar day.
+        if deadline.astimezone(JST).date().isoformat() != date:
             raise InvalidEvidence("race date/deadline mismatch")
         capture = evidence.get("capture")
         if not isinstance(capture, dict):

@@ -1,0 +1,65 @@
+name: Audit live Cloud collection and results
+
+# Audit the published read-only API; never fetch live provider pages or
+# backfill a forecast. Only this workflow/source's main changes trigger a
+# one-off run; two scheduled runs provide ongoing collection evidence.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cloud-daily-operational-audit.yml'
+      - 'cloud/forecast-worker/src/operational-report.mjs'
+      - 'cloud/forecast-worker/tools/cloud_audit_report.mjs'
+  schedule:
+    - cron: '15 2 * * *'  # 11:15 JST, schedule + morning cron
+    - cron: '10 16 * * *' # 01:10 JST next day, prior-day terminal results
+
+permissions:
+  contents: read
+
+concurrency:
+  group: boat-ai-cloud-daily-operational-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test cloud audit schema and fail-closed gates
+        working-directory: cloud/forecast-worker
+        run: npm test
+      - name: Read yesterday and today audit API (no write or provider scraping)
+        id: fetch
+        shell: bash
+        run: |
+          set -euo pipefail
+          today="$(TZ=Asia/Tokyo date +%F)"
+          yesterday="$(TZ=Asia/Tokyo date -d yesterday +%F)"
+          base='https://boat-ai-forecast.daisuke05221995.workers.dev'
+          curl --fail --silent --show-error --retry 2 --connect-timeout 8 --max-time 15 \
+            "$base/v1/audit?date=$yesterday" --output "$RUNNER_TEMP/boat-ai-yesterday.json"
+          curl --fail --silent --show-error --retry 2 --connect-timeout 8 --max-time 15 \
+            "$base/v1/audit?date=$today" --output "$RUNNER_TEMP/boat-ai-today.json"
+          echo 'Captured daily audit snapshots from the published Cloud Worker.'
+      - name: Verify quality counts and preserve daily report
+        working-directory: cloud/forecast-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/cloud_audit_report.mjs \
+            "$RUNNER_TEMP/boat-ai-yesterday.json" "$RUNNER_TEMP/boat-ai-today.json" \
+            "$GITHUB_WORKSPACE/data/model_a_recent_history.bin" \
+            | tee "$RUNNER_TEMP/boat-ai-cloud-operational-audit.json"
+      - name: Upload read-only quality evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: boat-ai-cloud-operational-audit
+          path: ${{ runner.temp }}/boat-ai-cloud-operational-audit.json
+          retention-days: 30
+          if-no-files-found: error

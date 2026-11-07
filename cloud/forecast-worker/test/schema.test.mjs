@@ -6,6 +6,69 @@ import { readFileSync } from 'node:fs';
 const migration = readFileSync(new URL('../migrations/0001_initial.sql', import.meta.url), 'utf8');
 const auditMigration = readFileSync(new URL('../migrations/0002_operational_audit.sql', import.meta.url), 'utf8');
 const provenanceMigration = readFileSync(new URL('../migrations/0003_preclose_provenance.sql', import.meta.url), 'utf8');
+const historyMigration = readFileSync(new URL('../migrations/0004_model_a_history_generations.sql', import.meta.url), 'utf8');
+const weatherMigration = readFileSync(new URL('../migrations/0005_weather_provenance.sql', import.meta.url), 'utf8');
+const resultMigration = readFileSync(new URL('../migrations/0006_result_reconciliation.sql', import.meta.url), 'utf8');
+const modelAssetMigration = readFileSync(new URL('../migrations/0007_model_a_frozen_assets.sql', import.meta.url), 'utf8');
+const rosterMigration = readFileSync(new URL('../migrations/0008_program_roster_candidate.sql', import.meta.url), 'utf8');
+const finishMigration = readFileSync(new URL('../migrations/0009_six_finish_candidate.sql', import.meta.url), 'utf8');
+const shadowMigration = readFileSync(new URL('../migrations/0010_model_a_shadow.sql', import.meta.url), 'utf8');
+const autoHistoryMigration = readFileSync(new URL('../migrations/0011_model_a_history_auto.sql', import.meta.url), 'utf8');
+const collectorMigration = readFileSync(new URL('../migrations/0012_device_collector_heartbeat.sql', import.meta.url), 'utf8');
+const remoteMigration = readFileSync(new URL('../migrations/0013_collector_remote_refresh.sql', import.meta.url), 'utf8');
+const purchaseHandoffMigration = readFileSync(new URL('../migrations/0014_collector_purchase_handoff.sql', import.meta.url), 'utf8');
+
+test('purchase handoff is a proposal-only inbox with one pending item per collector', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(purchaseHandoffMigration);
+  db.exec(purchaseHandoffMigration);
+  db.prepare(`INSERT INTO collector_purchase_handoff
+    (handoff_id, device_id, session_json, status, requested_ms, expires_ms)
+    VALUES ('one','paired','{}','PENDING',100,200)`).run();
+  assert.throws(() => db.prepare(`INSERT INTO collector_purchase_handoff
+    (handoff_id, device_id, session_json, status, requested_ms, expires_ms)
+    VALUES ('two','paired','{}','PENDING',110,210)`).run());
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM race_schedule').get().n, 0);
+  db.close();
+});
+
+test('remote refresh schema is one-command-only and keeps forecasts untouched', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(collectorMigration);
+  db.exec(remoteMigration);
+  db.exec(remoteMigration);
+  db.prepare(`INSERT INTO collector_remote_refresh
+    (command_id, device_id, action, status, requested_ms, expires_ms)
+    VALUES ('one', 'paired', 'REFRESH_NOW', 'PENDING', 100, 200)`).run();
+  assert.throws(() => db.prepare(`INSERT INTO collector_remote_refresh
+    (command_id, device_id, action, status, requested_ms, expires_ms)
+    VALUES ('two', 'paired', 'REFRESH_NOW', 'PENDING', 110, 210)`).run());
+  assert.throws(() => db.prepare(`INSERT INTO collector_remote_refresh
+    (command_id, device_id, action, status, requested_ms, expires_ms)
+    VALUES ('bad', 'another', 'BUY', 'PENDING', 100, 200)`).run());
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM race_schedule').get().n, 0);
+  db.close();
+});
+
+test('device receipt migration never touches a user bet or forecast', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, forecast_json)
+    VALUES ('2026-11-07-01-1', '2026-11-07', 1, 1, 100000, 0, '{"prior":"untouched"}')`).run();
+  db.exec(collectorMigration);
+  db.exec(collectorMigration);
+  db.prepare(`INSERT INTO collector_device_heartbeat
+    (device_id,race_date,device_sent_ms,received_ms,app_version,race_count,odds_attempted,odds_succeeded,odds_failed)
+    VALUES ('a4bc0020-16cc-4db5-9448-a709029b2017','2026-11-07',10,11,'0.18.27',144,3,2,1)`).run();
+  assert.equal(db.prepare('SELECT odds_succeeded FROM collector_device_heartbeat').get().odds_succeeded, 2);
+  assert.equal(db.prepare('SELECT forecast_json FROM race_schedule').get().forecast_json, '{"prior":"untouched"}');
+  assert.throws(() => db.prepare(`UPDATE collector_device_heartbeat SET race_count=999`).run());
+  assert.equal(db.prepare('PRAGMA table_info(collector_device_heartbeat)').all().some(x => /odds_json|forecast|bet/i.test(x.name)), false);
+  db.close();
+});
 
 test('D1 SQLite migration accepts actual race inserts, rejects duplicate loss', () => {
   const db = new DatabaseSync(':memory:');
@@ -77,5 +140,150 @@ test('strict pre-close provenance migration preserves existing capture and adds 
   db.prepare(`UPDATE race_schedule SET preview_source='licensed-provider',
     preview_observed_ms=90000, odds_observed_ms=92000 WHERE race_id='2026-11-06-01-1'`).run();
   assert.equal(db.prepare('SELECT odds_observed_ms FROM race_schedule').get().odds_observed_ms, 92000);
+  db.close();
+});
+
+test('immutable history checkpoint migration preserves existing forecast and result records', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(auditMigration);
+  db.exec(provenanceMigration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, result_json)
+    VALUES ('2026-11-06-01-1', '2026-11-06', 1, 1, 100000, 0, '{"trifecta_combination":"1-2-3"}')`).run();
+  db.exec(historyMigration);
+  db.exec(historyMigration);
+  const row = db.prepare('SELECT result_json FROM race_schedule').get();
+  assert.deepEqual(JSON.parse(row.result_json), { trifecta_combination: '1-2-3' });
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM model_a_history_active').get().n, 0);
+  db.close();
+});
+
+test('field-level weather provenance migration leaves old captures unverified, never invents timestamps', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(auditMigration);
+  db.exec(provenanceMigration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, preview_observed_ms)
+    VALUES ('2026-11-06-01-1', '2026-11-06', 1, 1, 100000, 0, 90000)`).run();
+  db.exec(weatherMigration);
+  const row = db.prepare('SELECT preview_observed_ms, weather_observed_ms, weather_source FROM race_schedule').get();
+  assert.equal(row.preview_observed_ms, 90000);
+  assert.equal(row.weather_observed_ms, null);
+  assert.equal(row.weather_source, null);
+  db.close();
+});
+
+test('result reconciliation migration preserves final results and makes exhausted legacy results retryable', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(auditMigration);
+  db.exec(provenanceMigration);
+  db.exec(weatherMigration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, result_stage)
+    VALUES ('2026-11-06-08-1', '2026-11-06', 8, 1, 100000, 0, 2)`).run();
+  db.exec(resultMigration);
+  const row = db.prepare('SELECT * FROM race_schedule').get();
+  assert.equal(row.result_stage, 2);
+  assert.equal(row.result_json, null);
+  assert.equal(row.result_last_attempt_ms, null);
+  assert.equal(row.result_failure_code, null);
+  db.prepare('UPDATE race_schedule SET result_last_attempt_ms=120000 WHERE race_id=?').run(row.race_id);
+  assert.equal(db.prepare('SELECT result_last_attempt_ms FROM race_schedule').get().result_last_attempt_ms, 120000);
+  db.close();
+});
+
+test('frozen Model A asset migration preserves results and does not enable production models', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(auditMigration);
+  db.exec(provenanceMigration);
+  db.exec(weatherMigration);
+  db.exec(resultMigration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, result_json)
+    VALUES ('2026-11-07-01-1', '2026-11-07', 1, 1, 100000, 0, '{"status":"SETTLED"}')`).run();
+  db.exec(modelAssetMigration);
+  assert.equal(db.prepare('SELECT result_json FROM race_schedule').get().result_json, '{"status":"SETTLED"}');
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM model_a_frozen_bundle').get().n, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM model_a_frozen_chunk').get().n, 0);
+  db.close();
+});
+
+test('diagnostic program roster snapshot migration never mutates a race forecast or result', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, result_json)
+    VALUES ('2026-11-07-01-1', '2026-11-07', 1, 1, 100000, 0, '{"status":"SETTLED"}')`).run();
+  db.exec(rosterMigration);
+  db.exec(rosterMigration);
+  db.prepare(`INSERT INTO program_roster_candidate (race_id, checked_ms, status, candidate_json)
+    VALUES ('2026-11-07-01-1', 90000, 'SHAPE_ONLY_UNVERIFIED', '{"racers":[]}')`).run();
+  assert.equal(db.prepare('SELECT result_json FROM race_schedule').get().result_json, '{"status":"SETTLED"}');
+  assert.equal(db.prepare('SELECT decision FROM race_schedule').get().decision, null);
+  assert.throws(() => db.prepare(`INSERT INTO program_roster_candidate
+    (race_id, checked_ms, status, candidate_json)
+    VALUES ('missing-race', 90000, 'SHAPE_ONLY_UNVERIFIED', '{}')`).run());
+  assert.throws(() => db.prepare(`UPDATE program_roster_candidate SET status='SHAPE_ONLY_UNVERIFIED', candidate_json=NULL`).run());
+  db.close();
+});
+
+test('result-only full-six candidate migration requires validated state without touching dividends', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, result_json)
+    VALUES ('2026-11-07-01-2', '2026-11-07', 1, 2, 100000, 0, '{"trifecta_payout":1200}')`).run();
+  db.exec(finishMigration);
+  db.exec(finishMigration);
+  db.prepare(`INSERT INTO six_finish_candidate (race_id, checked_ms, status, candidate_json)
+    VALUES ('2026-11-07-01-2', 130000, 'SHAPE_ONLY_UNVERIFIED', '{"finishOrder":[1,2,3,4,5,6]}')`).run();
+  assert.equal(db.prepare('SELECT result_json FROM race_schedule').get().result_json,
+    '{"trifecta_payout":1200}');
+  assert.throws(() => db.prepare(`UPDATE six_finish_candidate SET status='SHAPE_ONLY_UNVERIFIED',
+    candidate_json=NULL`).run());
+  assert.throws(() => db.prepare(`INSERT INTO six_finish_candidate
+    (race_id, checked_ms, status) VALUES ('unknown', 130000, 'NON_SETTLED')`).run());
+  db.close();
+});
+
+test('shadow migration keeps forecast and purchases untouched and rejects invented forecasts', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, result_json)
+    VALUES ('2026-11-07-01-2', '2026-11-07', 1, 2, 100000, 0, '{"status":"SETTLED"}')`).run();
+  db.exec(shadowMigration);
+  db.exec(shadowMigration);
+  db.prepare(`INSERT INTO model_a_shadow_attempt
+    (race_id,capture_stage,checked_ms,status,reason)
+    VALUES ('2026-11-07-01-2',1,90000,'UNAVAILABLE','MODEL_A_HISTORY_STALE')`).run();
+  assert.equal(db.prepare('SELECT decision FROM race_schedule').get().decision, null);
+  assert.equal(db.prepare('SELECT result_json FROM race_schedule').get().result_json, '{"status":"SETTLED"}');
+  assert.throws(() => db.prepare(`INSERT INTO model_a_shadow_attempt
+    (race_id,capture_stage,checked_ms,status,reason)
+    VALUES ('2026-11-07-01-2',2,95000,'FORECAST_ONLY',NULL)`).run());
+  assert.throws(() => db.prepare(`INSERT INTO model_a_shadow_attempt
+    (race_id,capture_stage,checked_ms,status,reason)
+    VALUES ('unknown',2,95000,'UNAVAILABLE','NONE')`).run());
+  db.close();
+});
+
+test('history auto migration keeps previous state and marks only attested complete days promoted', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(historyMigration);
+  db.exec(autoHistoryMigration);
+  db.exec(autoHistoryMigration);
+  db.prepare(`INSERT INTO model_a_history_day_attempt (race_date,last_started_ms,status)
+    VALUES ('2026-11-06',100000,'RUNNING')`).run();
+  assert.throws(() => db.prepare(`UPDATE model_a_history_day_attempt SET status='PROMOTED',
+    promoted_sha256='bad' WHERE race_date='2026-11-06'`).run());
+  db.prepare(`UPDATE model_a_history_day_attempt SET status='UNAVAILABLE',
+    reason='NATIONAL_MANIFEST_UNVERIFIED' WHERE race_date='2026-11-06'`).run();
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM model_a_history_active').get().n, 0);
   db.close();
 });

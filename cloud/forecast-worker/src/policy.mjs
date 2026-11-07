@@ -54,13 +54,6 @@ export function extractSchedule(json, date) {
   return races;
 }
 
-export function nextResultStage({ result_stage: stage, deadline_ms: deadline }, nowMs) {
-  if (nowMs < deadline + 20 * 60_000) return null;
-  if (stage === 0) return 1;
-  if (stage === 1 && nowMs >= deadline + 45 * 60_000) return 2;
-  return null;
-}
-
 export function validOdds(snapshot) {
   const odds = snapshot?.odds;
   if (!odds || typeof odds !== 'object' || Array.isArray(odds)) return false;

@@ -44,8 +44,40 @@ test('audit route is read-only, date validated, and does not disclose row-level 
   const audit = await res.json();
   assert.equal(audit.scheduled_races, 1);
   assert.equal(audit.capture.forecasts_ready, 0);
+  assert.equal(audit.program_roster_candidate.not_checked, 1);
+  assert.equal(audit.program_roster_candidate.eligible_for_forecast, 0);
   assert.equal(audit.import.count, 0);
   assert.equal(JSON.stringify(audit).includes('race_id'), false);
   assert.equal((await worker.fetch(new Request('https://example.net/v1/audit?date=2026-11-31'), { DB: db })).status, 400);
   assert.equal((await worker.fetch(new Request('https://example.net/v1/audit?date=2026-11-06', { method: 'POST' }), { DB: db })).status, 405);
+});
+
+test('shadow status is aggregate-only, never presented as BUY/SKIP', async () => {
+  const db = { prepare: sql => ({ bind: date => ({ all: async () => {
+    assert.match(sql, /FROM model_a_shadow_attempt/);
+    assert.equal(date, '2026-11-07');
+    return { results: [{ status: 'UNAVAILABLE', reason: 'MODEL_A_HISTORY_STALE', count: 8 },
+      { status: 'FORECAST_ONLY', reason: null, count: 2 }] };
+  } }) }) };
+  const response = await worker.fetch(new Request('https://example.net/v1/model-a-shadow?date=2026-11-07'), { DB: db });
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.mode, 'FORECAST_ONLY');
+  assert.equal(payload.buy_skip_enabled, false);
+  assert.equal(payload.attempts, 10);
+  assert.equal(JSON.stringify(payload).includes('probabilities'), false);
+  assert.equal((await worker.fetch(new Request('https://example.net/v1/model-a-shadow?date=invalid'), { DB: db })).status, 400);
+});
+
+test('history status reports the certified day without exposing any player records', async () => {
+  const db = { prepare: sql => sql.includes('model_a_history_active') ?
+    { first: async () => ({ through_day: 739882 }) } :
+    { all: async () => ({ results: [{ race_date: '2026-11-06', status: 'UNAVAILABLE',
+      reason: 'NATIONAL_MANIFEST_UNVERIFIED', expected_races: null }] }) } };
+  const response = await worker.fetch(new Request('https://example.net/v1/history-status'), { DB: db });
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.history_through_date, '2026-09-23');
+  assert.equal(payload.ready_for_today, false);
+  assert.equal(JSON.stringify(payload).includes('registrationNumber'), false);
 });

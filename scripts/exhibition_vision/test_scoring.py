@@ -40,6 +40,16 @@ def sample_evidence():
 
 
 class ScoreTest(unittest.TestCase):
+    def test_deadline_iso_utc_near_japanese_midnight_uses_jst_race_day(self):
+        sample = sample_evidence()
+        sample["race"]["date"] = "2026-11-08"
+        sample["race"]["deadline"] = "2026-11-07T15:04:00Z"  # 00:04 JST next day
+        sample["capture"]["captured_at"] = "2026-11-07T15:00:00Z"
+        sample["capture"]["analyzed_at"] = "2026-11-07T15:01:00Z"
+        self.assertEqual("SHADOW_READY", evaluate_race(sample)["status"])
+        sample["race"]["date"] = "2026-11-07"
+        self.assertEqual("UNUSABLE", evaluate_race(sample)["status"])
+
     def test_all_five_traits_ranked_but_not_promoted(self):
         result = evaluate_race(sample_evidence())
         self.assertEqual("SHADOW_READY", result["status"])
