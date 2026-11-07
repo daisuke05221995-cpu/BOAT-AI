@@ -21,6 +21,14 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         // The service is intentionally event driven. It never auto-taps on receipt of events.
         if (event?.packageName?.toString() != OFFICIAL_APP_PACKAGE) return
+        // Record only the structure of actionable elements. Never persist screen content.
+        lastProbe = collectElements()?.second?.filter { it.visible && (it.clickable || it.editable) }
+            ?.take(100)?.map { element ->
+                element.copy(
+                    text = safeControlLabel(element.text),
+                    description = safeControlLabel(element.description)
+                )
+            } ?: emptyList()
     }
 
     override fun onInterrupt() = Unit
@@ -87,6 +95,16 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
         const val OFFICIAL_APP_PACKAGE = "jp.boatrace.android.boatraceapp"
         private var active: WeakReference<BoatPurchaseAccessibilityService>? = null
         @Volatile private var armedUntilMs: Long = 0L
+        @Volatile private var lastProbe: List<PurchaseUiElement> = emptyList()
+
+        // Static screen controls only: never expose entered amounts, account IDs or passwords.
+        private fun safeControlLabel(value: String?): String? {
+            val normalized = value?.trim()?.takeIf { it.length in 1..30 } ?: return null
+            return normalized.takeIf {
+                it.matches(Regex(".*(投票|艇番|買い目|ベット|レース|金額|確認|次へ|戻る|ログイン|3連単|３連単).*")) &&
+                    !it.contains('@') && !it.matches(Regex(".*\\d{4,}.*"))
+            }
+        }
 
         fun isConnected(): Boolean = active?.get() != null
 
@@ -108,6 +126,17 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
         }
 
         fun observedOfficialElements(): Int? = active?.get()?.collectElements()?.second?.count { it.visible }
+
+        /** Export only sanitized labels / resource IDs, after a deliberate local copy action. */
+        fun diagnosticControlMap(): String = buildString {
+            appendLine("BOAT AI 公式アプリ操作検証（認証情報・入力値なし）")
+            appendLine("controls=${lastProbe.size}")
+            lastProbe.forEachIndexed { index, item ->
+                val id = item.resourceId?.take(100) ?: "-"
+                appendLine("$index id=$id click=${item.clickable} edit=${item.editable} " +
+                    "label=${item.text ?: item.description ?: "-"}")
+            }
+        }
     }
 }
 

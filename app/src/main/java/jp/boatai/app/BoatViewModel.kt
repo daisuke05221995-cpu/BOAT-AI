@@ -399,6 +399,16 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             }
     }
 
+    fun copyOfficialAppControlMap() {
+        if (!_ui.value.collectorModeEnabled) return
+        val context = getApplication<Application>()
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val details = BoatPurchaseAccessibilityService.diagnosticControlMap()
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("BOAT AI 操作検証", details))
+        _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+            message = "操作画面の項目名・IDだけをコピーしました。ログイン情報や入力値は含みません", error = null)) }
+    }
+
     fun dismissCollectorPurchaseHandoff() {
         collectorPurchaseInboxStore.clear()
         _ui.update { it.copy(collectorPurchaseInbox = null,
