@@ -9,6 +9,7 @@ const provenanceMigration = readFileSync(new URL('../migrations/0003_preclose_pr
 const historyMigration = readFileSync(new URL('../migrations/0004_model_a_history_generations.sql', import.meta.url), 'utf8');
 const weatherMigration = readFileSync(new URL('../migrations/0005_weather_provenance.sql', import.meta.url), 'utf8');
 const resultMigration = readFileSync(new URL('../migrations/0006_result_reconciliation.sql', import.meta.url), 'utf8');
+const modelAssetMigration = readFileSync(new URL('../migrations/0007_model_a_frozen_assets.sql', import.meta.url), 'utf8');
 
 test('D1 SQLite migration accepts actual race inserts, rejects duplicate loss', () => {
   const db = new DatabaseSync(':memory:');
@@ -132,5 +133,22 @@ test('result reconciliation migration preserves final results and makes exhauste
   assert.equal(row.result_failure_code, null);
   db.prepare('UPDATE race_schedule SET result_last_attempt_ms=120000 WHERE race_id=?').run(row.race_id);
   assert.equal(db.prepare('SELECT result_last_attempt_ms FROM race_schedule').get().result_last_attempt_ms, 120000);
+  db.close();
+});
+
+test('frozen Model A asset migration preserves results and does not enable production models', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(migration);
+  db.exec(auditMigration);
+  db.exec(provenanceMigration);
+  db.exec(weatherMigration);
+  db.exec(resultMigration);
+  db.prepare(`INSERT INTO race_schedule
+    (race_id, race_date, stadium_number, race_number, deadline_ms, updated_ms, result_json)
+    VALUES ('2026-11-07-01-1', '2026-11-07', 1, 1, 100000, 0, '{"status":"SETTLED"}')`).run();
+  db.exec(modelAssetMigration);
+  assert.equal(db.prepare('SELECT result_json FROM race_schedule').get().result_json, '{"status":"SETTLED"}');
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM model_a_frozen_bundle').get().n, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM model_a_frozen_chunk').get().n, 0);
   db.close();
 });
