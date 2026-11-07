@@ -51,7 +51,7 @@ internal fun CollectorDashboardScreen(
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("常時取得モード：有効", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("この端末でBOAT AIを前面表示している間、画面消灯を防ぎ、既存の60秒更新を継続します。", style = MaterialTheme.typography.bodyMedium)
+                    Text("この端末でBOAT AIを前面表示している間、画面消灯を防ぎ、既存の60秒更新を継続します。購入指示を受信すると公式アプリを前面に戻します。", style = MaterialTheme.typography.bodyMedium)
                     Text("他のアプリへ切り替えたり強制終了すると前面取得は停止します。充電中の熱や通信切断に注意してください。", style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -68,6 +68,8 @@ internal fun CollectorDashboardScreen(
                         var purchaseAcknowledged by remember(handoff.handoffId) { mutableStateOf(false) }
                         Text("${handoff.session.selectedRaces.size}レース / ${handoff.session.selectedTicketCount}点 / 合計${handoff.session.selectedStake}円",
                             fontWeight = FontWeight.Bold)
+                        if (handoff.purchaseAuthorized) Text("1台目からの実購入指示を受信。自動購入設定：${if (ui.collectorAutoPurchaseEnabled) "ON" else "OFF"}",
+                            style = MaterialTheme.typography.bodySmall)
                         handoff.session.selectedRaces.forEach { race ->
                             Text("${race.venueName} ${race.raceNumber}R：" +
                                 race.tickets.joinToString(" / ") { "${it.combination} ${it.amount}円" },
@@ -78,7 +80,7 @@ internal fun CollectorDashboardScreen(
                         }
                         OutlinedButton(onClick = vm::startCollectorPurchaseAutomationTest,
                             modifier = Modifier.fillMaxWidth()) {
-                            Text("開いている公式アプリで操作検証を開始")
+                            Text("公式アプリを開いて操作検証を開始")
                         }
                         if (vm.hasCollectorPurchaseSubmissionProfile()) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -92,10 +94,10 @@ internal fun CollectorDashboardScreen(
                                 vm.startCollectorPurchaseAutoBet()
                             }, enabled = purchaseAcknowledged,
                                 modifier = Modifier.fillMaxWidth()) {
-                                Text("開いている公式アプリで実投票を開始")
+                                Text("公式アプリを開いて実投票を開始")
                             }
                         }
-                        Text("開始ボタンを押した後、60秒以内に『最近使ったアプリ』から既に開いている公式BOATRACEへ戻ってください。BOAT AIは公式アプリを起動し直さず、画面が前面になったら入力を始めます。",
+                        Text("開始ボタンでBOAT AIが公式BOATRACEを前面に戻します。ログイン画面なら最大120秒待機し、ログイン完了後に買い目入力へ進みます。",
                             style = MaterialTheme.typography.bodySmall)
                         OutlinedButton(onClick = vm::copyOfficialAppControlMap,
                             modifier = Modifier.fillMaxWidth()) {
@@ -106,7 +108,7 @@ internal fun CollectorDashboardScreen(
                             Text("公式アプリ操作を緊急停止")
                         }
                         Text("操作状態：${vm.collectorPurchaseAutomationStatus()}", style = MaterialTheme.typography.bodySmall)
-                        Text("操作検証は締切まで2分以上・合計5,000円以内。実画面に対応した設定があるときのみ買い目入力を試験します。投票確定はまだ行いません。",
+                        Text("操作検証は締切まで2分以上・合計5,000円以内。実画面の対応表がない場合は入力を開始しません。操作検証ボタンでは投票確定しません。",
                             style = MaterialTheme.typography.bodySmall)
                         Text("実投票ボタンは実画面の操作設定が確認できた場合だけ表示します。投票ボタン操作後も公式の購入履歴で受付結果を確認してください。二重送信はしません。",
                             style = MaterialTheme.typography.bodySmall)
@@ -183,6 +185,14 @@ internal fun CollectorModeSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
                     Text("この端末でのみ有効。通常の購入記録やもう1台の設定は変更しません。", style = MaterialTheme.typography.bodySmall)
                 }
                 Switch(checked = ui.collectorModeEnabled, onCheckedChange = vm::setCollectorModeEnabled)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text("1台目からの承認済み購入指示を自動実行", fontWeight = FontWeight.Bold)
+                    Text("1台目で買い目・金額を確認して送った実購入指示だけを受け付けます。上限5,000円。ログイン切れ／画面不一致時は停止します。",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = ui.collectorAutoPurchaseEnabled, onCheckedChange = vm::setCollectorAutoPurchaseEnabled)
             }
             Text("画面点灯維持・本日データへの自動切替・取得状況の表示。予想や実購入履歴は別管理です。", style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(

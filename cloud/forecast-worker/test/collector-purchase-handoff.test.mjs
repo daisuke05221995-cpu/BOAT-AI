@@ -76,3 +76,26 @@ test('paired phone can retrieve and acknowledge one proposal; expiry prevents de
     assert.equal((await stagePurchaseHandoff(request('/stage', { schema_version: 1, session }), offline, now)).status, 409);
   } finally { offline.close(); }
 });
+
+test('remote purchase requires explicit same-stake consent and expires rapidly', async () => {
+  const env = fakeDb();
+  const authorized = { schema_version: 2, session, authorized_purchase: true,
+    approved_at_ms: now - 1_000, approved_total_yen: 500 };
+  try {
+    assert.equal((await stagePurchaseHandoff(request('/stage', {
+      ...authorized, approved_total_yen: 800 }), env, now)).status, 400);
+    assert.equal((await stagePurchaseHandoff(request('/stage', {
+      ...authorized, approved_at_ms: now - 70_000 }), env, now)).status, 400);
+    const stage = await stagePurchaseHandoff(request('/stage', authorized), env, now);
+    assert.equal(stage.status, 202);
+    assert.equal(stage.payload.schema_version, 2);
+    const next = await nextPurchaseHandoff(new Request(root + `/next?device_id=${deviceId}`,
+      { headers: auth }), env, now + 15_000);
+    assert.equal(next.payload.schema_version, 2);
+    assert.equal(next.payload.purchase_authorized, true);
+    assert.equal(next.payload.approved_total_yen, 500);
+    assert.deepEqual(next.payload.session, session);
+    assert.equal((await nextPurchaseHandoff(new Request(root + `/next?device_id=${deviceId}`,
+      { headers: auth }), env, now + 90_001)).payload.session, null);
+  } finally { env.close(); }
+});

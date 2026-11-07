@@ -30,17 +30,41 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
         val queuedAtMs: Long
     )
     private var pendingForegroundStart: PendingForegroundStart? = null
+    private var loginWaitDeadlineMs = 0L
     private val foregroundWaitExpired = Runnable {
         if (pendingForegroundStart != null) stopWithReason("60秒以内に公式アプリの画面へ戻らなかったため停止しました")
+    }
+    private val loginWaitExpired = Runnable {
+        if (pendingForegroundStart != null) stopWithReason("再ログイン完了を確認できませんでした。ログイン後に改めて購入指示を送ってください")
     }
 
     private fun maybeStartOnOfficialForeground(eventPackage: String?) {
         val pending = pendingForegroundStart ?: return
+        val nowMs = System.currentTimeMillis()
         val rootPackage = rootInActiveWindow?.packageName?.toString()
-        if (!PurchaseForegroundStartPolicy.canStart(eventPackage ?: rootPackage, rootPackage,
-                pending.queuedAtMs, System.currentTimeMillis())) return
+        val onOfficial = rootPackage == OFFICIAL_APP_PACKAGE &&
+            (eventPackage == null || eventPackage == OFFICIAL_APP_PACKAGE)
+        if (!onOfficial) return
+        if (loginWaitDeadlineMs == 0L && !PurchaseForegroundStartPolicy.canStart(
+                eventPackage ?: rootPackage, rootPackage, pending.queuedAtMs, nowMs)) return
+        if (loginWaitDeadlineMs != 0L && nowMs >= loginWaitDeadlineMs) {
+            stopWithReason("再ログイン待機時間を超えました。購入指示は実行していません")
+            return
+        }
+        val observed = collectElements()?.second ?: return
+        if (OfficialLoginScreenPolicy.requiresLogin(observed)) {
+            if (loginWaitDeadlineMs == 0L) {
+                loginWaitDeadlineMs = nowMs + 120_000L
+                mainHandler.removeCallbacks(foregroundWaitExpired)
+                mainHandler.postDelayed(loginWaitExpired, 120_000L)
+            }
+            lastRunState = PurchaseAutomationRunner.State.WaitingForLogin(nowMs)
+            return
+        }
         pendingForegroundStart = null
+        loginWaitDeadlineMs = 0L
         mainHandler.removeCallbacks(foregroundWaitExpired)
+        mainHandler.removeCallbacks(loginWaitExpired)
         val started = startPreparedScript(
             pending.script, pending.check, pending.session, pending.profile,
             pending.liveRaces, pending.liveDataFetchedAtMs, pending.submitRequested
@@ -160,8 +184,10 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
         mainHandler.removeCallbacks(runNextStep)
         mainHandler.removeCallbacks(verifyOfficialReview)
         mainHandler.removeCallbacks(foregroundWaitExpired)
+        mainHandler.removeCallbacks(loginWaitExpired)
         mainHandler.removeCallbacks(receiptTimeout)
         pendingForegroundStart = null
+        loginWaitDeadlineMs = 0L
         pendingReceiptContext = null
         runner?.stop(reason)
         lastRunState = runner?.state ?: PurchaseAutomationRunner.State.Stopped(reason)
@@ -227,8 +253,10 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
         mainHandler.removeCallbacks(runNextStep)
         mainHandler.removeCallbacks(verifyOfficialReview)
         mainHandler.removeCallbacks(foregroundWaitExpired)
+        mainHandler.removeCallbacks(loginWaitExpired)
         mainHandler.removeCallbacks(receiptTimeout)
         pendingForegroundStart = null
+        loginWaitDeadlineMs = 0L
         pendingReceiptContext = null
         finalizationContext = null
         activeReceiptProfile = null
@@ -324,8 +352,10 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
                 service.mainHandler.removeCallbacks(service.runNextStep)
                 service.mainHandler.removeCallbacks(service.verifyOfficialReview)
                 service.mainHandler.removeCallbacks(service.foregroundWaitExpired)
+                service.mainHandler.removeCallbacks(service.loginWaitExpired)
                 service.mainHandler.removeCallbacks(service.receiptTimeout)
                 service.pendingForegroundStart = null
+                service.loginWaitDeadlineMs = 0L
                 service.pendingReceiptContext = null
                 service.finalizationContext = null
                 service.activeReceiptProfile = null
@@ -359,6 +389,7 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
             service.pendingForegroundStart = PendingForegroundStart(
                 plan, check, session, profile, liveRaces, liveDataFetchedAtMs, submitRequested, queuedAt
             )
+            service.loginWaitDeadlineMs = 0L
             lastRunState = PurchaseAutomationRunner.State.WaitingForApp(queuedAt)
             service.mainHandler.postDelayed(service.foregroundWaitExpired,
                 PurchaseForegroundStartPolicy.SWITCH_WINDOW_MS)

@@ -2,6 +2,7 @@ import { collectorKeyMatches } from './device-collector.mjs';
 
 const ACTIVE_MS = 5 * 60_000;
 const EXPIRY_MS = 10 * 60_000;
+const PURCHASE_EXPIRY_MS = 90_000;
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const COMBINATION = /^([1-6])-([1-6])-([1-6])$/;
 
@@ -71,8 +72,19 @@ export async function stagePurchaseHandoff(request, env, nowMs = Date.now()) {
   if (denied) return denied;
   let body;
   try { body = await parsePost(request); } catch (e) { return inputError(e); }
-  if (!body || Object.keys(body).sort().join(',') !== 'schema_version,session' ||
-    body.schema_version !== 1 || !validSession(body.session, nowMs))
+  const proposal = body?.schema_version === 1 &&
+    Object.keys(body).sort().join(',') === 'schema_version,session';
+  const authorizedPurchase = body?.schema_version === 2 &&
+    Object.keys(body).sort().join(',') === 'approved_at_ms,approved_total_yen,authorized_purchase,schema_version,session' &&
+    body.authorized_purchase === true && Number.isInteger(body.approved_at_ms) &&
+    body.approved_at_ms <= nowMs && body.approved_at_ms >= nowMs - 60_000;
+  if ((!proposal && !authorizedPurchase) || !validSession(body.session, nowMs))
+    return { status: 400, payload: { error: 'INVALID_HANDOFF' } };
+  const selectedRaces = body?.session?.races?.filter(r => body.session.selectedRaceIds?.includes(r.raceId)) ?? [];
+  const selectedTotal = selectedRaces.reduce((n, race) =>
+    n + race.tickets.reduce((sum, ticket) => sum + ticket.amount, 0), 0);
+  if (authorizedPurchase && (selectedTotal > 5_000 || selectedTotal <= 0 ||
+      body.approved_total_yen !== selectedTotal || selectedRaces.length !== body.session.selectedRaceIds.length))
     return { status: 400, payload: { error: 'INVALID_HANDOFF' } };
   const device = await env.DB.prepare(`SELECT device_id FROM collector_device_heartbeat
     WHERE received_ms BETWEEN ? AND ? ORDER BY received_ms DESC LIMIT 1`)
@@ -84,16 +96,23 @@ export async function stagePurchaseHandoff(request, env, nowMs = Date.now()) {
     WHERE device_id=? AND status='PENDING' LIMIT 1`).bind(device.device_id).first();
   if (pending) return { status: 409, payload: { error: 'HANDOFF_ALREADY_PENDING' } };
   const handoffId = crypto.randomUUID();
+  const payload = authorizedPurchase ? {
+    schema_version: 2,
+    session: body.session,
+    approved_at_ms: body.approved_at_ms,
+    approved_total_yen: selectedTotal
+  } : body.session;
+  const expiry = nowMs + (authorizedPurchase ? PURCHASE_EXPIRY_MS : EXPIRY_MS);
   try {
     await env.DB.prepare(`INSERT INTO collector_purchase_handoff
       (handoff_id, device_id, session_json, status, requested_ms, expires_ms)
       VALUES (?, ?, ?, 'PENDING', ?, ?)`).bind(
-      handoffId, device.device_id, JSON.stringify(body.session), nowMs, nowMs + EXPIRY_MS).run();
+      handoffId, device.device_id, JSON.stringify(payload), nowMs, expiry).run();
   } catch (_) {
     return { status: 409, payload: { error: 'HANDOFF_ALREADY_PENDING' } };
   }
-  return { status: 202, payload: { schema_version: 1, staged: true, handoff_id: handoffId,
-    expires_at: new Date(nowMs + EXPIRY_MS).toISOString() } };
+  return { status: 202, payload: { schema_version: authorizedPurchase ? 2 : 1,
+    staged: true, handoff_id: handoffId, expires_at: new Date(expiry).toISOString() } };
 }
 
 export async function nextPurchaseHandoff(request, env, nowMs = Date.now()) {
@@ -107,10 +126,15 @@ export async function nextPurchaseHandoff(request, env, nowMs = Date.now()) {
   const handoff = await env.DB.prepare(`SELECT handoff_id, session_json, expires_ms FROM collector_purchase_handoff
     WHERE device_id=? AND status='PENDING' AND expires_ms>? ORDER BY requested_ms ASC LIMIT 1`)
     .bind(deviceId, nowMs).first();
-  return { status: 200, payload: { schema_version: 1,
+  const raw = handoff ? JSON.parse(handoff.session_json) : null;
+  const authorized = raw?.schema_version === 2;
+  return { status: 200, payload: { schema_version: authorized ? 2 : 1,
     handoff_id: handoff?.handoff_id ?? null,
     expires_at: handoff ? new Date(handoff.expires_ms).toISOString() : null,
-    session: handoff ? JSON.parse(handoff.session_json) : null } };
+    session: authorized ? raw.session : raw,
+    purchase_authorized: authorized ? true : undefined,
+    approved_at_ms: authorized ? raw.approved_at_ms : undefined,
+    approved_total_yen: authorized ? raw.approved_total_yen : undefined } };
 }
 
 export async function acknowledgePurchaseHandoff(request, env, nowMs = Date.now()) {

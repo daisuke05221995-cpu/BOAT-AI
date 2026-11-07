@@ -2,6 +2,7 @@ package jp.boatai.app
 
 import android.app.Activity
 import android.app.Application
+import android.content.Intent
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -70,6 +71,7 @@ data class BoatUiState(
     val liveOddsRefresh: LiveOddsRefreshStatus = LiveOddsRefreshStatus(),
     val cloudForecast: CloudForecastSyncState = CloudForecastSyncState(),
     val collectorModeEnabled: Boolean = false,
+    val collectorAutoPurchaseEnabled: Boolean = false,
     val collectorUpload: CollectorUploadStatus = CollectorUploadStatus(),
     val collectorMonitor: CollectorCloudMonitorState = CollectorCloudMonitorState(),
     val collectorRemote: CollectorRemoteState = CollectorRemoteState(),
@@ -138,6 +140,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             performance = initialPerformance,
             notificationsEnabled = notificationScheduler.enabled,
             collectorModeEnabled = collectorModeStore.isEnabled(),
+            collectorAutoPurchaseEnabled = collectorModeStore.isRemotePurchaseEnabled(),
             collectorUpload = CollectorUploadStatus(configured = collectorAuthStore.hasToken()),
             collectorPurchaseInbox = collectorPurchaseInboxStore.load()
         )
@@ -259,6 +262,11 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setCollectorAutoPurchaseEnabled(enabled: Boolean) {
+        collectorModeStore.setRemotePurchaseEnabled(enabled)
+        _ui.update { it.copy(collectorAutoPurchaseEnabled = enabled) }
+    }
+
     /** Call only from settings on the collection phone; never expose the key to UI or logs. */
     fun configureCollectorToken(input: String) {
         runCatching { collectorAuthStore.saveToken(input.trim()) }
@@ -307,13 +315,23 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** The first phone sends a fixed list of proposed tickets, never a buy instruction. */
-    fun sendPendingPurchaseToCollector() {
+    /** The original non-purchasing proposal remains available. */
+    fun sendPendingPurchaseToCollector() = sendPendingPurchaseToCollectorInternal(false)
+
+    /** Only called from the first phone's explicit per-selection purchase confirmation. */
+    fun sendPendingPurchaseAutoBetToCollector() = sendPendingPurchaseToCollectorInternal(true)
+
+    private fun sendPendingPurchaseToCollectorInternal(authorizePurchase: Boolean) {
         if (_ui.value.collectorModeEnabled || collectorPurchaseSendJob?.isActive == true) return
         val session = _ui.value.pendingPurchase ?: return
         if (session.selectedRaces.isEmpty()) return
         if (session.selectedRaces.size > 12) {
             _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "一度に転送できるのは12レースまでです")) }
+            return
+        }
+        if (authorizePurchase && (session.selectedStake !in 100..5_000 ||
+            session.selectedRaces.any { it.tickets.size > 6 })) {
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "遠隔購入は合計5,000円以下・1レース6点以下に限ります")) }
             return
         }
         val token = collectorAuthStore.readToken() ?: run {
@@ -326,10 +344,12 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(sending = true, error = null, message = null)) }
         collectorPurchaseSendJob = viewModelScope.launch {
             try {
-                collectorPurchaseHandoffRepository.stage(token, selected)
+                collectorPurchaseHandoffRepository.stage(token, selected, authorizePurchase)
                 _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
                     sending = false, sentAt = System.currentTimeMillis(),
-                    message = "買い目を2台目に送信しました。2台目で内容を確認して公式投票へ進めます")) }
+                    message = if (authorizePurchase)
+                        "実購入指示を送信しました。2台目が設定済みなら公式アプリを起動して処理します"
+                    else "買い目を2台目に送信しました。2台目で内容を確認して公式投票へ進めます")) }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -355,6 +375,9 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 _ui.update { it.copy(collectorPurchaseInbox = handoff,
                     purchaseHandoff = it.purchaseHandoff.copy(message = "1台目から買い目を受信しました", error = null)) }
                 collectorPurchaseHandoffRepository.acknowledge(token, deviceId, handoff.handoffId)
+                if (handoff.purchaseAuthorized && _ui.value.collectorAutoPurchaseEnabled) {
+                    startCollectorPurchaseAutomation(submitRequested = true)
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -391,6 +414,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         if (BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.WaitingForApp ||
+            BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.WaitingForLogin ||
             BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.Running ||
             BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.AwaitingReview ||
             BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.AwaitingReceipt) {
@@ -405,8 +429,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         val context = getApplication<Application>()
-        val launch = context.packageManager.getLaunchIntentForPackage(BoatPurchaseAccessibilityService.OFFICIAL_APP_PACKAGE)
-        if (launch == null) {
+        val officialIntent = context.packageManager.getLaunchIntentForPackage(BoatPurchaseAccessibilityService.OFFICIAL_APP_PACKAGE)
+        if (officialIntent == null) {
             _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "2台目に公式BOATRACEアプリがインストールされていません")) }
             return
         }
@@ -429,10 +453,23 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "公式アプリの前面待機を設定できませんでした")) }
             return
         }
+        // The collector is usually foreground with BOAT AI open. Reuse the existing official
+        // task instead of waiting for the user to find it in Recents. Do not clear its task.
+        val launched = runCatching {
+            officialIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            context.startActivity(officialIntent)
+        }
+        if (launched.isFailure) {
+            BoatPurchaseAccessibilityService.disarm()
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                error = "公式アプリを前面に戻せませんでした。手動で公式アプリを開いてください")) }
+            return
+        }
         _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
             message = if (submitRequested)
-                "60秒以内に、すでに開いている公式アプリへ切り替えてください。画面一致後に買い目入力と投票操作を始めます"
-            else "60秒以内に、すでに開いている公式アプリへ切り替えてください。画面一致後に入力検証を始めます（投票確定なし）",
+                "公式アプリへ切替中。ログイン状態と画面を確認後、買い目入力を始めます"
+            else "公式アプリへ切替中。画面を確認後、入力検証を始めます（投票確定なし）",
             error = null)) }
     }
 
@@ -454,6 +491,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     fun collectorPurchaseAutomationStatus(): String = when (val state = BoatPurchaseAccessibilityService.automationStatus()) {
         PurchaseAutomationRunner.State.Idle -> "未実行"
         is PurchaseAutomationRunner.State.WaitingForApp -> "公式アプリの画面に切り替わるのを待機中（60秒）"
+        is PurchaseAutomationRunner.State.WaitingForLogin -> "公式アプリがログイン画面です。手動ログイン完了を120秒待機中"
         is PurchaseAutomationRunner.State.Running -> "入力中 ${state.stepIndex + 1}/${state.totalSteps} 操作"
         is PurchaseAutomationRunner.State.AwaitingReview -> "入力完了・確認画面の照合待ち（${state.expectedTotal}円）"
         is PurchaseAutomationRunner.State.AwaitingReceipt -> "投票ボタン操作済み・公式受付結果の確認待ち"

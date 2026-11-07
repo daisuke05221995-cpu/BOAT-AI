@@ -18,6 +18,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -32,6 +35,7 @@ fun PendingPurchaseCard(
 ) {
     val selected = session.selectedRaces
     val state by vm.ui.collectAsState()
+    var remotePurchaseConfirmed by remember(session.id, session.selectedRaceIds) { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -126,6 +130,20 @@ fun PendingPurchaseCard(
             ) {
                 Text(if (state.purchaseHandoff.sending) "2台目に転送中…" else "買い目を2台目へ送る")
             }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = remotePurchaseConfirmed,
+                    onCheckedChange = { remotePurchaseConfirmed = it })
+                Text("選択した${session.selectedTicketCount}点・合計${purchaseMoney(session.selectedStake)}の遠隔購入を指示する",
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+            }
+            Button(onClick = {
+                remotePurchaseConfirmed = false
+                vm.sendPendingPurchaseAutoBetToCollector()
+            }, enabled = remotePurchaseConfirmed && selected.isNotEmpty() && session.selectedStake in 100..5_000 &&
+                !state.purchaseHandoff.sending,
+                modifier = Modifier.fillMaxWidth()) {
+                Text("2台目で自動購入を開始")
+            }
             state.purchaseHandoff.message?.let {
                 Text(it, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
             }
@@ -133,7 +151,7 @@ fun PendingPurchaseCard(
                 Text(it, color = androidx.compose.material3.MaterialTheme.colorScheme.error,
                     style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
             }
-            Text("2台目に投票予定を表示する機能です。舟券は購入されません。公式サイトで投票してから、1台目で実購入を確定してください。",
+            Text("『買い目を2台目へ送る』は購入しません。『2台目で自動購入を開始』は明示許可した金額・買い目を購入操作へ送ります。2台目の実画面設定がない場合は停止します。",
                 style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(6.dp))
             Row(
