@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { summarizeDailyAudit } from '../src/audit.mjs';
 import { summarizeOperationalDay, buildOperationalReport,
-  operationalMarkdown } from '../src/operational-report.mjs';
+  operationalMarkdown, compareHistoryCandidateCounts } from '../src/operational-report.mjs';
 
 const nowMs = Date.parse('2026-11-08T01:20:00Z');
 const earlier = '2026-11-07';
@@ -70,4 +70,25 @@ test('two-date artifact reports accurate collection gates in Actions summary', (
   assert.equal(report.days[0].results.due_coverage, null);
   assert.ok(operationalMarkdown(report).includes('UNAVAILABLE'));
   assert.ok(operationalMarkdown(report).includes(earlier));
+});
+
+test('unverified research history count comparison detects 12 terminal races absent from candidate', () => {
+  const raw = observation(earlier, Array.from({ length: 14 }, (_, i) =>
+    race(String(i), earlier, { result_json: JSON.stringify({ status: 'SETTLED' }), result_recorded_ms: nowMs })));
+  const day = summarizeOperationalDay(raw);
+  const ordinal = Math.trunc(Date.parse(`${earlier}T00:00:00Z`) / 86_400_000) + 719_163;
+  const candidate = { lastDay: ordinal, updateRaces: 999,
+    recent: Object.fromEntries(Array.from({ length: 12 }, (_, i) => [String(i + 1), { days: [ordinal] }])) };
+  const counts = compareHistoryCandidateCounts(day, candidate);
+  assert.equal(counts.candidate_races, 2);
+  assert.equal(counts.terminal_settled, 14);
+  assert.equal(counts.terminal_minus_candidate, 12);
+  assert.equal(counts.status, 'COUNT_DISCREPANCY_UNCERTIFIED');
+  assert.equal(counts.source, 'RESEARCH_CANDIDATE_NOT_CERTIFIED');
+  const older = summarizeOperationalDay(observation(earlier));
+  assert.equal(compareHistoryCandidateCounts(older, { ...candidate, lastDay: ordinal - 1 }).status,
+    'CANDIDATE_NOT_UPDATED');
+  assert.equal(compareHistoryCandidateCounts(older, candidate).status, 'COUNT_DISCREPANCY_UNCERTIFIED');
+  assert.ok(operationalMarkdown(buildOperationalReport(observation(earlier), observation(later), candidate))
+    .includes('NOT a completeness certificate'));
 });
