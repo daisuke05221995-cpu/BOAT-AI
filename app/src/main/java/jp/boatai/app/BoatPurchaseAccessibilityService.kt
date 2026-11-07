@@ -2,6 +2,8 @@ package jp.boatai.app
 
 import android.accessibilityservice.AccessibilityService
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import java.lang.ref.WeakReference
@@ -14,6 +16,33 @@ import java.lang.ref.WeakReference
  * have been checked against the user's actual Android 12 app screen.
  */
 class BoatPurchaseAccessibilityService : AccessibilityService() {
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var runner: PurchaseAutomationRunner? = null
+    private val runNextStep = object : Runnable {
+        override fun run() {
+            val sequence = runner ?: return
+            if (System.currentTimeMillis() >= armedUntilMs) {
+                sequence.stop("操作許可の期限が切れました")
+                lastRunState = sequence.state
+                return
+            }
+            val step = sequence.currentStep(System.currentTimeMillis())
+            if (step == null) {
+                lastRunState = sequence.state
+                return
+            }
+            // Every screen is re-read from the official app before *each* action.
+            // An ambiguous/missing control stops the script; no failed click is retried.
+            sequence.acknowledge(performVerifiedStep(step), System.currentTimeMillis())
+            lastRunState = sequence.state
+            if (sequence.state is PurchaseAutomationRunner.State.Running) {
+                mainHandler.postDelayed(this, 700L)
+            } else {
+                armedUntilMs = 0L
+            }
+        }
+    }
+
     override fun onServiceConnected() {
         active = WeakReference(this)
     }
@@ -34,6 +63,10 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
+        mainHandler.removeCallbacks(runNextStep)
+        runner?.stop("Androidの操作サービスが終了しました")
+        lastRunState = runner?.state ?: PurchaseAutomationRunner.State.Idle
+        armedUntilMs = 0L
         active?.get()?.takeIf { it === this }?.let { active = null }
         super.onDestroy()
     }
@@ -73,8 +106,10 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
         val node = nodes[match]
         if (step is PurchaseUiStep.Click) {
             // Confirm/submit buttons require a separate receipt-verification gate.
-            if (step.selector.label?.contains(Regex("投票|購入|確定|申込")) == true ||
-                node.text?.toString()?.contains(Regex("投票|購入|確定|申込")) == true) {
+            if (listOfNotNull(step.selector.label, node.text?.toString(), node.contentDescription?.toString())
+                    .any { it.contains(Regex("投票|購入|確定|申込|送信")) } ||
+                listOfNotNull(step.selector.resourceId, node.viewIdResourceName)
+                    .any { it.contains(Regex("submit|purchase|commit|confirm|vote|bet_now", RegexOption.IGNORE_CASE)) }) {
                 return PurchaseUiStepResult.Blocked("購入確定操作は照合機能が完成するまで無効です")
             }
             return if (node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) PurchaseUiStepResult.Performed
@@ -96,6 +131,7 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
         private var active: WeakReference<BoatPurchaseAccessibilityService>? = null
         @Volatile private var armedUntilMs: Long = 0L
         @Volatile private var lastProbe: List<PurchaseUiElement> = emptyList()
+        @Volatile private var lastRunState: PurchaseAutomationRunner.State = PurchaseAutomationRunner.State.Idle
 
         // Static screen controls only: never expose entered amounts, account IDs or passwords.
         private fun safeControlLabel(value: String?): String? {
@@ -114,7 +150,34 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
             return true
         }
 
-        fun disarm() { armedUntilMs = 0L }
+        fun disarm() {
+            armedUntilMs = 0L
+            active?.get()?.let { service ->
+                service.mainHandler.removeCallbacks(service.runNextStep)
+                service.runner?.stop("ユーザーが操作を停止しました")
+                lastRunState = service.runner?.state ?: PurchaseAutomationRunner.State.Idle
+            }
+        }
+
+        /**
+         * Runs an already calibrated, locally compiled script. There is no remote command path,
+         * no guessed selector, and no wager submission step. Explicit user activation is needed.
+         */
+        internal fun startPreparedScript(plan: PurchaseAutomationScript, check: PurchaseAutomationCheck): Boolean {
+            if (System.currentTimeMillis() >= armedUntilMs) return false
+            val service = active?.get() ?: return false
+            if (Looper.myLooper() != Looper.getMainLooper()) return false
+            val sequence = PurchaseAutomationRunner()
+            if (!sequence.start(plan, check, System.currentTimeMillis())) return false
+            if (service.runner?.state is PurchaseAutomationRunner.State.Running ||
+                service.runner?.state is PurchaseAutomationRunner.State.AwaitingReview) return false
+            service.runner = sequence
+            lastRunState = sequence.state
+            service.mainHandler.postDelayed(service.runNextStep, 700L)
+            return true
+        }
+
+        internal fun automationStatus(): PurchaseAutomationRunner.State = lastRunState
 
         /** Explicit local caller only: never deserialize arbitrary remote click instructions. */
         internal fun tryLocalStep(step: PurchaseUiStep): PurchaseUiStepResult {

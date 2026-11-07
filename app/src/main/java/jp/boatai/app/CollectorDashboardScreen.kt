@@ -82,6 +82,10 @@ internal fun CollectorDashboardScreen(
                             modifier = Modifier.fillMaxWidth()) {
                             Text("公式アプリ画面の操作項目をコピー")
                         }
+                        OutlinedButton(onClick = vm::stopCollectorPurchaseAutomation,
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("公式アプリ操作を緊急停止")
+                        }
                         Text("操作検証は締切まで2分以上・合計5,000円以内で開始できます。現段階で買い目入力や投票確定は自動実行しません。",
                             style = MaterialTheme.typography.bodySmall)
                         Text("注意：これは購入準備です。公式サイトでご自身が投票を確定してください。投票結果は1台目で記録します。",

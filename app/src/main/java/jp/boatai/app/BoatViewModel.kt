@@ -409,7 +409,15 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             message = "操作画面の項目名・IDだけをコピーしました。ログイン情報や入力値は含みません", error = null)) }
     }
 
+    /** Local emergency stop. A pending purchase plan remains visible but cannot auto-advance. */
+    fun stopCollectorPurchaseAutomation() {
+        BoatPurchaseAccessibilityService.disarm()
+        _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+            message = "公式アプリの自動操作を停止しました", error = null)) }
+    }
+
     fun dismissCollectorPurchaseHandoff() {
+        BoatPurchaseAccessibilityService.disarm()
         collectorPurchaseInboxStore.clear()
         _ui.update { it.copy(collectorPurchaseInbox = null,
             purchaseHandoff = it.purchaseHandoff.copy(message = "受信した買い目を閉じました", error = null)) }
