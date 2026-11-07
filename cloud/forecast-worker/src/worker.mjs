@@ -200,17 +200,19 @@ async function captureDueRaces(env, date, nowMs) {
   const observations = await mapBounded(claimed, 4, async ({ row, stage }) => {
     let preview = null;
     let odds = null;
-    let failure = null;
+    const failures = [];
     try { preview = await authorizedPreview(env, row); }
-    catch (error) { failure = String(error.message).slice(0, 100); }
-    if (!failure) {
-      try { odds = await authorizedOdds(env, row); }
-      catch (error) { failure = String(error.message).slice(0, 100); }
-    }
+    catch (error) { failures.push(String(error.message)); }
+    // Preview and odds are independent observations. A missing/invalid preview
+    // must not suppress an otherwise authorized odds acquisition, or vice versa.
+    // Only their jointly verified snapshot may become a complete capture.
+    try { odds = await authorizedOdds(env, row); }
+    catch (error) { failures.push(String(error.message)); }
     // A slow network response cannot backfill a supposedly pre-close forecast.
     const finishedAt = Date.now();
-    if (finishedAt >= row.deadline_ms) failure = 'CAPTURE_FINISHED_AFTER_DEADLINE';
-    const captured = !failure && preview && odds;
+    if (finishedAt >= row.deadline_ms) failures.push('CAPTURE_FINISHED_AFTER_DEADLINE');
+    const failure = failures.length ? failures.join('|').slice(0, 100) : null;
+    const captured = !failure && preview != null && odds != null;
     return { row, stage, preview, odds, failure, finishedAt, captured };
   });
   const updates = [];
@@ -219,8 +221,8 @@ async function captureDueRaces(env, date, nowMs) {
         preview ? JSON.stringify(preview.preview) : null,
         preview?.source ?? null, preview?.observedMs ?? null,
         preview?.weatherSource ?? null, preview?.weatherObservedMs ?? null,
-        captured ? JSON.stringify(odds.odds) : null,
-        captured ? odds.source : null, captured ? odds.observedMs : null,
+        odds ? JSON.stringify(odds.odds) : null,
+        odds?.source ?? null, odds?.observedMs ?? null,
         failure, finishedAt, row.race_id, nowMs));
     updates.push(audit.bind(finishedAt, captured ? 1 : 0, failure, row.race_id, stage, nowMs));
     // Deliberately no BUY/SKIP until the Android Model A parity runner exists.

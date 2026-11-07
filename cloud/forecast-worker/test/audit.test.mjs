@@ -288,6 +288,78 @@ test('T-8 authorized provider snapshots persist both real source clocks but do n
   assert.equal(saved.sql.includes('forecast_json'), false);
 });
 
+test('a preview outage does not prevent authorized odds acquisition or create a false forecast', async () => {
+  const nowMs = Date.now();
+  const date = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo',
+    year: 'numeric', month: '2-digit', day: '2-digit' }).format(nowMs);
+  const row = { race_id: `${date}-01-1`, race_date: date, stadium_number: 1,
+    race_number: 1, deadline_ms: nowMs + 7 * 60_000, capture_stage: 0 };
+  const originalFetch = globalThis.fetch;
+  const seen = [], batched = [];
+  globalThis.fetch = async url => {
+    const requested = new URL(url);
+    seen.push(requested.pathname);
+    return new Response(JSON.stringify({ date, stadium_number: 1, race_number: 1,
+      source: 'authorized-odds', observed_at: new Date(Date.now() - 10_000).toISOString(),
+      odds: fullOdds }));
+  };
+  const env = { ODDS_API_URL: 'https://test-provider.invalid/odds', DB: {
+    prepare(sql) { return { bind(...args) { return { sql, args,
+      first: async () => ({ race_count: 1, last_attempt_ms: nowMs }),
+      all: async () => ({ results: sql.includes('capture_stage < 2') ? [row] : [] }),
+      run: async () => ({ meta: { changes: 1 } }),
+    }; } }; },
+    batch: async statements => { batched.push(statements); return statements.map(() => ({ meta: { changes: 1 } })); },
+  } };
+  try { await runScheduled(env, nowMs); }
+  finally { globalThis.fetch = originalFetch; }
+  assert.deepEqual(seen, ['/odds']);
+  const saved = batched.at(-1).find(statement => statement.sql.includes('UPDATE race_schedule'));
+  const attempt = batched.at(-1).find(statement => statement.sql.includes('UPDATE capture_attempt'));
+  assert.equal(saved.args[0], 1); // failed T-8; still eligible for T-5 retry
+  assert.equal(saved.args[1], null); // never a complete capture
+  assert.equal(saved.args[2], null); // no preview observation
+  assert.equal(Object.keys(JSON.parse(saved.args[7])).length, 120);
+  assert.equal(saved.args[8], 'authorized-odds');
+  assert.ok(Number.isFinite(saved.args[9]));
+  assert.equal(saved.args[10], 'PREVIEW_PROVIDER_NOT_CONFIGURED');
+  assert.equal(attempt.args[1], 0); // not a successful full capture
+  assert.equal(attempt.args[2], 'PREVIEW_PROVIDER_NOT_CONFIGURED');
+  const audit = summarizeDailyAudit(date, nowMs, [{ ...row,
+    preview_json: saved.args[2], odds_json: saved.args[7],
+    odds_source: saved.args[8], odds_observed_ms: saved.args[9],
+    captured_ms: saved.args[1], capture_stage: saved.args[0],
+    forecast_json: null, decision: null,
+  }]);
+  assert.equal(audit.capture.odds_observed, 1);
+  assert.equal(audit.capture.preview_observed, 0);
+  assert.equal(audit.capture.complete_observations, 0);
+  assert.equal(audit.capture.forecasts_ready, 0);
+});
+
+test('both missing provider configurations are individually diagnosed without a fabricated capture', async () => {
+  const nowMs = Date.now();
+  const date = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo',
+    year: 'numeric', month: '2-digit', day: '2-digit' }).format(nowMs);
+  const row = { race_id: `${date}-01-1`, race_date: date, stadium_number: 1,
+    race_number: 1, deadline_ms: nowMs + 7 * 60_000, capture_stage: 0 };
+  const batched = [];
+  const env = { DB: {
+    prepare(sql) { return { bind(...args) { return { sql, args,
+      first: async () => ({ race_count: 1, last_attempt_ms: nowMs }),
+      all: async () => ({ results: sql.includes('capture_stage < 2') ? [row] : [] }),
+      run: async () => ({ meta: { changes: 1 } }),
+    }; } }; },
+    batch: async statements => { batched.push(statements); return statements.map(() => ({ meta: { changes: 1 } })); },
+  } };
+  await runScheduled(env, nowMs);
+  const saved = batched.at(-1).find(statement => statement.sql.includes('UPDATE race_schedule'));
+  assert.equal(saved.args[1], null);
+  assert.equal(saved.args[2], null);
+  assert.equal(saved.args[7], null);
+  assert.equal(saved.args[10], 'PREVIEW_PROVIDER_NOT_CONFIGURED|ODDS_PROVIDER_NOT_CONFIGURED');
+});
+
 test('same-deadline provider calls run concurrently with a strict four-race cap', async () => {
   const nowMs = Date.now();
   const date = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(nowMs);
