@@ -206,9 +206,10 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.packageName?.toString() != OFFICIAL_APP_PACKAGE) return
-        // Record only the structure of actionable elements. Never persist screen content.
-        lastProbe = collectElements()?.second?.filter { it.visible && (it.clickable || it.editable) }
-            ?.take(100)?.map { element ->
+        // Include static headings and row IDs so review/receipt screens can be calibrated.
+        // Text is whitelisted: no bet amount, contract number, ID or password is exported.
+        lastProbe = collectElements()?.second?.filter { it.visible }
+            ?.take(250)?.map { element ->
                 element.copy(
                     text = safeControlLabel(element.text),
                     description = safeControlLabel(element.description)
@@ -277,7 +278,7 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
                     .any { it.contains(Regex("投票|購入|確定|申込|送信")) } ||
                 listOfNotNull(step.selector.resourceId, node.viewIdResourceName)
                     .any { it.contains(Regex("submit|purchase|commit|confirm|vote|bet_now", RegexOption.IGNORE_CASE)) }) {
-                return PurchaseUiStepResult.Blocked("購入確定操作は照合機能が完成するまで無効です")
+                return PurchaseUiStepResult.Blocked("一般画面操作からの投票確定操作はできません")
             }
             return if (node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) PurchaseUiStepResult.Performed
             else PurchaseUiStepResult.Blocked("ボタンを操作できませんでした")
@@ -304,7 +305,7 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
         private fun safeControlLabel(value: String?): String? {
             val normalized = value?.trim()?.takeIf { it.length in 1..30 } ?: return null
             return normalized.takeIf {
-                it.matches(Regex(".*(投票|艇番|買い目|ベット|レース|金額|確認|次へ|戻る|ログイン|3連単|３連単).*")) &&
+                it.matches(Regex(".*(投票|艇番|買い目|ベット|レース|金額|確認|次へ|戻る|ログイン|3連単|３連単|受付|成立|不成立|契約番号|合計).*")) &&
                     !it.contains('@') && !it.matches(Regex(".*\\d{4,}.*"))
             }
         }
