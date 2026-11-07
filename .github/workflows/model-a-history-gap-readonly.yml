@@ -43,7 +43,7 @@ jobs:
             "$RUNNER_TEMP/published-20261106.json" \
             ../../data/model_a_recent_history.bin --markdown \
             | tee -a "$GITHUB_STEP_SUMMARY"
-          jq -e '.status=="RESEARCH_SOURCE_AND_HISTORY_UNCERTIFIED" and .candidate_history_races==132' \
+          jq -e '.status=="RESEARCH_SOURCE_AND_HISTORY_UNCERTIFIED" and .candidate_history_races==132 and (.invalid_six_race_details|length)==12' \
             "$RUNNER_TEMP/history-gap-diagnostic.json" >/dev/null
       - uses: actions/upload-artifact@v4
         with:
