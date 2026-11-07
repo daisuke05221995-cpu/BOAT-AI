@@ -5,17 +5,20 @@ import java.security.MessageDigest
 
 /** A durable reservation must be saved before a purchase-confirm tap is attempted. */
 internal interface PurchaseAttemptReservation {
-    fun reserve(deduplicationKey: String, attemptedAtMs: Long): Boolean
+    fun reserveAll(deduplicationKeys: List<String>, attemptedAtMs: Long): Boolean
 }
 
 internal class AndroidPurchaseAttemptReservation(context: Context) : PurchaseAttemptReservation {
     private val preferences = context.getSharedPreferences("official_purchase_attempts", Context.MODE_PRIVATE)
 
     @Synchronized
-    override fun reserve(deduplicationKey: String, attemptedAtMs: Long): Boolean {
-        if (preferences.contains(deduplicationKey)) return false
+    override fun reserveAll(deduplicationKeys: List<String>, attemptedAtMs: Long): Boolean {
+        if (deduplicationKeys.isEmpty() || deduplicationKeys.distinct().size != deduplicationKeys.size ||
+            deduplicationKeys.any(preferences::contains)) return false
         // Synchronous commit: a crash/restart must never result in a second tap.
-        return preferences.edit().putLong(deduplicationKey, attemptedAtMs).commit()
+        val edit = preferences.edit()
+        deduplicationKeys.forEach { edit.putLong(it, attemptedAtMs) }
+        return edit.commit()
     }
 }
 
@@ -45,16 +48,16 @@ internal object PurchaseSubmitGate {
         return PurchaseConfirmationGate.checkReview(session, review, nowMs, maxObservationAgeMs = 10_000L)
     }
 
-    /** Identical tickets on the same day remain blocked even if the handoff ID changes. */
-    fun deduplicationKey(session: PendingPurchaseSession): String {
-        val canonical = session.selectedRaces.flatMap { race ->
+    /** Any overlapping ticket on the same day is blocked, even in a different handoff/subset. */
+    fun deduplicationKeys(session: PendingPurchaseSession): List<String> =
+        session.selectedRaces.flatMap { race ->
             race.tickets.map { ticket ->
                 "${race.date}|${race.stadiumNumber}|${race.raceNumber}|${ticket.combination}|${ticket.amount}"
             }
-        }.sorted().joinToString("\n")
-        val digest = MessageDigest.getInstance("SHA-256").digest(canonical.toByteArray(Charsets.UTF_8))
-        return "attempt_" + digest.joinToString("") { "%02x".format(it.toInt() and 0xff) }
-    }
+        }.map { canonical ->
+            val digest = MessageDigest.getInstance("SHA-256").digest(canonical.toByteArray(Charsets.UTF_8))
+            "attempt_" + digest.joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        }.sorted()
 
     private fun reject(reason: String) = PurchaseConfirmationDecision(false, reason)
 }
@@ -71,8 +74,8 @@ internal class PurchaseSubmissionController(private val reservations: PurchaseAt
     ): PurchaseSubmissionResult {
         val gate = PurchaseSubmitGate.validate(session, review, preflight, nowMs, liveDataFetchedAtMs)
         if (!gate.allowed) return PurchaseSubmissionResult.Rejected(gate.reason)
-        if (!reservations.reserve(PurchaseSubmitGate.deduplicationKey(session), nowMs)) {
-            return PurchaseSubmissionResult.Rejected("同一買い目への投票操作をすでに試行しています")
+        if (!reservations.reserveAll(PurchaseSubmitGate.deduplicationKeys(session), nowMs)) {
+            return PurchaseSubmissionResult.Rejected("この買い目の一部または全部がすでに投票操作済みです")
         }
         return if (runCatching(tap).getOrDefault(false)) PurchaseSubmissionResult.TapAttemptedReceiptPending
         else PurchaseSubmissionResult.TapFailedDoNotRetry

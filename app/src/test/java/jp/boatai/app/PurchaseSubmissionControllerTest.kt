@@ -22,7 +22,10 @@ class PurchaseSubmissionControllerTest {
     @Test fun persistsReservationBeforeOneTapAndRejectsDuplicateHandoff() {
         val store = object : PurchaseAttemptReservation {
             private val keys = mutableSetOf<String>()
-            override fun reserve(deduplicationKey: String, attemptedAtMs: Long) = keys.add(deduplicationKey)
+            override fun reserveAll(deduplicationKeys: List<String>, attemptedAtMs: Long): Boolean {
+                if (deduplicationKeys.any { it in keys }) return false
+                return keys.addAll(deduplicationKeys)
+            }
         }
         val controller = PurchaseSubmissionController(store)
         var taps = 0
@@ -30,12 +33,19 @@ class PurchaseSubmissionControllerTest {
             controller.submitOnce(session(), review, allowed, now, now - 5_000) { taps++; true })
         assertTrue(controller.submitOnce(session("second-handoff"), review, allowed, now, now - 5_000) { taps++; true } is
             PurchaseSubmissionResult.Rejected)
+        val subset = session("subset").let { it.copy(races = it.races.map { race ->
+            race.copy(tickets = race.tickets.take(1))
+        }) }
+        assertTrue(controller.submitOnce(subset,
+            review.copy(lines = review.lines.take(1), displayedTotal = 500),
+            allowed.copy(sessionStake = 500, selectedTickets = 1), now, now - 5_000
+        ) { taps++; true } is PurchaseSubmissionResult.Rejected)
         assertEquals(1, taps)
     }
 
     @Test fun refusesStaleDataMismatchedOfficialScreenAndFailedPersistence() {
         val store = object : PurchaseAttemptReservation {
-            override fun reserve(deduplicationKey: String, attemptedAtMs: Long) = false
+            override fun reserveAll(deduplicationKeys: List<String>, attemptedAtMs: Long) = false
         }
         val controller = PurchaseSubmissionController(store)
         var clicked = false
@@ -52,7 +62,10 @@ class PurchaseSubmissionControllerTest {
     @Test fun failedTapDoesNotGrantAnAutomaticRetry() {
         val store = object : PurchaseAttemptReservation {
             val keys = mutableSetOf<String>()
-            override fun reserve(deduplicationKey: String, attemptedAtMs: Long) = keys.add(deduplicationKey)
+            override fun reserveAll(deduplicationKeys: List<String>, attemptedAtMs: Long): Boolean {
+                if (deduplicationKeys.any { it in keys }) return false
+                return keys.addAll(deduplicationKeys)
+            }
         }
         val controller = PurchaseSubmissionController(store)
         assertEquals(PurchaseSubmissionResult.TapFailedDoNotRetry,
