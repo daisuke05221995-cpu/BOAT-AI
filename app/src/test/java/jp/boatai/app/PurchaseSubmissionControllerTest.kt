@@ -28,7 +28,7 @@ class PurchaseSubmissionControllerTest {
         var taps = 0
         assertEquals(PurchaseSubmissionResult.TapAttemptedReceiptPending,
             controller.submitOnce(session(), review, allowed, now, now - 5_000) { taps++; true })
-        assertTrue(controller.submitOnce(session("second-handoff"), review, allowed, now, now - 5_000) is
+        assertTrue(controller.submitOnce(session("second-handoff"), review, allowed, now, now - 5_000) { taps++; true } is
             PurchaseSubmissionResult.Rejected)
         assertEquals(1, taps)
     }
