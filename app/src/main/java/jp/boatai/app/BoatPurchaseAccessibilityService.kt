@@ -10,7 +10,8 @@ import java.lang.ref.WeakReference
 
 /**
  * Local opt-in driver for the official Android app. The service cannot be enabled remotely.
- * It never reads passwords, stores credentials, or submits a ticket on its own.
+ * It never reads passwords or stores credentials. A wager submission requires an explicit,
+ * session-scoped local user action and strict official-screen readback.
  *
  * Screen-specific scripts will be enabled only after their IDs/text and readback contract
  * have been checked against the user's actual Android 12 app screen.
@@ -18,6 +19,34 @@ import java.lang.ref.WeakReference
 class BoatPurchaseAccessibilityService : AccessibilityService() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var runner: PurchaseAutomationRunner? = null
+    private data class PendingForegroundStart(
+        val script: PurchaseAutomationScript,
+        val check: PurchaseAutomationCheck,
+        val session: PendingPurchaseSession,
+        val profile: OfficialPurchaseScreenProfile,
+        val liveRaces: List<RaceData>,
+        val liveDataFetchedAtMs: Long,
+        val submitRequested: Boolean,
+        val queuedAtMs: Long
+    )
+    private var pendingForegroundStart: PendingForegroundStart? = null
+    private val foregroundWaitExpired = Runnable {
+        if (pendingForegroundStart != null) stopWithReason("60秒以内に公式アプリの画面へ戻らなかったため停止しました")
+    }
+
+    private fun maybeStartOnOfficialForeground(eventPackage: String?) {
+        val pending = pendingForegroundStart ?: return
+        val rootPackage = rootInActiveWindow?.packageName?.toString()
+        if (!PurchaseForegroundStartPolicy.canStart(eventPackage ?: rootPackage, rootPackage,
+                pending.queuedAtMs, System.currentTimeMillis())) return
+        pendingForegroundStart = null
+        mainHandler.removeCallbacks(foregroundWaitExpired)
+        val started = startPreparedScript(
+            pending.script, pending.check, pending.session, pending.profile,
+            pending.liveRaces, pending.liveDataFetchedAtMs, pending.submitRequested
+        )
+        if (!started) stopWithReason("公式アプリ画面が前面になりましたが、操作を開始できませんでした")
+    }
     private data class FinalizationContext(
         val session: PendingPurchaseSession,
         val profile: OfficialPurchaseReviewProfile,
@@ -94,6 +123,8 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
     private fun stopWithReason(reason: String) {
         mainHandler.removeCallbacks(runNextStep)
         mainHandler.removeCallbacks(verifyOfficialReview)
+        mainHandler.removeCallbacks(foregroundWaitExpired)
+        pendingForegroundStart = null
         runner?.stop(reason)
         lastRunState = runner?.state ?: PurchaseAutomationRunner.State.Stopped(reason)
         finalizationContext = null
@@ -135,7 +166,6 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // The service is intentionally event driven. It never auto-taps on receipt of events.
         if (event?.packageName?.toString() != OFFICIAL_APP_PACKAGE) return
         // Record only the structure of actionable elements. Never persist screen content.
         lastProbe = collectElements()?.second?.filter { it.visible && (it.clickable || it.editable) }
@@ -145,13 +175,18 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
                     description = safeControlLabel(element.description)
                 )
             } ?: emptyList()
+        // A user has already armed one local script. Returning to the already-open official
+        // app is the only event that can advance it; other apps are ignored.
+        maybeStartOnOfficialForeground(event.packageName?.toString())
     }
 
-    override fun onInterrupt() = Unit
+    override fun onInterrupt() = stopWithReason("Androidのユーザー補助が中断されました")
 
     override fun onDestroy() {
         mainHandler.removeCallbacks(runNextStep)
         mainHandler.removeCallbacks(verifyOfficialReview)
+        mainHandler.removeCallbacks(foregroundWaitExpired)
+        pendingForegroundStart = null
         finalizationContext = null
         runner?.stop("Androidの操作サービスが終了しました")
         lastRunState = runner?.state ?: PurchaseAutomationRunner.State.Idle
@@ -244,10 +279,45 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
             active?.get()?.let { service ->
                 service.mainHandler.removeCallbacks(service.runNextStep)
                 service.mainHandler.removeCallbacks(service.verifyOfficialReview)
+                service.mainHandler.removeCallbacks(service.foregroundWaitExpired)
+                service.pendingForegroundStart = null
                 service.finalizationContext = null
                 service.runner?.stop("ユーザーが操作を停止しました")
                 lastRunState = service.runner?.state ?: PurchaseAutomationRunner.State.Idle
             }
+        }
+
+        /**
+         * The official app is assumed to be already running in Recents. Do not call launch intents:
+         * wait for the user to bring that existing official screen to the foreground.
+         */
+        internal fun queueForExistingOfficialScreen(
+            plan: PurchaseAutomationScript,
+            check: PurchaseAutomationCheck,
+            session: PendingPurchaseSession,
+            profile: OfficialPurchaseScreenProfile,
+            liveRaces: List<RaceData>,
+            liveDataFetchedAtMs: Long,
+            submitRequested: Boolean = false
+        ): Boolean {
+            if (System.currentTimeMillis() >= armedUntilMs || Looper.myLooper() != Looper.getMainLooper()) return false
+            if (!check.allowed || PurchaseAutomationScriptCompiler.compile(session, profile, check) != plan ||
+                (submitRequested && profile.finalization == null)) return false
+            val service = active?.get() ?: return false
+            if (service.pendingForegroundStart != null ||
+                service.runner?.state is PurchaseAutomationRunner.State.Running ||
+                service.runner?.state is PurchaseAutomationRunner.State.AwaitingReview ||
+                service.runner?.state is PurchaseAutomationRunner.State.AwaitingReceipt) return false
+            val queuedAt = System.currentTimeMillis()
+            service.pendingForegroundStart = PendingForegroundStart(
+                plan, check, session, profile, liveRaces, liveDataFetchedAtMs, submitRequested, queuedAt
+            )
+            lastRunState = PurchaseAutomationRunner.State.WaitingForApp(queuedAt)
+            service.mainHandler.postDelayed(service.foregroundWaitExpired,
+                PurchaseForegroundStartPolicy.SWITCH_WINDOW_MS)
+            // Also handles the case where the official app was already active when queued.
+            service.mainHandler.postDelayed({ service.maybeStartOnOfficialForeground(null) }, 250L)
+            return true
         }
 
         /**

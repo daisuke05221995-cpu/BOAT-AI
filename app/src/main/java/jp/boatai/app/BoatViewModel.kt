@@ -390,7 +390,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "公式投票前に開催情報を更新してください")) }
             return
         }
-        if (BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.Running ||
+        if (BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.WaitingForApp ||
+            BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.Running ||
             BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.AwaitingReview ||
             BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.AwaitingReceipt) {
             _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "前の操作が進行中または照合待ちです。停止してから再実行してください")) }
@@ -403,37 +404,36 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 error = "公式アプリの確認・投票ボタンが実画面に対応付けられていません")) }
             return
         }
-        if (!BoatPurchaseAccessibilityService.armForLocalTest(check)) {
-            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
-                error = "ユーザー補助の『BOAT AI』を2台目で有効にしてください")) }
-            return
-        }
         val context = getApplication<Application>()
         val launch = context.packageManager.getLaunchIntentForPackage(BoatPurchaseAccessibilityService.OFFICIAL_APP_PACKAGE)
         if (launch == null) {
-            BoatPurchaseAccessibilityService.disarm()
-            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "公式BOATRACEアプリが見つかりません")) }
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "2台目に公式BOATRACEアプリがインストールされていません")) }
             return
         }
-        runCatching { context.startActivity(launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            .onSuccess {
-                _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
-                    message = if (script == null) "公式アプリを起動しました。実画面の操作設定が未登録のため、入力はしません"
-                    else if (submitRequested) "公式アプリを起動しました。買い目入力と確認画面の照合後、条件が合えば投票を1回だけ試みます"
-                    else "公式アプリを起動しました。調整済み画面で買い目入力の検証を始めます（投票確定なし）", error = null)) }
-                if (script != null) viewModelScope.launch {
-                    delay(2_500L)
-                    if (!BoatPurchaseAccessibilityService.startPreparedScript(
-                            script, check, handoff.session, calibration!!, _ui.value.races,
-                            latestDataAt, submitRequested)) {
-                        _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "画面操作を開始できません。表示中の公式アプリと設定を確認してください")) }
-                    }
-                }
-            }
-            .onFailure { error ->
-                BoatPurchaseAccessibilityService.disarm()
-                _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = error.message ?: "公式アプリを起動できません")) }
-            }
+        if (script == null || calibration == null) {
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                error = "実画面の操作設定が未登録です。公式アプリの画面項目を確認してください")) }
+            return
+        }
+        if (!BoatPurchaseAccessibilityService.armForLocalTest(check)) {
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                error = "2台目のユーザー補助で『BOAT AI』を有効にしてください")) }
+            return
+        }
+        val accepted = BoatPurchaseAccessibilityService.queueForExistingOfficialScreen(
+            script, check, handoff.session, calibration, _ui.value.races,
+            latestDataAt, submitRequested
+        )
+        if (!accepted) {
+            BoatPurchaseAccessibilityService.disarm()
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "公式アプリの前面待機を設定できませんでした")) }
+            return
+        }
+        _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+            message = if (submitRequested)
+                "60秒以内に、すでに開いている公式アプリへ切り替えてください。画面一致後に買い目入力と投票操作を始めます"
+            else "60秒以内に、すでに開いている公式アプリへ切り替えてください。画面一致後に入力検証を始めます（投票確定なし）",
+            error = null)) }
     }
 
     fun copyOfficialAppControlMap() {
@@ -453,6 +453,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun collectorPurchaseAutomationStatus(): String = when (val state = BoatPurchaseAccessibilityService.automationStatus()) {
         PurchaseAutomationRunner.State.Idle -> "未実行"
+        is PurchaseAutomationRunner.State.WaitingForApp -> "公式アプリの画面に切り替わるのを待機中（60秒）"
         is PurchaseAutomationRunner.State.Running -> "入力中 ${state.stepIndex + 1}/${state.totalSteps} 操作"
         is PurchaseAutomationRunner.State.AwaitingReview -> "入力完了・確認画面の照合待ち（${state.expectedTotal}円）"
         is PurchaseAutomationRunner.State.AwaitingReceipt -> "投票ボタン操作済み・公式受付結果の確認待ち"

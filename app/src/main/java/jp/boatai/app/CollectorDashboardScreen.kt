@@ -78,7 +78,7 @@ internal fun CollectorDashboardScreen(
                         }
                         OutlinedButton(onClick = vm::startCollectorPurchaseAutomationTest,
                             modifier = Modifier.fillMaxWidth()) {
-                            Text("公式Androidアプリの操作検証")
+                            Text("開いている公式アプリで操作検証を開始")
                         }
                         if (vm.hasCollectorPurchaseSubmissionProfile()) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -92,9 +92,11 @@ internal fun CollectorDashboardScreen(
                                 vm.startCollectorPurchaseAutoBet()
                             }, enabled = purchaseAcknowledged,
                                 modifier = Modifier.fillMaxWidth()) {
-                                Text("確認した買い目を公式アプリで実投票する")
+                                Text("開いている公式アプリで実投票を開始")
                             }
                         }
+                        Text("開始ボタンを押した後、60秒以内に『最近使ったアプリ』から既に開いている公式BOATRACEへ戻ってください。BOAT AIは公式アプリを起動し直さず、画面が前面になったら入力を始めます。",
+                            style = MaterialTheme.typography.bodySmall)
                         OutlinedButton(onClick = vm::copyOfficialAppControlMap,
                             modifier = Modifier.fillMaxWidth()) {
                             Text("公式アプリ画面の操作項目をコピー")

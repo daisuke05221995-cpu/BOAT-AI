@@ -11,6 +11,7 @@ internal class PurchaseAutomationRunner(
 ) {
     internal sealed interface State {
         data object Idle : State
+        data class WaitingForApp(val queuedAtMs: Long) : State
         data class Running(val stepIndex: Int, val totalSteps: Int) : State
         data class AwaitingReview(val expectedTotal: Int) : State
         data class AwaitingReceipt(val attemptedAtMs: Long) : State
