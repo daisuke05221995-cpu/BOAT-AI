@@ -5,6 +5,10 @@ package jp.boatai.app
  * Every item matching [rowResourceId] is treated as a ticket: one malformed/extra row fails closed.
  */
 internal data class OfficialPurchaseReviewProfile(
+    /** Moves from the bet list to the final confirmation page. */
+    val nextToConfirmation: PurchaseUiSelector,
+    /** The final confirmation page requires re-entering the aggregate stake. */
+    val confirmationTotalInput: PurchaseUiSelector,
     val rowResourceId: String,
     val totalResourceId: String,
     /** Four capture groups, in this order: venue, race number, combination, stake. */
@@ -67,4 +71,13 @@ internal object OfficialPurchaseReviewParser {
 
     private fun readYen(input: String): Int? = input.replace(",", "").replace("円", "").trim()
         .toIntOrNull()?.takeIf { it in 100..100_000 && it % 100 == 0 }
+}
+
+/** The final aggregate-stake input is read back independently from the static total label. */
+internal object OfficialConfirmationAmount {
+    fun matches(raw: CharSequence?, expectedYen: Int): Boolean {
+        if (expectedYen < 100 || expectedYen % 100 != 0) return false
+        val normalized = raw?.toString()?.replace(",", "")?.replace("円", "")?.trim() ?: return false
+        return normalized.matches(Regex("[0-9]+")) && normalized.toIntOrNull() == expectedYen
+    }
 }

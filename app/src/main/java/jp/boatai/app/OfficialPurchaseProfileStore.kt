@@ -33,6 +33,8 @@ internal object OfficialPurchaseProfileCodec {
             require(rowId.length in 5..180 && totalId.length in 5..180 &&
                 rowPattern.length in 10..220 && totalPattern.length in 5..140)
             OfficialPurchaseReviewProfile(
+                nextToConfirmation = selector(config.getJSONObject("next")),
+                confirmationTotalInput = selector(config.getJSONObject("confirmAmount")),
                 rowResourceId = rowId,
                 totalResourceId = totalId,
                 ticketRowPattern = Regex(rowPattern),

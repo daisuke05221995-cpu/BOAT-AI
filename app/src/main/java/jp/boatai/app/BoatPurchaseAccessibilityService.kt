@@ -43,6 +43,14 @@ class BoatPurchaseAccessibilityService : AccessibilityService() {
                 else stopWithReason("公式アプリの投票確認画面を完全に読み取れませんでした")
                 return
             }
+            val (amountNodes, amountElements) = observed ?: return stopWithReason("公式アプリ画面が見つかりません")
+            val amountInputIndex = PurchaseUiMatching.uniqueVisibleMatch(
+                amountElements, context.profile.confirmationTotalInput, forInput = true
+            ) ?: return stopWithReason("最終確認の合計金額入力欄を一意に確認できません")
+            if (amountNodes[amountInputIndex].isPassword || !OfficialConfirmationAmount.matches(
+                    amountNodes[amountInputIndex].text, context.session.selectedStake)) {
+                return stopWithReason("最終確認画面に入力された合計金額が一致しません")
+            }
             // Recheck at the time of submission, not when the Android app was launched.
             val currentCheck = PurchaseAutomationSafety.validate(context.session, context.liveRaces)
             val gate = PurchaseSubmitGate.validate(

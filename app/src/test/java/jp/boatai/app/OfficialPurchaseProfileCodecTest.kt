@@ -42,6 +42,8 @@ class OfficialPurchaseProfileCodecTest {
 
     @Test fun readsOptionalFinalizationOnlyWhenAllFieldsPresent() {
         val json = JSONObject(validJson()).put("finalization", JSONObject()
+            .put("next", JSONObject().put("id", "official:next"))
+            .put("confirmAmount", JSONObject().put("id", "official:confirm_amount"))
             .put("rowId", "official:ticket_row")
             .put("totalId", "official:total")
             .put("rowPattern", "(.+?) (\\d{1,2})R ([1-6]-[1-6]-[1-6]) ([0-9]+)円")

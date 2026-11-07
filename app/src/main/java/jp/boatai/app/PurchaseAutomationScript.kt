@@ -52,6 +52,10 @@ internal object PurchaseAutomationScriptCompiler {
             }
         }
         steps += PurchaseUiStep.Click(profile.reviewList)
+        profile.finalization?.let { finalization ->
+            steps += PurchaseUiStep.Click(finalization.nextToConfirmation)
+            steps += PurchaseUiStep.EnterText(finalization.confirmationTotalInput, check.sessionStake.toString())
+        }
         return PurchaseAutomationScript(steps, expected, check.sessionStake)
     }
 }

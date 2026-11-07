@@ -1,13 +1,17 @@
 package jp.boatai.app
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OfficialPurchaseReviewParserTest {
     private val packageName = BoatPurchaseAccessibilityService.OFFICIAL_APP_PACKAGE
     private val profile = OfficialPurchaseReviewProfile(
+        nextToConfirmation = PurchaseUiSelector(resourceId = "official:next"),
+        confirmationTotalInput = PurchaseUiSelector(resourceId = "official:confirm_amount"),
         rowResourceId = "official:ticket_row",
         totalResourceId = "official:total",
         ticketRowPattern = Regex("(.+?)\\s+(\\d{1,2})R\\s+([1-6]-[1-6]-[1-6])\\s+([0-9,]+)円"),
@@ -44,5 +48,12 @@ class OfficialPurchaseReviewParserTest {
             rows.map { if (it.resourceId == "official:total") it.copy(text = "合計 900円") else it }, profile, 1_000))
         assertNull(OfficialPurchaseReviewParser.parse(packageName,
             rows.filterNot { it.resourceId == "official:review_title" }, profile, 1_000))
+    }
+
+    @Test fun independentConfirmationInputReadbackMustMatchTotal() {
+        assertTrue(OfficialConfirmationAmount.matches("2,000円", 2_000))
+        assertFalse(OfficialConfirmationAmount.matches("200", 2_000))
+        assertFalse(OfficialConfirmationAmount.matches(null, 2_000))
+        assertFalse(OfficialConfirmationAmount.matches("暗証番号", 2_000))
     }
 }

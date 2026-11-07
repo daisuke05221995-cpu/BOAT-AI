@@ -45,4 +45,24 @@ class PurchaseAutomationScriptTest {
         assertNull(PurchaseAutomationScriptCompiler.compile(
             session(), profile(), PurchaseAutomationCheck(false, "締切間近")))
     }
+
+    @Test fun finalizationScriptIncludesNextAndAggregateStakeBeforeReviewGate() {
+        val fullProfile = profile().copy(finalization = OfficialPurchaseReviewProfile(
+            nextToConfirmation = PurchaseUiSelector(resourceId = "next-to-confirmation"),
+            confirmationTotalInput = PurchaseUiSelector(resourceId = "confirm-total"),
+            rowResourceId = "ticket-row",
+            totalResourceId = "total",
+            ticketRowPattern = Regex("(.+?) (\\d+)R ([1-6]-[1-6]-[1-6]) ([0-9]+)円"),
+            totalPattern = Regex("合計 ([0-9]+)円"),
+            submitButton = PurchaseUiSelector(resourceId = "submit"),
+            reviewTitle = PurchaseUiSelector(resourceId = "review-title")
+        ))
+        val script = PurchaseAutomationScriptCompiler.compile(
+            session(), fullProfile, PurchaseAutomationCheck(true, "OK", 800, 2))!!
+        assertEquals(16, script.steps.size)
+        assertEquals(PurchaseUiStep.Click(PurchaseUiSelector(resourceId = "next-to-confirmation")),
+            script.steps[14])
+        assertEquals(PurchaseUiStep.EnterText(PurchaseUiSelector(resourceId = "confirm-total"), "800"),
+            script.steps[15])
+    }
 }
