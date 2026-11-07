@@ -25,6 +25,8 @@ if (mode === '--json') {
     `- Settled minus candidate: **${report.settled_minus_candidate}**`,
     `- Six-finish shape minus candidate: **${report.verified_six_minus_candidate}**`,
     `- Missing six-finish reasons: ${JSON.stringify(report.full_six_unavailable)}`,
+    `- Raw invalid finish tokens: ${JSON.stringify(report.invalid_finish_raw_code_counts)}`,
+    `- Races with invalid finish tokens (research only): ${report.invalid_six_race_details.map(r => r.race_id).join(', ') || 'none'}`,
     `- Candidate player-count deficient/surplus appearances: ${report.deficient_player_appearances}/${report.surplus_player_appearances}`,
     '',
     '**Not national coverage certification or proof of specific missing race IDs.**',

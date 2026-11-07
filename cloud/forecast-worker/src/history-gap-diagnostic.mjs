@@ -22,6 +22,26 @@ function candidateAppearances(state, ordinal) {
   return { counts, appearances };
 }
 
+// Preserve only finish-number/source tokens for an offline provenance review.
+// The public feed's abbreviations are NOT independently certified reasons for
+// excluding a Model A history row. Never expose names or infer final rank.
+function inspectInvalidFinishTokens(raw, id) {
+  const finish = raw?.result?.racers ?? {};
+  const ranks = Array.from({ length: 6 }, (_, i) => finish[String(i + 1)]?.place_number);
+  const repeated = new Set(ranks.filter(rank =>
+    Number.isInteger(rank) && rank >= 1 && rank <= 6 &&
+    ranks.filter(other => other === rank).length > 1));
+  const invalid = [];
+  for (let lane = 1; lane <= 6; lane++) {
+    const place = ranks[lane - 1];
+    if (Number.isInteger(place) && place >= 1 && place <= 6 && !repeated.has(place)) continue;
+    const rawCode = finish[String(lane)]?.place_number_source;
+    invalid.push({ lane, place_number: Number.isInteger(place) ? place : null,
+      place_number_source: typeof rawCode === 'string' && rawCode.length <= 12 ? rawCode : null });
+  }
+  return { race_id: id, invalid_finish_entries: invalid };
+}
+
 export function compareHistoryGapForResearch(feed, date, state, checkedMs) {
   if (!isValidDate(date) || !Number.isFinite(checkedMs) ||
       checkedMs < Date.parse(`${date}T15:00:00Z`)) fail('DAY_NOT_CLOSED');
@@ -45,6 +65,7 @@ export function compareHistoryGapForResearch(feed, date, state, checkedMs) {
     full_six: 0, full_six_unavailable: {}, schedule_unparsed: publishedRows - scheduled.length };
   const expectedAppearances = new Map();
   const completeRaces = [];
+  const invalidFinishDetails = [], invalidRawCodes = new Map();
   for (const row of scheduled) {
     const venue = stadiums[String(row.stadium_number)] ??
       stadiums[String(row.stadium_number).padStart(2, '0')];
@@ -60,6 +81,14 @@ export function compareHistoryGapForResearch(feed, date, state, checkedMs) {
     const six = inspectSixFinishCandidate(raw, row, result, checkedMs);
     if (six.status !== 'SHAPE_ONLY_UNVERIFIED') {
       increment(classified.full_six_unavailable, six.failureCode ?? 'UNKNOWN');
+      if (six.failureCode === 'RESULT_SIX_FINISH_ORDER_INVALID') {
+        const detail = inspectInvalidFinishTokens(raw, row.race_id);
+        invalidFinishDetails.push(detail);
+        for (const entry of detail.invalid_finish_entries) {
+          const rawCode = `${entry.place_number ?? 'null'}:${entry.place_number_source ?? '?'}`;
+          invalidRawCodes.set(rawCode, (invalidRawCodes.get(rawCode) ?? 0) + 1);
+        }
+      }
       continue;
     }
     classified.full_six++;
@@ -93,9 +122,12 @@ export function compareHistoryGapForResearch(feed, date, state, checkedMs) {
     deficient_player_appearances: [...deficits.values()].reduce((s, n) => s + n, 0),
     surplus_player_appearances: [...surpluses.values()].reduce((s, n) => s + n, 0),
     suspect_races_not_proven_missing: suspect,
+    invalid_finish_raw_code_counts: Object.fromEntries([...invalidRawCodes].sort()),
+    invalid_six_race_details: invalidFinishDetails.sort((a, b) => a.race_id.localeCompare(b.race_id)),
     limitations: ['Public program feed is not an independent nationwide manifest',
       'Candidate BAH1 contains player/day appearances but no race IDs',
       'No original pre-close preview/odds timestamps or license certification',
+      'Raw finish-number/source codes are unverified labels, NOT terminal exclusion evidence',
       'Read-only comparison: never activate or backfill Model A history'],
   };
 }

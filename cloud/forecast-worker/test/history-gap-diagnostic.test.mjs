@@ -40,7 +40,40 @@ test('count discrepancy separates payout settlement, valid six finish and player
   assert.equal(audit.settled_minus_candidate, 1);
   assert.equal(audit.verified_six_minus_candidate, 0);
   assert.deepEqual(audit.suspect_races_not_proven_missing, []);
-  assert.equal(audit.limitations.length, 4);
+  assert.equal(audit.limitations.length, 5);
+});
+
+test('raw post-race non-six codes identify review cases without inventing finishing places', () => {
+  const data = feed();
+  const outcome = data.programs.stadiums[1].races[1].result.racers;
+  outcome[5].place_number = 9;
+  outcome[5].place_number_source = '転';
+  outcome[6].place_number = 16;
+  outcome[6].place_number_source = '欠';
+  const audit = compareHistoryGapForResearch(data, date, state([]), checked);
+  assert.equal(audit.full_six, 0);
+  assert.equal(audit.full_six_unavailable.RESULT_SIX_FINISH_ORDER_INVALID, 1);
+  assert.deepEqual(audit.invalid_finish_raw_code_counts, { '16:欠': 1, '9:転': 1 });
+  assert.deepEqual(audit.invalid_six_race_details, [{ race_id: '2026-11-06-01-1',
+    invalid_finish_entries: [
+      { lane: 5, place_number: 9, place_number_source: '転' },
+      { lane: 6, place_number: 16, place_number_source: '欠' },
+    ] }]);
+  assert.equal(audit.status, 'RESEARCH_SOURCE_AND_HISTORY_UNCERTIFIED');
+});
+
+test('duplicate valid-looking places are still invalid, not double-counted as complete results', () => {
+  const data = feed();
+  const outcome = data.programs.stadiums[1].races[1].result.racers;
+  outcome[6].place_number = 5;
+  outcome[6].place_number_source = '同';
+  const audit = compareHistoryGapForResearch(data, date, state([]), checked);
+  assert.equal(audit.full_six, 0);
+  assert.deepEqual(audit.invalid_six_race_details[0].invalid_finish_entries, [
+    { lane: 5, place_number: 5, place_number_source: null },
+    { lane: 6, place_number: 5, place_number_source: '同' },
+  ]);
+  assert.deepEqual(audit.invalid_finish_raw_code_counts, { '5:?': 1, '5:同': 1 });
 });
 
 test('player deficits flag only suspects and never assign a missing race as fact', () => {
