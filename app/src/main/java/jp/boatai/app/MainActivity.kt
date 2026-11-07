@@ -1,6 +1,7 @@
 package jp.boatai.app
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
@@ -51,6 +52,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -107,6 +109,15 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun BoatAiApp(vm: BoatViewModel) {
     val ui by vm.ui.collectAsStateWithLifecycle()
+    val activity = LocalActivity.current
+    DisposableEffect(activity, ui.collectorModeEnabled) {
+        if (ui.collectorModeEnabled) {
+            activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose { activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
     val selected = ui.selectedRace
     val selectedVenue = ui.selectedVenue
     var settingsOpen by remember { mutableStateOf(false) }
@@ -166,7 +177,7 @@ private fun BoatAiApp(vm: BoatViewModel) {
             )
         },
         bottomBar = {
-            if (!settingsOpen && selected == null && selectedVenue == null) {
+            if (!settingsOpen && !ui.collectorModeEnabled && selected == null && selectedVenue == null) {
                 NavigationBar {
                     NavigationBarItem(
                         selected = ui.tab == 0,
@@ -199,6 +210,7 @@ private fun BoatAiApp(vm: BoatViewModel) {
         Box(Modifier.fillMaxSize().padding(innerPadding)) {
             when {
                 settingsOpen -> SettingsScreen(ui, vm)
+                ui.collectorModeEnabled -> CollectorDashboardScreen(ui, vm, onOpenSettings = { settingsOpen = true })
                 selected != null -> RaceDetailScreen(ui, vm)
                 selectedVenue != null -> VenueDetailScreen(ui, vm, selectedVenue)
                 ui.tab == 0 -> PredictionScreen(ui, vm)
