@@ -6,6 +6,7 @@ import { summarizeDailyAudit } from './audit.mjs';
 import { verifiedOddsPayload, verifiedPreviewPayload, verifiedStoredCapture } from './preclose.mjs';
 import { normalizePublishedResult, resultRetryDue } from './result.mjs';
 import { inspectProgramRosterCandidate } from './program-roster-candidate.mjs';
+import { inspectSixFinishCandidate } from './six-finish-candidate.mjs';
 
 const allowedHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 const MAX_IMPORT_RACES = 288;
@@ -259,11 +260,21 @@ async function settleDueRaces(env, date, nowMs) {
       AND result_json IS NULL`);
   const fail = env.DB.prepare(`UPDATE race_schedule SET result_failure_code=?, updated_ms=?
     WHERE race_id=? AND result_last_attempt_ms=? AND result_json IS NULL`);
+  const saveSixFinish = env.DB.prepare(`INSERT INTO six_finish_candidate
+    (race_id, checked_ms, status, failure_code, candidate_json)
+    VALUES (?, ?, ?, ?, ?) ON CONFLICT(race_id) DO NOTHING`);
   const updates = [];
   for (const row of claimedRows) {
     const program = programs.get(row.race_date);
-    const result = normalizePublishedResult(selectRace(program, row), row);
-    if (result) updates.push(save.bind(JSON.stringify(result), Date.now(), Date.now(), row.race_id, nowMs));
+    const race = selectRace(program, row);
+    const result = normalizePublishedResult(race, row);
+    if (result) {
+      const checkedMs = Date.now();
+      updates.push(save.bind(JSON.stringify(result), checkedMs, checkedMs, row.race_id, nowMs));
+      const six = inspectSixFinishCandidate(race, row, result, checkedMs);
+      updates.push(saveSixFinish.bind(row.race_id, checkedMs, six.status, six.failureCode,
+        six.candidate ? JSON.stringify(six.candidate) : null));
+    }
     else updates.push(fail.bind(program ? 'RESULT_NOT_FINAL' : 'RESULT_SOURCE_UNAVAILABLE',
       Date.now(), row.race_id, nowMs));
   }
@@ -305,8 +316,11 @@ export default {
     if (url.pathname === '/v1/audit') {
       const [schedule, attempts, imported, heartbeat] = await Promise.all([
         env.DB.prepare(`SELECT s.*, p.status AS program_candidate_status,
-            p.failure_code AS program_candidate_failure_code
+            p.failure_code AS program_candidate_failure_code,
+            f.status AS six_finish_candidate_status,
+            f.failure_code AS six_finish_candidate_failure_code
           FROM race_schedule s LEFT JOIN program_roster_candidate p ON s.race_id=p.race_id
+          LEFT JOIN six_finish_candidate f ON s.race_id=f.race_id
           WHERE s.race_date=? ORDER BY s.deadline_ms LIMIT 288`).bind(date).all(),
         env.DB.prepare(`SELECT a.stage, a.started_ms, a.finished_ms, a.completed, a.failure_code
           FROM capture_attempt a INNER JOIN race_schedule s ON s.race_id=a.race_id
