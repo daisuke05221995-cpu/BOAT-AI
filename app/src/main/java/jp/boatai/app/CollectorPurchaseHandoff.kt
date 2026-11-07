@@ -14,7 +14,9 @@ import java.util.UUID
 data class CollectorPurchaseHandoff(
     val handoffId: String,
     val expiresAt: Long,
-    val session: PendingPurchaseSession
+    val session: PendingPurchaseSession,
+    val purchaseAuthorized: Boolean = false,
+    val approvedAtMs: Long? = null
 )
 
 data class PurchaseHandoffStatus(
@@ -27,7 +29,7 @@ data class PurchaseHandoffStatus(
 internal object CollectorPurchaseHandoffContract {
     fun parseStaged(body: String): String {
         val json = JSONObject(body)
-        require(json.getInt("schema_version") == 1 && json.getBoolean("staged")) { "買い目の転送が確認できません" }
+        require(json.getInt("schema_version") in 1..2 && json.getBoolean("staged")) { "買い目の転送が確認できません" }
         val id = json.getString("handoff_id")
         require(validUuid(id)) { "転送IDが不正です" }
         return id
@@ -35,7 +37,8 @@ internal object CollectorPurchaseHandoffContract {
 
     fun parseNext(body: String, now: Long = System.currentTimeMillis()): CollectorPurchaseHandoff? {
         val json = JSONObject(body)
-        require(json.getInt("schema_version") == 1) { "買い目のデータ形式が不正です" }
+        val version = json.getInt("schema_version")
+        require(version in 1..2) { "買い目のデータ形式が不正です" }
         if (json.isNull("handoff_id")) {
             require(json.isNull("session") && json.isNull("expires_at")) { "買い目のデータ整合性が不正です" }
             return null
@@ -47,7 +50,14 @@ internal object CollectorPurchaseHandoffContract {
         val session = PendingPurchaseSession.fromJson(json.getJSONObject("session"))
             ?: error("買い目を読み込めません")
         require(session.selectedRaces.isNotEmpty()) { "買い目が選択されていません" }
-        return CollectorPurchaseHandoff(id, expires, session)
+        val authorized = version == 2 && json.getBoolean("purchase_authorized")
+        val approvedAt = if (authorized) json.getLong("approved_at_ms") else null
+        if (authorized) {
+            require(approvedAt != null && approvedAt <= now && now - approvedAt <= 90_000 &&
+                expires <= now + 91_000 && session.selectedStake == json.getInt("approved_total_yen") &&
+                session.selectedStake in 100..5_000)
+        }
+        return CollectorPurchaseHandoff(id, expires, session, authorized, approvedAt)
     }
 
     private fun validUuid(id: String): Boolean =
@@ -64,7 +74,9 @@ internal class CollectorPurchaseInboxStore(context: Context) {
         CollectorPurchaseHandoff(
             handoffId = json.getString("id"),
             expiresAt = json.getLong("expires"),
-            session = PendingPurchaseSession.fromJson(json.getJSONObject("session")) ?: return null
+            session = PendingPurchaseSession.fromJson(json.getJSONObject("session")) ?: return null,
+            purchaseAuthorized = json.optBoolean("authorized", false),
+            approvedAtMs = if (json.has("approvedAt")) json.getLong("approvedAt") else null
         )
     }.getOrNull()
 
@@ -72,6 +84,8 @@ internal class CollectorPurchaseInboxStore(context: Context) {
         prefs.edit().putString("handoff", JSONObject()
             .put("id", handoff.handoffId)
             .put("expires", handoff.expiresAt)
+            .put("authorized", handoff.purchaseAuthorized)
+            .put("approvedAt", handoff.approvedAtMs)
             .put("session", handoff.session.toJson()).toString()).apply()
     }
 
@@ -79,9 +93,13 @@ internal class CollectorPurchaseInboxStore(context: Context) {
 }
 
 internal class CollectorPurchaseHandoffRepository {
-    suspend fun stage(token: String, session: PendingPurchaseSession): String = withContext(Dispatchers.IO) {
-        CollectorPurchaseHandoffContract.parseStaged(call("/stage", "POST", token,
-            JSONObject().put("schema_version", 1).put("session", session.toJson())))
+    suspend fun stage(token: String, session: PendingPurchaseSession, authorizePurchase: Boolean = false): String = withContext(Dispatchers.IO) {
+        val payload = JSONObject().put("schema_version", if (authorizePurchase) 2 else 1)
+            .put("session", session.toJson())
+        if (authorizePurchase) payload.put("authorized_purchase", true)
+            .put("approved_at_ms", System.currentTimeMillis())
+            .put("approved_total_yen", session.selectedStake)
+        CollectorPurchaseHandoffContract.parseStaged(call("/stage", "POST", token, payload))
     }
 
     suspend fun next(token: String, deviceId: String): CollectorPurchaseHandoff? = withContext(Dispatchers.IO) {

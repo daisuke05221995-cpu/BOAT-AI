@@ -12,10 +12,16 @@ internal class CollectorModeStore(context: Context) {
     fun setEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_ENABLED, enabled).apply()
     }
+    fun isRemotePurchaseEnabled(): Boolean = prefs.getBoolean(KEY_REMOTE_PURCHASE, false)
+
+    fun setRemotePurchaseEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_REMOTE_PURCHASE, enabled).apply()
+    }
 
     private companion object {
         const val PREFS = "boat_ai_dedicated_collector_v1"
         const val KEY_ENABLED = "enabled"
+        const val KEY_REMOTE_PURCHASE = "remote_purchase_enabled"
     }
 }
 

@@ -1,6 +1,7 @@
 package jp.boatai.app
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -48,6 +49,25 @@ class CollectorPurchaseHandoffContractTest {
             CollectorPurchaseHandoffContract.parseStaged("""{
               "schema_version":1,"staged":false,"handoff_id":"$id"
             }""")
+        }
+    }
+
+    @Test fun acceptsOnlyFreshExplicitRemotePurchaseApproval() {
+        val json = org.json.JSONObject(response(now + 80_000))
+            .put("schema_version", 2)
+            .put("purchase_authorized", true)
+            .put("approved_at_ms", now - 10_000)
+            .put("approved_total_yen", 500)
+        val parsed = CollectorPurchaseHandoffContract.parseNext(json.toString(), now)
+        assertTrue(parsed?.purchaseAuthorized == true)
+        assertEquals(500, parsed?.session?.selectedStake)
+        json.put("approved_total_yen", 700)
+        assertThrows(IllegalArgumentException::class.java) {
+            CollectorPurchaseHandoffContract.parseNext(json.toString(), now)
+        }
+        json.put("approved_total_yen", 500).put("approved_at_ms", now - 130_000)
+        assertThrows(IllegalArgumentException::class.java) {
+            CollectorPurchaseHandoffContract.parseNext(json.toString(), now)
         }
     }
 }
