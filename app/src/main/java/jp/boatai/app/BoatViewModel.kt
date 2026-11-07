@@ -100,6 +100,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val collectorRemoteCommandStore = CollectorRemoteCommandStore(application)
     private val collectorPurchaseHandoffRepository = CollectorPurchaseHandoffRepository()
     private val collectorPurchaseInboxStore = CollectorPurchaseInboxStore(application)
+    private val officialPurchaseProfileStore = OfficialPurchaseProfileStore(application)
     private val operationalMonitoringStartedAt = operationalSelfCheckStore.monitoringStartedAt()
     private fun currentToday(): LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo"))
     private fun earliestBrowsableDate(): LocalDate = currentToday().minusDays(ModelARecentVirtualRepository.WINDOW_DAYS.toLong())
@@ -241,6 +242,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Opt-in on this Android only. Other devices and real bet records are untouched. */
     fun setCollectorModeEnabled(enabled: Boolean) {
+        if (!enabled) BoatPurchaseAccessibilityService.disarm()
         collectorModeStore.setEnabled(enabled)
         _ui.update { state -> state.copy(
             collectorModeEnabled = enabled,
@@ -378,6 +380,13 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = check.reason)) }
             return
         }
+        if (BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.Running ||
+            BoatPurchaseAccessibilityService.automationStatus() is PurchaseAutomationRunner.State.AwaitingReview) {
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "前の操作が進行中または照合待ちです。停止してから再実行してください")) }
+            return
+        }
+        val calibration = officialPurchaseProfileStore.load()
+        val script = calibration?.let { PurchaseAutomationScriptCompiler.compile(handoff.session, it, check) }
         if (!BoatPurchaseAccessibilityService.armForLocalTest(check)) {
             _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
                 error = "ユーザー補助の『BOAT AI』を2台目で有効にしてください")) }
@@ -391,8 +400,17 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         runCatching { context.startActivity(launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            .onSuccess { _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
-                message = "公式アプリを起動しました。現在は画面認識の検証段階で、自動投票は行いません", error = null)) } }
+            .onSuccess {
+                _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                    message = if (script == null) "公式アプリを起動しました。実画面の操作設定が未登録のため、入力はしません"
+                    else "公式アプリを起動しました。調整済み画面で買い目入力の検証を始めます（投票確定なし）", error = null)) }
+                if (script != null) viewModelScope.launch {
+                    delay(2_500L)
+                    if (!BoatPurchaseAccessibilityService.startPreparedScript(script, check)) {
+                        _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = "画面操作を開始できません。表示中の公式アプリと設定を確認してください")) }
+                    }
+                }
+            }
             .onFailure { error ->
                 BoatPurchaseAccessibilityService.disarm()
                 _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = error.message ?: "公式アプリを起動できません")) }
@@ -407,6 +425,24 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         clipboard.setPrimaryClip(android.content.ClipData.newPlainText("BOAT AI 操作検証", details))
         _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
             message = "操作画面の項目名・IDだけをコピーしました。ログイン情報や入力値は含みません", error = null)) }
+    }
+
+    fun hasCollectorPurchaseProfile(): Boolean = officialPurchaseProfileStore.hasValidProfile()
+
+    fun importCollectorPurchaseProfile(raw: String) {
+        if (!_ui.value.collectorModeEnabled) return
+        val saved = officialPurchaseProfileStore.save(raw)
+        _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+            message = if (saved) "画面操作設定を2台目に保存しました。アプリ更新なしで変更できます" else null,
+            error = if (saved) null else "設定内容が不完全です。操作IDと全艇番の対応表を確認してください"
+        )) }
+    }
+
+    fun clearCollectorPurchaseProfile() {
+        BoatPurchaseAccessibilityService.disarm()
+        officialPurchaseProfileStore.clear()
+        _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+            message = "公式アプリの画面操作設定を削除しました", error = null)) }
     }
 
     /** Local emergency stop. A pending purchase plan remains visible but cannot auto-advance. */

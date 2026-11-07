@@ -86,7 +86,7 @@ internal fun CollectorDashboardScreen(
                             modifier = Modifier.fillMaxWidth()) {
                             Text("公式アプリ操作を緊急停止")
                         }
-                        Text("操作検証は締切まで2分以上・合計5,000円以内で開始できます。現段階で買い目入力や投票確定は自動実行しません。",
+                        Text("操作検証は締切まで2分以上・合計5,000円以内。実画面に対応した設定があるときのみ買い目入力を試験します。投票確定はまだ行いません。",
                             style = MaterialTheme.typography.bodySmall)
                         Text("注意：これは購入準備です。公式サイトでご自身が投票を確定してください。投票結果は1台目で記録します。",
                             style = MaterialTheme.typography.bodySmall)
@@ -153,6 +153,7 @@ internal fun CollectorDashboardScreen(
 @Composable
 internal fun CollectorModeSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
     var tokenInput by remember { mutableStateOf("") }
+    var purchaseProfileInput by remember { mutableStateOf("") }
     val context = LocalContext.current
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -188,6 +189,27 @@ internal fun CollectorModeSettingsCard(ui: BoatUiState, vm: BoatViewModel) {
             }, modifier = Modifier.fillMaxWidth()) { Text("Androidのユーザー補助でBOAT AIを有効にする") }
             Text("画面操作機能は2台目でのみ有効にしてください。表示中の公式アプリの画面を読み取れる権限です。確認作業が終わったら無効にできます。",
                 style = MaterialTheme.typography.bodySmall)
+            Text("公式アプリの画面操作設定（開発・試験用）", fontWeight = FontWeight.Bold)
+            Text("設定状況：${if (vm.hasCollectorPurchaseProfile()) "端末内に保存済み" else "実画面の対応表は未登録"}。実画面を検証した対応表だけを取り込みます。設定内容は2台目に保存され、APKを更新せずに差し替え可能です。",
+                style = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(
+                value = purchaseProfileInput,
+                onValueChange = { purchaseProfileInput = it.take(24_000) },
+                label = { Text("確認済み操作設定（JSON）") },
+                minLines = 2,
+                maxLines = 5,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    vm.importCollectorPurchaseProfile(purchaseProfileInput)
+                    purchaseProfileInput = ""
+                }, enabled = purchaseProfileInput.isNotBlank()) { Text("操作設定を保存") }
+                OutlinedButton(onClick = vm::clearCollectorPurchaseProfile,
+                    enabled = vm.hasCollectorPurchaseProfile()) { Text("操作設定を削除") }
+            }
+            ui.purchaseHandoff.error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall) }
         }
     }
 }
