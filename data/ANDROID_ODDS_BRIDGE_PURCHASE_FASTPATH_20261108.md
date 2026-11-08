@@ -38,3 +38,16 @@
 この研究PRでできたのは入力の**オフライン検査**であり、Android本体からのオッズ送信・許諾確認・本番BUY/実購入実証ではない。次はオッズ実取得時にデバイスに何が残るかの形式照合、および**購入の公式実画面プロファイル取得とドライラン**を最優先。技術的に未確認な画面を擬似的に埋めない。実レースでの投票や課金は自動実行しない。
 
 関連: PR #42（許諾データ元調査）、PR #69（Android購入エンジン）、`data/ANDROID_PURCHASE_ASSISTANT_HANDOFF_20261108.md`。2025年Q4 holdout、Model A、app/**、本番Worker、および本番設定は変更しない。
+
+
+## 画面対応表の実装補助（オフライン、購入実行なし）
+
+`scripts/purchase_control_map_audit.mjs` を追加。2号機で収集した**機密値を含まない**静的なUI要素マップと、公式アプリ上で校正した `OfficialPurchaseProfileCodec` 互換の対応表を入力すると、対象1レースの場/レース/3連単/各艇番/金額欄/ベットリスト/確認/受付画面を一意に特定できるかを点検する。全18艇番セレクタ、確認明細・受付の解析設定も必須。
+
+```bash
+node scripts/purchase_control_map_audit.mjs sanitized-input.json
+```
+
+入力JSONは `{ "profile": { "venues": ..., "races": ..., "trifecta": ..., "lanes": ..., "amount": ..., "add": ..., "review": ..., "finalization": ..., "receipt": ... }, "samples": { "venue": [...], "race": [...], "trifecta": [...], "lane1": [...], "lane2": [...], "lane3": [...], "amount": [...], "add": [...], "review": [...], "confirmation": [...], "receipt": [...] }, "selection": { "stadiumNumber": 1, "raceNumber": 5, "combination": "1-2-3" } }` の形。各サンプル要素は端末診断の `resourceId/text/description/clickable/editable/visible/password` の静的値のみで、入力金額・ログイン情報・受付番号は含めない。
+
+**重要:** `ready_for_offline_dry_run=true` はあくまで*静的な構造*が揃ったことを意味する。ツールは `ready_for_live_submission=false` を常に返し、実画面・レース締切・全買い目・最終入力金額・公式受付結果との一致、操作許諾、実機での安全性は保証しない。これはAndroidプログラムへの自動配線や自動購入機能ではない。本人の承認なく、実際の舟券購入はしない。
