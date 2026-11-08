@@ -19,8 +19,10 @@ function safePayload(value) {
     if (!Array.isArray(v) && Object.getPrototypeOf(v) !== Object.prototype && Object.getPrototypeOf(v) !== null) return false;
     seen.add(v);
     const descriptors = Object.getOwnPropertyDescriptors(v);
+    if (Reflect.ownKeys(v).some(k => typeof k !== 'string')) return false;
     for (const [k, d] of Object.entries(descriptors)) {
-      if (!('value' in d) || forbidden.test(k) || !visit(d.value, depth + 1)) return false;
+      if (Array.isArray(v) && k === 'length') continue;
+      if (!d.enumerable || !('value' in d) || forbidden.test(k) || !visit(d.value, depth + 1)) return false;
     }
     if (Array.isArray(v) && (Object.keys(v).length !== v.length || v.length > 1000)) return false;
     seen.delete(v);
