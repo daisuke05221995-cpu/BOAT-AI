@@ -10,6 +10,8 @@ on:
       - scripts/android_odds_result_adapter.test.mjs
       - scripts/purchase_control_map_audit.mjs
       - scripts/purchase_control_map_audit.test.mjs
+      - scripts/official_control_export_adapter.mjs
+      - scripts/official_control_export_adapter.test.mjs
       - scripts/purchase_replay_guard.mjs
       - scripts/purchase_replay_guard.test.mjs
       - scripts/purchase_review_consistency.mjs
@@ -29,6 +31,8 @@ on:
       - scripts/android_odds_result_adapter.test.mjs
       - scripts/purchase_control_map_audit.mjs
       - scripts/purchase_control_map_audit.test.mjs
+      - scripts/official_control_export_adapter.mjs
+      - scripts/official_control_export_adapter.test.mjs
       - scripts/purchase_replay_guard.mjs
       - scripts/purchase_replay_guard.test.mjs
       - scripts/purchase_review_consistency.mjs
@@ -50,4 +54,4 @@ jobs:
       - name: Node version
         run: node --version
       - name: Audit Android odds quarantine bridge (synthetic only)
-        run: node --test scripts/android_odds_bridge_preflight.test.mjs scripts/android_odds_result_adapter.test.mjs scripts/purchase_control_map_audit.test.mjs scripts/purchase_replay_guard.test.mjs scripts/purchase_review_consistency.test.mjs scripts/purchase_receipt_consistency.test.mjs scripts/purchase_dry_run_coordinator.test.mjs scripts/purchase_attempt_journal.test.mjs
+        run: node --test scripts/official_control_export_adapter.test.mjs scripts/android_odds_bridge_preflight.test.mjs scripts/android_odds_result_adapter.test.mjs scripts/purchase_control_map_audit.test.mjs scripts/purchase_replay_guard.test.mjs scripts/purchase_review_consistency.test.mjs scripts/purchase_receipt_consistency.test.mjs scripts/purchase_dry_run_coordinator.test.mjs scripts/purchase_attempt_journal.test.mjs
