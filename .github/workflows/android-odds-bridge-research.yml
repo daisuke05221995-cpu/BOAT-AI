@@ -6,6 +6,8 @@ on:
     paths:
       - scripts/android_odds_bridge_preflight.mjs
       - scripts/android_odds_bridge_preflight.test.mjs
+      - scripts/android_odds_result_adapter.mjs
+      - scripts/android_odds_result_adapter.test.mjs
       - scripts/purchase_control_map_audit.mjs
       - scripts/purchase_control_map_audit.test.mjs
       - .github/workflows/android-odds-bridge-research.yml
@@ -13,6 +15,8 @@ on:
     paths:
       - scripts/android_odds_bridge_preflight.mjs
       - scripts/android_odds_bridge_preflight.test.mjs
+      - scripts/android_odds_result_adapter.mjs
+      - scripts/android_odds_result_adapter.test.mjs
       - scripts/purchase_control_map_audit.mjs
       - scripts/purchase_control_map_audit.test.mjs
       - .github/workflows/android-odds-bridge-research.yml
@@ -26,4 +30,4 @@ jobs:
       - name: Node version
         run: node --version
       - name: Audit Android odds quarantine bridge (synthetic only)
-        run: node --test scripts/android_odds_bridge_preflight.test.mjs scripts/purchase_control_map_audit.test.mjs
+        run: node --test scripts/android_odds_bridge_preflight.test.mjs scripts/android_odds_result_adapter.test.mjs scripts/purchase_control_map_audit.test.mjs
