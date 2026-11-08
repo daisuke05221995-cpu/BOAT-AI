@@ -51,27 +51,19 @@ export function reconcileManualPurchaseEvidence(plan, evidence, journal) {
       evidence.lines.length > 100 || !evidence.lines.every(validLine) ||
       !Number.isSafeInteger(evidence.totalYen) || evidence.totalYen < 100)
     return stop('INVALID_HISTORY_LINES', fingerprint);
-  // Plan shape follows the existing Android normalized purchase-plan
-  // contract: each race contains its tickets. Do not guess missing fields.
-  if (!plain(plan) || !Array.isArray(plan.races))
-    return stop('UNSUPPORTED_PLAN_SHAPE', fingerprint);
-  const expected = [];
-  for (const race of plan.races) {
-    if (!plain(race) || !Array.isArray(race.tickets) ||
-        !Number.isInteger(race.stadiumNumber) || !Number.isInteger(race.raceNumber))
-      return stop('INVALID_PLAN_LINES', fingerprint);
-    for (const ticket of race.tickets)
-      expected.push({ stadiumNumber: race.stadiumNumber,
-        raceNumber: race.raceNumber, combination: ticket.combination,
-        amount: ticket.amount });
-  }
+  // Match the existing fingerprintPurchasePlan schema exactly. One race
+  // per plan, no inferred venue, date, ticket or amount fields.
+  const expected = plan.tickets.map(ticket => ({
+    stadiumNumber: plan.stadium_number, raceNumber: plan.race_number,
+    combination: ticket.combination, amount: ticket.yen,
+  }));
   if (expected.length !== evidence.lines.length || !expected.every(validLine) ||
       new Set(expected.map(key)).size !== expected.length ||
       new Set(evidence.lines.map(key)).size !== evidence.lines.length ||
       expected.some(x => !evidence.lines.some(y => key(x) === key(y))) ||
       evidence.lines.reduce((sum, x) => sum + x.amount, 0) !== evidence.totalYen ||
       expected.reduce((sum, x) => sum + x.amount, 0) !== evidence.totalYen ||
-      evidence.date !== plan.date)
+      evidence.date !== plan.race_date)
     return stop('OFFICIAL_HISTORY_PLAN_MISMATCH', fingerprint);
   return {
     classification: 'MANUAL_HISTORY_MATCH_REQUIRES_OPERATOR_CONFIRMATION',
