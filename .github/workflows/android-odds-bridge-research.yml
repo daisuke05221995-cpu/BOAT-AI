@@ -9,7 +9,9 @@ on:
       - scripts/android_odds_result_adapter.mjs
       - scripts/android_odds_result_adapter.test.mjs
       - scripts/purchase_control_map_audit.mjs
-      - scripts/purchase_control_map_audit.test.mjs
+      - scripts/purchase_control_map_audit.test.mjs scripts/purchase_replay_guard.test.mjs
+      - scripts/purchase_replay_guard.mjs
+      - scripts/purchase_replay_guard.test.mjs
       - .github/workflows/android-odds-bridge-research.yml
   pull_request:
     paths:
@@ -19,6 +21,8 @@ on:
       - scripts/android_odds_result_adapter.test.mjs
       - scripts/purchase_control_map_audit.mjs
       - scripts/purchase_control_map_audit.test.mjs
+      - scripts/purchase_replay_guard.mjs
+      - scripts/purchase_replay_guard.test.mjs
       - .github/workflows/android-odds-bridge-research.yml
 jobs:
   offline-odds-bridge:
