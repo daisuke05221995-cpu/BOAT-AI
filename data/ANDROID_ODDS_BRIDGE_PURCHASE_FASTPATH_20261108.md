@@ -71,3 +71,12 @@ Androidの `Models.kt`、`BoatRaceRepository.kt` を**読み取り専用**で調
 新規テスト **12件**、既存72件と合計 **84件 PASS / 0 FAIL**。専用 CI [Run 42473779460](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/42473779460) 成功。実装コミット `db0f50c61c98fe7e06762c8ecd2c5c45e7a88bd4`、テスト `08fcf6b2c6d847d205328d655cc9415d817b4958`、CI修正 `241b74fab68b1d286530db959e0526858480ab6b`。実端末・実投票・実ライブオッズ試験は **0件（未検証）**。本番Android/Worker/Release/Model A/2025Q4 holdoutは変更していない。
 
 次の一手：Android担当に、公式アプリの**実機で確認済み**最終確認/受付完了画面の要素IDとデータ抽出仕様（個人情報除去）を渡すための非購入ドライラン入力契約を研究側で整備する。未校正IDや座標は推測せず、受領証明と履歴確定を別工程にする。直前展示・120通りオッズのT-8提供元の利用許諾/元観測時刻は未確定のまま。
+
+
+## 2026-11-08 21:00 JST — 画面校正→購入確認→受付照合を一体化した非購入ドライラン
+
+新規 `scripts/purchase_dry_run_coordinator.mjs` と `.test.mjs` を追加。既存の **購入計画指紋＋耐久ジャーナル照合**、**実機校正済みコントロールの一意性検査**、**最終確認画面の全行/金額照合**、**受付画面の全行/金額照合**を、`CALIBRATION` → `REVIEW` → `RECEIPT_AUDIT` のオフライン3段階に統合。ジャーナル未提供・破損、同一計画の過去試行（`UNKNOWN` や `REJECTED` も含む）、要素ID未校正、確認内容不一致、受付内容不一致なら `UNAVAILABLE`。この純粋関数はUIタップ・送信・保存・購入・認証情報の読み込みを行わず、全経路で `ready_for_live_submission=false` / `purchase_confirmed=false`。校正成功や受付文面の一致は公式側の購入成立を証明しない。
+
+**新規14件、既存84件、合計98/98 PASS、0 FAIL**。専用CI [Run 42478188045](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/42478188045) SUCCESS（合成データのみ）。実装コミット `7c439ca90beb9bbac0a97bdae408a284adf4e109`、テスト `9d991b81c4ccfec334f6a2def8f57f7b966f8803`、CI更新 `8151154253c617df055f191d0393ec5d0b619b91` / `9b291947c953b39a83129fe212c630807072ced9`。本番ファイル、Android、Worker、Model A、2025Q4 holdoutは変更なし。実機校正・実購入・実T-8ライブ観測 **0件**。
+
+**次の具体的作業**：Android担当が公式アプリの個人情報除去済み実機要素ID/画面サンプルを取得後、同じ契約の入力でローカルドライランを実行する。取得前に画面IDやタップ座標を創作しない。オッズ/展示の外部ソース利用許諾と元観測時刻が証明されるまではBUY/SKIPに接続しない。
