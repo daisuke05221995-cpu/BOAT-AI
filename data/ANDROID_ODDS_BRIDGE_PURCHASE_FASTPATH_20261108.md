@@ -51,3 +51,14 @@ node scripts/purchase_control_map_audit.mjs sanitized-input.json
 入力JSONは `{ "profile": { "venues": ..., "races": ..., "trifecta": ..., "lanes": ..., "amount": ..., "add": ..., "review": ..., "finalization": ..., "receipt": ... }, "samples": { "venue": [...], "race": [...], "trifecta": [...], "lane1": [...], "lane2": [...], "lane3": [...], "amount": [...], "add": [...], "review": [...], "confirmation": [...], "receipt": [...] }, "selection": { "stadiumNumber": 1, "raceNumber": 5, "combination": "1-2-3" } }` の形。各サンプル要素は端末診断の `resourceId/text/description/clickable/editable/visible/password` の静的値のみで、入力金額・ログイン情報・受付番号は含めない。
 
 **重要:** `ready_for_offline_dry_run=true` はあくまで*静的な構造*が揃ったことを意味する。ツールは `ready_for_live_submission=false` を常に返し、実画面・レース締切・全買い目・最終入力金額・公式受付結果との一致、操作許諾、実機での安全性は保証しない。これはAndroidプログラムへの自動配線や自動購入機能ではない。本人の承認なく、実際の舟券購入はしない。
+
+
+## 2026-11-08 17:38 JST — 実装前進（既存 `OddsFetchResult` の安全な検査）
+
+Androidの `Models.kt`、`BoatRaceRepository.kt` を**読み取り専用**で調査。既存 `OddsFetchResult` は `odds: Map<String, Double>` / `source` / `diagnostics` / `fetchedAt` の4要素である。`loadOfficialTrifectaOddsDetailed(race, combinations)` は**要求された買い目だけ**を解析し、公式PC・公式スマホページが失敗すると **BoatraceCSVからの推定値** を返す経路を持つ。したがって以前の「Androidで120通り取得できた」表示を無条件にクラウド用の120オッズ原観測として再使用できない。
+
+新規 `scripts/android_odds_result_adapter.mjs` は、公式PC/スマホの明示的なソースラベル＋実際に120組番が揃う場合のみ、研究用 `DEVICE_ODDS_QUARANTINED` スナップショットへ変換する。選択買い目のみの返却は `ANDROID_SELECTED_ODDS_NOT_120`、CSV推定値は `ESTIMATED_OR_FALLBACK_ODDS_NOT_LIVE` として拒否。観測元の時刻はAndroid構造に存在しないため **`null` のまま**とし、`fetchedAt` を観測元に偽装しない。診断文字列や秘密情報は転送値に含めない。
+
+**新規テスト14件 + 既存32件 = 計46/46 PASS**。専用 GitHub Actions [Run 42463743901](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/42463743901) SUCCESS（Node 22、オフライン合成入力のみ）。実装コミット `53c83e80f5e2c4300f3d620678629ba592f606e3`、テスト `255de29b12f3cd78605d49d21ac6d472776dff83`、CI設定 `cb51409703f673ba1c2f663ed97389c41018fd4e`。
+
+**次の一手**：Android本番担当が同じ `combinations` 要求で120全通りを取得した実例を端末内で検査するための、合成ではないが非公開・非送信の監査フックを検討する（この研究PRでは `app/**` 不変更）。端末外送信は利用条件と元観測時刻の証明が可能になってから別PRで審査。購入導入は `v0.18.31` の公式アプリ画面対応表/受付明細の実機校正と**非購入ドライラン**を優先し、未検証の自動投票を強行しない。2025Q4 holdout、Model A、Cloud本番、個人の購入情報へのアクセスなし。
