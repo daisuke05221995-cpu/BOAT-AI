@@ -83,3 +83,24 @@ test('valid envelope still preserves idempotent replay', () => withDir(async d =
   assert.equal((await quarantineReceipt(d, sample())).reason, 'NEW_RECEIPT');
   assert.equal((await quarantineReceipt(d, sample())).reason, 'DUPLICATE_RECEIPT');
 }));
+
+test('separate Node processes cannot both publish the same receipt ID', () => withDir(async d => {
+  const { spawn } = await import('node:child_process');
+  const moduleUrl = new URL('./odds_receipt_ledger.mjs', import.meta.url).href;
+  const script = `import { quarantineReceipt } from ${JSON.stringify(moduleUrl)};
+const result = await quarantineReceipt(process.argv[1], ${JSON.stringify(sample())});
+process.stdout.write(JSON.stringify(result));`;
+  const run = () => new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ['--input-type=module', '-e', script, d], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = '', error = '';
+    child.stdout.on('data', chunk => { output += chunk; });
+    child.stderr.on('data', chunk => { error += chunk; });
+    child.on('error', reject);
+    child.on('close', code => code === 0 ? resolve(JSON.parse(output)) : reject(Error(error)));
+  });
+  const results = await Promise.all(Array.from({ length: 4 }, run));
+  assert.equal(results.filter(x => x.reason === 'NEW_RECEIPT').length, 1);
+  assert.equal(results.filter(x => x.reason === 'DUPLICATE_RECEIPT').length, 3);
+  assert.deepEqual((await readdir(d)).filter(x => x.endsWith('.tmp')), []);
+  assert.equal((await readdir(d)).filter(x => x.endsWith('.json')).length, 1);
+}));
