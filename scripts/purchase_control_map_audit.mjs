@@ -36,6 +36,15 @@ export function auditPurchaseControlMap(input) {
     issues.push('INVALID_SELECTION');
   if (!only(p.finalization)) issues.push('FINAL_REVIEW_PROFILE_MISSING');
   if (!only(p.receipt)) issues.push('RECEIPT_PROFILE_MISSING');
+  if (![1, 2, 3].every(position => [1, 2, 3, 4, 5, 6].every(boat =>
+    selectorValid(p.lanes?.[String(position)]?.[boat]))))
+    issues.push('INCOMPLETE_LANE_SELECTOR_MAP');
+  if (only(p.finalization) && !['rowId', 'totalId', 'rowPattern', 'totalPattern'].every(
+    key => typeof p.finalization[key] === 'string' && p.finalization[key].length > 0))
+    issues.push('INCOMPLETE_FINAL_REVIEW_PARSER');
+  if (only(p.receipt) && !['contractId', 'rowId', 'totalId', 'contractPattern', 'rowPattern', 'totalPattern'].every(
+    key => typeof p.receipt[key] === 'string' && p.receipt[key].length > 0))
+    issues.push('INCOMPLETE_RECEIPT_PARSER');
   const controls = [
     ['venue', p.venues?.[sel.stadiumNumber], 'venue', false],
     ['race', p.races?.[sel.raceNumber], 'race', false],
