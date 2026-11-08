@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { quarantineReceipt } from './odds_receipt_ledger.mjs';
 const sample = () => ({ receiptId: 'receipt_12345', raceKey: '20261109_01_01', payload: { source: 'DEVICE_CLAIM', odds: { '1-2-3': 4.5 } } });
 async function withDir(fn) { const dir = await mkdtemp(join(tmpdir(), 'odds-ledger-')); try { await fn(dir); } finally { await rm(dir, { recursive: true, force: true }); } }
@@ -28,3 +29,28 @@ test('reject excessive payload size', () => withDir(async d => { const x=sample(
 test('reject exotic prototype payload', () => withDir(async d => { const x=sample(); x.payload=new Date(); assert.equal((await quarantineReceipt(d,x)).reason,'INVALID_RECEIPT'); }));
 test('reject sparse array', () => withDir(async d => { const x=sample(); x.payload.extra=new Array(3); assert.equal((await quarantineReceipt(d,x)).reason,'INVALID_RECEIPT'); }));
 test('valid nested JSON remains quarantined', () => withDir(async d => { const x=sample(); x.payload.meta={items:[1,true,null,'ok']}; assert.equal((await quarantineReceipt(d,x)).status,'QUARANTINED'); }));
+
+test('preexisting torn ledger record fails closed without overwrite', () => withDir(async d => {
+  const file = join(d, createHash('sha256').update(sample().receiptId).digest('hex') + '.json');
+  await writeFile(file, '{');
+  const r = await quarantineReceipt(d, sample());
+  assert.equal(r.status, 'UNAVAILABLE'); assert.equal(r.reason, 'LEDGER_UNREADABLE');
+  assert.equal(await readFile(file, 'utf8'), '{');
+  assert.deepEqual(await readdir(d), [file.split('/').pop()]);
+}));
+test('orphaned temp file never counts as a committed receipt', () => withDir(async d => {
+  await writeFile(join(d, '.orphan.tmp'), '{');
+  const r = await quarantineReceipt(d, sample());
+  assert.equal(r.reason, 'NEW_RECEIPT');
+  assert.equal((await quarantineReceipt(d, sample())).reason, 'DUPLICATE_RECEIPT');
+  assert.equal((await readdir(d)).length, 2);
+}));
+test('successful publish has complete JSON and cleans temporary files', () => withDir(async d => {
+  await quarantineReceipt(d, sample());
+  const names = await readdir(d); assert.equal(names.length, 1);
+  assert.equal(names[0].endsWith('.json'), true);
+  const saved = JSON.parse(await readFile(join(d, names[0]), 'utf8'));
+  assert.equal(saved.status, 'QUARANTINED');
+  assert.equal(saved.receiptId, sample().receiptId);
+  assert.equal(typeof saved.digest, 'string');
+}));
