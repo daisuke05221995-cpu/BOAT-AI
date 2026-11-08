@@ -54,3 +54,32 @@ test('successful publish has complete JSON and cleans temporary files', () => wi
   assert.equal(saved.receiptId, sample().receiptId);
   assert.equal(typeof saved.digest, 'string');
 }));
+
+test('reject top-level accessor without invoking it', () => withDir(async d => {
+  const x = sample(); let called = false;
+  Object.defineProperty(x, 'receiptId', { enumerable: true, get() { called = true; throw Error('accessor'); } });
+  assert.equal((await quarantineReceipt(d, x)).reason, 'INVALID_RECEIPT');
+  assert.equal(called, false); assert.deepEqual(await readdir(d), []);
+}));
+test('reject top-level unexpected credential even if nonenumerable', () => withDir(async d => {
+  const x = sample(); Object.defineProperty(x, 'token', { value: 'secret', enumerable: false });
+  assert.equal((await quarantineReceipt(d, x)).reason, 'INVALID_RECEIPT');
+  assert.deepEqual(await readdir(d), []);
+}));
+test('reject hidden nested payload field before hashing', () => withDir(async d => {
+  const x = sample(); Object.defineProperty(x.payload, 'secret', { value: 'secret', enumerable: false });
+  assert.equal((await quarantineReceipt(d, x)).reason, 'INVALID_RECEIPT');
+  assert.deepEqual(await readdir(d), []);
+}));
+test('reject symbol keyed payload fields', () => withDir(async d => {
+  const x = sample(); x.payload[Symbol('credential')] = 'secret';
+  assert.equal((await quarantineReceipt(d, x)).reason, 'INVALID_RECEIPT');
+}));
+test('reject extra envelope metadata rather than silently ignoring it', () => withDir(async d => {
+  const x = sample(); x.purchaseHistory = 'hidden';
+  assert.equal((await quarantineReceipt(d, x)).reason, 'INVALID_RECEIPT');
+}));
+test('valid envelope still preserves idempotent replay', () => withDir(async d => {
+  assert.equal((await quarantineReceipt(d, sample())).reason, 'NEW_RECEIPT');
+  assert.equal((await quarantineReceipt(d, sample())).reason, 'DUPLICATE_RECEIPT');
+}));
