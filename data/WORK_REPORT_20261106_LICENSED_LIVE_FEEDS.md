@@ -181,3 +181,12 @@ Worker修正は通常チャット側の実装済み差分を取り込んだだ�
 - **S17** [lamrongol/BoatraceOdds README](https://github.com/lamrongol/BoatraceOdds) — 非公式オッズ提供と約30分更新周期の自己申告。
 
 検証対象コード: [preclose.mjs](https://github.com/daisuke05221995-cpu/BOAT-AI/blob/7d55ae7ed2edeff0927cbf2290a77088a0568b20/cloud/forecast-worker/src/preclose.mjs) / [policy.mjs](https://github.com/daisuke05221995-cpu/BOAT-AI/blob/7d55ae7ed2edeff0927cbf2290a77088a0568b20/cloud/forecast-worker/src/policy.mjs)。調査の判断と、提供者の保証・許諾を区別する。
+
+
+## 2026-11-08 16:53 JST — 研究CIの証跡固定
+
+- 研究head（確認時）: `8eafd8bd9a5f6e033284e0ce24a631baae212a47`。関連する Actions Run [42452700136](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/42452700136) は `completed/success`。ジョブ `offline-metrics`（Job ID `128645113297`）の `Offline synthetic trial-metrics regression` ステップも `success`。同headのRun `42452700135` も `success` だが、研究テストの証拠としては上記専用ジョブを採用する。
+- 研究用20件のテスト成功は前回のPRコメントで報告済み。今回のジョブ一覧では個別テスト件数を再集計していないため、新たな件数増加は主張しない。
+- 最新mainを基準に `CURRENT_STATUS.md`、`PROJECT_STATUS.md`、`NEXT_WEEK_HANDOFF.md`、`WORK_HANDOFF.md`、指定assignment、PR #42・#68〜#70を再確認。古いhandoffの版数は現行状態の根拠にしない。
+- 正規許諾、上流の真正な観測時刻、T-8展示/ST/気象と120オッズの実測完備は引き続き未確定。ライブAPI試行0、p50/p95未測定、`UNAVAILABLE != SKIP`、BUY昇格なし。
+- **次の一手**：提供元の権利・サーバー利用許可・各観測時刻定義を一次証跡で確定してから、事前登録レースでT-8/T-5を前向き計測。許諾前は実API接続や本番設定変更をしない。
