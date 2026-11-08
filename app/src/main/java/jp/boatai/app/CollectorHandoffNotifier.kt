@@ -29,7 +29,7 @@ internal object CollectorHandoffNoticePolicy {
         expiresAtMs > nowMs && lastNotifiedId != handoffId
 
     fun summary(raceCount: Int, ticketCount: Int, totalYen: Int): String =
-        "${raceCount}レース・${ticketCount}点・合計${totalYen}円。BOAT AIで内容を確認してください"
+        "${raceCount}レース・${ticketCount}点・合計${String.format(java.util.Locale.JAPAN, "%,d", totalYen)}円。BOAT AIで内容を確認してください"
 
     // A distinct notification ID for each new transfer; a single fixed ID with
     // setOnlyAlertOnce would silently suppress alerts for later transfers.
