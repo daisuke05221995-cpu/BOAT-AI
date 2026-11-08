@@ -59,6 +59,18 @@ export async function quarantineReceipt(directory, receipt) {
     await handle.close();
     handle = undefined;
     await link(temp, file); // atomic no-overwrite across processes on the same filesystem
+    // Sync the directory entry as well as file bytes: rename/link atomicity alone
+    // does not guarantee that the published name survives a power loss.
+    let directoryHandle;
+    try {
+      directoryHandle = await open(directory, 'r');
+      await directoryHandle.sync();
+    } catch (err) {
+      // Publication may already have occurred; never claim durable success.
+      return { status: 'UNAVAILABLE', reason: 'DIRECTORY_SYNC_FAILED' };
+    } finally {
+      if (directoryHandle) await directoryHandle.close();
+    }
     return { status: 'QUARANTINED', reason: 'NEW_RECEIPT', digest };
   } catch (err) {
     if (err.code !== 'EEXIST') throw err;
