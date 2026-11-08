@@ -77,7 +77,11 @@ export async function quarantineReceipt(directory, receipt) {
     let previous;
     try { previous = JSON.parse(await readFile(file, 'utf8')); }
     catch { return { status: 'UNAVAILABLE', reason: 'LEDGER_UNREADABLE' }; }
-    if (previous.receiptId !== receiptId || previous.raceKey !== raceKey || previous.status !== 'QUARANTINED')
+    if (!previous || typeof previous !== 'object' || Array.isArray(previous) ||
+        Object.keys(previous).sort().join(',') !== 'digest,raceKey,receiptId,status' ||
+        typeof previous.digest !== 'string' || !/^[a-f0-9]{64}$/.test(previous.digest) ||
+        typeof previous.receiptId !== 'string' || typeof previous.raceKey !== 'string' ||
+        previous.receiptId !== receiptId || previous.raceKey !== raceKey || previous.status !== 'QUARANTINED')
       return { status: 'UNAVAILABLE', reason: 'LEDGER_CONFLICT' };
     return previous.digest === digest
       ? { status: 'QUARANTINED', reason: 'DUPLICATE_RECEIPT', digest }
