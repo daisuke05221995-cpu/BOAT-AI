@@ -1,0 +1,18 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { quarantineReceipt } from './odds_receipt_ledger.mjs';
+const sample = () => ({ receiptId: 'receipt_12345', raceKey: '20261109_01_01', payload: { source: 'DEVICE_CLAIM', odds: { '1-2-3': 4.5 } } });
+async function withDir(fn) { const dir = await mkdtemp(join(tmpdir(), 'odds-ledger-')); try { await fn(dir); } finally { await rm(dir, { recursive: true, force: true }); } }
+test('new receipt is quarantined, never BUY/SKIP', () => withDir(async d => { const r = await quarantineReceipt(d, sample()); assert.equal(r.status, 'QUARANTINED'); assert.equal(r.reason, 'NEW_RECEIPT'); }));
+test('exact replay is idempotent', () => withDir(async d => { await quarantineReceipt(d, sample()); assert.equal((await quarantineReceipt(d, sample())).reason, 'DUPLICATE_RECEIPT'); }));
+test('key order does not affect fingerprint', () => withDir(async d => { await quarantineReceipt(d, sample()); const x = sample(); x.payload = { odds: { '1-2-3': 4.5 }, source: 'DEVICE_CLAIM' }; assert.equal((await quarantineReceipt(d, x)).reason, 'DUPLICATE_RECEIPT'); }));
+test('same id changed odds is unavailable', () => withDir(async d => { await quarantineReceipt(d, sample()); const x = sample(); x.payload.odds['1-2-3'] = 9; assert.equal((await quarantineReceipt(d, x)).reason, 'RECEIPT_ID_CONFLICT'); }));
+test('same id changed race is unavailable', () => withDir(async d => { await quarantineReceipt(d, sample()); const x = sample(); x.raceKey = '20261109_01_02'; assert.equal((await quarantineReceipt(d, x)).reason, 'LEDGER_CONFLICT'); }));
+test('concurrent identical writes create one record', () => withDir(async d => { const r = await Promise.all(Array.from({ length: 20 }, () => quarantineReceipt(d, sample()))); assert.equal(r.filter(x => x.reason === 'NEW_RECEIPT').length, 1); assert.equal((await readdir(d)).length, 1); }));
+test('concurrent conflicting writes never both become new', () => withDir(async d => { const x = sample(); const y = sample(); y.payload.odds['1-2-3'] = 8; const r = await Promise.all([quarantineReceipt(d, x), quarantineReceipt(d, y)]); assert.equal(r.filter(z => z.reason === 'NEW_RECEIPT').length, 1); assert.ok(r.every(z => z.status !== 'BUY' && z.status !== 'SKIP')); }));
+test('path traversal id rejected', () => withDir(async d => { const x = sample(); x.receiptId = '../outside'; assert.equal((await quarantineReceipt(d, x)).status, 'UNAVAILABLE'); assert.equal((await readdir(d)).length, 0); }));
+test('invalid payload rejected', () => withDir(async d => { const x = sample(); x.payload = null; assert.equal((await quarantineReceipt(d, x)).reason, 'INVALID_RECEIPT'); }));
+test('persisted record contains no raw odds', () => withDir(async d => { await quarantineReceipt(d, sample()); const f = (await readdir(d))[0]; const data = await readFile(join(d, f), 'utf8'); assert.equal(data.includes('4.5'), false); assert.equal(data.includes('DEVICE_CLAIM'), false); }));
