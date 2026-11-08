@@ -62,3 +62,12 @@ Androidの `Models.kt`、`BoatRaceRepository.kt` を**読み取り専用**で調
 **新規テスト14件 + 既存32件 = 計46/46 PASS**。専用 GitHub Actions [Run 42463743901](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/42463743901) SUCCESS（Node 22、オフライン合成入力のみ）。実装コミット `53c83e80f5e2c4300f3d620678629ba592f606e3`、テスト `255de29b12f3cd78605d49d21ac6d472776dff83`、CI設定 `cb51409703f673ba1c2f663ed97389c41018fd4e`。
 
 **次の一手**：Android本番担当が同じ `combinations` 要求で120全通りを取得した実例を端末内で検査するための、合成ではないが非公開・非送信の監査フックを検討する（この研究PRでは `app/**` 不変更）。端末外送信は利用条件と元観測時刻の証明が可能になってから別PRで審査。購入導入は `v0.18.31` の公式アプリ画面対応表/受付明細の実機校正と**非購入ドライラン**を優先し、未検証の自動投票を強行しない。2025Q4 holdout、Model A、Cloud本番、個人の購入情報へのアクセスなし。
+
+
+## 2026-11-08 20:00 JST — 受付完了画面の正規化値を使ったオフライン照合
+
+`scripts/purchase_receipt_consistency.mjs` / `.test.mjs` を追加。事前購入計画・最終確認画面・受付完了画面を、それぞれ独立に正規化した **日付、場、レース、全買い目、金額、合計金額** で照合する。欠落、過剰、重複、変更、合計違い、`ACCEPTED` 以外の状態を `UNAVAILABLE` に拒否する。正規化結果に生の受付番号、ログイン情報、画面テキストは含めない。**一致しても購入成立は確定しない**（`receipt_officially_verified=false`、`purchase_confirmed=false`、`ready_for_live_submission=false`）。独立の公式受付照会と端末側の実機画面校正が必要であり、`UNKNOWN` の自動再購入は許可しない。
+
+新規テスト **12件**、既存72件と合計 **84件 PASS / 0 FAIL**。専用 CI [Run 42473779460](https://github.com/daisuke05221995-cpu/BOAT-AI/actions/runs/42473779460) 成功。実装コミット `db0f50c61c98fe7e06762c8ecd2c5c45e7a88bd4`、テスト `08fcf6b2c6d847d205328d655cc9415d817b4958`、CI修正 `241b74fab68b1d286530db959e0526858480ab6b`。実端末・実投票・実ライブオッズ試験は **0件（未検証）**。本番Android/Worker/Release/Model A/2025Q4 holdoutは変更していない。
+
+次の一手：Android担当に、公式アプリの**実機で確認済み**最終確認/受付完了画面の要素IDとデータ抽出仕様（個人情報除去）を渡すための非購入ドライラン入力契約を研究側で整備する。未校正IDや座標は推測せず、受領証明と履歴確定を別工程にする。直前展示・120通りオッズのT-8提供元の利用許諾/元観測時刻は未確定のまま。
