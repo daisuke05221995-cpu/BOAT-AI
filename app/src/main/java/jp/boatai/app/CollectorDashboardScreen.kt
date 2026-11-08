@@ -1,6 +1,12 @@
 package jp.boatai.app
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
@@ -41,6 +48,18 @@ internal fun CollectorDashboardScreen(
 ) {
     val odds = ui.liveOddsRefresh
     val available = ui.races.count { it.isPurchasable() }
+    val context = LocalContext.current
+    val handoffNotifier = remember(context) { CollectorHandoffNotifier(context) }
+    var handoffNoticeEnabled by remember { mutableStateOf(handoffNotifier.enabled) }
+    var hasNotificationPermission by remember {
+        mutableStateOf(Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED)
+    }
+    val requestNotificationPermission =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            hasNotificationPermission = granted
+        }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -53,6 +72,39 @@ internal fun CollectorDashboardScreen(
                     Text("常時取得モード：有効", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("この端末でBOAT AIを前面表示している間、画面消灯を防ぎ、既存の60秒更新を継続します。購入指示を受信すると公式アプリを前面に戻します。", style = MaterialTheme.typography.bodyMedium)
                     Text("他のアプリへ切り替えたり強制終了すると前面取得は停止します。充電中の熱や通信切断に注意してください。", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("1台目からの買い目受信通知", fontWeight = FontWeight.Bold)
+                            Text("新しい買い目を受信したら2台目に通知します",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        Switch(checked = handoffNoticeEnabled, onCheckedChange = { enabled ->
+                            handoffNotifier.setEnabled(enabled)
+                            handoffNoticeEnabled = enabled
+                            if (enabled && !hasNotificationPermission && Build.VERSION.SDK_INT >= 33) {
+                                requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        })
+                    }
+                    if (handoffNoticeEnabled && !hasNotificationPermission && Build.VERSION.SDK_INT >= 33) {
+                        Text("Androidの通知許可が必要です。許可されるまで受信通知は表示されません。",
+                            style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(onClick = {
+                            requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }, modifier = Modifier.fillMaxWidth()) { Text("受信通知を許可する") }
+                    }
+                    Text("BOAT AIが2台目で前面表示中に受信を確認した際の通知です。アプリを閉じたり公式アプリを表示中は受信確認が停止し、次回起動・復帰時に確認します。受信通知は購入確定ではありません。",
+                        style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
