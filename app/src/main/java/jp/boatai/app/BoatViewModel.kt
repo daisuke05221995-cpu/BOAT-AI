@@ -102,6 +102,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private val collectorRemoteCommandStore = CollectorRemoteCommandStore(application)
     private val collectorPurchaseHandoffRepository = CollectorPurchaseHandoffRepository()
     private val collectorPurchaseInboxStore = CollectorPurchaseInboxStore(application)
+    private val collectorHandoffNotifier = CollectorHandoffNotifier(application)
     private val officialPurchaseProfileStore = OfficialPurchaseProfileStore(application)
     private val operationalMonitoringStartedAt = operationalSelfCheckStore.monitoringStartedAt()
     private fun currentToday(): LocalDate = LocalDate.now(ZoneId.of("Asia/Tokyo"))
@@ -123,6 +124,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     private var collectorRemoteRequestJob: Job? = null
     private var lastRemotePollAt = 0L
     private var collectorPurchasePollJob: Job? = null
+    private var collectorPurchaseWatchJob: Job? = null
     private var collectorPurchaseSendJob: Job? = null
     private var lastPurchasePollAt = 0L
     private val lastAutoOddsAttemptAt = mutableMapOf<String, Long>()
@@ -213,6 +215,15 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     /** Refresh only while the activity is visible; background T-5 tracking remains separate. */
     fun startLiveRefresh() {
         if (liveRefreshJob?.isActive == true) return
+        // Only while BOAT AI is foreground: short-poll for newly staged 1st-phone
+        // handoffs without reloading the expensive nationwide odds data.
+        collectorPurchaseWatchJob?.cancel()
+        collectorPurchaseWatchJob = viewModelScope.launch {
+            while (isActive) {
+                delay(15_000L)
+                maybePollCollectorPurchaseHandoff()
+            }
+        }
         liveRefreshJob = viewModelScope.launch {
             reloadCollectorTodayIfNeeded()
             maybePollCollectorRemote(force = true)
@@ -364,7 +375,7 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
         if (!_ui.value.collectorModeEnabled || !_ui.value.collectorUpload.configured) return
         if (collectorPurchasePollJob?.isActive == true || _ui.value.collectorPurchaseInbox != null) return
         val now = System.currentTimeMillis()
-        if (!force && now - lastPurchasePollAt < 45_000L) return
+        if (!force && now - lastPurchasePollAt < 15_000L) return
         val token = collectorAuthStore.readToken() ?: return
         lastPurchasePollAt = now
         collectorPurchasePollJob = viewModelScope.launch {
@@ -374,6 +385,11 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 collectorPurchaseInboxStore.save(handoff)
                 _ui.update { it.copy(collectorPurchaseInbox = handoff,
                     purchaseHandoff = it.purchaseHandoff.copy(message = "1台目から買い目を受信しました", error = null)) }
+                // Notification failure must not prevent receiving or ACK; no repeat for the same ID.
+                runCatching { collectorHandoffNotifier.notifyReceived(handoff) }
+                    .onFailure { error ->
+                        CrashRecoveryStore(getApplication()).recordNonFatal("CollectorHandoffNotifier", error)
+                    }
                 collectorPurchaseHandoffRepository.acknowledge(token, deviceId, handoff.handoffId)
                 if (handoff.purchaseAuthorized && _ui.value.collectorAutoPurchaseEnabled) {
                     startCollectorPurchaseAutomation(submitRequested = true)
@@ -656,6 +672,8 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     fun stopLiveRefresh() {
         liveRefreshJob?.cancel()
         liveRefreshJob = null
+        collectorPurchaseWatchJob?.cancel()
+        collectorPurchaseWatchJob = null
     }
 
     fun loadDate(
