@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'scripts/android_odds_quarantine_replay.*'
+      - 'scripts/odds_receipt_ledger.*'
       - '.github/workflows/research-odds-quarantine-replay.yml'
   workflow_dispatch:
 jobs:
@@ -13,4 +14,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test scripts/android_odds_quarantine_replay.test.mjs
+      - run: node --test scripts/android_odds_quarantine_replay.test.mjs scripts/odds_receipt_ledger.test.mjs
