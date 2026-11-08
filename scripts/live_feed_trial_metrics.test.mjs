@@ -18,7 +18,7 @@ test('unnecessary T5 rejected',()=>assert.throws(()=>evaluate([t('a',[a('T8'),a(
 test('incomplete odds rejected',()=>assert.equal(evaluate([t('a',[a('T8',{odds_120_positive_complete:false})])]).final_complete,0));
 
 test('T5 rescue denominator is actually attempted retries',()=>{const x=evaluate([t('a',[a('T8',{complete:false}),a('T5')]),t('b',[a('T8',{complete:false})])]);assert.equal(x.t5_eligible,2);assert.equal(x.t5_attempted,1);assert.equal(x.t5_rescue_rate,1);assert.equal(x.t5_attempt_rate,0.5);});
-test('T5 request cannot precede T8',()=>assert.throws(()=>evaluate([t('a',[a('T8',{complete:false,request_ms:600000,received_ms:601000}),a('T5',{request_ms:500000})])]),/precedes/));
+test('T5 before T8 is rejected by stage windows',()=>assert.throws(()=>evaluate([t('a',[a('T8',{complete:false,request_ms:600000,received_ms:601000}),a('T5',{request_ms:500000})])]),/stage window/));
 test('T5 zero attempted denominator remains null',()=>assert.equal(evaluate([t('a',[a('T8',{complete:false})])]).t5_rescue_rate,null));
 
 test('T5 without T8 cannot count as rescue',()=>assert.throws(()=>evaluate([t('a',[a('T5',{request_ms:700000,received_ms:701000})])]),/requires recorded T8/));
