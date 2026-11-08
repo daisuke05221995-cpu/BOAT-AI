@@ -1,0 +1,25 @@
+name: Android odds bridge research (offline)
+on:
+  push:
+    branches:
+      - research/android-odds-capture-purchase-preflight-20261108
+    paths:
+      - scripts/android_odds_bridge_preflight.mjs
+      - scripts/android_odds_bridge_preflight.test.mjs
+      - .github/workflows/android-odds-bridge-research.yml
+  pull_request:
+    paths:
+      - scripts/android_odds_bridge_preflight.mjs
+      - scripts/android_odds_bridge_preflight.test.mjs
+      - .github/workflows/android-odds-bridge-research.yml
+jobs:
+  offline-odds-bridge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Node version
+        run: node --version
+      - name: Audit Android odds quarantine bridge (synthetic only)
+        run: node --test scripts/android_odds_bridge_preflight.test.mjs
