@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, open, link, unlink } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 // Offline research-only: never authorizes BUY, SKIP, or actual purchase.
 const hash = s => createHash('sha256').update(s).digest('hex');
@@ -38,8 +39,17 @@ export async function quarantineReceipt(directory, receipt) {
   const digest = hash(canonical({ raceKey, payload }));
   const file = join(directory, hash(receiptId) + '.json');
   await mkdir(directory, { recursive: true });
+  // Write a complete, synced temporary record before atomically publishing via hard link.
+  // A crash before link leaves no visible receipt; a crash after link leaves a complete one.
+  const temp = join(directory, '.' + randomUUID() + '.tmp');
+  let handle;
   try {
-    await writeFile(file, JSON.stringify({ receiptId, raceKey, digest, status: 'QUARANTINED' }), { flag: 'wx', mode: 0o600 });
+    handle = await open(temp, 'wx', 0o600);
+    await handle.writeFile(JSON.stringify({ receiptId, raceKey, digest, status: 'QUARANTINED' }));
+    await handle.sync();
+    await handle.close();
+    handle = undefined;
+    await link(temp, file); // atomic no-overwrite across processes on the same filesystem
     return { status: 'QUARANTINED', reason: 'NEW_RECEIPT', digest };
   } catch (err) {
     if (err.code !== 'EEXIST') throw err;
@@ -51,5 +61,8 @@ export async function quarantineReceipt(directory, receipt) {
     return previous.digest === digest
       ? { status: 'QUARANTINED', reason: 'DUPLICATE_RECEIPT', digest }
       : { status: 'UNAVAILABLE', reason: 'RECEIPT_ID_CONFLICT' };
+  } finally {
+    if (handle) await handle.close().catch(() => {});
+    await unlink(temp).catch(err => { if (err.code !== 'ENOENT') throw err; });
   }
 }
