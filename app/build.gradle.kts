@@ -12,8 +12,8 @@ android {
         applicationId = "jp.boatai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 77
-        versionName = "0.18.31"
+        versionCode = 78
+        versionName = "0.18.32"
         // v0.18.29: authenticated, allowlisted remote refresh of foreground collector only.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"daisuke05221995-cpu/BOAT-AI\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
