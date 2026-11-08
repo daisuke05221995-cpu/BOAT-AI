@@ -33,7 +33,7 @@ export function assessAndroidOddsSnapshot(snapshot, serverNowMs) {
   if (!integer(serverNowMs) || !integer(snapshot.deadline_ms) ||
       !integer(snapshot.device_received_ms)) return reject('INVALID_CLOCK');
   if (typeof snapshot.race_date !== 'string' ||
-      !/^\\d{4}-\\d{2}-\\d{2}$/.test(snapshot.race_date) ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(snapshot.race_date) ||
       !Number.isInteger(snapshot.stadium_number) || snapshot.stadium_number < 1 ||
       snapshot.stadium_number > 24 || !Number.isInteger(snapshot.race_number) ||
       snapshot.race_number < 1 || snapshot.race_number > 12 ||
