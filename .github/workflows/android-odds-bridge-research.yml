@@ -15,7 +15,9 @@ on:
       - scripts/purchase_review_consistency.mjs
       - scripts/purchase_review_consistency.test.mjs
       - scripts/purchase_receipt_consistency.mjs
-      - scripts/purchase_receipt_consistency.test.mjs
+      - scripts/purchase_receipt_consistency.test.mjs scripts/purchase_dry_run_coordinator.test.mjs
+      - scripts/purchase_dry_run_coordinator.mjs
+      - scripts/purchase_dry_run_coordinator.test.mjs
       - .github/workflows/android-odds-bridge-research.yml
   pull_request:
     paths:
@@ -31,6 +33,8 @@ on:
       - scripts/purchase_review_consistency.test.mjs
       - scripts/purchase_receipt_consistency.mjs
       - scripts/purchase_receipt_consistency.test.mjs
+      - scripts/purchase_dry_run_coordinator.mjs
+      - scripts/purchase_dry_run_coordinator.test.mjs
       - .github/workflows/android-odds-bridge-research.yml
 jobs:
   offline-odds-bridge:
