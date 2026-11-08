@@ -30,6 +30,10 @@ internal object CollectorHandoffNoticePolicy {
 
     fun summary(raceCount: Int, ticketCount: Int, totalYen: Int): String =
         "${raceCount}レース・${ticketCount}点・合計${totalYen}円。BOAT AIで内容を確認してください"
+
+    // A distinct notification ID for each new transfer; a single fixed ID with
+    // setOnlyAlertOnce would silently suppress alerts for later transfers.
+    fun notificationId(handoffId: String): Int = 20_000 + (handoffId.hashCode() and 0x0fffffff)
 }
 
 /** Independent from prediction alerts: collector receiving notifications default to ON. */
@@ -77,8 +81,9 @@ internal class CollectorHandoffNotifier(context: Context) {
         val openApp = Intent(appContext, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
+        val notificationId = CollectorHandoffNoticePolicy.notificationId(handoff.handoffId)
         val openPending = PendingIntent.getActivity(
-            appContext, NOTIFICATION_ID, openApp,
+            appContext, notificationId, openApp,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val session = handoff.session
@@ -98,14 +103,13 @@ internal class CollectorHandoffNotifier(context: Context) {
             .setContentIntent(openPending)
             .build()
 
-        NotificationManagerCompat.from(appContext).notify(NOTIFICATION_ID, notification)
+        NotificationManagerCompat.from(appContext).notify(notificationId, notification)
         preferences.edit().putString(KEY_LAST_NOTIFIED_ID, handoff.handoffId).apply()
         return true
     }
 
     private companion object {
         const val CHANNEL_ID = "boat_ai_collector_handoff_v1"
-        const val NOTIFICATION_ID = 20_031
         const val PREF_NAME = "boat_ai_collector_handoff_notifications_v1"
         const val KEY_ENABLED = "enabled"
         const val KEY_LAST_NOTIFIED_ID = "last_notified_handoff_id"
