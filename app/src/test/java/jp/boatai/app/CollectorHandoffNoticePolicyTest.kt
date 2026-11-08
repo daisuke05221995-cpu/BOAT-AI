@@ -38,6 +38,16 @@ class CollectorHandoffNoticePolicyTest {
         )
     }
 
+    @Test fun eachDistinctTransferUsesItsOwnAndroidNotificationId() {
+        val first = CollectorHandoffNoticePolicy.notificationId("11111111-1111-1111-1111-111111111111")
+        val repeat = CollectorHandoffNoticePolicy.notificationId("11111111-1111-1111-1111-111111111111")
+        val second = CollectorHandoffNoticePolicy.notificationId("22222222-2222-2222-2222-222222222222")
+        assertEquals(first, repeat)
+        assertTrue(first > 0)
+        assertTrue(second > 0)
+        assertFalse(first == second)
+    }
+
     @Test fun aNotificationDoesNotMeanWagerWasSubmitted() {
         val message = CollectorHandoffNoticePolicy.summary(1, 1, 500)
         assertFalse(message.contains("購入完了"))
