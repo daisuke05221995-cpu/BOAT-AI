@@ -1,0 +1,31 @@
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+// Offline research-only: never authorizes BUY, SKIP, or actual purchase.
+const hash = s => createHash('sha256').update(s).digest('hex');
+const canonical = v => Array.isArray(v) ? '[' + v.map(canonical).join(',') + ']' : v && typeof v === 'object' ? '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canonical(v[k])).join(',') + '}' : JSON.stringify(v);
+export async function quarantineReceipt(directory, receipt) {
+  if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt)) return { status: 'UNAVAILABLE', reason: 'INVALID_RECEIPT' };
+  const { receiptId, raceKey, payload } = receipt;
+  if (typeof receiptId !== 'string' || !/^[A-Za-z0-9_-]{8,128}$/.test(receiptId) ||
+      typeof raceKey !== 'string' || !/^[A-Za-z0-9_-]{8,128}$/.test(raceKey) ||
+      !payload || typeof payload !== 'object' || Array.isArray(payload))
+    return { status: 'UNAVAILABLE', reason: 'INVALID_RECEIPT' };
+  const digest = hash(canonical({ raceKey, payload }));
+  const file = join(directory, hash(receiptId) + '.json');
+  await mkdir(directory, { recursive: true });
+  try {
+    await writeFile(file, JSON.stringify({ receiptId, raceKey, digest, status: 'QUARANTINED' }), { flag: 'wx', mode: 0o600 });
+    return { status: 'QUARANTINED', reason: 'NEW_RECEIPT', digest };
+  } catch (err) {
+    if (err.code !== 'EEXIST') throw err;
+    let previous;
+    try { previous = JSON.parse(await readFile(file, 'utf8')); }
+    catch { return { status: 'UNAVAILABLE', reason: 'LEDGER_UNREADABLE' }; }
+    if (previous.receiptId !== receiptId || previous.raceKey !== raceKey || previous.status !== 'QUARANTINED')
+      return { status: 'UNAVAILABLE', reason: 'LEDGER_CONFLICT' };
+    return previous.digest === digest
+      ? { status: 'QUARANTINED', reason: 'DUPLICATE_RECEIPT', digest }
+      : { status: 'UNAVAILABLE', reason: 'RECEIPT_ID_CONFLICT' };
+  }
+}
