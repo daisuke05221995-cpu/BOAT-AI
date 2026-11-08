@@ -33,7 +33,14 @@ function safePayload(value) {
 }
 export async function quarantineReceipt(directory, receipt) {
   if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt)) return { status: 'UNAVAILABLE', reason: 'INVALID_RECEIPT' };
-  // Do not invoke attacker-controlled accessors or silently discard hidden/symbol fields.\n  if (Object.getPrototypeOf(receipt) !== Object.prototype && Object.getPrototypeOf(receipt) !== null)\n    return { status: 'UNAVAILABLE', reason: 'INVALID_RECEIPT' };\n  const top = Object.getOwnPropertyDescriptors(receipt);\n  if (Reflect.ownKeys(receipt).some(k => typeof k !== 'string' || !['receiptId', 'raceKey', 'payload'].includes(k) || !top[k].enumerable || !('value' in top[k])) ||\n      !['receiptId', 'raceKey', 'payload'].every(k => Object.hasOwn(top, k)))\n    return { status: 'UNAVAILABLE', reason: 'INVALID_RECEIPT' };\n  const { receiptId, raceKey, payload } = receipt;
+  // Do not invoke attacker-controlled accessors or silently discard hidden/symbol fields.
+  if (Object.getPrototypeOf(receipt) !== Object.prototype && Object.getPrototypeOf(receipt) !== null)
+    return { status: 'UNAVAILABLE', reason: 'INVALID_RECEIPT' };
+  const top = Object.getOwnPropertyDescriptors(receipt);
+  if (Reflect.ownKeys(receipt).some(k => typeof k !== 'string' || !['receiptId', 'raceKey', 'payload'].includes(k) || !top[k].enumerable || !('value' in top[k])) ||
+      !['receiptId', 'raceKey', 'payload'].every(k => Object.hasOwn(top, k)))
+    return { status: 'UNAVAILABLE', reason: 'INVALID_RECEIPT' };
+  const { receiptId, raceKey, payload } = receipt;
   if (typeof receiptId !== 'string' || !/^[A-Za-z0-9_-]{8,128}$/.test(receiptId) ||
       typeof raceKey !== 'string' || !/^[A-Za-z0-9_-]{8,128}$/.test(raceKey) ||
       !payload || typeof payload !== 'object' || Array.isArray(payload) || !safePayload(payload))
