@@ -25,3 +25,5 @@ test('T5 without T8 cannot count as rescue',()=>assert.throws(()=>evaluate([t('a
 test('T8 label with T5-clock timestamp rejected',()=>assert.throws(()=>evaluate([t('a',[a('T8',{request_ms:700000,received_ms:701000})])]),/stage window/));
 test('T5 label with T8-clock timestamp rejected',()=>assert.throws(()=>evaluate([t('a',[a('T8',{complete:false}),a('T5',{request_ms:520000})])]),/stage window/));
 test('request after deadline rejected',()=>assert.throws(()=>evaluate([t('a',[a('T8',{request_ms:deadline+1000,received_ms:deadline+2000})])]),/stage window/));
+
+test('T5 cannot start before unfinished T8 response',()=>assert.throws(()=>evaluate([t('a',[a('T8',{complete:false,received_ms:710000}),a('T5',{request_ms:700000,received_ms:720000,preview_observed_ms:700000,weather_observed_ms:700000,odds_observed_ms:700000})])]),/overlaps unfinished T8/));
