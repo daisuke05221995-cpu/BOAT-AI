@@ -104,3 +104,26 @@ process.stdout.write(JSON.stringify(result));`;
   assert.deepEqual((await readdir(d)).filter(x => x.endsWith('.tmp')), []);
   assert.equal((await readdir(d)).filter(x => x.endsWith('.json')).length, 1);
 }));
+
+test('reject tampered persisted digest and unexpected fields without overwrite', () => withDir(async d => {
+  await quarantineReceipt(d, sample());
+  const name = (await readdir(d)).find(x => x.endsWith('.json'));
+  const file = join(d, name);
+  const original = JSON.parse(await readFile(file, 'utf8'));
+  for (const tampered of [{ ...original, digest: 'invalid' }, { ...original, injected: 'metadata' }, { ...original, digest: null }]) {
+    const raw = JSON.stringify(tampered);
+    await writeFile(file, raw);
+    const result = await quarantineReceipt(d, sample());
+    assert.equal(result.status, 'UNAVAILABLE');
+    assert.equal(result.reason, 'LEDGER_CONFLICT');
+    assert.equal(await readFile(file, 'utf8'), raw);
+  }
+}));
+test('reject persisted null and array envelope', () => withDir(async d => {
+  await quarantineReceipt(d, sample());
+  const file = join(d, (await readdir(d)).find(x => x.endsWith('.json')));
+  for (const raw of ['null', '[]']) {
+    await writeFile(file, raw);
+    assert.equal((await quarantineReceipt(d, sample())).reason, 'LEDGER_CONFLICT');
+  }
+}));
