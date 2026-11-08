@@ -13,7 +13,9 @@ on:
       - scripts/purchase_replay_guard.mjs
       - scripts/purchase_replay_guard.test.mjs
       - scripts/purchase_review_consistency.mjs
-      - scripts/purchase_review_consistency.test.mjs
+      - scripts/purchase_review_consistency.test.mjs scripts/purchase_receipt_consistency.test.mjs
+      - scripts/purchase_receipt_consistency.mjs
+      - scripts/purchase_receipt_consistency.test.mjs
       - .github/workflows/android-odds-bridge-research.yml
   pull_request:
     paths:
@@ -27,6 +29,8 @@ on:
       - scripts/purchase_replay_guard.test.mjs
       - scripts/purchase_review_consistency.mjs
       - scripts/purchase_review_consistency.test.mjs
+      - scripts/purchase_receipt_consistency.mjs
+      - scripts/purchase_receipt_consistency.test.mjs
       - .github/workflows/android-odds-bridge-research.yml
 jobs:
   offline-odds-bridge:
