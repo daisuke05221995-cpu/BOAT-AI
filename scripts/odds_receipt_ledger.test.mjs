@@ -16,3 +16,15 @@ test('concurrent conflicting writes never both become new', () => withDir(async 
 test('path traversal id rejected', () => withDir(async d => { const x = sample(); x.receiptId = '../outside'; assert.equal((await quarantineReceipt(d, x)).status, 'UNAVAILABLE'); assert.equal((await readdir(d)).length, 0); }));
 test('invalid payload rejected', () => withDir(async d => { const x = sample(); x.payload = null; assert.equal((await quarantineReceipt(d, x)).reason, 'INVALID_RECEIPT'); }));
 test('persisted record contains no raw odds', () => withDir(async d => { await quarantineReceipt(d, sample()); const f = (await readdir(d))[0]; const data = await readFile(join(d, f), 'utf8'); assert.equal(data.includes('4.5'), false); assert.equal(data.includes('DEVICE_CLAIM'), false); }));
+
+
+test('reject credential field without creating a file', () => withDir(async d => { const x=sample(); x.payload.token='redacted'; assert.equal((await quarantineReceipt(d,x)).reason,'INVALID_RECEIPT'); assert.equal((await readdir(d)).length,0); }));
+test('reject nested credentials', () => withDir(async d => { const x=sample(); x.payload.meta={authorization:'redacted'}; assert.equal((await quarantineReceipt(d,x)).status,'UNAVAILABLE'); }));
+test('reject NaN and Infinity', () => withDir(async d => { for(const v of [NaN,Infinity,-Infinity]) { const x=sample(); x.payload.odds['1-2-3']=v; assert.equal((await quarantineReceipt(d,x)).reason,'INVALID_RECEIPT'); } }));
+test('reject undefined and functions', () => withDir(async d => { for(const v of [undefined,()=>1,BigInt(1)]) { const x=sample(); x.payload.extra=v; assert.equal((await quarantineReceipt(d,x)).reason,'INVALID_RECEIPT'); } }));
+test('reject cyclic payload', () => withDir(async d => { const x=sample(); x.payload.self=x.payload; assert.equal((await quarantineReceipt(d,x)).reason,'INVALID_RECEIPT'); }));
+test('reject getter without invoking it', () => withDir(async d => { const x=sample(); let called=false; Object.defineProperty(x.payload,'unsafe',{enumerable:true,get(){called=true;throw Error('getter')}}); assert.equal((await quarantineReceipt(d,x)).reason,'INVALID_RECEIPT'); assert.equal(called,false); }));
+test('reject excessive payload size', () => withDir(async d => { const x=sample(); x.payload.large='x'.repeat(70000); assert.equal((await quarantineReceipt(d,x)).reason,'INVALID_RECEIPT'); }));
+test('reject exotic prototype payload', () => withDir(async d => { const x=sample(); x.payload=new Date(); assert.equal((await quarantineReceipt(d,x)).reason,'INVALID_RECEIPT'); }));
+test('reject sparse array', () => withDir(async d => { const x=sample(); x.payload.extra=new Array(3); assert.equal((await quarantineReceipt(d,x)).reason,'INVALID_RECEIPT'); }));
+test('valid nested JSON remains quarantined', () => withDir(async d => { const x=sample(); x.payload.meta={items:[1,true,null,'ok']}; assert.equal((await quarantineReceipt(d,x)).status,'QUARANTINED'); }));
