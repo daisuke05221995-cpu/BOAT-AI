@@ -126,6 +126,15 @@ internal fun CollectorDashboardScreen(
                                 race.tickets.joinToString(" / ") { "${it.combination} ${it.amount}円" },
                                 style = MaterialTheme.typography.bodySmall)
                         }
+                        Text("受信済み・未購入：以下の買い目はまだ購入記録ではありません。",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(onClick = vm::copyCollectorManualPurchaseChecklist,
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("買い目・金額の確認表をコピー（未購入）")
+                        }
+                        Text("確認表には開催日、場、レース、買い目ごとの金額、小計・合計、転送IDを記載します。コピーするだけで投票操作は行いません。",
+                            style = MaterialTheme.typography.bodySmall)
                         Button(onClick = vm::openCollectorPurchaseHandoff, modifier = Modifier.fillMaxWidth()) {
                             Text("買い目をコピーして公式投票へ")
                         }
