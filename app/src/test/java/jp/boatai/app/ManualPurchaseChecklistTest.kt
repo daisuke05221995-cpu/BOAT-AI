@@ -94,9 +94,8 @@ class ManualPurchaseChecklistTest {
     }
 
     @Test fun subtotalAndTotalAreFormattedInYen() {
-        val result = ManualPurchaseChecklist.prepare(
-            handoff(races = listOf(race(tickets = listOf(PendingPurchaseTicket("6-5-4", 2500)))), now
-        )
+        val singleRace = race(tickets = listOf(PendingPurchaseTicket("6-5-4", 2500)))
+        val result = ManualPurchaseChecklist.prepare(handoff(races = listOf(singleRace)), now)
         assertTrue(result.valid)
         assertTrue(result.clipboardText!!.contains("2,500円"))
         assertTrue(result.clipboardText!!.contains("このレースの小計"))
