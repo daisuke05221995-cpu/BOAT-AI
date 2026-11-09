@@ -4,6 +4,8 @@ import android.app.Activity
 import android.app.Application
 import android.content.Intent
 import android.content.Context
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -400,6 +402,27 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
                 _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
                     error = "買い目受信エラー：${error.message ?: "通信失敗"}")) }
             }
+        }
+    }
+
+    /** Copy the read-only research handoff checklist without launching official betting. */
+    fun copyCollectorManualPurchaseChecklist() {
+        val handoff = _ui.value.collectorPurchaseInbox ?: return
+        val prepared = ManualPurchaseChecklist.prepare(handoff)
+        if (!prepared.valid || prepared.clipboardText == null) {
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                error = prepared.message, message = null)) }
+            return
+        }
+        runCatching {
+            val clipboard = getApplication<Application>().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("BOAT AI 手動購入の確認表（未購入）", prepared.clipboardText))
+        }.onSuccess {
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                message = prepared.message, error = null)) }
+        }.onFailure { error ->
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                error = "確認表をコピーできません: ${error.message ?: "不明"}", message = null)) }
         }
     }
 
