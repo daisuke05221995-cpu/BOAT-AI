@@ -245,26 +245,7 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
     ) {
         item { AppUpdateCard(ui.update, vm) }
         item { DateSelectorCard(ui, vm) }
-        if (ui.date == LocalDate.now(ZoneId.of("Asia/Tokyo"))) {
-            item { CollectorCloudMonitorCard(ui.collectorMonitor,
-                onRefresh = { vm.refreshCollectorMonitor(force = true) },
-                remote = ui.collectorRemote, remoteConfigured = ui.collectorUpload.configured,
-                collectorMode = ui.collectorModeEnabled,
-                onRemoteRefresh = vm::requestCollectorRemoteRefresh) }
-        }
-        if (ui.date == LocalDate.now(ZoneId.of("Asia/Tokyo"))) {
-            item { LiveOddsRefreshCard(ui.liveOddsRefresh) }
-        }
-        item { CloudForecastCard(ui.cloudForecast, onRefresh = { vm.refreshCloudForecasts(force = true) }) }
-        item { DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh) }
-        item {
-            OperationalIssueCard(
-                issues = ui.operationalIssues,
-                suppressedByDataIssue = DataIssuePresenter.present(ui.diagnostics) != null,
-                onRetry = vm::refresh
-            )
-        }
-        item { AutomationRequirementCard(ui) }
+        // Operational monitoring lives in Settings, not the primary prediction list.
         ui.pendingPurchase?.let { pending ->
             item { PendingPurchaseCard(pending, vm, ui.purchaseLaunchHelpVisible) }
         }
@@ -318,6 +299,29 @@ private fun PredictionScreen(ui: BoatUiState, vm: BoatViewModel) {
                 modifier = Modifier.padding(4.dp)
             )
         }
+    }
+}
+
+/** Operational details remain accessible in Settings without obscuring predictions. */
+@Composable
+internal fun PrimaryOperationalSettingsSection(ui: BoatUiState, vm: BoatViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (ui.date == LocalDate.now(ZoneId.of("Asia/Tokyo"))) {
+            CollectorCloudMonitorCard(ui.collectorMonitor,
+                onRefresh = { vm.refreshCollectorMonitor(force = true) },
+                remote = ui.collectorRemote, remoteConfigured = ui.collectorUpload.configured,
+                collectorMode = ui.collectorModeEnabled,
+                onRemoteRefresh = vm::requestCollectorRemoteRefresh)
+            LiveOddsRefreshCard(ui.liveOddsRefresh)
+        }
+        CloudForecastCard(ui.cloudForecast, onRefresh = { vm.refreshCloudForecasts(force = true) })
+        DataDiagnosticsCard(ui.diagnostics, onRetry = vm::refresh)
+        OperationalIssueCard(
+            issues = ui.operationalIssues,
+            suppressedByDataIssue = DataIssuePresenter.present(ui.diagnostics) != null,
+            onRetry = vm::refresh
+        )
+        AutomationRequirementCard(ui)
     }
 }
 
