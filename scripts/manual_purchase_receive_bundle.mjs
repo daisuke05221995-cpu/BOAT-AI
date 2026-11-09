@@ -5,12 +5,12 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { receiveManualPurchaseCard } from './manual_purchase_receiver_card.mjs';
-import { renderInteractiveManualPurchasePage } from './manual_purchase_interactive_page.mjs';
+import { renderReceiptExportPage } from './manual_purchase_receipt_export_page.mjs';
 
 export function buildReceiverBundle(transferText) {
   const card = receiveManualPurchaseCard(transferText);
   return {
-    html: renderInteractiveManualPurchasePage(transferText),
+    html: renderReceiptExportPage(transferText),
     acknowledgement: card.acknowledgement,
     summary: {
       transferId: card.transferId,
