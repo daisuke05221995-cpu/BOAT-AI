@@ -375,8 +375,17 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
     /** The collector receives proposed tickets only. It never presses an official buy button. */
     private fun maybePollCollectorPurchaseHandoff(force: Boolean = false) {
         if (!_ui.value.collectorModeEnabled || !_ui.value.collectorUpload.configured) return
-        if (collectorPurchasePollJob?.isActive == true || _ui.value.collectorPurchaseInbox != null) return
+        if (collectorPurchasePollJob?.isActive == true) return
         val now = System.currentTimeMillis()
+        // Expired handoffs must not permanently block new first-phone transfers.
+        val existing = _ui.value.collectorPurchaseInbox
+        if (existing != null) {
+            if (existing.expiresAt > now) return
+            collectorPurchaseInboxStore.clear()
+            _ui.update { it.copy(collectorPurchaseInbox = null,
+                purchaseHandoff = it.purchaseHandoff.copy(
+                    message = "期限切れの買い目を整理しました。新しい転送を受信できます", error = null)) }
+        }
         if (!force && now - lastPurchasePollAt < 15_000L) return
         val token = collectorAuthStore.readToken() ?: return
         lastPurchasePollAt = now
