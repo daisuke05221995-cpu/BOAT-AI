@@ -2,8 +2,8 @@
 import { createHash } from 'node:crypto';
 const pad = n => String(n).padStart(2, '0');
 export function prepareManualPurchase({ raceDate, venueCode, raceNumber, picks }) {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(raceDate) || !Number.isFinite(Date.parse(raceDate+'T00:00:00Z'))) throw Error('INVALID_DATE');
-  if (!/^\\d{2}$/.test(venueCode) || !Number.isInteger(raceNumber) || raceNumber < 1 || raceNumber > 12) throw Error('INVALID_RACE');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raceDate) || !Number.isFinite(Date.parse(raceDate+'T00:00:00Z'))) throw Error('INVALID_DATE');
+  if (!/^\d{2}$/.test(venueCode) || !Number.isInteger(raceNumber) || raceNumber < 1 || raceNumber > 12) throw Error('INVALID_RACE');
   if (!Array.isArray(picks) || picks.length < 1 || picks.length > 120) throw Error('INVALID_PICKS');
   const seen = new Set(); let totalYen = 0;
   const lines = picks.map(({ combination, amountYen }) => {
@@ -26,4 +26,16 @@ export function receiptReview(handoff, { receiptNumber, confirmedLines, confirme
   const actual = confirmedLines.map(x=>x.combination+':'+x.amountYen).sort();
   if (JSON.stringify(expected)!==JSON.stringify(actual) || confirmedTotalYen !== handoff.totalYen) return { status: 'RECEIPT_MISMATCH', handoffId: handoff.handoffId };
   return { status: 'MANUALLY_RECONCILED', handoffId: handoff.handoffId, receiptNumber, totalYen: handoff.totalYen };
+}
+
+// Read-only presentation model for the second device. Never implies a placed bet.
+export function buildManualPurchaseDisplay(handoff) {
+  if (!handoff || handoff.status !== 'AWAITING_MANUAL_PURCHASE') throw Error('INVALID_HANDOFF');
+  const verified = prepareManualPurchase({raceDate:handoff.raceDate,venueCode:handoff.venueCode,raceNumber:handoff.raceNumber,picks:handoff.lines});
+  if (verified.handoffId !== handoff.handoffId || verified.totalYen !== handoff.totalYen) throw Error('HANDOFF_MISMATCH');
+  const rows = verified.lines.map(({combination,amountYen}) => ({combination,amountYen,display:combination+'  '+amountYen.toLocaleString('ja-JP')+'円'}));
+  const header = verified.raceDate+'  場コード'+verified.venueCode+'  '+verified.raceNumber+'R';
+  return {handoffId:verified.handoffId,header,rows,totalYen:verified.totalYen,
+    copyText:[header,...rows.map(r=>r.display),'合計  '+verified.totalYen.toLocaleString('ja-JP')+'円'].join('\\n'),
+    purchaseStatus:'NOT_PURCHASED',actionLabel:'公式アプリで本人が手動購入',receiptReviewLabel:'購入後に受付内容を照合'};
 }
