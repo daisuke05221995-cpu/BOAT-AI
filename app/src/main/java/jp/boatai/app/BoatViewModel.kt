@@ -437,6 +437,14 @@ class BoatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openCollectorPurchaseHandoff() {
         val handoff = _ui.value.collectorPurchaseInbox ?: return
+        // A received handoff is only a proposed purchase. Never open the official
+        // app with stale, malformed, or internally inconsistent ticket amounts.
+        val checked = ManualPurchaseChecklist.prepare(handoff)
+        if (!checked.valid) {
+            _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(
+                error = checked.message, message = null)) }
+            return
+        }
         runCatching { OfficialBetLauncher.launch(getApplication(), handoff.session) }
             .onSuccess { result -> _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(message = result.message, error = null)) } }
             .onFailure { error -> _ui.update { it.copy(purchaseHandoff = it.purchaseHandoff.copy(error = error.message ?: "投票画面を開けません")) } }
