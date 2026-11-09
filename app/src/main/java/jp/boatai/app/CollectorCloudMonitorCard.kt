@@ -64,9 +64,13 @@ internal fun CollectorCloudMonitorCard(
                 style = MaterialTheme.typography.bodySmall)
             if (!collectorMode) {
                 Button(onClick = onRemoteRefresh,
-                    enabled = remoteConfigured && status.monitoringState == "ACTIVE" && !remote.submitting,
+                    enabled = remoteConfigured && !remote.submitting,
                     modifier = Modifier.fillMaxWidth()) {
                     Text(if (remote.submitting) "指示を送信中" else "2台目に今すぐ再取得を指示")
+                }
+                if (remoteConfigured && status.monitoringState != "ACTIVE") {
+                    Text("2台目の監視が正常ではありません。送信は試せますが、クラウド側で拒否された場合は理由を表示します。2台目が受信した保証はありません。",
+                        style = MaterialTheme.typography.bodySmall)
                 }
                 if (!remoteConfigured) Text("遠隔再取得には、設定で1台目にも同じ共有キーを保存してください。",
                     style = MaterialTheme.typography.bodySmall)
