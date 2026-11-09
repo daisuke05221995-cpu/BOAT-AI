@@ -44,5 +44,11 @@ test('index corruption never authorizes a new claim', () => withDir(async d => {
   await claimQuarantinedRace(d, 'receipt_12345', '20261109_01_01');
   const index = join(d, '.race-index');
   await writeFile(join(index, (await readdir(index))[0]), '{}');
-  assert.equal((await claimQuarantinedRace(d, 'receipt_12345', '20261109_01_01')).reason, 'INDEX_INVALID');
+  // The index is an atomic hardlink to the receipt: writing through the
+  // index also corrupts the receipt inode. Either validation gate may reject
+  // the corrupt content first, but neither may authorize a claim.
+  const outcome = await claimQuarantinedRace(d, 'receipt_12345', '20261109_01_01');
+  assert.equal(outcome.status, 'UNAVAILABLE');
+  assert.ok(['RECEIPT_INVALID', 'INDEX_INVALID'].includes(outcome.reason));
+  assert.notEqual(outcome.status, 'QUARANTINED');
 }));
