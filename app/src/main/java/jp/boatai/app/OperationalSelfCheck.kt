@@ -92,26 +92,26 @@ object OperationalSelfCheck {
             )
         }
 
-        val staleSettlement = predictions.count { record ->
-            if (record.settled || record.createdAt < monitoringStartedAt) return@count false
-            val date = runCatching { LocalDate.parse(record.date.take(10)) }.getOrNull() ?: return@count false
+        val staleSettlement = predictions.filter { record ->
+            if (record.settled || record.createdAt < monitoringStartedAt) return@filter false
+            val date = runCatching { LocalDate.parse(record.date.take(10)) }.getOrNull() ?: return@filter false
             when {
                 date.isBefore(now.toLocalDate()) -> true
                 date.isAfter(now.toLocalDate()) -> false
                 else -> {
-                    val race = races.firstOrNull { it.id == record.id } ?: return@count false
-                    val close = closeAt(race) ?: return@count false
+                    val race = races.firstOrNull { it.id == record.id } ?: return@filter false
+                    val close = closeAt(race) ?: return@filter false
                     close.plusMinutes(SETTLEMENT_GRACE_MINUTES).isBefore(now)
                 }
             }
         }
-        if (staleSettlement > 0) {
+        if (staleSettlement.isNotEmpty()) {
             add(
                 OperationalIssue(
                     code = OperationalIssueCode.STALE_SETTLEMENT,
                     title = "結果反映が止まっている可能性があります",
-                    detail = "$staleSettlement レースが長時間未精算のままです。",
-                    guidance = "「今すぐ再取得」を実行してください。解消しない場合はバックアップを保存して共有してください。"
+                    detail = "${staleSettlement.size} レースが長時間未精算です。対象ID: ${staleSettlement.take(3).joinToString { it.id }}${if (staleSettlement.size > 3) " ほか" else ""}",
+                    guidance = "対象レースの結果を確認し「今すぐ再取得」を実行してください。解消しない場合は設定からバックアップを保存して共有してください。"
                 )
             )
         }
