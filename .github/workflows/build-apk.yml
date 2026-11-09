@@ -3,8 +3,18 @@ name: Build and verify BOAT AI APK
 on:
   workflow_dispatch:
   pull_request:
-    paths-ignore:
-      - 'data/**'
+    # Run Android compilation only for actual Android/Gradle changes.
+    # Research-only scripts already have their own dedicated Node CI.
+    # This avoids duplicate full APK builds and redundant failure emails
+    # for each hourly research-branch commit.
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/build-apk.yml'
   push:
     branches:
       - main
