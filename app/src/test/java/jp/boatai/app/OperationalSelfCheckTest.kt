@@ -97,6 +97,7 @@ class OperationalSelfCheckTest {
             now = now
         )
         assertTrue(issues.any { it.code == OperationalIssueCode.STALE_SETTLEMENT })
+        assertTrue(issues.single { it.code == OperationalIssueCode.STALE_SETTLEMENT }.detail.contains("2026-10-10-01-1"))
     }
 
     @Test
