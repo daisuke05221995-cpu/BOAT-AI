@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {prepareManualPurchase} from './manual_purchase_handoff.mjs';
+import {exportPurchaseTransfer,importPurchaseTransfer,acknowledgePurchaseTransfer} from './manual_purchase_transfer.mjs';
+const handoff=prepareManualPurchase({raceDate:'2026-11-09',venueCode:'01',raceNumber:3,picks:[{combination:'1-3-2',amountYen:500},{combination:'1-2-3',amountYen:100}]});
+test('two-device export/import preserves lines and total',()=>{const received=importPurchaseTransfer(exportPurchaseTransfer(handoff));assert.deepEqual(received.lines,handoff.lines);assert.equal(received.totalYen,600);assert.equal(received.transferStatus,'RECEIVED_UNCONFIRMED')});
+test('receiving is not proof of purchase',()=>{const ack=acknowledgePurchaseTransfer(importPurchaseTransfer(exportPurchaseTransfer(handoff)),handoff.handoffId);assert.equal(ack.purchaseStatus,'NOT_CONFIRMED')});
+test('tampered amount rejected',()=>{const payload=JSON.parse(exportPurchaseTransfer(handoff));payload.lines[0].amountYen=900;assert.throws(()=>importPurchaseTransfer(JSON.stringify(payload)),/MISMATCH/)});
+test('unexpected credentials rejected',()=>{const payload=JSON.parse(exportPurchaseTransfer(handoff));payload.password='secret';assert.throws(()=>importPurchaseTransfer(JSON.stringify(payload)),/UNEXPECTED/)});
+test('wrong acknowledgement rejected',()=>assert.throws(()=>acknowledgePurchaseTransfer(importPurchaseTransfer(exportPurchaseTransfer(handoff)),'other'),/ACK_MISMATCH/));

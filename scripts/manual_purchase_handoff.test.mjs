@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { prepareManualPurchase, receiptReview } from './manual_purchase_handoff.mjs';
+const input={raceDate:'2026-11-09',venueCode:'01',raceNumber:3,picks:[{combination:'1-3-2',amountYen:500},{combination:'1-2-3',amountYen:100}]};
+test('displays individual stakes and total',()=>{const p=prepareManualPurchase(input);assert.equal(p.totalYen,600);assert.equal(p.lines.length,2);assert.equal(p.status,'AWAITING_MANUAL_PURCHASE')});
+test('stable handoff ID regardless of pick order',()=>assert.equal(prepareManualPurchase(input).handoffId,prepareManualPurchase({...input,picks:[...input.picks].reverse()}).handoffId));
+test('duplicate combination rejected',()=>assert.throws(()=>prepareManualPurchase({...input,picks:[input.picks[0],input.picks[0]]})));
+test('invalid amount rejected',()=>assert.throws(()=>prepareManualPurchase({...input,picks:[{combination:'1-2-3',amountYen:50}]})));
+test('manual receipt matched',()=>{const p=prepareManualPurchase(input);assert.equal(receiptReview(p,{receiptNumber:'ABCD1234',confirmedLines:p.lines,confirmedTotalYen:600}).status,'MANUALLY_RECONCILED')});
+test('receipt mismatch never marked purchased',()=>{const p=prepareManualPurchase(input);assert.equal(receiptReview(p,{receiptNumber:'ABCD1234',confirmedLines:p.lines,confirmedTotalYen:500}).status,'RECEIPT_MISMATCH')});

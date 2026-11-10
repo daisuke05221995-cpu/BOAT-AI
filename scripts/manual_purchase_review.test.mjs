@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {prepareManualPurchase} from './manual_purchase_handoff.mjs';
+import {exportPurchaseTransfer} from './manual_purchase_transfer.mjs';
+import {buildManualPurchaseReview} from './manual_purchase_review.mjs';
+const handoff=prepareManualPurchase({raceDate:'2026-11-09',venueCode:'01',raceNumber:3,picks:[{combination:'1-3-2',amountYen:500},{combination:'1-2-3',amountYen:100}]});
+const payload=exportPurchaseTransfer(handoff);
+test('renders race, sorted lines and total',()=>{const r=buildManualPurchaseReview(payload);assert.equal(r.raceLabel,'2026-11-09 場コード01 3R');assert.deepEqual(r.rows.map(x=>x.combination),['1-2-3','1-3-2']);assert.equal(r.totalYen,600)});
+test('receipt absent is not a purchase',()=>{const r=buildManualPurchaseReview(payload);assert.equal(r.purchaseConfirmed,false);assert.equal(r.status,'AWAITING_PERSON_PURCHASE')});
+test('matching manual receipt is explicitly unauthenticated',()=>{const r=buildManualPurchaseReview(payload,{receiptNumber:'ABCD-1234',confirmedLines:handoff.lines,confirmedTotalYen:600});assert.equal(r.receiptMatched,true);assert.match(r.instructions,/真正性は自動検証していません/)});
+test('mismatch cannot confirm',()=>{const r=buildManualPurchaseReview(payload,{receiptNumber:'ABCD-1234',confirmedLines:handoff.lines,confirmedTotalYen:700});assert.equal(r.purchaseConfirmed,false);assert.equal(r.status,'RECEIPT_MISMATCH')});
+test('tampered transfer rejected',()=>{const p=JSON.parse(payload);p.totalYen=700;assert.throws(()=>buildManualPurchaseReview(JSON.stringify(p)),/MISMATCH/)});
