@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -138,39 +137,7 @@ internal fun CollectorDashboardScreen(
                         Button(onClick = vm::openCollectorPurchaseHandoff, modifier = Modifier.fillMaxWidth()) {
                             Text("買い目をコピーして公式投票へ")
                         }
-                        OutlinedButton(onClick = vm::startCollectorPurchaseAutomationTest,
-                            modifier = Modifier.fillMaxWidth()) {
-                            Text("公式アプリを開いて操作検証を開始")
-                        }
-                        if (vm.hasCollectorPurchaseSubmissionProfile()) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(checked = purchaseAcknowledged,
-                                    onCheckedChange = { purchaseAcknowledged = it })
-                                Text("上記の買い目と合計金額を確認し、公式アプリへの実投票を許可する",
-                                    style = MaterialTheme.typography.bodySmall)
-                            }
-                            Button(onClick = {
-                                purchaseAcknowledged = false
-                                vm.startCollectorPurchaseAutoBet()
-                            }, enabled = purchaseAcknowledged,
-                                modifier = Modifier.fillMaxWidth()) {
-                                Text("公式アプリを開いて実投票を開始")
-                            }
-                        }
-                        Text("開始ボタンでBOAT AIが公式BOATRACEを前面に戻します。ログイン画面なら最大120秒待機し、ログイン完了後に買い目入力へ進みます。",
-                            style = MaterialTheme.typography.bodySmall)
-                        OutlinedButton(onClick = vm::copyOfficialAppControlMap,
-                            modifier = Modifier.fillMaxWidth()) {
-                            Text("公式アプリ画面の操作項目をコピー")
-                        }
-                        OutlinedButton(onClick = vm::stopCollectorPurchaseAutomation,
-                            modifier = Modifier.fillMaxWidth()) {
-                            Text("公式アプリ操作を緊急停止")
-                        }
-                        Text("操作状態：${vm.collectorPurchaseAutomationStatus()}", style = MaterialTheme.typography.bodySmall)
-                        Text("操作検証は締切まで2分以上・合計5,000円以内。実画面の対応表がない場合は入力を開始しません。操作検証ボタンでは投票確定しません。",
-                            style = MaterialTheme.typography.bodySmall)
-                        Text("実投票ボタンは実画面の操作設定が確認できた場合だけ表示します。投票ボタン操作後も公式の購入履歴で受付結果を確認してください。二重送信はしません。",
+                        Text("公式投票は本人が公式アプリで手動操作してください。投票後は公式受付履歴を確認し、BOAT AIの実購入記録と照合してください。受信・コピーのみでは購入は成立しません。",
                             style = MaterialTheme.typography.bodySmall)
                         OutlinedButton(onClick = vm::dismissCollectorPurchaseHandoff, modifier = Modifier.fillMaxWidth()) {
                             Text("この買い目を閉じる")
