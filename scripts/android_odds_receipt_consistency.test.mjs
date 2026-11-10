@@ -1,0 +1,16 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {compareAndroidOddsReceipts} from './android_odds_receipt_consistency.mjs';
+const race={date:'2026-11-09',stadiumNumber:1,raceNumber:1,deadlineMs:1800000};
+const mk=(source='公式PC版')=>({odds:{'1-2-3':12.5},source,diagnostics:[],fetchedAt:1200000});
+const check=(a,b,req=['1-2-3'],ra=race,rb=race)=>compareAndroidOddsReceipts(a,b,req,ra,rb);
+test('matching receipts remain quarantined',()=>{const r=check(mk(),mk());assert.equal(r.status,'CONSISTENT_DEVICE_RECEIPTS_ONLY');assert.equal(r.eligible_for_buy,false);assert.equal(r.eligible_for_skip,false)});
+test('different odds reject',()=>{const b=mk();b.odds['1-2-3']=13;assert.equal(check(mk(),b).reason,'ODDS_VALUES_DISAGREE')});
+test('race mismatch rejects',()=>assert.equal(check(mk(),mk(),undefined,race,{...race,raceNumber:2}).reason,'RACE_IDENTITY_MISMATCH'));
+test('deadline rejects',()=>assert.equal(check(mk(),mk(),undefined,{...race,deadlineMs:1200000},{...race,deadlineMs:1200000}).reason,'LATE_OR_INVALID_DEADLINE'));
+test('different source rejects',()=>assert.equal(check(mk(),mk('公式スマホ版')).reason,'SOURCE_LABEL_MISMATCH'));
+test('estimated rejects',()=>assert.equal(check(mk('BoatraceCSV推定'),mk('BoatraceCSV推定')).reason,'ESTIMATED_VALUES_NOT_LIVE'));
+test('missing requested rejects',()=>assert.equal(check(mk(),mk(),['1-2-3','1-3-2']).reason,'INVALID_RECEIPT'));
+test('far apart receipt times reject',()=>{const b=mk();b.fetchedAt+=120001;assert.equal(check(mk(),b).reason,'RECEIPT_TIMES_TOO_FAR_APART')});
+test('invalid inputs reject',()=>assert.equal(check(null,mk()).reason,'INVALID_INPUT'));
+test('unexpected extra combination rejects',()=>{const b=mk();b.odds['1-3-2']=9;assert.equal(check(mk(),b).reason,'INVALID_RECEIPT')});

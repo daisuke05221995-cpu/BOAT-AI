@@ -1,0 +1,25 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { inspectOfflineReceiptConsistency as inspect } from './purchase_receipt_consistency.mjs';
+const plan = () => ({race_date:'2026-11-08',stadium_number:1,race_number:7,tickets:[{combination:'1-2-3',yen:500},{combination:'2-3-4',yen:1000}]});
+const review = () => ({...plan(),total_yen:1500});
+const receipt = () => ({...review(),receipt_status:'ACCEPTED'});
+test('matching normalized receipt stays offline and unconfirmed',()=>{
+ const x=inspect(plan(),review(),receipt());
+ assert.equal(x.receipt_matches_offline,true);
+ assert.equal(x.receipt_officially_verified,false);
+ assert.equal(x.purchase_confirmed,false);
+ assert.equal(x.ready_for_live_submission,false);
+ assert.equal(x.classification,'OFFLINE_RECEIPT_FIELDS_CONSISTENT');
+});
+test('receipt row order does not matter',()=>{const r=receipt();r.tickets.reverse();assert.equal(inspect(plan(),review(),r).receipt_matches_offline,true)});
+test('invalid review blocks receipt even if receipt matches plan',()=>{const r=review();r.total_yen=1600;assert.equal(inspect(plan(),r,receipt()).reason,'PRE_SUBMISSION_REVIEW_NOT_CONSISTENT')});
+test('missing receipt or status blocks',()=>{for(const r of [null,{},[],{...receipt(),receipt_status:'PENDING'},{...receipt(),receipt_status:'REJECTED'}])assert.equal(inspect(plan(),review(),r).reason,'RECEIPT_NOT_EXPLICITLY_ACCEPTED')});
+test('receipt race identity mismatch blocks',()=>{for(const patch of [{race_date:'2026-11-09'},{stadium_number:2},{race_number:8}])assert.equal(inspect(plan(),review(),{...receipt(),...patch}).reason,'RECEIPT_RACE_MISMATCH')});
+test('missing or extra receipt row blocks',()=>{for(const rows of [receipt().tickets.slice(0,1),[...receipt().tickets,{combination:'3-4-5',yen:100}]])assert.equal(inspect(plan(),review(),{...receipt(),tickets:rows}).reason,'RECEIPT_ROW_COUNT_MISMATCH')});
+test('wrong receipt total blocks',()=>{for(const total_yen of [1600,0,-100,'1500',1500.5])assert.equal(inspect(plan(),review(),{...receipt(),total_yen}).reason,'RECEIPT_TOTAL_MISMATCH')});
+test('wrong receipt combination or stake blocks',()=>{for(const row of [{combination:'1-3-2',yen:500},{combination:'1-2-3',yen:600}]){const r=receipt();r.tickets[0]=row;assert.equal(inspect(plan(),review(),r).reason,'RECEIPT_SELECTION_OR_STAKE_MISMATCH')}});
+test('duplicate receipt rows block',()=>{const r=receipt();r.tickets[1]={...r.tickets[0]};assert.equal(inspect(plan(),review(),r).reason,'INVALID_OR_DUPLICATE_RECEIPT_ROW')});
+test('malformed receipt row blocks',()=>{for(const row of [null,{}, {combination:'1-1-2',yen:500},{combination:'1-2-3',yen:0},{combination:'1-2-3',yen:'500'}]){const r=receipt();r.tickets[0]=row;assert.equal(inspect(plan(),review(),r).reason,'INVALID_OR_DUPLICATE_RECEIPT_ROW')}});
+test('raw receipt reference and secrets are never exported',()=>{const r=receipt();r.receipt_number='sensitive-123';r.raw_text='password=secret';const x=inspect(plan(),review(),r);assert.equal(JSON.stringify(x).includes('sensitive-123'),false);assert.equal(JSON.stringify(x).includes('secret'),false)});
+test('no receipt can turn an UNKNOWN external submission into a confirmed purchase',()=>{const r=receipt();r.previous_attempt_state='UNKNOWN';const x=inspect(plan(),review(),r);assert.equal(x.purchase_confirmed,false);assert.equal(x.receipt_officially_verified,false)});
