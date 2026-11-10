@@ -68,7 +68,7 @@ internal fun CollectorDashboardScreen(
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("常時取得モード：有効", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("この端末でBOAT AIを前面表示している間、画面消灯を防ぎ、既存の60秒更新を継続します。購入指示を受信すると公式アプリを前面に戻します。", style = MaterialTheme.typography.bodyMedium)
+                    Text("この端末でBOAT AIを前面表示している間、画面消灯を防ぎ、既存の60秒更新を継続します。買い目を受信した場合は、この画面で確認してから本人が公式投票画面へ進みます。", style = MaterialTheme.typography.bodyMedium)
                     Text("他のアプリへ切り替えたり強制終了すると前面取得は停止します。充電中の熱や通信切断に注意してください。", style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -118,7 +118,7 @@ internal fun CollectorDashboardScreen(
                         var purchaseAcknowledged by remember(handoff.handoffId) { mutableStateOf(false) }
                         Text("${handoff.session.selectedRaces.size}レース / ${handoff.session.selectedTicketCount}点 / 合計${handoff.session.selectedStake}円",
                             fontWeight = FontWeight.Bold)
-                        if (handoff.purchaseAuthorized) Text("1台目からの実購入指示を受信。自動購入設定：${if (ui.collectorAutoPurchaseEnabled) "ON" else "OFF"}",
+                        if (handoff.purchaseAuthorized) Text("1台目から購入候補を受信しました。実際の投票は本人が公式画面で行ってください。",
                             style = MaterialTheme.typography.bodySmall)
                         handoff.session.selectedRaces.forEach { race ->
                             Text("${race.venueName} ${race.raceNumber}R：" +
