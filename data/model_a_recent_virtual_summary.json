@@ -1,7 +1,7 @@
 {
   "strategyId": "model-a-retro-flex-v2",
-  "throughDate": "2026-11-12",
-  "windowStart": "2026-10-14",
+  "throughDate": "2026-11-14",
+  "windowStart": "2026-10-16",
   "records": 0,
   "hits": 0,
   "stake": 0,
@@ -69,21 +69,21 @@
       "averageWinningPayout": 0.0
     }
   },
-  "historyLastDay": 739932,
-  "historyUpdateRaces": 148538,
-  "historyStateBytes": 4321588,
-  "historyStateSha256": "d992655e0c015a77dd927c9f64f991e33c0511c434783938258d1daac5c9c482",
+  "historyLastDay": 739934,
+  "historyUpdateRaces": 148831,
+  "historyStateBytes": 4326553,
+  "historyStateSha256": "5819ef4671fc1889e69634f07af3ff47fbfd83fb3c71c7685a6534b716d73666",
   "populationThisRun": {
-    "sourceRaces": 156,
-    "eligibleSettled": 151,
-    "skippedUnsettledOrNonUnique": 5,
-    "oddsDayFetchFailure": 1,
-    "skippedMissingAll120Odds": 151
+    "sourceRaces": 324,
+    "eligibleSettled": 293,
+    "skippedUnsettledOrNonUnique": 31,
+    "oddsDayFetchFailure": 2,
+    "skippedMissingAll120Odds": 293
   },
   "forecastMarketInputs": false,
   "postRaceOddsAllocation": true,
   "preCloseOddsClaim": false,
   "automaticBuy": false,
   "resultUsedForSelection": false,
-  "oddsArchiveCommit": "75ec93e227a87a5da9f264cdbccdad6f4513346c"
+  "oddsArchiveCommit": "d5d37b5aff5847ee28fa78b1a51713995579a8df"
 }
