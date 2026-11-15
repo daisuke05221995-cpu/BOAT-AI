@@ -51,7 +51,7 @@ def qualify(r,date,now):
     deadline=moment(r.get("deadline_at"))
     forecast=moment(r.get("forecast_completed_at"))
     odds=moment(r.get("odds_observed_at")) or moment(r.get("odds_fetched_at"))
-    if not all((deadline,forecast,odds,r.get("model_version"),r.get("odds_source")): return None
+    if not all((deadline,forecast,odds,r.get("model_version"),r.get("odds_source"))): return None
     if not (now+timedelta(minutes=3)<deadline<=now+timedelta(hours=16)): return None
     if not (timedelta(0)<=now-forecast<=timedelta(minutes=20)): return None
     if not (timedelta(0)<=now-odds<=timedelta(minutes=20)): return None
