@@ -23,7 +23,7 @@ jobs:
       NOTE_SESSION_STATE_B64: ${{ secrets.NOTE_SESSION_STATE_B64 }}
       NOTE_AUTO_PUBLISH_ENABLED: ${{ vars.NOTE_AUTO_PUBLISH_ENABLED }}
       NOTE_BROWSER_UI_VERIFIED: ${{ vars.NOTE_BROWSER_UI_VERIFIED }}
-      NOTE_PUBLISH_RESULT_FILE: ${{ runner.temp }}/note-sales-published.json
+      NOTE_PUBLISH_RESULT_FILE: ${{ github.workspace }}/note-sales-published.json
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
