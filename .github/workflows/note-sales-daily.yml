@@ -1,37 +1,35 @@
-name: BOAT AI note sales (opt-in)
-
+name: BOAT AI note sales
 on:
   workflow_dispatch:
   schedule:
-    # Every 30 minutes from 10:00 to 20:30 Japan time. Off by default.
     - cron: '0,30 1-11 * * *'
-
 permissions:
   contents: write
-
 concurrency:
   group: boat-ai-note-sales
   cancel-in-progress: false
-
 jobs:
   sales:
-    if: vars.NOTE_SALES_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      BOAT_AI_FORECAST_URL: ${{ vars.BOAT_AI_FORECAST_URL }}
-      NOTE_SESSION_STATE_B64: ${{ secrets.NOTE_SESSION_STATE_B64 }}
-      NOTE_AUTO_PUBLISH_ENABLED: ${{ vars.NOTE_AUTO_PUBLISH_ENABLED }}
-      NOTE_BROWSER_UI_VERIFIED: ${{ vars.NOTE_BROWSER_UI_VERIFIED }}
-      NOTE_PUBLISH_RESULT_FILE: ${{ github.workspace }}/note-sales-published.json
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Run isolated sales tests
+      - name: Check opt-in switches
+        id: enabled
+        env:
+          SALES: ${{ vars.NOTE_SALES_ENABLED }}
+          PUBLISH: ${{ vars.NOTE_AUTO_PUBLISH_ENABLED }}
+        run: |
+          echo "sales=$SALES" >> "$GITHUB_OUTPUT"
+          echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
+      - name: Run sales unit tests
+        if: steps.enabled.outputs.sales == 'true'
         run: python -m unittest discover -s note-sales -p 'test_*.py' -v
-      - name: Check duplicate public metadata
+      - name: Check duplicate publication ledger
+        if: steps.enabled.outputs.sales == 'true'
         id: ledger
         shell: bash
         run: |
@@ -44,20 +42,29 @@ jobs:
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Generate private article
-        if: steps.ledger.outputs.exists == 'false'
+      - name: Generate article privately
+        if: steps.enabled.outputs.sales == 'true' && steps.ledger.outputs.exists == 'false'
         id: article
+        env:
+          BOAT_AI_FORECAST_URL: ${{ vars.BOAT_AI_FORECAST_URL }}
         run: python note-sales/pipeline.py --date "${{ steps.ledger.outputs.today }}" --output "${{ runner.temp }}/note-article.json"
-      - name: Install headless browser
-        if: steps.article.outputs.eligible == 'true' && env.NOTE_AUTO_PUBLISH_ENABLED == 'true'
+      - name: Install browser
+        if: steps.article.outputs.eligible == 'true' && steps.enabled.outputs.publish == 'true'
         run: |
           pip install 'playwright==1.56.0'
           python -m playwright install --with-deps chromium
-      - name: Publish via authenticated note editor
-        if: steps.article.outputs.eligible == 'true' && env.NOTE_AUTO_PUBLISH_ENABLED == 'true'
+      - name: Publish to note (UI guard enabled)
+        if: steps.article.outputs.eligible == 'true' && steps.enabled.outputs.publish == 'true'
+        env:
+          NOTE_SESSION_STATE_B64: ${{ secrets.NOTE_SESSION_STATE_B64 }}
+          NOTE_AUTO_PUBLISH_ENABLED: 'true'
+          NOTE_BROWSER_UI_VERIFIED: ${{ vars.NOTE_BROWSER_UI_VERIFIED }}
+          NOTE_PUBLISH_RESULT_FILE: ${{ runner.temp }}/note-sales-published.json
         run: python note-sales/note_browser.py "${{ runner.temp }}/note-article.json"
-      - name: Commit only publication metadata, never paid picks
-        if: steps.article.outputs.eligible == 'true' && env.NOTE_AUTO_PUBLISH_ENABLED == 'true'
+      - name: Record only published URL and content hash
+        if: steps.article.outputs.eligible == 'true' && steps.enabled.outputs.publish == 'true'
+        env:
+          NOTE_PUBLISH_RESULT_FILE: ${{ runner.temp }}/note-sales-published.json
         shell: bash
         run: |
           set -euo pipefail
