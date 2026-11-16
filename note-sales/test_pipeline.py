@@ -8,7 +8,7 @@ T="2026-11-16"
 N=datetime(2026,11,16,10,0,tzinfo=JST)
 def race(**kwargs):
     row={"race_id":"202611160112","status":"READY","decision":"BUY",
-        "deadline_at":(N+timedelta(minutes=8)).isoformat(),
+        "deadline_at":(N+timedelta(minutes=90)).isoformat(),
         "forecast_completed_at":(N-timedelta(minutes=1)).isoformat(),
         "odds_observed_at":(N-timedelta(minutes=1)).isoformat(),
         "model_version":"value-v1","odds_source":"official-pc",
@@ -28,6 +28,8 @@ class Test(unittest.TestCase):
         self.assertIn("過去シミュレーション",free)
         self.assertNotIn("1-2-3",free)
         self.assertIn("1-2-3"," ".join(x["paid_paragraphs"]))
+        self.assertIsNotNone(x["earliest_deadline_at"])
+        self.assertEqual(x["generated_at"],N.isoformat())
     def test_missing_historical_stats_does_not_invent_hit_rate(self):
         x=generate({"date":T,"races":[race()]},T,N,{"month":"2026-05"})
         self.assertNotIn("34.0%",x["title"])
@@ -35,6 +37,8 @@ class Test(unittest.TestCase):
     def test_refuse_stale_invalid(self):
         for kw in ({"status":"PENDING"},{"decision":"SKIP"},{"odds_source":None},
                    {"deadline_at":(N+timedelta(minutes=1)).isoformat()},
+                   {"deadline_at":(N+timedelta(minutes=20)).isoformat()},
+                   {"race_id":"202611162512"},{"race_id":"202611160013"},
                    {"forecast_completed_at":(N-timedelta(minutes=30)).isoformat()},
                    {"odds_observed_at":(N-timedelta(minutes=30)).isoformat()},
                    {"combinations":["1-1-2","1-3-2"]},{"stakes":[500,-100]},

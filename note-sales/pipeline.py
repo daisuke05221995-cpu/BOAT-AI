@@ -12,6 +12,8 @@ from pathlib import Path
 
 JST = timezone(timedelta(hours=9))
 COMBO = re.compile(r"^[1-6]-[1-6]-[1-6]$")
+# A paid daily bundle must give readers enough lead time to act.
+MIN_PUBLISH_LEAD_MINUTES = 45
 
 def moment(s):
     try:
@@ -56,7 +58,9 @@ def qualify(r,date,now):
     forecast=moment(r.get("forecast_completed_at"))
     odds=moment(r.get("odds_observed_at")) or moment(r.get("odds_fetched_at"))
     if not all((deadline,forecast,odds,r.get("model_version"),r.get("odds_source"))): return None
-    if not (now+timedelta(minutes=3)<deadline<=now+timedelta(hours=16)): return None
+    if deadline.astimezone(JST).date().isoformat()!=date: return None
+    if not (now+timedelta(minutes=MIN_PUBLISH_LEAD_MINUTES)<deadline<=now+timedelta(hours=16)): return None
+    if not (1<=int(rid[8:10])<=24 and 1<=int(rid[10:12])<=12): return None
     if not (timedelta(0)<=now-forecast<=timedelta(minutes=20)): return None
     if not (timedelta(0)<=now-odds<=timedelta(minutes=20)): return None
     combos,stakes=r.get("combinations"),r.get("stakes")
@@ -121,7 +125,10 @@ def generate(feed,date,now,history):
     digest=hashlib.sha256(json.dumps(picks,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
     return {"status":"READY","date":date,"title":title,"price_yen":100,
             "free_paragraphs":free,"paid_paragraphs":paid,"content_sha256":digest,
-            "count":len(picks),"historical_reference":history,"earliest_deadline":first}
+            "count":len(picks),"historical_reference":history,
+            "earliest_deadline":first,
+            "earliest_deadline_at":min(moment(x["deadline"]) for x in picks).isoformat(),
+            "generated_at":now.isoformat()}
 
 def main():
     p=argparse.ArgumentParser()
