@@ -21,8 +21,19 @@ def validate(article, now=None):
         return "ARTICLE_NOT_READY"
     if type(article.get("price_yen")) is not int or article["price_yen"]!=100:
         return "PRICE_MUST_BE_100"
-    if article.get("date")!=now.astimezone(JST).date().isoformat():
-        return "ARTICLE_NOT_TODAY"
+    mode=article.get("mode","LIVE")
+    if mode=="DAY_AHEAD":
+        if article.get("date")!=(now.astimezone(JST).date()+timedelta(days=1)).isoformat():
+            return "ARTICLE_NOT_TOMORROW"
+        if article.get("data_policy")!={"weather":False,"exhibition":False,"same_day_odds":False}:
+            return "DAY_AHEAD_USES_LIVE_FEATURES"
+        if not article.get("source_id") or not article.get("model_version"):
+            return "DAY_AHEAD_SOURCE_MISSING"
+    elif mode=="LIVE":
+        if article.get("date")!=now.astimezone(JST).date().isoformat():
+            return "ARTICLE_NOT_TODAY"
+    else:
+        return "UNKNOWN_ARTICLE_MODE"
     if type(article.get("count")) is not int or not 1<=article["count"]<=5:
         return "INVALID_RACE_COUNT"
     free,paid=article.get("free_paragraphs"),article.get("paid_paragraphs")
