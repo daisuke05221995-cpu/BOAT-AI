@@ -1,3 +1,12 @@
+## Current sales design: previous-night forecast (2026-11-16)
+
+The user has selected **tomorrow's races forecast on the previous evening**, without same-day wind, wave, exhibition or live odds. The new opt-in script is note-sales/day_ahead.py and the new scheduler is .github/workflows/note-sales-day-ahead.yml (JST 23:10 and 23:40). It reuses historic lane/racer/motor scoring but operates without preview inputs; its selection index is **not a win probability**, and the previous 34.0% historical simulation must not be represented as its live accuracy. The legacy daytime-scheduled workflow has been converted to manual-only, to avoid accidental same-day sales.
+
+Before enabling: supply a **commercially licensed tomorrow-program JSON endpoint**, set BOAT_AI_DAY_AHEAD_PROGRAM_URL, BOAT_AI_DAY_AHEAD_SOURCE_ID, BOAT_AI_COMMERCIAL_SOURCE_APPROVED=true and NOTE_DAY_AHEAD_ENABLED=true. Article generation uses a complete future six-boat program only and does not publish without a separately verified note account. See DAY_AHEAD_ja.md.
+
+### Note about older instructions below
+Earlier references to BOAT_AI_FORECAST_URL, NOTE_SALES_ENABLED, and T-8 live odds are for the **legacy same-day manual workflow**, not the nightly sale. For nightly sale use the settings in DAY_AHEAD_ja.md and the current preflight.py.
+
 # BOAT AI -> note paid daily article (separate sales system)
 
 Status: implemented article generator and experimental note browser adapter, **not connected to a note account**, no production publication yet.

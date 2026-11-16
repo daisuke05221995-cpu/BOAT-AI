@@ -10,12 +10,14 @@ from pipeline import best_completed_month
 
 JST=ZoneInfo("Asia/Tokyo")
 def config_report(env, history, now):
-    u=urlsplit(env.get("BOAT_AI_FORECAST_URL",""))
-    url_ok=u.scheme=="https" and bool(u.netloc) and u.path.endswith("/v1/forecasts")
+    u=urlsplit(env.get("BOAT_AI_DAY_AHEAD_PROGRAM_URL",""))
+    url_ok=u.scheme=="https" and bool(u.hostname) and bool(u.path)
     status=[
       ("historical_data",bool(history and history.get("month")),"HISTORICAL_REPORT_NOT_AVAILABLE"),
-      ("forecast_feed_url",url_ok,"FORECAST_FEED_URL_NOT_CONFIGURED"),
-      ("generation_schedule",env.get("NOTE_SALES_ENABLED")=="true","SALES_SCHEDULE_DISABLED"),
+      ("day_ahead_program_url",url_ok,"DAY_AHEAD_PROGRAM_SOURCE_NOT_CONFIGURED"),
+      ("commercial_data_approved",env.get("BOAT_AI_COMMERCIAL_SOURCE_APPROVED")=="true","COMMERCIAL_DATA_APPROVAL_REQUIRED"),
+      ("day_ahead_source_id",bool(env.get("BOAT_AI_DAY_AHEAD_SOURCE_ID")),"DAY_AHEAD_SOURCE_ID_MISSING"),
+      ("day_ahead_schedule",env.get("NOTE_DAY_AHEAD_ENABLED")=="true","DAY_AHEAD_SCHEDULE_DISABLED"),
       ("note_account_session",bool(env.get("NOTE_SESSION_STATE_B64")),"NOTE_ACCOUNT_NOT_CONNECTED"),
       ("paid_editor_verified",env.get("NOTE_BROWSER_UI_VERIFIED")=="true","PAID_EDITOR_NOT_VERIFIED"),
       ("auto_publish_switch",env.get("NOTE_AUTO_PUBLISH_ENABLED")=="true","AUTO_PUBLISH_DISABLED")
@@ -25,6 +27,7 @@ def config_report(env, history, now):
         "historical_reference_month":history.get("month") if history else None,
         "historical_hit_rate":history.get("hitRate") if history else None,
         "note_price_yen":100,
+        "mode":"DAY_AHEAD",
         "configuration":"READY_FOR_ACCOUNT_TEST_NOT_LIVE_VERIFIED" if not missing else "NOT_READY",
         "checks":{name:bool(ok) for name,ok,_ in status},
         "blockers":missing,

@@ -6,8 +6,10 @@ from preflight import config_report,JST
 NOW=datetime(2026,11,16,12,0,tzinfo=JST)
 class TestPreflight(unittest.TestCase):
     def test_credentials_not_revealed(self):
-        env={"BOAT_AI_FORECAST_URL":"https://example.com/v1/forecasts",
-            "NOTE_SALES_ENABLED":"true","NOTE_AUTO_PUBLISH_ENABLED":"true",
+        env={"BOAT_AI_DAY_AHEAD_PROGRAM_URL":"https://example.com/program/{date}",
+            "BOAT_AI_COMMERCIAL_SOURCE_APPROVED":"true",
+            "BOAT_AI_DAY_AHEAD_SOURCE_ID":"approved-supplier",
+            "NOTE_DAY_AHEAD_ENABLED":"true","NOTE_AUTO_PUBLISH_ENABLED":"true",
             "NOTE_BROWSER_UI_VERIFIED":"true",
             "NOTE_SESSION_STATE_B64":"sensitive-session"}
         result=config_report(env,{"month":"2026-05","hitRate":34.0},NOW)
@@ -18,5 +20,6 @@ class TestPreflight(unittest.TestCase):
         result=config_report({},{"month":"2026-05"},NOW)
         self.assertEqual(result["configuration"],"NOT_READY")
         self.assertIn("NOTE_ACCOUNT_NOT_CONNECTED",result["blockers"])
-        self.assertIn("FORECAST_FEED_URL_NOT_CONFIGURED",result["blockers"])
+        self.assertIn("DAY_AHEAD_PROGRAM_SOURCE_NOT_CONFIGURED",result["blockers"])
+        self.assertIn("COMMERCIAL_DATA_APPROVAL_REQUIRED",result["blockers"])
 if __name__=="__main__":unittest.main()
