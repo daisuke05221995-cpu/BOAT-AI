@@ -1,9 +1,6 @@
-name: BOAT AI note sales
+name: BOAT AI legacy same-day note sales (manual only)
 on:
   workflow_dispatch:
-  schedule:
-    # JST 10:00-20:30 every 30 minutes. Disabled until NOTE_SALES_ENABLED=true.
-    - cron: '0,30 1-11 * * *'
 permissions:
   contents: write
 concurrency:

@@ -1,0 +1,124 @@
+name: BOAT AI previous-night note sale
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Japan time: 23:10 and 23:40
+    - cron: '10,40 14 * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: boat-ai-note-sales
+  cancel-in-progress: false
+
+jobs:
+  day_ahead:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check opt-in and local time
+        id: enabled
+        shell: bash
+        env:
+          ENABLED: ${{ vars.NOTE_DAY_AHEAD_ENABLED }}
+          COMMERCIAL: ${{ vars.BOAT_AI_COMMERCIAL_SOURCE_APPROVED }}
+        run: |
+          set -euo pipefail
+          hour="$(TZ=Asia/Tokyo date +%H)"
+          if [[ "$ENABLED" == "true" && "$COMMERCIAL" == "true" && "$hour" == "23" ]]; then
+            echo "active=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "active=false" >> "$GITHUB_OUTPUT"
+            echo "Day-ahead generation is OFF or outside the previous-night window."
+          fi
+      - name: Run forecast and paid-content unit tests
+        if: steps.enabled.outputs.active == 'true'
+        run: |
+          python -m compileall -q note-sales
+          python -m unittest discover -s note-sales -p 'test_*.py' -v
+      - name: Check previous claim or publication
+        if: steps.enabled.outputs.active == 'true'
+        id: day
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$(TZ=Asia/Tokyo date -d tomorrow +%F)"
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          git fetch origin main --quiet
+          if git cat-file -e "origin/main:note-sales/published/$target.json" 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Generate tomorrow's private four-pick note
+        if: steps.enabled.outputs.active == 'true' && steps.day.outputs.exists == 'false'
+        id: article
+        env:
+          BOAT_AI_COMMERCIAL_SOURCE_APPROVED: ${{ vars.BOAT_AI_COMMERCIAL_SOURCE_APPROVED }}
+          BOAT_AI_DAY_AHEAD_PROGRAM_URL: ${{ vars.BOAT_AI_DAY_AHEAD_PROGRAM_URL }}
+          BOAT_AI_DAY_AHEAD_SOURCE_ID: ${{ vars.BOAT_AI_DAY_AHEAD_SOURCE_ID }}
+        run: |
+          python note-sales/day_ahead.py --target "${{ steps.day.outputs.target }}" --output "${{ runner.temp }}/private-article.json"
+      - name: Preflight publication settings
+        if: steps.article.outputs.eligible == 'true' && vars.NOTE_AUTO_PUBLISH_ENABLED == 'true'
+        env:
+          NOTE_SESSION_STATE_B64: ${{ secrets.NOTE_SESSION_STATE_B64 }}
+          NOTE_BROWSER_UI_VERIFIED: ${{ vars.NOTE_BROWSER_UI_VERIFIED }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$NOTE_BROWSER_UI_VERIFIED" != "true" || -z "$NOTE_SESSION_STATE_B64" ]]; then
+            echo "NOTE_BROWSER_SESSION_OR_PAID_UI_UNVERIFIED" >&2
+            exit 1
+          fi
+      - name: Record publication claim before posting
+        if: steps.article.outputs.eligible == 'true' && vars.NOTE_AUTO_PUBLISH_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="${{ steps.day.outputs.target }}"
+          git fetch origin main --quiet
+          if git cat-file -e "origin/main:note-sales/published/$target.json" 2>/dev/null; then
+            echo "ALREADY_CLAIMED_OR_POSTED" >&2
+            exit 1
+          fi
+          python note-sales/ledger.py claim "${{ runner.temp }}/private-article.json" "note-sales/published/$target.json"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "note-sales/published/$target.json"
+          git commit -m "Claim previous-night sale for $target [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
+      - name: Install browser
+        if: steps.article.outputs.eligible == 'true' && vars.NOTE_AUTO_PUBLISH_ENABLED == 'true'
+        run: |
+          pip install 'playwright==1.56.0'
+          python -m playwright install --with-deps chromium
+      - name: Publish and verify anonymous 100-yen paywall
+        if: steps.article.outputs.eligible == 'true' && vars.NOTE_AUTO_PUBLISH_ENABLED == 'true'
+        env:
+          NOTE_SESSION_STATE_B64: ${{ secrets.NOTE_SESSION_STATE_B64 }}
+          NOTE_AUTO_PUBLISH_ENABLED: 'true'
+          NOTE_BROWSER_UI_VERIFIED: ${{ vars.NOTE_BROWSER_UI_VERIFIED }}
+          NOTE_PUBLISH_RESULT_FILE: ${{ runner.temp }}/note-result.json
+        run: python note-sales/note_browser.py "${{ runner.temp }}/private-article.json"
+      - name: Complete public metadata after verification
+        if: steps.article.outputs.eligible == 'true' && vars.NOTE_AUTO_PUBLISH_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="${{ steps.day.outputs.target }}"
+          git fetch origin main --quiet
+          git pull --rebase origin main
+          git show "origin/main:note-sales/published/$target.json" > "${{ runner.temp }}/claim.json"
+          python note-sales/ledger.py complete "${{ runner.temp }}/claim.json" "note-sales/published/$target.json" --result "${{ runner.temp }}/note-result.json"
+          git add "note-sales/published/$target.json"
+          git commit -m "Verified previous-night note $target [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
