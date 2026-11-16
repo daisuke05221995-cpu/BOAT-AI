@@ -25,9 +25,13 @@ def best_completed_month(report):
     through=data["dataThrough"][:7]
     months=[m for m in data["months"] if f'{m["year"]:04d}-{m["month"]:02d}' < through and m["purchaseRaces"] >= 100]
     if not months: raise ValueError("NO_HISTORICAL_MONTH")
-    m=max(months,key=lambda x:(x["roi"],x["purchaseRaces"]))
-    return {"month":f'{m["year"]:04d}-{m["month"]:02d}',"roi":m["roi"],
-            "purchaseRaces":m["purchaseRaces"],"status":"reference_only_not_proof_of_profit"}
+    # Select by race hit rate, NOT stake-weighted ROI. Current live policy may differ.
+    # Use raw counts (rather than 1-decimal published hitRate) for ranking.
+    m=max(months,key=lambda x:(x["purchaseHits"]/x["purchaseRaces"],x["purchaseRaces"]))
+    return {"month":f'{m["year"]:04d}-{m["month"]:02d}',
+            "hitRate":round(100*m["purchaseHits"]/m["purchaseRaces"],1),
+            "purchaseHits":m["purchaseHits"],"purchaseRaces":m["purchaseRaces"],
+            "roi":m["roi"],"status":"historical_backtest_only_not_live"}
 
 def load_feed(url, date):
     if not url.startswith("https://"): raise ValueError("FORECAST_URL_REQUIRES_HTTPS")
@@ -78,10 +82,29 @@ def generate(feed,date,now,history):
     picks=sorted(unique.values(),key=lambda x:(-(x["confidence"] if x["confidence"] is not None else -1),x["deadline"],x["id"]))[:5]
     if not picks: return {"status":"NO_ELIGIBLE_RACES","date":date,"count":0}
     first=min(moment(x["deadline"]) for x in picks).astimezone(JST).strftime("%H:%M")
-    title=f'【{date}】BOAT AI｜本日の厳選{len(picks)}レース'
+    has_historical_hit_rate = (
+        isinstance(history,dict) and
+        type(history.get("purchaseRaces")) is int and history["purchaseRaces"] > 0 and
+        type(history.get("purchaseHits")) is int and 0 <= history["purchaseHits"] <= history["purchaseRaces"] and
+        isinstance(history.get("month"),str) and
+        type(history.get("hitRate")) in (int,float) and 0 <= history["hitRate"] <= 100
+    )
+    if has_historical_hit_rate:
+        title=f'【{date}】BOAT AI｜過去検証的中率{history["hitRate"]:.1f}%｜厳選{len(picks)}R'
+    else:
+        title=f'【{date}】BOAT AI｜本日の厳選{len(picks)}レース'
     free=[
         f'BOAT AI｜{date} 厳選予想',
         '全国から締切前のAI購入推奨だけを抽出しました。',
+    ]
+    if has_historical_hit_rate:
+        free += [
+            f'【過去検証の的中率：{history["hitRate"]:.1f}%】',
+            f'過去検証 {history["month"]}：購入推奨{history["purchaseRaces"]:,}レース中{history["purchaseHits"]:,}レース的中。',
+            '上記は旧条件の過去シミュレーションによる参考値です。現在販売する買い目の的中率・利益を示すものではありません。',
+            '参考：賭け金の配分は収支に影響しますが、的中レース数そのものは変えません。',
+        ]
+    free += [
         f'厳選{len(picks)}レース、販売価格100円。最も早い締切は{first}（JST）です。',
         '有料部分に買い目・配分金額・取得時刻を掲載します。',
         'オッズや開催状況は変化します。的中・利益を保証するものではありません。'
@@ -117,7 +140,8 @@ def main():
     path.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding="utf-8")
     path.chmod(0o600)
     print(json.dumps({"status":out["status"],"count":out["count"],"date":a.date,
-                      "best_historical_month":history["month"]},ensure_ascii=False))
+                      "best_historical_hit_month":history["month"],
+                      "historical_hit_rate":history["hitRate"]},ensure_ascii=False))
     if os.getenv("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"],"a") as f:
             f.write("eligible="+("true" if out["status"]=="READY" else "false")+"\n")

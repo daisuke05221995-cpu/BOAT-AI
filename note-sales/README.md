@@ -3,7 +3,7 @@
 Status: implemented article generator and experimental note browser adapter, **not connected to a note account**, no production publication yet.
 
 ## Historical reference
-data/historical_backtest_2026.json records September 2026 as the highest completed-month ROI in 2026: 86.8% with 1,657 recommended races. This is negative profit, and these simulations did not include the verifiable live final odds gate. The system reads this report for historical reference ONLY; it does not present old winning tickets as today's valid picks or claim the past ROI is achieved today.
+The sales copy emphasizes **historical race hit rate** rather than stake-weighted ROI. In data/historical_backtest_2026.json, the top completed month by race hit rate is May 2026: 559 wins from 1,644 BUY race recommendations (34.0% rounded). This old 4-pick historical simulation returned 79.7% ROI with its recorded staking (negative profit). September 2026 had the highest ROI (86.8%) but NOT the highest hit rate. The old dataset did not verify the live pre-close odds gate. Never imply the 34.0% is the current live sales policy's measured hit rate or claim positive returns by changing bet sizes.
 
 ## Current live source
 The input is the existing forecast Worker GET /v1/forecasts?date=YYYY-MM-DD. A race is included only if status=READY, decision=BUY, six-digit venue/race metadata from the twelve-digit race ID, future deadline at least three minutes away, forecast/odds observed within twenty minutes, documented source and model, no quality flags/results, and complete distinct 100-yen increment trifecta combinations. The top five eligible picks are ranked by actual source confidence (if supplied) then deadline. The script NEVER fabricates confidence.
@@ -11,7 +11,7 @@ The input is the existing forecast Worker GET /v1/forecasts?date=YYYY-MM-DD. A r
 As at 2026-11-16 the Worker lacks the required production-ready live data source for all races. Most days will have ZERO eligible picks, so the generator will correctly return NO_ELIGIBLE_RACES. This is not a functioning profitable daily business without a compliant source of timely race predictions.
 
 ## Article format
-Public: date, number of races, earliest deadline, caveats.
+Public: date, number of races, earliest deadline, **prominent explicitly labeled historical hit rate, actual hit/BUY race counts and historical month**, caveats. Historical labels distinguish simulations from live paid forecasts. ROI remains available as metadata, but it is not the primary sales headline.
 Paid: race labels, combination/stake, odds provenance, timestamp.
 Article 100 yen; no recommended races => do not sell.
 No unprotected paid text is committed or saved to GitHub Actions artifacts or printed to logs.

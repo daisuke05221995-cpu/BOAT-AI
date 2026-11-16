@@ -17,11 +17,21 @@ def race(**kwargs):
     return row
 class Test(unittest.TestCase):
     def test_paywall_and_no_leak(self):
-        x=generate({"date":T,"races":[race()]},T,N,{"month":"2026-09"})
+        x=generate({"date":T,"races":[race()]},T,N,
+                   {"month":"2026-05","hitRate":34.0,"purchaseHits":559,"purchaseRaces":1644})
         self.assertEqual(x["status"],"READY")
         self.assertEqual(x["price_yen"],100)
-        self.assertNotIn("1-2-3"," ".join(x["free_paragraphs"]))
+        self.assertIn("過去検証的中率34.0%",x["title"])
+        free=" ".join(x["free_paragraphs"])
+        self.assertIn("559",free)
+        self.assertIn("1,644",free)
+        self.assertIn("過去シミュレーション",free)
+        self.assertNotIn("1-2-3",free)
         self.assertIn("1-2-3"," ".join(x["paid_paragraphs"]))
+    def test_missing_historical_stats_does_not_invent_hit_rate(self):
+        x=generate({"date":T,"races":[race()]},T,N,{"month":"2026-05"})
+        self.assertNotIn("34.0%",x["title"])
+        self.assertNotIn("的中率："," ".join(x["free_paragraphs"]))
     def test_refuse_stale_invalid(self):
         for kw in ({"status":"PENDING"},{"decision":"SKIP"},{"odds_source":None},
                    {"deadline_at":(N+timedelta(minutes=1)).isoformat()},
@@ -35,6 +45,10 @@ class Test(unittest.TestCase):
         self.assertEqual(x["status"],"NO_ELIGIBLE_RACES")
     def test_best_historical_month(self):
         f=Path(__file__).resolve().parents[1]/"data/historical_backtest_2026.json"
-        self.assertEqual(best_completed_month(f)["month"],"2026-09")
-        self.assertEqual(best_completed_month(f)["roi"],86.8)
+        h=best_completed_month(f)
+        self.assertEqual(h["month"],"2026-05")
+        self.assertEqual(h["hitRate"],34.0)
+        self.assertEqual(h["purchaseHits"],559)
+        self.assertEqual(h["purchaseRaces"],1644)
+        self.assertEqual(h["roi"],79.7)
 if __name__=="__main__":unittest.main()
