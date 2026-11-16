@@ -12,6 +12,9 @@ import os
 import re
 import sys
 from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from publish_guard import validate
 
 def check(ok,why):
     if not ok: raise RuntimeError(why)
@@ -22,6 +25,8 @@ async def publish(path):
     if article["status"]!="READY":
         print("NO_ELIGIBLE_RACES")
         return
+    sales_error=validate(article)
+    check(sales_error is None,"ARTICLE_SALES_GUARD:"+str(sales_error))
     check(article["price_yen"]==100,"PRICE_NOT_100")
     check(os.getenv("NOTE_AUTO_PUBLISH_ENABLED")=="true","PUBLISH_DISABLED")
     check(os.getenv("NOTE_BROWSER_UI_VERIFIED")=="true","UI_NOT_VERIFIED_NO_PUBLISH")
@@ -68,13 +73,35 @@ async def publish(path):
             premium=page.get_by_text(article["paid_paragraphs"][0],exact=True).first
             a,b,c=await public.bounding_box(),await marker.bounding_box(),await premium.bounding_box()
             check(bool(a and b and c) and a["y"]<b["y"]<c["y"],"PAYWALL_POSITION_UNVERIFIED")
+            # If a long authentication/editor sequence passes a deadline, do not sell.
+            check(validate(article) is None,"ARTICLE_EXPIRED_BEFORE_PUBLICATION")
             await page.get_by_role("button",name=re.compile("投稿する|公開する")).click()
             await page.wait_for_url(re.compile(r"^https://note\.com/[^/]+/n/n[0-9a-f]+"),timeout=20000)
-            result={"date":article["date"],"url":page.url,"content_sha256":article["content_sha256"]}
-            path=os.getenv("NOTE_PUBLISH_RESULT_FILE")
-            check(bool(path),"RESULT_LEDGER_PATH_MISSING")
-            Path(path).write_text(json.dumps(result,ensure_ascii=False),encoding="utf-8")
-            print(json.dumps({"status":"POSTED","date":article["date"],"url":page.url},ensure_ascii=False))
+            url=page.url
+            # The official note help requires an unauthenticated check:
+            # the owner's session always displays all paid content.
+            guest=await browser.new_context(locale="ja-JP",timezone_id="Asia/Tokyo")
+            try:
+                public_page=await guest.new_page()
+                await public_page.goto(url,wait_until="domcontentloaded",timeout=20000)
+                visible=await public_page.locator("body").inner_text(timeout=12000)
+                check(article["free_paragraphs"][0] in visible,"ANONYMOUS_PUBLIC_TEXT_NOT_FOUND")
+                check(article["paid_paragraphs"][0] not in visible,"ANONYMOUS_PAID_TEXT_VISIBLE")
+                premium_combos=re.findall(r"(?<![0-9])[1-6]-[1-6]-[1-6](?![0-9])",
+                                          "\n".join(article["paid_paragraphs"]))
+                check(all(combo not in visible for combo in premium_combos),
+                      "ANONYMOUS_PAID_COMBINATIONS_VISIBLE")
+                check(any(word in visible for word in ("購入","100円","¥100","￥100")),
+                      "ANONYMOUS_PAYWALL_NOT_CONFIRMED")
+            finally:
+                await guest.close()
+            result={"date":article["date"],"url":url,
+                    "content_sha256":article["content_sha256"],
+                    "status":"POSTED_VERIFIED","checked_at":datetime.now(ZoneInfo("Asia/Tokyo")).isoformat()}
+            out=os.getenv("NOTE_PUBLISH_RESULT_FILE")
+            check(bool(out),"RESULT_LEDGER_PATH_MISSING")
+            Path(out).write_text(json.dumps(result,ensure_ascii=False),encoding="utf-8")
+            print(json.dumps({"status":"POSTED_VERIFIED","date":article["date"],"url":url},ensure_ascii=False))
         finally:
             await context.close()
             await browser.close()
