@@ -1,0 +1,26 @@
+name: Licensed live feed research tests
+
+on:
+  push:
+    branches:
+      - research/licensed-live-feeds-20261106
+    paths:
+      - 'scripts/live_feed_trial_metrics.mjs'
+      - 'scripts/live_feed_trial_metrics.test.mjs'
+      - '.github/workflows/licensed-live-feed-research.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-metrics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline forward-trial metrics regression
+        run: node --test scripts/live_feed_trial_metrics.test.mjs
