@@ -1,0 +1,16 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { inspectOfflinePurchaseReview as inspect } from './purchase_review_consistency.mjs';
+const plan = () => ({race_date:'2026-11-08',stadium_number:1,race_number:7,tickets:[{combination:'1-2-3',yen:500},{combination:'2-3-4',yen:1000}]});
+const review = () => ({...plan(),total_yen:1500});
+test('matching redacted review is consistent only offline',()=>{const x=inspect(plan(),review());assert.equal(x.consistent_for_offline_review,true);assert.equal(x.ready_for_live_submission,false);assert.equal(x.total_yen,1500)});
+test('order of review tickets is immaterial',()=>{const x=review();x.tickets.reverse();assert.equal(inspect(plan(),x).consistent_for_offline_review,true)});
+test('different venue, race or date rejected',()=>{for(const c of [{stadium_number:2},{race_number:8},{race_date:'2026-11-09'}])assert.equal(inspect(plan(),{...review(),...c}).reason,'REVIEW_RACE_OR_ROW_COUNT_MISMATCH')});
+test('missing or extra ticket rejected',()=>{for(const rows of [review().tickets.slice(0,1),[...review().tickets,{combination:'3-4-5',yen:100}]])assert.equal(inspect(plan(),{...review(),tickets:rows}).reason,'REVIEW_RACE_OR_ROW_COUNT_MISMATCH')});
+test('wrong stake rejected',()=>{const x=review();x.tickets[0].yen=600;assert.equal(inspect(plan(),x).reason,'REVIEW_SELECTION_OR_STAKE_MISMATCH')});
+test('wrong combination rejected',()=>{const x=review();x.tickets[0].combination='1-3-2';assert.equal(inspect(plan(),x).reason,'REVIEW_SELECTION_OR_STAKE_MISMATCH')});
+test('wrong total rejected',()=>assert.equal(inspect(plan(),{...review(),total_yen:1600}).reason,'REVIEW_TOTAL_MISMATCH'));
+test('duplicate review row rejected',()=>{const x=review();x.tickets[1]={...x.tickets[0]};assert.equal(inspect(plan(),x).reason,'INVALID_OR_DUPLICATE_REVIEW_ROW')});
+test('invalid total rejected',()=>{for(const total_yen of [null,'1500',0,-100,1.5])assert.equal(inspect(plan(),{...review(),total_yen}).reason,'INVALID_REVIEW_TOTAL')});
+test('malformed review rejected',()=>{for(const x of [null,{},[],{...review(),tickets:null}])assert.equal(inspect(plan(),x).consistent_for_offline_review,false)});
+test('invalid plan rejected',()=>{const p=plan();p.tickets[0].yen=150;assert.equal(inspect(p,review()).reason,'INVALID_PURCHASE_PLAN')});
