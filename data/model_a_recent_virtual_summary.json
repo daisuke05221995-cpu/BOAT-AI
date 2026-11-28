@@ -1,7 +1,7 @@
 {
   "strategyId": "model-a-retro-flex-v2",
-  "throughDate": "2026-11-26",
-  "windowStart": "2026-10-28",
+  "throughDate": "2026-11-27",
+  "windowStart": "2026-10-29",
   "records": 0,
   "hits": 0,
   "stake": 0,
@@ -69,16 +69,16 @@
       "averageWinningPayout": 0.0
     }
   },
-  "historyLastDay": 739946,
-  "historyUpdateRaces": 150445,
-  "historyStateBytes": 4353114,
-  "historyStateSha256": "ee1a7eb01efe150a8de2b2aded02eabda9d82e5bcdeda9fcb10fc559de19a070",
+  "historyLastDay": 739947,
+  "historyUpdateRaces": 150598,
+  "historyStateBytes": 4355706,
+  "historyStateSha256": "74060907985d1b5c18ad7c069a57f4953184d2376b73e34e33e26d6342a8c404",
   "populationThisRun": {
-    "sourceRaces": 144,
-    "eligibleSettled": 135,
-    "skippedUnsettledOrNonUnique": 9,
+    "sourceRaces": 168,
+    "eligibleSettled": 153,
+    "skippedUnsettledOrNonUnique": 15,
     "oddsDayFetchFailure": 1,
-    "skippedMissingAll120Odds": 135
+    "skippedMissingAll120Odds": 153
   },
   "forecastMarketInputs": false,
   "postRaceOddsAllocation": true,
